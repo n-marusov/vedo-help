@@ -1,0 +1,1682 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - link [ref=e9] [cursor=pointer]:
+            - /url: /
+            - img [ref=e11]
+          - generic:
+            - generic:
+              - tablist
+        - generic [ref=e14]:
+          - button "Search Docker Hub K" [ref=e15] [cursor=pointer]:
+            - img [ref=e16]
+            - paragraph [ref=e18]: Search Docker Hub
+            - generic [ref=e19]: K
+          - button "Click to chat with Gordon" [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+          - button "Help" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+          - button [ref=e36] [cursor=pointer]:
+            - img [ref=e39]
+          - button "open app switcher" [ref=e43] [cursor=pointer]:
+            - img [ref=e44]
+          - generic [ref=e54]:
+            - link "Sign in" [ref=e55] [cursor=pointer]:
+              - /url: /login
+            - link "Sign up" [ref=e56] [cursor=pointer]:
+              - /url: https://app.docker.com/signup
+    - generic [ref=e58]:
+      - navigation [ref=e60]:
+        - list [ref=e61]:
+          - listitem [ref=e62]:
+            - link "Explore" [ref=e63] [cursor=pointer]:
+              - /url: /search
+          - listitem [ref=e64]: /
+          - listitem [ref=e65]:
+            - link "Official Images" [ref=e66] [cursor=pointer]:
+              - /url: /search?badges=official
+          - listitem [ref=e67]: /
+          - listitem [ref=e68]:
+            - paragraph [ref=e69]: rust
+      - generic [ref=e70]:
+        - generic [ref=e73]:
+          - generic [ref=e74]:
+            - img [ref=e76]
+            - generic [ref=e78]:
+              - generic [ref=e79]:
+                - heading "rust" [level=2] [ref=e80]
+                - generic [ref=e81]:
+                  - generic "Docker Official Image" [ref=e82]:
+                    - img [ref=e83]
+                    - text: Docker Official Image
+                  - generic [ref=e85]: •
+                  - generic [ref=e86]:
+                    - img [ref=e87]
+                    - paragraph [ref=e89]: 100M+
+                  - generic [ref=e90]: •
+                  - generic [ref=e91]:
+                    - img [ref=e92] [cursor=pointer]
+                    - strong [ref=e95]: 1.1K
+              - paragraph [ref=e96]: Rust is a systems programming language focused on safety, speed, and concurrency.
+              - link "Languages & frameworks" [ref=e98] [cursor=pointer]:
+                - /url: /categories/languages-and-frameworks
+                - generic [ref=e99]: Languages & frameworks
+          - tablist [ref=e102]:
+            - tab "Overview" [ref=e103] [cursor=pointer]
+            - tab "Tags" [selected] [ref=e104] [cursor=pointer]: Tags
+        - generic [ref=e107]:
+          - heading "Tags for library/rust" [level=1] [ref=e108]
+          - generic [ref=e109]:
+            - generic [ref=e113]:
+              - paragraph [ref=e114]: Sort by
+              - generic [ref=e116]:
+                - combobox [ref=e117] [cursor=pointer]: Newest
+                - textbox: last_updated
+                - img
+                - group
+              - generic [ref=e119]:
+                - img [ref=e121]
+                - textbox "Filter tags" [ref=e123]
+                - group
+            - generic [ref=e126]:
+              - generic [ref=e128]:
+                - generic [ref=e129]:
+                  - paragraph [ref=e130]:
+                    - strong [ref=e131]: TAG
+                  - generic [ref=e132]:
+                    - generic [ref=e133]:
+                      - paragraph [ref=e135]:
+                        - link "trixie" [ref=e136] [cursor=pointer]:
+                          - /url: /layers/library/rust/trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e137]:
+                        - text: Last pushed
+                        - strong [ref=e138]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e139] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e140]:
+                      - code [ref=e146]: docker pull rust:trixie
+                      - link "Run in Docker Desktop" [ref=e147] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=trixie&run=true
+                        - img [ref=e148]
+                - table [ref=e151]:
+                  - rowgroup [ref=e152]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e153]:
+                      - columnheader "Digest" [ref=e154]
+                      - columnheader "OS/ARCH" [ref=e155]
+                      - columnheader "Compressed size" [ref=e156]:
+                        - text: Compressed size
+                        - img [ref=e157]
+                  - rowgroup [ref=e159]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e160]:
+                      - cell "6fabc985c3dc" [ref=e161]:
+                        - link "6fabc985c3dc" [ref=e162] [cursor=pointer]:
+                          - /url: /layers/library/rust/trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e163]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e164]:
+                        - paragraph [ref=e165]: linux/386
+                      - cell "600.12 MB" [ref=e166]:
+                        - paragraph [ref=e167]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e168]:
+                      - cell "f4d1e7886661" [ref=e169]:
+                        - link "f4d1e7886661" [ref=e170] [cursor=pointer]:
+                          - /url: /layers/library/rust/trixie/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e171]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e172]:
+                        - paragraph [ref=e173]: linux/amd64
+                      - cell "566.61 MB" [ref=e174]:
+                        - paragraph [ref=e175]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e176]:
+                      - cell "5e5583fd3f7b" [ref=e177]:
+                        - link "5e5583fd3f7b" [ref=e178] [cursor=pointer]:
+                          - /url: /layers/library/rust/trixie/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e179]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e180]:
+                        - paragraph [ref=e181]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e182]:
+                        - paragraph [ref=e183]: 556.39 MB
+                    - row "+4 more..." [ref=e184]:
+                      - cell "+4 more..." [ref=e185]:
+                        - button "+4 more..." [ref=e187] [cursor=pointer]
+              - generic [ref=e189]:
+                - generic [ref=e190]:
+                  - paragraph [ref=e191]:
+                    - strong [ref=e192]: TAG
+                  - generic [ref=e193]:
+                    - generic [ref=e194]:
+                      - paragraph [ref=e196]:
+                        - link "latest" [ref=e197] [cursor=pointer]:
+                          - /url: /layers/library/rust/latest/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e198]:
+                        - text: Last pushed
+                        - strong [ref=e199]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e200] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e201]:
+                      - code [ref=e207]: docker pull rust:latest
+                      - link "Run in Docker Desktop" [ref=e208] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=latest&run=true
+                        - img [ref=e209]
+                - table [ref=e212]:
+                  - rowgroup [ref=e213]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e214]:
+                      - columnheader "Digest" [ref=e215]
+                      - columnheader "OS/ARCH" [ref=e216]
+                      - columnheader "Compressed size" [ref=e217]:
+                        - text: Compressed size
+                        - img [ref=e218]
+                  - rowgroup [ref=e220]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e221]:
+                      - cell "6fabc985c3dc" [ref=e222]:
+                        - link "6fabc985c3dc" [ref=e223] [cursor=pointer]:
+                          - /url: /layers/library/rust/latest/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e224]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e225]:
+                        - paragraph [ref=e226]: linux/386
+                      - cell "600.12 MB" [ref=e227]:
+                        - paragraph [ref=e228]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e229]:
+                      - cell "f4d1e7886661" [ref=e230]:
+                        - link "f4d1e7886661" [ref=e231] [cursor=pointer]:
+                          - /url: /layers/library/rust/latest/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e232]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e233]:
+                        - paragraph [ref=e234]: linux/amd64
+                      - cell "566.61 MB" [ref=e235]:
+                        - paragraph [ref=e236]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e237]:
+                      - cell "5e5583fd3f7b" [ref=e238]:
+                        - link "5e5583fd3f7b" [ref=e239] [cursor=pointer]:
+                          - /url: /layers/library/rust/latest/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e240]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e241]:
+                        - paragraph [ref=e242]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e243]:
+                        - paragraph [ref=e244]: 556.39 MB
+                    - row "+4 more..." [ref=e245]:
+                      - cell "+4 more..." [ref=e246]:
+                        - button "+4 more..." [ref=e248] [cursor=pointer]
+              - generic [ref=e250]:
+                - generic [ref=e251]:
+                  - paragraph [ref=e252]:
+                    - strong [ref=e253]: TAG
+                  - generic [ref=e254]:
+                    - generic [ref=e255]:
+                      - paragraph [ref=e257]:
+                        - link "bookworm" [ref=e258] [cursor=pointer]:
+                          - /url: /layers/library/rust/bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                      - paragraph [ref=e259]:
+                        - text: Last pushed
+                        - strong [ref=e260]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e261] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e262]:
+                      - code [ref=e268]: docker pull rust:bookworm
+                      - link "Run in Docker Desktop" [ref=e269] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=bookworm&run=true
+                        - img [ref=e270]
+                - table [ref=e273]:
+                  - rowgroup [ref=e274]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e275]:
+                      - columnheader "Digest" [ref=e276]
+                      - columnheader "OS/ARCH" [ref=e277]
+                      - columnheader "Compressed size" [ref=e278]:
+                        - text: Compressed size
+                        - img [ref=e279]
+                  - rowgroup [ref=e281]:
+                    - row "78e9bf9c9922 linux/386 565.2 MB" [ref=e282]:
+                      - cell "78e9bf9c9922" [ref=e283]:
+                        - link "78e9bf9c9922" [ref=e284] [cursor=pointer]:
+                          - /url: /layers/library/rust/bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                          - paragraph [ref=e285]: 78e9bf9c9922
+                      - cell "linux/386" [ref=e286]:
+                        - paragraph [ref=e287]: linux/386
+                      - cell "565.2 MB" [ref=e288]:
+                        - paragraph [ref=e289]: 565.2 MB
+                    - row "64d9b7f60e3a linux/amd64 537.64 MB" [ref=e290]:
+                      - cell "64d9b7f60e3a" [ref=e291]:
+                        - link "64d9b7f60e3a" [ref=e292] [cursor=pointer]:
+                          - /url: /layers/library/rust/bookworm/images/sha256-64d9b7f60e3abb08d477cad983d0a3743acc53a19369ba4482510184c9c807e5
+                          - paragraph [ref=e293]: 64d9b7f60e3a
+                      - cell "linux/amd64" [ref=e294]:
+                        - paragraph [ref=e295]: linux/amd64
+                      - cell "537.64 MB" [ref=e296]:
+                        - paragraph [ref=e297]: 537.64 MB
+                    - row "d5518e6da2a1 linux/arm/v7 533.21 MB" [ref=e298]:
+                      - cell "d5518e6da2a1" [ref=e299]:
+                        - link "d5518e6da2a1" [ref=e300] [cursor=pointer]:
+                          - /url: /layers/library/rust/bookworm/images/sha256-d5518e6da2a1050ea3d2fc3d4a6d11db984671a264e92d64eb5bc7e8cb5bab65
+                          - paragraph [ref=e301]: d5518e6da2a1
+                      - cell "linux/arm/v7" [ref=e302]:
+                        - paragraph [ref=e303]: linux/arm/v7
+                      - cell "533.21 MB" [ref=e304]:
+                        - paragraph [ref=e305]: 533.21 MB
+                    - row "+3 more..." [ref=e306]:
+                      - cell "+3 more..." [ref=e307]:
+                        - button "+3 more..." [ref=e309] [cursor=pointer]
+              - generic [ref=e311]:
+                - generic [ref=e312]:
+                  - paragraph [ref=e313]:
+                    - strong [ref=e314]: TAG
+                  - generic [ref=e315]:
+                    - generic [ref=e316]:
+                      - paragraph [ref=e318]:
+                        - link "1.96.0-trixie" [ref=e319] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e320]:
+                        - text: Last pushed
+                        - strong [ref=e321]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e322] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e323]:
+                      - code [ref=e329]: docker pull rust:1.96.0-trixie
+                      - link "Run in Docker Desktop" [ref=e330] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96.0-trixie&run=true
+                        - img [ref=e331]
+                - table [ref=e334]:
+                  - rowgroup [ref=e335]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e336]:
+                      - columnheader "Digest" [ref=e337]
+                      - columnheader "OS/ARCH" [ref=e338]
+                      - columnheader "Compressed size" [ref=e339]:
+                        - text: Compressed size
+                        - img [ref=e340]
+                  - rowgroup [ref=e342]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e343]:
+                      - cell "6fabc985c3dc" [ref=e344]:
+                        - link "6fabc985c3dc" [ref=e345] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e346]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e347]:
+                        - paragraph [ref=e348]: linux/386
+                      - cell "600.12 MB" [ref=e349]:
+                        - paragraph [ref=e350]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e351]:
+                      - cell "f4d1e7886661" [ref=e352]:
+                        - link "f4d1e7886661" [ref=e353] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-trixie/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e354]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e355]:
+                        - paragraph [ref=e356]: linux/amd64
+                      - cell "566.61 MB" [ref=e357]:
+                        - paragraph [ref=e358]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e359]:
+                      - cell "5e5583fd3f7b" [ref=e360]:
+                        - link "5e5583fd3f7b" [ref=e361] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-trixie/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e362]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e363]:
+                        - paragraph [ref=e364]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e365]:
+                        - paragraph [ref=e366]: 556.39 MB
+                    - row "+4 more..." [ref=e367]:
+                      - cell "+4 more..." [ref=e368]:
+                        - button "+4 more..." [ref=e370] [cursor=pointer]
+              - generic [ref=e372]:
+                - generic [ref=e373]:
+                  - paragraph [ref=e374]:
+                    - strong [ref=e375]: TAG
+                  - generic [ref=e376]:
+                    - generic [ref=e377]:
+                      - paragraph [ref=e379]:
+                        - link "1.96.0-bookworm" [ref=e380] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                      - paragraph [ref=e381]:
+                        - text: Last pushed
+                        - strong [ref=e382]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e383] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e384]:
+                      - code [ref=e390]: docker pull rust:1.96.0-bookworm
+                      - link "Run in Docker Desktop" [ref=e391] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96.0-bookworm&run=true
+                        - img [ref=e392]
+                - table [ref=e395]:
+                  - rowgroup [ref=e396]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e397]:
+                      - columnheader "Digest" [ref=e398]
+                      - columnheader "OS/ARCH" [ref=e399]
+                      - columnheader "Compressed size" [ref=e400]:
+                        - text: Compressed size
+                        - img [ref=e401]
+                  - rowgroup [ref=e403]:
+                    - row "78e9bf9c9922 linux/386 565.2 MB" [ref=e404]:
+                      - cell "78e9bf9c9922" [ref=e405]:
+                        - link "78e9bf9c9922" [ref=e406] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                          - paragraph [ref=e407]: 78e9bf9c9922
+                      - cell "linux/386" [ref=e408]:
+                        - paragraph [ref=e409]: linux/386
+                      - cell "565.2 MB" [ref=e410]:
+                        - paragraph [ref=e411]: 565.2 MB
+                    - row "64d9b7f60e3a linux/amd64 537.64 MB" [ref=e412]:
+                      - cell "64d9b7f60e3a" [ref=e413]:
+                        - link "64d9b7f60e3a" [ref=e414] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-bookworm/images/sha256-64d9b7f60e3abb08d477cad983d0a3743acc53a19369ba4482510184c9c807e5
+                          - paragraph [ref=e415]: 64d9b7f60e3a
+                      - cell "linux/amd64" [ref=e416]:
+                        - paragraph [ref=e417]: linux/amd64
+                      - cell "537.64 MB" [ref=e418]:
+                        - paragraph [ref=e419]: 537.64 MB
+                    - row "d5518e6da2a1 linux/arm/v7 533.21 MB" [ref=e420]:
+                      - cell "d5518e6da2a1" [ref=e421]:
+                        - link "d5518e6da2a1" [ref=e422] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-bookworm/images/sha256-d5518e6da2a1050ea3d2fc3d4a6d11db984671a264e92d64eb5bc7e8cb5bab65
+                          - paragraph [ref=e423]: d5518e6da2a1
+                      - cell "linux/arm/v7" [ref=e424]:
+                        - paragraph [ref=e425]: linux/arm/v7
+                      - cell "533.21 MB" [ref=e426]:
+                        - paragraph [ref=e427]: 533.21 MB
+                    - row "+3 more..." [ref=e428]:
+                      - cell "+3 more..." [ref=e429]:
+                        - button "+3 more..." [ref=e431] [cursor=pointer]
+              - generic [ref=e433]:
+                - generic [ref=e434]:
+                  - paragraph [ref=e435]:
+                    - strong [ref=e436]: TAG
+                  - generic [ref=e437]:
+                    - generic [ref=e438]:
+                      - paragraph [ref=e440]:
+                        - link "1.96.0" [ref=e441] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e442]:
+                        - text: Last pushed
+                        - strong [ref=e443]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e444] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e445]:
+                      - code [ref=e451]: docker pull rust:1.96.0
+                      - link "Run in Docker Desktop" [ref=e452] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96.0&run=true
+                        - img [ref=e453]
+                - table [ref=e456]:
+                  - rowgroup [ref=e457]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e458]:
+                      - columnheader "Digest" [ref=e459]
+                      - columnheader "OS/ARCH" [ref=e460]
+                      - columnheader "Compressed size" [ref=e461]:
+                        - text: Compressed size
+                        - img [ref=e462]
+                  - rowgroup [ref=e464]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e465]:
+                      - cell "6fabc985c3dc" [ref=e466]:
+                        - link "6fabc985c3dc" [ref=e467] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e468]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e469]:
+                        - paragraph [ref=e470]: linux/386
+                      - cell "600.12 MB" [ref=e471]:
+                        - paragraph [ref=e472]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e473]:
+                      - cell "f4d1e7886661" [ref=e474]:
+                        - link "f4d1e7886661" [ref=e475] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e476]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e477]:
+                        - paragraph [ref=e478]: linux/amd64
+                      - cell "566.61 MB" [ref=e479]:
+                        - paragraph [ref=e480]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e481]:
+                      - cell "5e5583fd3f7b" [ref=e482]:
+                        - link "5e5583fd3f7b" [ref=e483] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e484]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e485]:
+                        - paragraph [ref=e486]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e487]:
+                        - paragraph [ref=e488]: 556.39 MB
+                    - row "+4 more..." [ref=e489]:
+                      - cell "+4 more..." [ref=e490]:
+                        - button "+4 more..." [ref=e492] [cursor=pointer]
+              - generic [ref=e494]:
+                - generic [ref=e495]:
+                  - paragraph [ref=e496]:
+                    - strong [ref=e497]: TAG
+                  - generic [ref=e498]:
+                    - generic [ref=e499]:
+                      - paragraph [ref=e501]:
+                        - link "1.96-trixie" [ref=e502] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e503]:
+                        - text: Last pushed
+                        - strong [ref=e504]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e505] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e506]:
+                      - code [ref=e512]: docker pull rust:1.96-trixie
+                      - link "Run in Docker Desktop" [ref=e513] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96-trixie&run=true
+                        - img [ref=e514]
+                - table [ref=e517]:
+                  - rowgroup [ref=e518]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e519]:
+                      - columnheader "Digest" [ref=e520]
+                      - columnheader "OS/ARCH" [ref=e521]
+                      - columnheader "Compressed size" [ref=e522]:
+                        - text: Compressed size
+                        - img [ref=e523]
+                  - rowgroup [ref=e525]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e526]:
+                      - cell "6fabc985c3dc" [ref=e527]:
+                        - link "6fabc985c3dc" [ref=e528] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e529]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e530]:
+                        - paragraph [ref=e531]: linux/386
+                      - cell "600.12 MB" [ref=e532]:
+                        - paragraph [ref=e533]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e534]:
+                      - cell "f4d1e7886661" [ref=e535]:
+                        - link "f4d1e7886661" [ref=e536] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-trixie/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e537]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e538]:
+                        - paragraph [ref=e539]: linux/amd64
+                      - cell "566.61 MB" [ref=e540]:
+                        - paragraph [ref=e541]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e542]:
+                      - cell "5e5583fd3f7b" [ref=e543]:
+                        - link "5e5583fd3f7b" [ref=e544] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-trixie/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e545]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e546]:
+                        - paragraph [ref=e547]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e548]:
+                        - paragraph [ref=e549]: 556.39 MB
+                    - row "+4 more..." [ref=e550]:
+                      - cell "+4 more..." [ref=e551]:
+                        - button "+4 more..." [ref=e553] [cursor=pointer]
+              - generic [ref=e555]:
+                - generic [ref=e556]:
+                  - paragraph [ref=e557]:
+                    - strong [ref=e558]: TAG
+                  - generic [ref=e559]:
+                    - generic [ref=e560]:
+                      - paragraph [ref=e562]:
+                        - link "1.96-bookworm" [ref=e563] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                      - paragraph [ref=e564]:
+                        - text: Last pushed
+                        - strong [ref=e565]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e566] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e567]:
+                      - code [ref=e573]: docker pull rust:1.96-bookworm
+                      - link "Run in Docker Desktop" [ref=e574] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96-bookworm&run=true
+                        - img [ref=e575]
+                - table [ref=e578]:
+                  - rowgroup [ref=e579]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e580]:
+                      - columnheader "Digest" [ref=e581]
+                      - columnheader "OS/ARCH" [ref=e582]
+                      - columnheader "Compressed size" [ref=e583]:
+                        - text: Compressed size
+                        - img [ref=e584]
+                  - rowgroup [ref=e586]:
+                    - row "78e9bf9c9922 linux/386 565.2 MB" [ref=e587]:
+                      - cell "78e9bf9c9922" [ref=e588]:
+                        - link "78e9bf9c9922" [ref=e589] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                          - paragraph [ref=e590]: 78e9bf9c9922
+                      - cell "linux/386" [ref=e591]:
+                        - paragraph [ref=e592]: linux/386
+                      - cell "565.2 MB" [ref=e593]:
+                        - paragraph [ref=e594]: 565.2 MB
+                    - row "64d9b7f60e3a linux/amd64 537.64 MB" [ref=e595]:
+                      - cell "64d9b7f60e3a" [ref=e596]:
+                        - link "64d9b7f60e3a" [ref=e597] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-bookworm/images/sha256-64d9b7f60e3abb08d477cad983d0a3743acc53a19369ba4482510184c9c807e5
+                          - paragraph [ref=e598]: 64d9b7f60e3a
+                      - cell "linux/amd64" [ref=e599]:
+                        - paragraph [ref=e600]: linux/amd64
+                      - cell "537.64 MB" [ref=e601]:
+                        - paragraph [ref=e602]: 537.64 MB
+                    - row "d5518e6da2a1 linux/arm/v7 533.21 MB" [ref=e603]:
+                      - cell "d5518e6da2a1" [ref=e604]:
+                        - link "d5518e6da2a1" [ref=e605] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-bookworm/images/sha256-d5518e6da2a1050ea3d2fc3d4a6d11db984671a264e92d64eb5bc7e8cb5bab65
+                          - paragraph [ref=e606]: d5518e6da2a1
+                      - cell "linux/arm/v7" [ref=e607]:
+                        - paragraph [ref=e608]: linux/arm/v7
+                      - cell "533.21 MB" [ref=e609]:
+                        - paragraph [ref=e610]: 533.21 MB
+                    - row "+3 more..." [ref=e611]:
+                      - cell "+3 more..." [ref=e612]:
+                        - button "+3 more..." [ref=e614] [cursor=pointer]
+              - generic [ref=e616]:
+                - generic [ref=e617]:
+                  - paragraph [ref=e618]:
+                    - strong [ref=e619]: TAG
+                  - generic [ref=e620]:
+                    - generic [ref=e621]:
+                      - paragraph [ref=e623]:
+                        - link "1.96" [ref=e624] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e625]:
+                        - text: Last pushed
+                        - strong [ref=e626]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e627] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e628]:
+                      - code [ref=e634]: docker pull rust:1.96
+                      - link "Run in Docker Desktop" [ref=e635] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96&run=true
+                        - img [ref=e636]
+                - table [ref=e639]:
+                  - rowgroup [ref=e640]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e641]:
+                      - columnheader "Digest" [ref=e642]
+                      - columnheader "OS/ARCH" [ref=e643]
+                      - columnheader "Compressed size" [ref=e644]:
+                        - text: Compressed size
+                        - img [ref=e645]
+                  - rowgroup [ref=e647]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e648]:
+                      - cell "6fabc985c3dc" [ref=e649]:
+                        - link "6fabc985c3dc" [ref=e650] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e651]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e652]:
+                        - paragraph [ref=e653]: linux/386
+                      - cell "600.12 MB" [ref=e654]:
+                        - paragraph [ref=e655]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e656]:
+                      - cell "f4d1e7886661" [ref=e657]:
+                        - link "f4d1e7886661" [ref=e658] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e659]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e660]:
+                        - paragraph [ref=e661]: linux/amd64
+                      - cell "566.61 MB" [ref=e662]:
+                        - paragraph [ref=e663]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e664]:
+                      - cell "5e5583fd3f7b" [ref=e665]:
+                        - link "5e5583fd3f7b" [ref=e666] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e667]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e668]:
+                        - paragraph [ref=e669]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e670]:
+                        - paragraph [ref=e671]: 556.39 MB
+                    - row "+4 more..." [ref=e672]:
+                      - cell "+4 more..." [ref=e673]:
+                        - button "+4 more..." [ref=e675] [cursor=pointer]
+              - generic [ref=e677]:
+                - generic [ref=e678]:
+                  - paragraph [ref=e679]:
+                    - strong [ref=e680]: TAG
+                  - generic [ref=e681]:
+                    - generic [ref=e682]:
+                      - paragraph [ref=e684]:
+                        - link "1-trixie" [ref=e685] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e686]:
+                        - text: Last pushed
+                        - strong [ref=e687]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e688] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e689]:
+                      - code [ref=e695]: docker pull rust:1-trixie
+                      - link "Run in Docker Desktop" [ref=e696] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1-trixie&run=true
+                        - img [ref=e697]
+                - table [ref=e700]:
+                  - rowgroup [ref=e701]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e702]:
+                      - columnheader "Digest" [ref=e703]
+                      - columnheader "OS/ARCH" [ref=e704]
+                      - columnheader "Compressed size" [ref=e705]:
+                        - text: Compressed size
+                        - img [ref=e706]
+                  - rowgroup [ref=e708]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e709]:
+                      - cell "6fabc985c3dc" [ref=e710]:
+                        - link "6fabc985c3dc" [ref=e711] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-trixie/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e712]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e713]:
+                        - paragraph [ref=e714]: linux/386
+                      - cell "600.12 MB" [ref=e715]:
+                        - paragraph [ref=e716]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e717]:
+                      - cell "f4d1e7886661" [ref=e718]:
+                        - link "f4d1e7886661" [ref=e719] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-trixie/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e720]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e721]:
+                        - paragraph [ref=e722]: linux/amd64
+                      - cell "566.61 MB" [ref=e723]:
+                        - paragraph [ref=e724]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e725]:
+                      - cell "5e5583fd3f7b" [ref=e726]:
+                        - link "5e5583fd3f7b" [ref=e727] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-trixie/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e728]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e729]:
+                        - paragraph [ref=e730]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e731]:
+                        - paragraph [ref=e732]: 556.39 MB
+                    - row "+4 more..." [ref=e733]:
+                      - cell "+4 more..." [ref=e734]:
+                        - button "+4 more..." [ref=e736] [cursor=pointer]
+              - generic [ref=e738]:
+                - generic [ref=e739]:
+                  - paragraph [ref=e740]:
+                    - strong [ref=e741]: TAG
+                  - generic [ref=e742]:
+                    - generic [ref=e743]:
+                      - paragraph [ref=e745]:
+                        - link "1-bookworm" [ref=e746] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                      - paragraph [ref=e747]:
+                        - text: Last pushed
+                        - strong [ref=e748]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e749] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e750]:
+                      - code [ref=e756]: docker pull rust:1-bookworm
+                      - link "Run in Docker Desktop" [ref=e757] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1-bookworm&run=true
+                        - img [ref=e758]
+                - table [ref=e761]:
+                  - rowgroup [ref=e762]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e763]:
+                      - columnheader "Digest" [ref=e764]
+                      - columnheader "OS/ARCH" [ref=e765]
+                      - columnheader "Compressed size" [ref=e766]:
+                        - text: Compressed size
+                        - img [ref=e767]
+                  - rowgroup [ref=e769]:
+                    - row "78e9bf9c9922 linux/386 565.2 MB" [ref=e770]:
+                      - cell "78e9bf9c9922" [ref=e771]:
+                        - link "78e9bf9c9922" [ref=e772] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-bookworm/images/sha256-78e9bf9c99221c55d8275f09731e9d2b99bc6f664e872e3c9fd3f030573fc20a
+                          - paragraph [ref=e773]: 78e9bf9c9922
+                      - cell "linux/386" [ref=e774]:
+                        - paragraph [ref=e775]: linux/386
+                      - cell "565.2 MB" [ref=e776]:
+                        - paragraph [ref=e777]: 565.2 MB
+                    - row "64d9b7f60e3a linux/amd64 537.64 MB" [ref=e778]:
+                      - cell "64d9b7f60e3a" [ref=e779]:
+                        - link "64d9b7f60e3a" [ref=e780] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-bookworm/images/sha256-64d9b7f60e3abb08d477cad983d0a3743acc53a19369ba4482510184c9c807e5
+                          - paragraph [ref=e781]: 64d9b7f60e3a
+                      - cell "linux/amd64" [ref=e782]:
+                        - paragraph [ref=e783]: linux/amd64
+                      - cell "537.64 MB" [ref=e784]:
+                        - paragraph [ref=e785]: 537.64 MB
+                    - row "d5518e6da2a1 linux/arm/v7 533.21 MB" [ref=e786]:
+                      - cell "d5518e6da2a1" [ref=e787]:
+                        - link "d5518e6da2a1" [ref=e788] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-bookworm/images/sha256-d5518e6da2a1050ea3d2fc3d4a6d11db984671a264e92d64eb5bc7e8cb5bab65
+                          - paragraph [ref=e789]: d5518e6da2a1
+                      - cell "linux/arm/v7" [ref=e790]:
+                        - paragraph [ref=e791]: linux/arm/v7
+                      - cell "533.21 MB" [ref=e792]:
+                        - paragraph [ref=e793]: 533.21 MB
+                    - row "+3 more..." [ref=e794]:
+                      - cell "+3 more..." [ref=e795]:
+                        - button "+3 more..." [ref=e797] [cursor=pointer]
+              - generic [ref=e799]:
+                - generic [ref=e800]:
+                  - paragraph [ref=e801]:
+                    - strong [ref=e802]: TAG
+                  - generic [ref=e803]:
+                    - generic [ref=e804]:
+                      - paragraph [ref=e806]:
+                        - link "1" [ref=e807] [cursor=pointer]:
+                          - /url: /layers/library/rust/1/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                      - paragraph [ref=e808]:
+                        - text: Last pushed
+                        - strong [ref=e809]: 2 days
+                        - text: by
+                        - link "doijanky" [ref=e810] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e811]:
+                      - code [ref=e817]: docker pull rust:1
+                      - link "Run in Docker Desktop" [ref=e818] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1&run=true
+                        - img [ref=e819]
+                - table [ref=e822]:
+                  - rowgroup [ref=e823]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e824]:
+                      - columnheader "Digest" [ref=e825]
+                      - columnheader "OS/ARCH" [ref=e826]
+                      - columnheader "Compressed size" [ref=e827]:
+                        - text: Compressed size
+                        - img [ref=e828]
+                  - rowgroup [ref=e830]:
+                    - row "6fabc985c3dc linux/386 600.12 MB" [ref=e831]:
+                      - cell "6fabc985c3dc" [ref=e832]:
+                        - link "6fabc985c3dc" [ref=e833] [cursor=pointer]:
+                          - /url: /layers/library/rust/1/images/sha256-6fabc985c3dc017e0207f0165c058491d255f3f01ef33f7e5d1207c11e41c5e6
+                          - paragraph [ref=e834]: 6fabc985c3dc
+                      - cell "linux/386" [ref=e835]:
+                        - paragraph [ref=e836]: linux/386
+                      - cell "600.12 MB" [ref=e837]:
+                        - paragraph [ref=e838]: 600.12 MB
+                    - row "f4d1e7886661 linux/amd64 566.61 MB" [ref=e839]:
+                      - cell "f4d1e7886661" [ref=e840]:
+                        - link "f4d1e7886661" [ref=e841] [cursor=pointer]:
+                          - /url: /layers/library/rust/1/images/sha256-f4d1e78866618fe7155aa6eaea26f9f6270d105e4918ee2c2f2dd5b2c11cc815
+                          - paragraph [ref=e842]: f4d1e7886661
+                      - cell "linux/amd64" [ref=e843]:
+                        - paragraph [ref=e844]: linux/amd64
+                      - cell "566.61 MB" [ref=e845]:
+                        - paragraph [ref=e846]: 566.61 MB
+                    - row "5e5583fd3f7b linux/arm/v7 556.39 MB" [ref=e847]:
+                      - cell "5e5583fd3f7b" [ref=e848]:
+                        - link "5e5583fd3f7b" [ref=e849] [cursor=pointer]:
+                          - /url: /layers/library/rust/1/images/sha256-5e5583fd3f7b63e37665792d65aca3ebeeb6984ba8319ec45379355675bff8aa
+                          - paragraph [ref=e850]: 5e5583fd3f7b
+                      - cell "linux/arm/v7" [ref=e851]:
+                        - paragraph [ref=e852]: linux/arm/v7
+                      - cell "556.39 MB" [ref=e853]:
+                        - paragraph [ref=e854]: 556.39 MB
+                    - row "+4 more..." [ref=e855]:
+                      - cell "+4 more..." [ref=e856]:
+                        - button "+4 more..." [ref=e858] [cursor=pointer]
+              - generic [ref=e860]:
+                - generic [ref=e861]:
+                  - paragraph [ref=e862]:
+                    - strong [ref=e863]: TAG
+                  - generic [ref=e864]:
+                    - generic [ref=e865]:
+                      - paragraph [ref=e867]:
+                        - link "slim-trixie" [ref=e868] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e869]:
+                        - text: Last pushed
+                        - strong [ref=e870]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e871] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e872]:
+                      - code [ref=e878]: docker pull rust:slim-trixie
+                      - link "Run in Docker Desktop" [ref=e879] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=slim-trixie&run=true
+                        - img [ref=e880]
+                - table [ref=e883]:
+                  - rowgroup [ref=e884]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e885]:
+                      - columnheader "Digest" [ref=e886]
+                      - columnheader "OS/ARCH" [ref=e887]
+                      - columnheader "Compressed size" [ref=e888]:
+                        - text: Compressed size
+                        - img [ref=e889]
+                  - rowgroup [ref=e891]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e892]:
+                      - cell "471a6c95b667" [ref=e893]:
+                        - link "471a6c95b667" [ref=e894] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e895]: 471a6c95b667
+                      - cell "linux/386" [ref=e896]:
+                        - paragraph [ref=e897]: linux/386
+                      - cell "329.28 MB" [ref=e898]:
+                        - paragraph [ref=e899]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e900]:
+                      - cell "84217a79b26d" [ref=e901]:
+                        - link "84217a79b26d" [ref=e902] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-trixie/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e903]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e904]:
+                        - paragraph [ref=e905]: linux/amd64
+                      - cell "305.58 MB" [ref=e906]:
+                        - paragraph [ref=e907]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e908]:
+                      - cell "2777824814a7" [ref=e909]:
+                        - link "2777824814a7" [ref=e910] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-trixie/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e911]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e912]:
+                        - paragraph [ref=e913]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e914]:
+                        - paragraph [ref=e915]: 318.79 MB
+                    - row "+4 more..." [ref=e916]:
+                      - cell "+4 more..." [ref=e917]:
+                        - button "+4 more..." [ref=e919] [cursor=pointer]
+              - generic [ref=e921]:
+                - generic [ref=e922]:
+                  - paragraph [ref=e923]:
+                    - strong [ref=e924]: TAG
+                  - generic [ref=e925]:
+                    - generic [ref=e926]:
+                      - paragraph [ref=e928]:
+                        - link "slim-bookworm" [ref=e929] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                      - paragraph [ref=e930]:
+                        - text: Last pushed
+                        - strong [ref=e931]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e932] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e933]:
+                      - code [ref=e939]: docker pull rust:slim-bookworm
+                      - link "Run in Docker Desktop" [ref=e940] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=slim-bookworm&run=true
+                        - img [ref=e941]
+                - table [ref=e944]:
+                  - rowgroup [ref=e945]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e946]:
+                      - columnheader "Digest" [ref=e947]
+                      - columnheader "OS/ARCH" [ref=e948]
+                      - columnheader "Compressed size" [ref=e949]:
+                        - text: Compressed size
+                        - img [ref=e950]
+                  - rowgroup [ref=e952]:
+                    - row "9051bbbd3890 linux/386 322.66 MB" [ref=e953]:
+                      - cell "9051bbbd3890" [ref=e954]:
+                        - link "9051bbbd3890" [ref=e955] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                          - paragraph [ref=e956]: 9051bbbd3890
+                      - cell "linux/386" [ref=e957]:
+                        - paragraph [ref=e958]: linux/386
+                      - cell "322.66 MB" [ref=e959]:
+                        - paragraph [ref=e960]: 322.66 MB
+                    - row "735c0f3b0d7f linux/amd64 299.68 MB" [ref=e961]:
+                      - cell "735c0f3b0d7f" [ref=e962]:
+                        - link "735c0f3b0d7f" [ref=e963] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-bookworm/images/sha256-735c0f3b0d7fb33e43cbe4ac7ac0942abca94d4f127b7a13b83da32465b562d0
+                          - paragraph [ref=e964]: 735c0f3b0d7f
+                      - cell "linux/amd64" [ref=e965]:
+                        - paragraph [ref=e966]: linux/amd64
+                      - cell "299.68 MB" [ref=e967]:
+                        - paragraph [ref=e968]: 299.68 MB
+                    - row "96e907d088bd linux/arm/v7 314.3 MB" [ref=e969]:
+                      - cell "96e907d088bd" [ref=e970]:
+                        - link "96e907d088bd" [ref=e971] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim-bookworm/images/sha256-96e907d088bdd88cfc3a4f74f5deb7f1cbdfc50166b17f301b588309a4479e64
+                          - paragraph [ref=e972]: 96e907d088bd
+                      - cell "linux/arm/v7" [ref=e973]:
+                        - paragraph [ref=e974]: linux/arm/v7
+                      - cell "314.3 MB" [ref=e975]:
+                        - paragraph [ref=e976]: 314.3 MB
+                    - row "+3 more..." [ref=e977]:
+                      - cell "+3 more..." [ref=e978]:
+                        - button "+3 more..." [ref=e980] [cursor=pointer]
+              - generic [ref=e982]:
+                - generic [ref=e983]:
+                  - paragraph [ref=e984]:
+                    - strong [ref=e985]: TAG
+                  - generic [ref=e986]:
+                    - generic [ref=e987]:
+                      - paragraph [ref=e989]:
+                        - link "slim" [ref=e990] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e991]:
+                        - text: Last pushed
+                        - strong [ref=e992]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e993] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e994]:
+                      - code [ref=e1000]: docker pull rust:slim
+                      - link "Run in Docker Desktop" [ref=e1001] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=slim&run=true
+                        - img [ref=e1002]
+                - table [ref=e1005]:
+                  - rowgroup [ref=e1006]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1007]:
+                      - columnheader "Digest" [ref=e1008]
+                      - columnheader "OS/ARCH" [ref=e1009]
+                      - columnheader "Compressed size" [ref=e1010]:
+                        - text: Compressed size
+                        - img [ref=e1011]
+                  - rowgroup [ref=e1013]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1014]:
+                      - cell "471a6c95b667" [ref=e1015]:
+                        - link "471a6c95b667" [ref=e1016] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1017]: 471a6c95b667
+                      - cell "linux/386" [ref=e1018]:
+                        - paragraph [ref=e1019]: linux/386
+                      - cell "329.28 MB" [ref=e1020]:
+                        - paragraph [ref=e1021]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1022]:
+                      - cell "84217a79b26d" [ref=e1023]:
+                        - link "84217a79b26d" [ref=e1024] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1025]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1026]:
+                        - paragraph [ref=e1027]: linux/amd64
+                      - cell "305.58 MB" [ref=e1028]:
+                        - paragraph [ref=e1029]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1030]:
+                      - cell "2777824814a7" [ref=e1031]:
+                        - link "2777824814a7" [ref=e1032] [cursor=pointer]:
+                          - /url: /layers/library/rust/slim/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1033]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1034]:
+                        - paragraph [ref=e1035]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1036]:
+                        - paragraph [ref=e1037]: 318.79 MB
+                    - row "+4 more..." [ref=e1038]:
+                      - cell "+4 more..." [ref=e1039]:
+                        - button "+4 more..." [ref=e1041] [cursor=pointer]
+              - generic [ref=e1043]:
+                - generic [ref=e1044]:
+                  - paragraph [ref=e1045]:
+                    - strong [ref=e1046]: TAG
+                  - generic [ref=e1047]:
+                    - generic [ref=e1048]:
+                      - paragraph [ref=e1050]:
+                        - link "1.96.0-slim-trixie" [ref=e1051] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e1052]:
+                        - text: Last pushed
+                        - strong [ref=e1053]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1054] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1055]:
+                      - code [ref=e1061]: docker pull rust:1.96.0-slim-trixie
+                      - link "Run in Docker Desktop" [ref=e1062] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96.0-slim-trixie&run=true
+                        - img [ref=e1063]
+                - table [ref=e1066]:
+                  - rowgroup [ref=e1067]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1068]:
+                      - columnheader "Digest" [ref=e1069]
+                      - columnheader "OS/ARCH" [ref=e1070]
+                      - columnheader "Compressed size" [ref=e1071]:
+                        - text: Compressed size
+                        - img [ref=e1072]
+                  - rowgroup [ref=e1074]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1075]:
+                      - cell "471a6c95b667" [ref=e1076]:
+                        - link "471a6c95b667" [ref=e1077] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1078]: 471a6c95b667
+                      - cell "linux/386" [ref=e1079]:
+                        - paragraph [ref=e1080]: linux/386
+                      - cell "329.28 MB" [ref=e1081]:
+                        - paragraph [ref=e1082]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1083]:
+                      - cell "84217a79b26d" [ref=e1084]:
+                        - link "84217a79b26d" [ref=e1085] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-trixie/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1086]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1087]:
+                        - paragraph [ref=e1088]: linux/amd64
+                      - cell "305.58 MB" [ref=e1089]:
+                        - paragraph [ref=e1090]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1091]:
+                      - cell "2777824814a7" [ref=e1092]:
+                        - link "2777824814a7" [ref=e1093] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-trixie/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1094]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1095]:
+                        - paragraph [ref=e1096]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1097]:
+                        - paragraph [ref=e1098]: 318.79 MB
+                    - row "+4 more..." [ref=e1099]:
+                      - cell "+4 more..." [ref=e1100]:
+                        - button "+4 more..." [ref=e1102] [cursor=pointer]
+              - generic [ref=e1104]:
+                - generic [ref=e1105]:
+                  - paragraph [ref=e1106]:
+                    - strong [ref=e1107]: TAG
+                  - generic [ref=e1108]:
+                    - generic [ref=e1109]:
+                      - paragraph [ref=e1111]:
+                        - link "1.96.0-slim-bookworm" [ref=e1112] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                      - paragraph [ref=e1113]:
+                        - text: Last pushed
+                        - strong [ref=e1114]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1115] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1116]:
+                      - code [ref=e1122]: docker pull rust:1.96.0-slim-bookworm
+                      - link "Run in Docker Desktop" [ref=e1123] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96.0-slim-bookworm&run=true
+                        - img [ref=e1124]
+                - table [ref=e1127]:
+                  - rowgroup [ref=e1128]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1129]:
+                      - columnheader "Digest" [ref=e1130]
+                      - columnheader "OS/ARCH" [ref=e1131]
+                      - columnheader "Compressed size" [ref=e1132]:
+                        - text: Compressed size
+                        - img [ref=e1133]
+                  - rowgroup [ref=e1135]:
+                    - row "9051bbbd3890 linux/386 322.66 MB" [ref=e1136]:
+                      - cell "9051bbbd3890" [ref=e1137]:
+                        - link "9051bbbd3890" [ref=e1138] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                          - paragraph [ref=e1139]: 9051bbbd3890
+                      - cell "linux/386" [ref=e1140]:
+                        - paragraph [ref=e1141]: linux/386
+                      - cell "322.66 MB" [ref=e1142]:
+                        - paragraph [ref=e1143]: 322.66 MB
+                    - row "735c0f3b0d7f linux/amd64 299.68 MB" [ref=e1144]:
+                      - cell "735c0f3b0d7f" [ref=e1145]:
+                        - link "735c0f3b0d7f" [ref=e1146] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-bookworm/images/sha256-735c0f3b0d7fb33e43cbe4ac7ac0942abca94d4f127b7a13b83da32465b562d0
+                          - paragraph [ref=e1147]: 735c0f3b0d7f
+                      - cell "linux/amd64" [ref=e1148]:
+                        - paragraph [ref=e1149]: linux/amd64
+                      - cell "299.68 MB" [ref=e1150]:
+                        - paragraph [ref=e1151]: 299.68 MB
+                    - row "96e907d088bd linux/arm/v7 314.3 MB" [ref=e1152]:
+                      - cell "96e907d088bd" [ref=e1153]:
+                        - link "96e907d088bd" [ref=e1154] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim-bookworm/images/sha256-96e907d088bdd88cfc3a4f74f5deb7f1cbdfc50166b17f301b588309a4479e64
+                          - paragraph [ref=e1155]: 96e907d088bd
+                      - cell "linux/arm/v7" [ref=e1156]:
+                        - paragraph [ref=e1157]: linux/arm/v7
+                      - cell "314.3 MB" [ref=e1158]:
+                        - paragraph [ref=e1159]: 314.3 MB
+                    - row "+3 more..." [ref=e1160]:
+                      - cell "+3 more..." [ref=e1161]:
+                        - button "+3 more..." [ref=e1163] [cursor=pointer]
+              - generic [ref=e1165]:
+                - generic [ref=e1166]:
+                  - paragraph [ref=e1167]:
+                    - strong [ref=e1168]: TAG
+                  - generic [ref=e1169]:
+                    - generic [ref=e1170]:
+                      - paragraph [ref=e1172]:
+                        - link "1.96.0-slim" [ref=e1173] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e1174]:
+                        - text: Last pushed
+                        - strong [ref=e1175]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1176] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1177]:
+                      - code [ref=e1183]: docker pull rust:1.96.0-slim
+                      - link "Run in Docker Desktop" [ref=e1184] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96.0-slim&run=true
+                        - img [ref=e1185]
+                - table [ref=e1188]:
+                  - rowgroup [ref=e1189]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1190]:
+                      - columnheader "Digest" [ref=e1191]
+                      - columnheader "OS/ARCH" [ref=e1192]
+                      - columnheader "Compressed size" [ref=e1193]:
+                        - text: Compressed size
+                        - img [ref=e1194]
+                  - rowgroup [ref=e1196]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1197]:
+                      - cell "471a6c95b667" [ref=e1198]:
+                        - link "471a6c95b667" [ref=e1199] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1200]: 471a6c95b667
+                      - cell "linux/386" [ref=e1201]:
+                        - paragraph [ref=e1202]: linux/386
+                      - cell "329.28 MB" [ref=e1203]:
+                        - paragraph [ref=e1204]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1205]:
+                      - cell "84217a79b26d" [ref=e1206]:
+                        - link "84217a79b26d" [ref=e1207] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1208]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1209]:
+                        - paragraph [ref=e1210]: linux/amd64
+                      - cell "305.58 MB" [ref=e1211]:
+                        - paragraph [ref=e1212]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1213]:
+                      - cell "2777824814a7" [ref=e1214]:
+                        - link "2777824814a7" [ref=e1215] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96.0-slim/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1216]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1217]:
+                        - paragraph [ref=e1218]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1219]:
+                        - paragraph [ref=e1220]: 318.79 MB
+                    - row "+4 more..." [ref=e1221]:
+                      - cell "+4 more..." [ref=e1222]:
+                        - button "+4 more..." [ref=e1224] [cursor=pointer]
+              - generic [ref=e1226]:
+                - generic [ref=e1227]:
+                  - paragraph [ref=e1228]:
+                    - strong [ref=e1229]: TAG
+                  - generic [ref=e1230]:
+                    - generic [ref=e1231]:
+                      - paragraph [ref=e1233]:
+                        - link "1.96-slim-trixie" [ref=e1234] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e1235]:
+                        - text: Last pushed
+                        - strong [ref=e1236]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1237] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1238]:
+                      - code [ref=e1244]: docker pull rust:1.96-slim-trixie
+                      - link "Run in Docker Desktop" [ref=e1245] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96-slim-trixie&run=true
+                        - img [ref=e1246]
+                - table [ref=e1249]:
+                  - rowgroup [ref=e1250]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1251]:
+                      - columnheader "Digest" [ref=e1252]
+                      - columnheader "OS/ARCH" [ref=e1253]
+                      - columnheader "Compressed size" [ref=e1254]:
+                        - text: Compressed size
+                        - img [ref=e1255]
+                  - rowgroup [ref=e1257]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1258]:
+                      - cell "471a6c95b667" [ref=e1259]:
+                        - link "471a6c95b667" [ref=e1260] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1261]: 471a6c95b667
+                      - cell "linux/386" [ref=e1262]:
+                        - paragraph [ref=e1263]: linux/386
+                      - cell "329.28 MB" [ref=e1264]:
+                        - paragraph [ref=e1265]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1266]:
+                      - cell "84217a79b26d" [ref=e1267]:
+                        - link "84217a79b26d" [ref=e1268] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-trixie/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1269]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1270]:
+                        - paragraph [ref=e1271]: linux/amd64
+                      - cell "305.58 MB" [ref=e1272]:
+                        - paragraph [ref=e1273]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1274]:
+                      - cell "2777824814a7" [ref=e1275]:
+                        - link "2777824814a7" [ref=e1276] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-trixie/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1277]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1278]:
+                        - paragraph [ref=e1279]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1280]:
+                        - paragraph [ref=e1281]: 318.79 MB
+                    - row "+4 more..." [ref=e1282]:
+                      - cell "+4 more..." [ref=e1283]:
+                        - button "+4 more..." [ref=e1285] [cursor=pointer]
+              - generic [ref=e1287]:
+                - generic [ref=e1288]:
+                  - paragraph [ref=e1289]:
+                    - strong [ref=e1290]: TAG
+                  - generic [ref=e1291]:
+                    - generic [ref=e1292]:
+                      - paragraph [ref=e1294]:
+                        - link "1.96-slim-bookworm" [ref=e1295] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                      - paragraph [ref=e1296]:
+                        - text: Last pushed
+                        - strong [ref=e1297]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1298] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1299]:
+                      - code [ref=e1305]: docker pull rust:1.96-slim-bookworm
+                      - link "Run in Docker Desktop" [ref=e1306] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96-slim-bookworm&run=true
+                        - img [ref=e1307]
+                - table [ref=e1310]:
+                  - rowgroup [ref=e1311]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1312]:
+                      - columnheader "Digest" [ref=e1313]
+                      - columnheader "OS/ARCH" [ref=e1314]
+                      - columnheader "Compressed size" [ref=e1315]:
+                        - text: Compressed size
+                        - img [ref=e1316]
+                  - rowgroup [ref=e1318]:
+                    - row "9051bbbd3890 linux/386 322.66 MB" [ref=e1319]:
+                      - cell "9051bbbd3890" [ref=e1320]:
+                        - link "9051bbbd3890" [ref=e1321] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                          - paragraph [ref=e1322]: 9051bbbd3890
+                      - cell "linux/386" [ref=e1323]:
+                        - paragraph [ref=e1324]: linux/386
+                      - cell "322.66 MB" [ref=e1325]:
+                        - paragraph [ref=e1326]: 322.66 MB
+                    - row "735c0f3b0d7f linux/amd64 299.68 MB" [ref=e1327]:
+                      - cell "735c0f3b0d7f" [ref=e1328]:
+                        - link "735c0f3b0d7f" [ref=e1329] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-bookworm/images/sha256-735c0f3b0d7fb33e43cbe4ac7ac0942abca94d4f127b7a13b83da32465b562d0
+                          - paragraph [ref=e1330]: 735c0f3b0d7f
+                      - cell "linux/amd64" [ref=e1331]:
+                        - paragraph [ref=e1332]: linux/amd64
+                      - cell "299.68 MB" [ref=e1333]:
+                        - paragraph [ref=e1334]: 299.68 MB
+                    - row "96e907d088bd linux/arm/v7 314.3 MB" [ref=e1335]:
+                      - cell "96e907d088bd" [ref=e1336]:
+                        - link "96e907d088bd" [ref=e1337] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim-bookworm/images/sha256-96e907d088bdd88cfc3a4f74f5deb7f1cbdfc50166b17f301b588309a4479e64
+                          - paragraph [ref=e1338]: 96e907d088bd
+                      - cell "linux/arm/v7" [ref=e1339]:
+                        - paragraph [ref=e1340]: linux/arm/v7
+                      - cell "314.3 MB" [ref=e1341]:
+                        - paragraph [ref=e1342]: 314.3 MB
+                    - row "+3 more..." [ref=e1343]:
+                      - cell "+3 more..." [ref=e1344]:
+                        - button "+3 more..." [ref=e1346] [cursor=pointer]
+              - generic [ref=e1348]:
+                - generic [ref=e1349]:
+                  - paragraph [ref=e1350]:
+                    - strong [ref=e1351]: TAG
+                  - generic [ref=e1352]:
+                    - generic [ref=e1353]:
+                      - paragraph [ref=e1355]:
+                        - link "1.96-slim" [ref=e1356] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e1357]:
+                        - text: Last pushed
+                        - strong [ref=e1358]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1359] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1360]:
+                      - code [ref=e1366]: docker pull rust:1.96-slim
+                      - link "Run in Docker Desktop" [ref=e1367] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1.96-slim&run=true
+                        - img [ref=e1368]
+                - table [ref=e1371]:
+                  - rowgroup [ref=e1372]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1373]:
+                      - columnheader "Digest" [ref=e1374]
+                      - columnheader "OS/ARCH" [ref=e1375]
+                      - columnheader "Compressed size" [ref=e1376]:
+                        - text: Compressed size
+                        - img [ref=e1377]
+                  - rowgroup [ref=e1379]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1380]:
+                      - cell "471a6c95b667" [ref=e1381]:
+                        - link "471a6c95b667" [ref=e1382] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1383]: 471a6c95b667
+                      - cell "linux/386" [ref=e1384]:
+                        - paragraph [ref=e1385]: linux/386
+                      - cell "329.28 MB" [ref=e1386]:
+                        - paragraph [ref=e1387]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1388]:
+                      - cell "84217a79b26d" [ref=e1389]:
+                        - link "84217a79b26d" [ref=e1390] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1391]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1392]:
+                        - paragraph [ref=e1393]: linux/amd64
+                      - cell "305.58 MB" [ref=e1394]:
+                        - paragraph [ref=e1395]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1396]:
+                      - cell "2777824814a7" [ref=e1397]:
+                        - link "2777824814a7" [ref=e1398] [cursor=pointer]:
+                          - /url: /layers/library/rust/1.96-slim/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1399]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1400]:
+                        - paragraph [ref=e1401]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1402]:
+                        - paragraph [ref=e1403]: 318.79 MB
+                    - row "+4 more..." [ref=e1404]:
+                      - cell "+4 more..." [ref=e1405]:
+                        - button "+4 more..." [ref=e1407] [cursor=pointer]
+              - generic [ref=e1409]:
+                - generic [ref=e1410]:
+                  - paragraph [ref=e1411]:
+                    - strong [ref=e1412]: TAG
+                  - generic [ref=e1413]:
+                    - generic [ref=e1414]:
+                      - paragraph [ref=e1416]:
+                        - link "1-slim-trixie" [ref=e1417] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e1418]:
+                        - text: Last pushed
+                        - strong [ref=e1419]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1420] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1421]:
+                      - code [ref=e1427]: docker pull rust:1-slim-trixie
+                      - link "Run in Docker Desktop" [ref=e1428] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1-slim-trixie&run=true
+                        - img [ref=e1429]
+                - table [ref=e1432]:
+                  - rowgroup [ref=e1433]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1434]:
+                      - columnheader "Digest" [ref=e1435]
+                      - columnheader "OS/ARCH" [ref=e1436]
+                      - columnheader "Compressed size" [ref=e1437]:
+                        - text: Compressed size
+                        - img [ref=e1438]
+                  - rowgroup [ref=e1440]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1441]:
+                      - cell "471a6c95b667" [ref=e1442]:
+                        - link "471a6c95b667" [ref=e1443] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-trixie/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1444]: 471a6c95b667
+                      - cell "linux/386" [ref=e1445]:
+                        - paragraph [ref=e1446]: linux/386
+                      - cell "329.28 MB" [ref=e1447]:
+                        - paragraph [ref=e1448]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1449]:
+                      - cell "84217a79b26d" [ref=e1450]:
+                        - link "84217a79b26d" [ref=e1451] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-trixie/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1452]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1453]:
+                        - paragraph [ref=e1454]: linux/amd64
+                      - cell "305.58 MB" [ref=e1455]:
+                        - paragraph [ref=e1456]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1457]:
+                      - cell "2777824814a7" [ref=e1458]:
+                        - link "2777824814a7" [ref=e1459] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-trixie/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1460]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1461]:
+                        - paragraph [ref=e1462]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1463]:
+                        - paragraph [ref=e1464]: 318.79 MB
+                    - row "+4 more..." [ref=e1465]:
+                      - cell "+4 more..." [ref=e1466]:
+                        - button "+4 more..." [ref=e1468] [cursor=pointer]
+              - generic [ref=e1470]:
+                - generic [ref=e1471]:
+                  - paragraph [ref=e1472]:
+                    - strong [ref=e1473]: TAG
+                  - generic [ref=e1474]:
+                    - generic [ref=e1475]:
+                      - paragraph [ref=e1477]:
+                        - link "1-slim-bookworm" [ref=e1478] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                      - paragraph [ref=e1479]:
+                        - text: Last pushed
+                        - strong [ref=e1480]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1481] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1482]:
+                      - code [ref=e1488]: docker pull rust:1-slim-bookworm
+                      - link "Run in Docker Desktop" [ref=e1489] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1-slim-bookworm&run=true
+                        - img [ref=e1490]
+                - table [ref=e1493]:
+                  - rowgroup [ref=e1494]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1495]:
+                      - columnheader "Digest" [ref=e1496]
+                      - columnheader "OS/ARCH" [ref=e1497]
+                      - columnheader "Compressed size" [ref=e1498]:
+                        - text: Compressed size
+                        - img [ref=e1499]
+                  - rowgroup [ref=e1501]:
+                    - row "9051bbbd3890 linux/386 322.66 MB" [ref=e1502]:
+                      - cell "9051bbbd3890" [ref=e1503]:
+                        - link "9051bbbd3890" [ref=e1504] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-bookworm/images/sha256-9051bbbd389073d3e97d47b8c4d45521d7948330d12d8b8e134726ae1efcf90c
+                          - paragraph [ref=e1505]: 9051bbbd3890
+                      - cell "linux/386" [ref=e1506]:
+                        - paragraph [ref=e1507]: linux/386
+                      - cell "322.66 MB" [ref=e1508]:
+                        - paragraph [ref=e1509]: 322.66 MB
+                    - row "735c0f3b0d7f linux/amd64 299.68 MB" [ref=e1510]:
+                      - cell "735c0f3b0d7f" [ref=e1511]:
+                        - link "735c0f3b0d7f" [ref=e1512] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-bookworm/images/sha256-735c0f3b0d7fb33e43cbe4ac7ac0942abca94d4f127b7a13b83da32465b562d0
+                          - paragraph [ref=e1513]: 735c0f3b0d7f
+                      - cell "linux/amd64" [ref=e1514]:
+                        - paragraph [ref=e1515]: linux/amd64
+                      - cell "299.68 MB" [ref=e1516]:
+                        - paragraph [ref=e1517]: 299.68 MB
+                    - row "96e907d088bd linux/arm/v7 314.3 MB" [ref=e1518]:
+                      - cell "96e907d088bd" [ref=e1519]:
+                        - link "96e907d088bd" [ref=e1520] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim-bookworm/images/sha256-96e907d088bdd88cfc3a4f74f5deb7f1cbdfc50166b17f301b588309a4479e64
+                          - paragraph [ref=e1521]: 96e907d088bd
+                      - cell "linux/arm/v7" [ref=e1522]:
+                        - paragraph [ref=e1523]: linux/arm/v7
+                      - cell "314.3 MB" [ref=e1524]:
+                        - paragraph [ref=e1525]: 314.3 MB
+                    - row "+3 more..." [ref=e1526]:
+                      - cell "+3 more..." [ref=e1527]:
+                        - button "+3 more..." [ref=e1529] [cursor=pointer]
+              - generic [ref=e1531]:
+                - generic [ref=e1532]:
+                  - paragraph [ref=e1533]:
+                    - strong [ref=e1534]: TAG
+                  - generic [ref=e1535]:
+                    - generic [ref=e1536]:
+                      - paragraph [ref=e1538]:
+                        - link "1-slim" [ref=e1539] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                      - paragraph [ref=e1540]:
+                        - text: Last pushed
+                        - strong [ref=e1541]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1542] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1543]:
+                      - code [ref=e1549]: docker pull rust:1-slim
+                      - link "Run in Docker Desktop" [ref=e1550] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=1-slim&run=true
+                        - img [ref=e1551]
+                - table [ref=e1554]:
+                  - rowgroup [ref=e1555]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1556]:
+                      - columnheader "Digest" [ref=e1557]
+                      - columnheader "OS/ARCH" [ref=e1558]
+                      - columnheader "Compressed size" [ref=e1559]:
+                        - text: Compressed size
+                        - img [ref=e1560]
+                  - rowgroup [ref=e1562]:
+                    - row "471a6c95b667 linux/386 329.28 MB" [ref=e1563]:
+                      - cell "471a6c95b667" [ref=e1564]:
+                        - link "471a6c95b667" [ref=e1565] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim/images/sha256-471a6c95b667e9e1bf6a31a83a0ef2d55835edad51cd92a1104d3fad878bf988
+                          - paragraph [ref=e1566]: 471a6c95b667
+                      - cell "linux/386" [ref=e1567]:
+                        - paragraph [ref=e1568]: linux/386
+                      - cell "329.28 MB" [ref=e1569]:
+                        - paragraph [ref=e1570]: 329.28 MB
+                    - row "84217a79b26d linux/amd64 305.58 MB" [ref=e1571]:
+                      - cell "84217a79b26d" [ref=e1572]:
+                        - link "84217a79b26d" [ref=e1573] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim/images/sha256-84217a79b26dc3aea3340914ec0ac809ff4f50dc702d99c40d2be38f994b084d
+                          - paragraph [ref=e1574]: 84217a79b26d
+                      - cell "linux/amd64" [ref=e1575]:
+                        - paragraph [ref=e1576]: linux/amd64
+                      - cell "305.58 MB" [ref=e1577]:
+                        - paragraph [ref=e1578]: 305.58 MB
+                    - row "2777824814a7 linux/arm/v7 318.79 MB" [ref=e1579]:
+                      - cell "2777824814a7" [ref=e1580]:
+                        - link "2777824814a7" [ref=e1581] [cursor=pointer]:
+                          - /url: /layers/library/rust/1-slim/images/sha256-2777824814a7ffb90eab08bc62d517a6c3d2a24320ef4a30b772b8cbae1376b6
+                          - paragraph [ref=e1582]: 2777824814a7
+                      - cell "linux/arm/v7" [ref=e1583]:
+                        - paragraph [ref=e1584]: linux/arm/v7
+                      - cell "318.79 MB" [ref=e1585]:
+                        - paragraph [ref=e1586]: 318.79 MB
+                    - row "+4 more..." [ref=e1587]:
+                      - cell "+4 more..." [ref=e1588]:
+                        - button "+4 more..." [ref=e1590] [cursor=pointer]
+              - generic [ref=e1592]:
+                - generic [ref=e1593]:
+                  - paragraph [ref=e1594]:
+                    - strong [ref=e1595]: TAG
+                  - generic [ref=e1596]:
+                    - generic [ref=e1597]:
+                      - paragraph [ref=e1599]:
+                        - link "bullseye" [ref=e1600] [cursor=pointer]:
+                          - /url: /layers/library/rust/bullseye/images/sha256-ca1c23b808bb2de5dfb63fb1a8afc32356a08e08990af2cfe337b5fd727b1631
+                      - paragraph [ref=e1601]:
+                        - text: Last pushed
+                        - strong [ref=e1602]: 3 days
+                        - text: by
+                        - link "doijanky" [ref=e1603] [cursor=pointer]:
+                          - /url: /u/doijanky
+                    - generic [ref=e1604]:
+                      - code [ref=e1610]: docker pull rust:bullseye
+                      - link "Run in Docker Desktop" [ref=e1611] [cursor=pointer]:
+                        - /url: https://open.docker.com/dashboard/docker-hub/image?name=rust&type=image&tag=bullseye&run=true
+                        - img [ref=e1612]
+                - table [ref=e1615]:
+                  - rowgroup [ref=e1616]:
+                    - row "Digest OS/ARCH Compressed size" [ref=e1617]:
+                      - columnheader "Digest" [ref=e1618]
+                      - columnheader "OS/ARCH" [ref=e1619]
+                      - columnheader "Compressed size" [ref=e1620]:
+                        - text: Compressed size
+                        - img [ref=e1621]
+                  - rowgroup [ref=e1623]:
+                    - row "ca1c23b808bb linux/386 542.44 MB" [ref=e1624]:
+                      - cell "ca1c23b808bb" [ref=e1625]:
+                        - link "ca1c23b808bb" [ref=e1626] [cursor=pointer]:
+                          - /url: /layers/library/rust/bullseye/images/sha256-ca1c23b808bb2de5dfb63fb1a8afc32356a08e08990af2cfe337b5fd727b1631
+                          - paragraph [ref=e1627]: ca1c23b808bb
+                      - cell "linux/386" [ref=e1628]:
+                        - paragraph [ref=e1629]: linux/386
+                      - cell "542.44 MB" [ref=e1630]:
+                        - paragraph [ref=e1631]: 542.44 MB
+                    - row "3fb238e29341 linux/amd64 511.97 MB" [ref=e1632]:
+                      - cell "3fb238e29341" [ref=e1633]:
+                        - link "3fb238e29341" [ref=e1634] [cursor=pointer]:
+                          - /url: /layers/library/rust/bullseye/images/sha256-3fb238e29341ac81c27421a64e8c192fa231f3d00ec6b8bcc402841142fbb76e
+                          - paragraph [ref=e1635]: 3fb238e29341
+                      - cell "linux/amd64" [ref=e1636]:
+                        - paragraph [ref=e1637]: linux/amd64
+                      - cell "511.97 MB" [ref=e1638]:
+                        - paragraph [ref=e1639]: 511.97 MB
+                    - row "a9602973bead linux/arm/v7 515.17 MB" [ref=e1640]:
+                      - cell "a9602973bead" [ref=e1641]:
+                        - link "a9602973bead" [ref=e1642] [cursor=pointer]:
+                          - /url: /layers/library/rust/bullseye/images/sha256-a9602973bead80e9be15ff10c6324ecd3dced19cb7b5b75cc124e20cd4441d12
+                          - paragraph [ref=e1643]: a9602973bead
+                      - cell "linux/arm/v7" [ref=e1644]:
+                        - paragraph [ref=e1645]: linux/arm/v7
+                      - cell "515.17 MB" [ref=e1646]:
+                        - paragraph [ref=e1647]: 515.17 MB
+                    - row "eb679cc18871 linux/arm64/v8 470.52 MB" [ref=e1648]:
+                      - cell "eb679cc18871" [ref=e1649]:
+                        - link "eb679cc18871" [ref=e1650] [cursor=pointer]:
+                          - /url: /layers/library/rust/bullseye/images/sha256-eb679cc188717bae219c0041cdcb8939ae887be2a3a5ad94093a1ac150d65682
+                          - paragraph [ref=e1651]: eb679cc18871
+                      - cell "linux/arm64/v8" [ref=e1652]:
+                        - paragraph [ref=e1653]: linux/arm64/v8
+                      - cell "470.52 MB" [ref=e1654]:
+                        - paragraph [ref=e1655]: 470.52 MB
+          - navigation "pagination navigation" [ref=e1657]:
+            - list [ref=e1658]:
+              - listitem [ref=e1659]:
+                - button [disabled]:
+                  - img
+              - listitem [ref=e1660]:
+                - button [disabled]:
+                  - img
+              - listitem [ref=e1661]:
+                - generic [ref=e1662]: 1 of 68
+              - listitem
+              - listitem
+              - listitem [ref=e1663]:
+                - button [ref=e1664] [cursor=pointer]:
+                  - img [ref=e1665]
+              - listitem [ref=e1667]:
+                - button [ref=e1668] [cursor=pointer]:
+                  - img [ref=e1669]
+  - contentinfo [ref=e1671]:
+    - generic [ref=e1673]:
+      - generic [ref=e1674]:
+        - img [ref=e1676]
+        - generic [ref=e1679]:
+          - region "Why" [ref=e1680]:
+            - generic [ref=e1681]: Why
+            - link "Overview" [ref=e1682] [cursor=pointer]:
+              - /url: https://www.docker.com/why-docker
+            - link "What is a Container" [ref=e1683] [cursor=pointer]:
+              - /url: https://www.docker.com/resources/what-container
+          - region "Products" [ref=e1684]:
+            - generic [ref=e1685]: Products
+            - link "Product Overview" [ref=e1686] [cursor=pointer]:
+              - /url: https://www.docker.com/products
+            - generic [ref=e1687]: Product Offerings
+            - link "Docker Desktop" [ref=e1688] [cursor=pointer]:
+              - /url: https://www.docker.com/products/docker-desktop
+            - link "Docker Hub" [ref=e1689] [cursor=pointer]:
+              - /url: https://www.docker.com/products/docker-hub
+            - generic [ref=e1690]: Features
+            - link "Container Runtime" [ref=e1691] [cursor=pointer]:
+              - /url: https://www.docker.com/products/container-runtime
+            - link "Developer Tools" [ref=e1692] [cursor=pointer]:
+              - /url: https://www.docker.com/products/developer-tools
+            - link "Docker App" [ref=e1693] [cursor=pointer]:
+              - /url: https://www.docker.com/products/docker-app
+            - link "Kubernetes" [ref=e1694] [cursor=pointer]:
+              - /url: https://www.docker.com/products/kubernetes
+          - region "Developers" [ref=e1695]:
+            - generic [ref=e1696]: Developers
+            - link "Getting Started" [ref=e1697] [cursor=pointer]:
+              - /url: https://docs.docker.com/get-started
+            - link "Play with Docker" [ref=e1698] [cursor=pointer]:
+              - /url: https://www.docker.com/play-with-docker
+            - link "Community" [ref=e1699] [cursor=pointer]:
+              - /url: https://www.docker.com/docker-community
+            - link "Open Source" [ref=e1700] [cursor=pointer]:
+              - /url: https://www.docker.com/open-source
+            - link "Documentation" [ref=e1701] [cursor=pointer]:
+              - /url: https://www.docker.com/docs
+          - region "Company" [ref=e1702]:
+            - generic [ref=e1703]: Company
+            - link "About Us" [ref=e1704] [cursor=pointer]:
+              - /url: https://www.docker.com/company
+            - link "Resources" [ref=e1705] [cursor=pointer]:
+              - /url: https://www.docker.com/resources
+            - link "Blog" [ref=e1706] [cursor=pointer]:
+              - /url: https://www.docker.com/blog/
+            - link "Customers" [ref=e1707] [cursor=pointer]:
+              - /url: https://www.docker.com/customers
+            - link "Partners" [ref=e1708] [cursor=pointer]:
+              - /url: https://www.docker.com/partners
+            - link "Newsroom" [ref=e1709] [cursor=pointer]:
+              - /url: https://www.docker.com/company/newsroom
+            - link "Events and Webinars" [ref=e1710] [cursor=pointer]:
+              - /url: https://www.docker.com/events-and-webinars
+            - link "Careers" [ref=e1711] [cursor=pointer]:
+              - /url: https://www.docker.com/careers
+            - link "Contact Us" [ref=e1712] [cursor=pointer]:
+              - /url: https://www.docker.com/company/contact
+            - link "System Status⁠" [ref=e1713] [cursor=pointer]:
+              - /url: https://www.dockerstatus.com
+              - text: System Status
+              - generic [ref=e1714]:
+                - text: ⁠
+                - img [ref=e1715]
+      - separator [ref=e1717]
+      - generic [ref=e1718]:
+        - paragraph [ref=e1719]:
+          - generic [ref=e1720]: © 2026 Docker, Inc. All rights reserved.
+          - text: "|"
+          - link "Terms of Service" [ref=e1721] [cursor=pointer]:
+            - /url: https://www.docker.com/legal/docker-terms-service
+          - text: "|"
+          - link "Subscription Service Agreement" [ref=e1722] [cursor=pointer]:
+            - /url: https://www.docker.com/legal/docker-subscription-service-agreement
+          - text: "|"
+          - link "Privacy" [ref=e1723] [cursor=pointer]:
+            - /url: https://www.docker.com/legal/privacy
+          - text: "|"
+          - link "Legal" [ref=e1724] [cursor=pointer]:
+            - /url: https://www.docker.com/legal
+        - generic [ref=e1725]:
+          - link "Visit our Facebook page" [ref=e1726] [cursor=pointer]:
+            - /url: https://www.facebook.com/docker.run
+            - img [ref=e1727]
+          - link "Visit our X page" [ref=e1729] [cursor=pointer]:
+            - /url: https://x.com/docker
+            - img [ref=e1730]
+          - link "Visit our YouTube page" [ref=e1732] [cursor=pointer]:
+            - /url: https://www.youtube.com/user/dockerrun
+            - img [ref=e1733]
+          - link "Visit our LinkedIn page" [ref=e1735] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/docker
+            - img [ref=e1736]
+          - link "View our RSS feed" [ref=e1738] [cursor=pointer]:
+            - /url: https://www.docker.com/feed/
+            - img [ref=e1739]
+      - button "Cookies Settings" [ref=e1742]

@@ -1,0 +1,155 @@
+use sqlx::SqlitePool;
+use uuid::Uuid;
+
+use crate::modules::collections::models::Collection;
+use crate::shared::error::AppError;
+
+/// Repository for collection data access.
+#[derive(Clone, Debug)]
+pub struct CollectionRepository {
+    db: SqlitePool,
+}
+
+impl CollectionRepository {
+    /// Create a new CollectionRepository with the given database pool.
+    pub fn new(db: SqlitePool) -> Self {
+        Self { db }
+    }
+
+    /// Insert a new collection into SQLite.
+    pub async fn create_collection(&self, collection: &Collection) -> Result<Uuid, AppError> {
+        tracing::debug!("Creating collection: {}", collection.name);
+
+        sqlx::query(
+            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(collection.id.to_string())
+        .bind(&collection.name)
+        .bind(&collection.description)
+        .bind(collection.created_at.to_rfc3339())
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("UNIQUE") {
+                AppError::BadRequest(format!("Collection '{}' already exists", collection.name))
+            } else {
+                AppError::InternalError(format!("Failed to create collection: {e}"))
+            }
+        })?;
+
+        tracing::info!(
+            "Collection created: {id} ({name})",
+            id = collection.id,
+            name = collection.name
+        );
+
+        Ok(collection.id)
+    }
+
+    /// List all collections with their document counts.
+    pub async fn list_collections(&self) -> Result<Vec<Collection>, AppError> {
+        tracing::debug!("Listing all collections");
+
+        let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
+            "SELECT id, name, description, created_at FROM collections ORDER BY created_at DESC",
+        )
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let mut collections = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id = Uuid::parse_str(&row.0).unwrap_or_default();
+            let count = self.get_document_count(id).await.unwrap_or(0);
+
+            collections.push(Collection {
+                id,
+                name: row.1,
+                description: row.2,
+                created_at: row.3.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                document_count: count,
+            });
+        }
+
+        tracing::debug!("Found {} collections", collections.len());
+        Ok(collections)
+    }
+
+    /// Retrieve a single collection by ID.
+    pub async fn get_collection(&self, id: Uuid) -> Result<Collection, AppError> {
+        tracing::debug!("Fetching collection: {id}");
+
+        let row = sqlx::query_as::<_, (String, String, Option<String>, String)>(
+            "SELECT id, name, description, created_at FROM collections WHERE id = ?",
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        .ok_or_else(|| AppError::NotFound(format!("Collection {id} not found")))?;
+
+        let count = self.get_document_count(id).await.unwrap_or(0);
+
+        Ok(Collection {
+            id: Uuid::parse_str(&row.0).unwrap_or(id),
+            name: row.1,
+            description: row.2,
+            created_at: row.3.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            document_count: count,
+        })
+    }
+
+    /// Delete a collection and its associated documents and chunks.
+    pub async fn delete_collection(&self, id: Uuid) -> Result<(), AppError> {
+        tracing::debug!("Deleting collection: {id}");
+
+        // Delete chunks for documents in this collection
+        sqlx::query(
+            "DELETE FROM chunks WHERE document_id IN (SELECT id FROM documents WHERE collection_id = ?)",
+        )
+        .bind(id.to_string())
+        .execute(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Failed to delete chunks: {e}")))?;
+
+        // Delete documents in this collection
+        sqlx::query("DELETE FROM documents WHERE collection_id = ?")
+            .bind(id.to_string())
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to delete documents: {e}")))?;
+
+        // Update sessions referencing this collection to set collection_id to NULL
+        sqlx::query("UPDATE sessions SET collection_id = NULL WHERE collection_id = ?")
+            .bind(id.to_string())
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to update sessions: {e}")))?;
+
+        // Delete the collection itself
+        let affected = sqlx::query("DELETE FROM collections WHERE id = ?")
+            .bind(id.to_string())
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to delete collection: {e}")))?;
+
+        if affected.rows_affected() == 0 {
+            return Err(AppError::NotFound(format!("Collection {id} not found")));
+        }
+
+        tracing::info!("Collection deleted: {id}");
+        Ok(())
+    }
+
+    /// Count documents belonging to a collection.
+    pub async fn get_document_count(&self, id: Uuid) -> Result<i64, AppError> {
+        let row =
+            sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM documents WHERE collection_id = ?")
+                .bind(id.to_string())
+                .fetch_one(&self.db)
+                .await
+                .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        Ok(row.0)
+    }
+}

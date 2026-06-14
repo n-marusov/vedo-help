@@ -1,0 +1,20 @@
+# VEDO hub Caddyfile
+# Reverse proxy configuration
+
+# Production (auto TLS via Let's Encrypt)
+example.com {
+    reverse_proxy /api/* backend:3000
+    reverse_proxy / backend:80
+    tls your-email@example.com
+
+    header /api {
+        RateLimit-Limit 30
+        RateLimit-Remaining 30
+    }
+}
+
+# Development
+:80 {
+    reverse_proxy /api/* backend:3000
+    reverse_proxy / frontend:80
+}

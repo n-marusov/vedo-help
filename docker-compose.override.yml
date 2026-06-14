@@ -1,0 +1,50 @@
+# docker-compose.override.yml — Development overrides (auto-merged by docker compose up)
+
+services:
+  backend:
+    build:
+      target: development
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+      - "2345:2345" # Debug port (Delve)
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/Cargo.toml:/app/Cargo.toml
+      - ./backend/Cargo.lock:/app/Cargo.lock
+    environment:
+      RUST_LOG: debug
+      CARGO_TARGET_DIR: /app/target
+    command: cargo watch -x run
+
+  embedding:
+    build:
+      target: development
+    ports:
+      # Port 8001 is occupied on this host; using 18001 instead
+      # Set EMBEDDING_PORT env var to override.
+      - "${EMBEDDING_PORT:-18001}:8001"
+    volumes:
+      - ./embedding/src:/app/src
+      - ./embedding/pyproject.toml:/app/pyproject.toml
+      - ./embedding/uv.lock:/app/uv.lock
+    environment:
+      LOG_LEVEL: debug
+
+  frontend:
+    build:
+      target: development
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./frontend/package.json:/app/package.json
+    environment:
+      NODE_ENV: development
+
+  chroma:
+    ports:
+      - "${CHROMA_PORT:-8000}:8000"

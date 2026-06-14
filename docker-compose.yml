@@ -1,0 +1,105 @@
+# docker-compose.yml — Base configuration (shared between dev and prod)
+# Dev: docker compose up (auto-merges docker-compose.override.yml)
+# Prod: docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+
+name: ${COMPOSE_PROJECT_NAME:-vedo}
+
+services:
+  chroma:
+    image: chromadb/chroma:0.6.3
+    environment:
+      - IS_PERSISTENT=TRUE
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  embedding:
+    build:
+      context: ./embedding
+      target: production
+    environment:
+      - EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+      - CACHE_DIR=/data/cache
+    volumes:
+      - embedding_cache:/data/cache
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      chroma:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    env_file: .env
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      embedding:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    volumes:
+      - db_data:/data
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - backend
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  chroma_data:
+  embedding_cache:
+  db_data:

@@ -1,0 +1,43 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+/// A chat session belonging to a user.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Session {
+    pub id: Uuid,
+    pub title: String,
+    pub collection_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub message_count: i64,
+}
+
+/// A single message within a session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub id: Uuid,
+    pub session_id: Uuid,
+    pub role: String,
+    pub content: String,
+    /// Sources stored as a JSON string (e.g. chunk citations).
+    pub sources: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Lightweight summary of a session for list views.
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionSummary {
+    pub id: Uuid,
+    pub title: String,
+    pub message_count: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Request payload for creating a new session.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateSessionRequest {
+    pub title: Option<String>,
+    pub collection_id: Option<Uuid>,
+}

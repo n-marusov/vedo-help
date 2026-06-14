@@ -1,0 +1,38 @@
+# Version control
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker (prevent recursive copy)
+Dockerfile*
+.dockerignore
+
+# Dependencies (rebuilt in container)
+node_modules/
+
+# Build artifacts
+dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+README.md
+
+# Tests
+tests/

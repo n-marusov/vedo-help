@@ -1,0 +1,51 @@
+# VEDO hub RAG Assistant
+
+> A personal Q&A system for technical documentation with RAG (Retrieval-Augmented Generation).
+
+## Overview
+
+VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in a vector database, and answers user questions using an LLM via OpenRouter. Every answer includes citations. The system is designed for single-developer VPS deployment with Docker Compose.
+
+## Core Features
+
+- **Document Upload:** Upload PDF, Markdown, and DOCX files (single or ZIP batch, up to 50 MB)
+- **Indexing Pipeline:** Parse, chunk, embed (via Python service), and index into Chroma vector DB
+- **Question-Answer Interface:** Streaming LLM responses with grounded citations and source references
+- **Collection Management:** Create, delete, and switch between document collections
+- **Conversation History:** Persistent storage with session management and history export/deletion
+- **Developer Ergonomics:** GitHub Actions CI with formatting, linting, and test automation
+
+## Tech Stack
+
+- **Backend:** Rust (axum framework, sqlx, tokio, serde, tracing)
+- **Embedding Service:** Python (FastAPI, sentence-transformers, torch)
+- **Vector Database:** Chroma (chromadb/chroma:latest)
+- **Frontend:** Vue 3 + TypeScript (streaming responses via SSE)
+- **Database:** SQLite (via sqlx) for metadata and conversation history
+- **Deployment:** Docker Compose with Caddy reverse proxy (VPS)
+- **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests)
+- **LLM Gateway:** OpenRouter API (configurable model)
+
+## Architecture Notes
+
+The system follows a four-service microservices architecture:
+
+1. **backend** (Rust/axum) — REST API for upload, query, collection management, conversation history
+2. **embedding** (Python/FastAPI) — Text embedding service with caching
+3. **chroma** — Vector database for semantic search
+4. **frontend** (Vue 3/TypeScript) — SPA with SSE streaming for chat responses
+
+Backend is the orchestrator — it receives queries, retrieves chunks from Chroma, and streams LLM answers. Communication between services happens over Docker's internal network.
+
+## Architecture
+
+See `.ai-factory/ARCHITECTURE.md` for detailed architecture guidelines.
+**Pattern:** Structured Modules (Technical Layers)
+
+## Non-Functional Requirements
+
+- **Security:** Bearer token authentication (`ADMIN_API_KEY`), file validation (MIME + magic bytes), rate limiting, CORS
+- **Logging:** Docker journald driver with structured tags
+- **Reliability:** Graceful shutdown, retry logic for embeddings, health check endpoints
+- **Data:** SQLite for persistent metadata, Chroma for vector storage, automated backup/restore scripts
+- **Constraints:** Single-developer scope, no Kubernetes, no performance budgets, no coverage thresholds

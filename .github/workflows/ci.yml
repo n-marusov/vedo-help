@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: stable
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            backend/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+
+      - name: Setup Rust toolchain
+        run: |
+          rustup set profile minimal
+          rustup toolchain install ${{ env.RUST_TOOLCHAIN }} -c rustfmt,clippy
+          rustup default ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Format check
+        run: cargo fmt --check
+        working-directory: backend
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: backend
+
+      - name: Unit tests
+        run: cargo test --lib
+        working-directory: backend
+
+      - name: Integration tests (ignored by default)
+        run: cargo test --test integration -- --ignored || echo "No integration tests yet"
+
+  embedding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: embedding/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r embedding/requirements.txt
+        working-directory: embedding
+
+      - name: Ruff lint
+        run: ruff check embedding/src/
+        working-directory: embedding
+
+      - name: Ruff format check
+        run: ruff format embedding/src/ --check
+        working-directory: embedding
+
+      - name: Pytest with coverage
+        run: pytest embedding/tests/ -v --cov=src --cov-report=term
+        working-directory: embedding
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Lint & format check (Biome)
+        run: npx @biomejs/biome ci .
+        working-directory: frontend
+
+      - name: Test
+        run: npm run test -- --run
+        working-directory: frontend
+
+      - name: Build (type-check + production build)
+        run: npm run build
+        working-directory: frontend

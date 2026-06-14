@@ -1,0 +1,59 @@
+[package]
+name = "vedo-backend"
+version = "0.1.0"
+edition = "2021"
+description = "VEDO hub RAG Assistant — Backend API"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["multipart", "macros"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "limit"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "chrono", "uuid"] }
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async streaming
+futures = "0.3"
+tokio-stream = "0.1"
+
+# Environment (.env) file loading
+dotenvy = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror = "1"
+
+# Rate limiting (simplified) — use tower_http limit layer
+
+# Text splitting
+text-splitter = "0.7"
+
+# File parsing
+pdf-extract = "0.7"
+docx-rs = "0.3"
+
+[dev-dependencies]
+mockall = "0.12"
+rstest = "0.18"
+tempfile = "3"
+
+[lib]
+name = "vedo_backend"
+path = "src/lib.rs"
