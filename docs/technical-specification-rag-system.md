@@ -1031,14 +1031,27 @@ sudo ufw enable
 
 ## 11. Roadmap
 
-| Phase | Scope | CI Coverage |
-|---|---|---|
-| **Week 1-2** | Basic Q&A: upload PDF, ask questions, get answers | Unit tests only |
-| **Week 3** | Chat history (SQLite), source citations | Add SQLite integration tests |
-| **Week 4** | Integration tests with Chroma + mock embedding | Full CI pipeline |
-| **Week 5** | Deploy to VPS with Caddy + Docker Compose | Manual verification |
-| **Optional** | DOCX support, ZIP upload, confidence indicator | Extend test coverage |
-| **Optional** | Playwright e2e tests | Runs in CI (headless Chrome) |
+> Карта развития продукта — от текущего MVP к промышленной эксплуатации.
+> Обновлено: 2026-06-15.
+
+| Этап | Статус | Состав | Признак готовности |
+|------|--------|--------|--------------------|
+| **MVP** — базовый RAG pipeline | ✅ **Завершён** | Загрузка PDF/MD/DOCX, чанкинг, embedding (bge-small-en-v1.5), Chroma indexing, LLM стриминг (OpenRouter), SSE, авторизация, коллекции, история сессий, экспорт/удаление, CI (GitHub Actions), Docker Compose (5 сервисов), Caddy reverse proxy, dev/override/production конфиги, скрипты деплоя/бэкапа/восстановления, smoke-тесты, production hardening (non-root, tmpfs, resource limits) | Все 6 фаз из `.ai-factory/plans/feature-rag-assistant-full.md` выполнены (20/20 задач) |
+| **v0.2 — Production Polish** | 🔜 **В плане** | **1. E2E-тесты (Playwright):** полный сценарий upload → query → sources — запуск в CI (headless Chrome). **2. Интеграционные тесты:** развернуть Chroma в CI, убрать `--ignored`. **3. ZIP-загрузка:** batch upload до 10 файлов (HTTP 413 при превышении), рекурсивная распаковка. **4. Re-indexing:** обновление документа с деактивацией старых чанков. **5. Индикатор уверенности (confidence):** отображение relevance score в UI (источники). **6. Graceful degradation:** fallback-модель при отказе primary, кэширование ответов на частые вопросы | CI: все тесты проходят; ручное тестирование upload ZIP и re-index; score в UI |
+| **v0.3 — Observability & Reliability** | 🔜 **В плане** | **1. Structured logging:** агрегация логов (json-file driver c ротацией). **2. Метрики:** healthcheck с глубокой проверкой зависимостей (Chroma, embedding). **3. Rate limiting:** настройка per-route, защита /api/query от abuse. **4. Автоматический бэкап:** cron/builtin scheduler для SQLite + Chroma по расписанию. **5. Уведомления о сбоях:** webhook/integration с Telegram или email при падении сервиса. **6. Graceful shutdown:** корректное завершение всех контейнеров (уже частично реализовано) | docker compose ps — все healthy; бэкапы создаются автономно; уведомление при Failure |
+| **v0.4 — Advanced RAG** | 🔜 **В плане** | **1. Hybrid search:** векторный поиск + keyword (BM25/Full-text SQLite) с fusion. **2. Reranker:** кросс-энкодер для переранжирования top-k результатов. **3. Query expansion:** генерация альтернативных формулировок вопроса через LLM. **4. Multi-turn context:** улучшенное использование истории диалога (smarter sliding window). **5. Document Q&A:** ответ строго по одному документу (collection-level scoping уже работает, но нужен точный retrieval). **6. Поддержка большего числа форматов:** CSV, JSON, HTML-to-text | Метрики качества ответов (precision/recall@k); A/B тестирование с текущим pipeline |
+| **v0.5 — Multi-user & Security** | 🔜 **В плане** | **1. Аутентификация:** login/register (сессии или JWT), регистрация первого пользователя — создание ADMIN_API_KEY. **2. Multi-tenancy:** изоляция коллекций и документов по пользователю. **3. RBAC:** admin (полный доступ) / user (только свои коллекции). **4. Audit log:** логирование всех API-вызовов с user_id и action. **5. CORS hardening:** строгие origin вместо permissive. **6. Penetration testing:** базовый OWASP-скрининг | Аутентификация в CI; audit лог в SQLite; нет high-секьюрити уязвимостей (SAST scan) |
+| **v1.0 — Production Ready** | 🔜 **В плане** | **1. CI/CD:** автоматический деплой на VPS при push в main (GitHub Actions → SSH → docker compose). **2. Performance:** нагрузочное тестирование (k6/locust), target: P99 < 10s для полного цикла query. **3. SLA:** документированный SLA, автоматическое восстановление (restart + healthcheck — уже есть, но нужно formalize). **4. UI polish:** loading states, error toasts, responsive design, тёмная тема. **5. Документация:** пользовательская (GUI guide), операторская (runbook), архитектурная (C4 diagrams). **6. Мониторинг:** базовые дашборды (метрики системы через cAdvisor + Prometheus, или упрощённый вариант) | CI/CD pipeline deploy; performance tests pass; runbook проверен на fresh VPS |
+
+### Ключевые решения по приоритетам
+
+| Решение | Обоснование |
+|---------|------------|
+| **E2E-тесты раньше multi-user** | Без E2E невозможно безопасно рефакторить под multi-tenancy |
+| **ZIP и re-indexing раньше мониторинга** | Критические сценарии использования (docs ingestion) должны быть стабильны |
+| **Observability раньше Advanced RAG** | Нельзя улучшать то, что не измеряется |
+| **Multi-user — предпоследний этап** | Требует перестройки data model и ретестирования всего pipeline |
+| **Production CI/CD — последний этап перед v1.0** | Должна быть уверенность в стабильности всех компонентов
 
 ---
 
