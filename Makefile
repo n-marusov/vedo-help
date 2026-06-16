@@ -91,3 +91,7 @@ ci-embedding: ## Embedding CI (format + lint + test)
 
 ci-frontend: ## Frontend CI (lint + format check + test + build)
 	cd frontend && npm run lint:ci && npm run format:check && npm run test -- --run && npm run build
+
+smoke-dns: ## Run DNS smoke test (check embedding DNS resolution independent of host VPN)
+	@echo "Running DNS smoke test..."
+	@bash scripts/smoke-test-dns.sh

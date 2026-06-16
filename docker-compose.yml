@@ -31,6 +31,11 @@ services:
     build:
       context: ./embedding
       target: production
+    dns:
+      # Явные публичные DNS — контейнер не зависит от DNS хост-системы (VPN).
+      # Без этого VPN-клиент может заблокировать разрешение huggingface.co.
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       - EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
       - CACHE_DIR=/data/cache
