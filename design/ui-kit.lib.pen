@@ -14719,6 +14719,112 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "VedoPageHeader",
+      "x": 0,
+      "y": 3600,
+      "name": "Component/PageHeader",
+      "reusable": true,
+      "width": "fill_container",
+      "height": 60,
+      "fill": "$card",
+      "stroke": "$border",
+      "strokeWidth": {
+        "bottom": 1
+      },
+      "strokeAlignment": "inner",
+      "padding": [
+        0,
+        0,
+        0,
+        24
+      ],
+      "layout": "horizontal",
+      "justifyContent": "space-between",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "headerBrand",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "headerLogoEmoji",
+              "fill": "$primary",
+              "content": "💬",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 18,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "headerBrandName",
+              "fill": "$foreground",
+              "content": "VEDO",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 16,
+              "fontWeight": "700"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "headerActions",
+          "width": "fill_container",
+          "justifyContent": "end",
+          "gap": 8,
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "themeToggle",
+              "type": "ref",
+              "ref": "A2iAv",
+              "descendants": {
+                "rzq1r": {
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "themeIconText",
+                      "fill": "$muted-foreground",
+                      "content": "☀️",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    }
+                  ]
+                },
+                "EIYE9": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "id": "userMenu",
+              "type": "ref",
+              "ref": "ztFq7",
+              "descendants": {
+                "u5zHU": {
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "userAvatarText",
+                      "fill": "$muted-foreground",
+                      "content": "👤",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {

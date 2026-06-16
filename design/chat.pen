@@ -16,6 +16,30 @@
       "layout": "vertical",
       "children": [
         {
+          "id": "pageHeader",
+          "type": "ref",
+          "ref": "B:VedoPageHeader",
+          "width": "fill_container",
+          "descendants": {
+            "B:themeToggle/B:rzq1r": {
+              "children": [
+                {
+                  "type": "text",
+                  "id": "themeIconText",
+                  "fill": "$B:muted-foreground",
+                  "content": "☀️",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "bold"
+                }
+              ]
+            },
+            "B:themeToggle/B:EIYE9": {
+              "content": ""
+            }
+          }
+        },
+        {
           "type": "frame",
           "id": "chatMain",
           "name": "Chat Workspace",
@@ -366,6 +390,30 @@
       "fill": "$B:background",
       "layout": "vertical",
       "children": [
+        {
+          "id": "pageHeader",
+          "type": "ref",
+          "ref": "B:VedoPageHeader",
+          "width": "fill_container",
+          "descendants": {
+            "B:themeToggle/B:rzq1r": {
+              "children": [
+                {
+                  "type": "text",
+                  "id": "themeIconText",
+                  "fill": "$B:muted-foreground",
+                  "content": "🌙",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "bold"
+                }
+              ]
+            },
+            "B:themeToggle/B:EIYE9": {
+              "content": ""
+            }
+          }
+        },
         {
           "type": "frame",
           "id": "chatMain",
