@@ -1,70 +1,74 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
- * Avatar Component Tests (Task 1.2)
+ * UserAvatar component E2E checks for Task 1.2.
  *
- * Tests the Avatar component that displays user/assistant initials,
- * consistent color coding, and online status indicator.
+ * Verifies the standalone preview route for the SVG-based user/assistant
+ * avatar component before MessageBubble integration happens in Task 2.1.
  */
-test.describe('Avatar Component', () => {
-  test('TC-AVATAR-001: renders user avatar with correct initials', async ({ page }) => {
-    await page.goto('/');
-    // After implementation, the chat view should show user avatar with "Y" initials
-    // in the first MessageBubble. For now, we test that the avatar component exists.
-    const avatar = page.locator('[data-testid="avatar-user"]').first();
-    await expect(avatar).toBeVisible({ timeout: 5000 });
-    // User avatar should show "Y" for "You"
-    await expect(avatar).toHaveText('Y');
+test.describe('UserAvatar component', () => {
+  test.beforeEach(async ({ page }) => {
+    page.on('console', (message) => {
+      if (message.type() === 'debug') {
+        console.debug('[FIX:avatar-e2e] browser debug', message.text());
+      }
+    });
+
+    await page.goto('/ui-preview/avatar');
   });
 
-  test('TC-AVATAR-002: renders assistant avatar with correct initials', async ({ page }) => {
-    await page.goto('/');
-    const avatar = page.locator('[data-testid="avatar-assistant"]').first();
-    await expect(avatar).toBeVisible({ timeout: 5000 });
-    // Assistant avatar should show "V" for "VEDO"
-    await expect(avatar).toHaveText('V');
+  test('TC-AVATAR-001: renders user avatar with person SVG and accessible label', async ({
+    page,
+  }) => {
+    const avatar = page.getByTestId('avatar-user-md');
+
+    await expect(avatar).toBeVisible();
+    await expect(avatar).toHaveAttribute('aria-label', 'User avatar');
+    await expect(avatar.locator('[data-testid="user-avatar-icon"]')).toBeVisible();
+    await expect(avatar.locator('[data-testid="assistant-avatar-icon"]')).toHaveCount(0);
   });
 
-  test('TC-AVATAR-003: assigns consistent color based on identifier', async ({ page }) => {
-    await page.goto('/');
-    // Same avatar should have same background color across renders
-    const avatar1 = page.locator('[data-testid="avatar-assistant"]').first();
-    const avatar2 = page.locator('[data-testid="avatar-assistant"]').last();
-    const color1 = await avatar1.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const color2 = await avatar2.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(color1).toBe(color2);
+  test('TC-AVATAR-002: renders assistant avatar with branded V SVG', async ({ page }) => {
+    const avatar = page.getByTestId('avatar-assistant-lg');
+
+    await expect(avatar).toBeVisible();
+    await expect(avatar).toHaveAttribute('aria-label', 'VEDO assistant avatar');
+    await expect(avatar.locator('[data-testid="assistant-avatar-icon"]')).toBeVisible();
+    await expect(avatar).toContainText('V');
   });
 
-  test('TC-AVATAR-004: renders online status indicator', async ({ page }) => {
-    await page.goto('/');
-    const statusDot = page.locator('[data-testid="avatar-status-online"]').first();
-    await expect(statusDot).toBeVisible({ timeout: 5000 });
-    // Status dot should be green for online
-    await expect(statusDot).toHaveCSS('background-color', expect.stringContaining('rgb'));
+  test('TC-AVATAR-003: uses role-specific token colors', async ({ page }) => {
+    const userAvatar = page.getByTestId('avatar-user-md');
+    const assistantAvatar = page.getByTestId('avatar-assistant-lg');
+
+    const userColor = await userAvatar.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const assistantColor = await assistantAvatar.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+
+    expect(userColor).not.toBe(assistantColor);
   });
 
-  test('TC-AVATAR-005: renders offline status indicator when user is away', async ({ page }) => {
-    await page.goto('/');
-    // Assistant should show offline status initially
-    const statusDot = page.locator('[data-testid="avatar-status-offline"]').first();
-    await expect(statusDot).toBeVisible({ timeout: 5000 });
-    await expect(statusDot).toHaveCSS('background-color', expect.stringContaining('rgb'));
+  test('TC-AVATAR-004: maps size variants from the avatar token', async ({ page }) => {
+    const smallWidth = await page
+      .getByTestId('avatar-user-sm')
+      .evaluate((el) => Number.parseInt(getComputedStyle(el).width));
+    const mediumWidth = await page
+      .getByTestId('avatar-user-md')
+      .evaluate((el) => Number.parseInt(getComputedStyle(el).width));
+    const largeWidth = await page
+      .getByTestId('avatar-assistant-lg')
+      .evaluate((el) => Number.parseInt(getComputedStyle(el).width));
+
+    expect(smallWidth).toBe(24);
+    expect(mediumWidth).toBe(32);
+    expect(largeWidth).toBe(40);
   });
 
-  test('TC-AVATAR-006: renders with correct size variant (sm/md/lg)', async ({ page }) => {
-    await page.goto('/');
-    // Default size should be medium (32px)
-    const avatar = page.locator('[data-testid="avatar-user"]').first();
-    const width = await avatar.evaluate((el) => getComputedStyle(el).width);
-    expect(parseInt(width)).toBe(32);
-  });
+  test('TC-AVATAR-005: keeps avatar implementation emoji-free', async ({ page }) => {
+    const preview = page.getByTestId('avatar-preview-grid');
 
-  test('TC-AVATAR-007: does not render avatar for empty messages', async ({ page }) => {
-    await page.goto('/');
-    // Empty/placeholder messages should not display an avatar
-    const avatars = page.locator('[data-testid^="avatar-"]');
-    const count = await avatars.count();
-    // Avatar should only render for actual messages, not empty placeholders
-    expect(count).toBeGreaterThanOrEqual(0);
+    await expect(preview).not.toContainText('👤');
+    await expect(preview).not.toContainText('🤖');
   });
 });

@@ -101,7 +101,7 @@ Create CSS custom properties for the chat design system. These tokens will be th
 
 ---
 
-#### [ ] Task 1.2 — Design avatar component
+#### [x] Task 1.2 — Design avatar component
 
 Create a lightweight `UserAvatar` component that renders either an SVG icon (user) or a branded "V" icon (assistant) instead of emoji.
 
