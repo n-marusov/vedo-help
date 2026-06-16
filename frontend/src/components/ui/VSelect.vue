@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const props = withDefaults(
   defineProps<{
-    modelValue: string;
+    modelValue: string | null | undefined;
     options: Array<{ value: string; label: string }>;
     placeholder?: string;
   }>(),
@@ -13,14 +13,17 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string];
+  'update:modelValue': [value: string | null];
 }>();
 
 const open = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
 
+const isPlaceholder = computed(() => props.modelValue == null || props.modelValue === '');
+
 const selectedLabel = computed(() => {
+  if (isPlaceholder.value) return props.placeholder;
   const match = props.options.find((o) => o.value === props.modelValue);
   return match ? match.label : props.placeholder;
 });
@@ -30,7 +33,12 @@ function toggle() {
 }
 
 function select(value: string) {
-  emit('update:modelValue', value);
+  // If the same option is clicked again, deselect (emit null)
+  if (value === props.modelValue) {
+    emit('update:modelValue', null);
+  } else {
+    emit('update:modelValue', value);
+  }
   open.value = false;
 }
 
@@ -73,7 +81,7 @@ onUnmounted(() => {
     >
       <span
         class="v-select__value"
-        :class="{ 'v-select__placeholder': !selectedLabel }"
+        :class="{ 'v-select__placeholder': isPlaceholder }"
       >
         {{ selectedLabel }}
       </span>

@@ -16,6 +16,7 @@
  */
 
 import { getApiKey, setApiKey } from '@/api/client';
+import { setAuthToken } from '@/stores/auth';
 import { ref } from 'vue';
 
 // ── Configuration ──
@@ -362,7 +363,13 @@ export async function handleCallback(): Promise<string> {
   if (tokens.refresh_token) {
     storeRefreshToken(tokens.refresh_token as string);
   }
-  setApiKey(accessToken);
+
+  // Extract user info from the JWT for the auth store
+  const decoded = decodeToken(accessToken);
+  const name = (decoded?.name ?? decoded?.preferred_username ?? '') as string;
+  const provider = (decoded?.identity_provider ?? '') as string;
+
+  setAuthToken(accessToken, name || undefined, provider || undefined);
   isAuthenticated.value = true;
 
   // Schedule proactive token refresh
@@ -437,8 +444,12 @@ async function refreshAccessToken(): Promise<string | null> {
     if (tokens.refresh_token) {
       storeRefreshToken(tokens.refresh_token as string);
     }
-    setApiKey(newAccessToken);
-    isAuthenticated.value = true;
+
+    // Extract user info from the refreshed JWT
+    const decoded = decodeToken(newAccessToken);
+    const name = (decoded?.name ?? decoded?.preferred_username ?? '') as string;
+    const provider = (decoded?.identity_provider ?? '') as string;
+    setAuthToken(newAccessToken, name || undefined, provider || undefined);
 
     // Schedule the next refresh
     scheduleTokenRefresh(newAccessToken);
@@ -557,7 +568,7 @@ export function restoreSession(): boolean {
   if (isTokenExpired(stored, REFRESH_MARGIN_MS)) {
     console.debug('[OidcAuth] Stored token expired or expiring soon, attempting refresh');
     clearAllTokens();
-    setApiKey('');
+    setApiKey(''); // Clear synchronously before async refresh to avoid stale apiKey
 
     // Fire-and-forget refresh — the caller can check isAuthenticated after a tick
     refreshAccessToken().then((newToken) => {
@@ -574,8 +585,9 @@ export function restoreSession(): boolean {
   }
 
   // Token is still valid — use it and schedule proactive refresh
-  setApiKey(stored);
-  isAuthenticated.value = true;
+  const name = (decoded?.name ?? decoded?.preferred_username ?? '') as string;
+  const provider = (decoded?.identity_provider ?? '') as string;
+  setAuthToken(stored, name || undefined, provider || undefined);
   scheduleTokenRefresh(stored);
   console.debug('[OidcAuth] Restored session from localStorage');
   return true;
