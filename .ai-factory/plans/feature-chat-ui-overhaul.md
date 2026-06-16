@@ -31,7 +31,7 @@
 
 ### Phase 0: Design Exploration (Pencil)
 
-#### [ ] Task 0.1 — Sync Pencil design library and page/dialog design files
+#### [x] Task 0.1 — Sync Pencil design library and page/dialog design files
 
 Before implementation, keep the Pencil design reference aligned with the actual `design/` directory. The design system lives in `design/ui-kit.lib.pen`, while screen-level layouts are split into separate page files instead of a single `ui-design.pen` exploration file.
 

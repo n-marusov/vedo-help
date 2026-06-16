@@ -108,7 +108,8 @@
                 }
               ],
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               }
             },
             {
@@ -139,7 +140,8 @@
                 }
               },
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               },
               "name": "undefined — Dark Theme"
             },
@@ -166,7 +168,8 @@
                 }
               },
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               },
               "name": "undefined — Dark Theme"
             },
@@ -193,7 +196,8 @@
                 }
               },
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               },
               "name": "undefined — Dark Theme"
             },
@@ -292,7 +296,8 @@
                 }
               ],
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               }
             },
             {
@@ -347,12 +352,15 @@
                       "type": "text",
                       "id": "sourceExcerptText",
                       "fill": "$B:foreground",
-                      "content": "The rate limiter is configured by the backend middleware. Use environment settings to control request limits and upload body size.",
+                      "content": "Rate limiter configuration is handled by backend middleware.",
                       "fontFamily": "IBM Plex Mono",
                       "fontSize": 12,
-                      "fontWeight": "normal"
+                      "fontWeight": "normal",
+                      "width": "fill_container",
+                      "textAlign": "left"
                     }
-                  ]
+                  ],
+                  "height": 72
                 },
                 {
                   "type": "frame",
@@ -375,7 +383,8 @@
                 }
               ],
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               }
             },
             {
@@ -446,10 +455,15 @@
                 }
               ],
               "theme": {
-                "mode": "dark"
+                "mode": "dark",
+                "B:mode": "dark"
               }
             }
-          ]
+          ],
+          "theme": {
+            "mode": "dark",
+            "B:mode": "dark"
+          }
         },
         {
           "type": "frame",
@@ -545,7 +559,8 @@
                 }
               ],
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               }
             },
             {
@@ -576,7 +591,8 @@
                 }
               },
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               },
               "name": "undefined — Light Theme"
             },
@@ -603,7 +619,8 @@
                 }
               },
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               },
               "name": "undefined — Light Theme"
             },
@@ -630,7 +647,8 @@
                 }
               },
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               },
               "name": "undefined — Light Theme"
             },
@@ -729,7 +747,8 @@
                 }
               ],
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               }
             },
             {
@@ -784,12 +803,15 @@
                       "type": "text",
                       "id": "sourceExcerptText",
                       "fill": "$B:foreground",
-                      "content": "The rate limiter is configured by the backend middleware. Use environment settings to control request limits and upload body size.",
+                      "content": "Rate limiter configuration is handled by backend middleware.",
                       "fontFamily": "IBM Plex Mono",
                       "fontSize": 12,
-                      "fontWeight": "normal"
+                      "fontWeight": "normal",
+                      "width": "fill_container",
+                      "textAlign": "left"
                     }
-                  ]
+                  ],
+                  "height": 72
                 },
                 {
                   "type": "frame",
@@ -812,7 +834,8 @@
                 }
               ],
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               }
             },
             {
@@ -883,15 +906,30 @@
                 }
               ],
               "theme": {
-                "mode": "light"
+                "mode": "light",
+                "B:mode": "light"
               }
             }
-          ]
+          ],
+          "theme": {
+            "mode": "light",
+            "B:mode": "light"
+          }
         }
       ],
       "layout": "horizontal",
       "gap": 150,
       "alignItems": "start"
     }
-  ]
+  ],
+  "themes": {
+    "mode": [
+      "dark",
+      "light"
+    ],
+    "B:mode": [
+      "dark",
+      "light"
+    ]
+  }
 }

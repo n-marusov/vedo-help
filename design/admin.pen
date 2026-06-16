@@ -319,7 +319,8 @@
         }
       ],
       "theme": {
-        "mode": "dark"
+        "mode": "dark",
+        "B:mode": "dark"
       }
     },
     {
@@ -637,8 +638,19 @@
         }
       ],
       "theme": {
-        "mode": "light"
+        "mode": "light",
+        "B:mode": "light"
       }
     }
-  ]
+  ],
+  "themes": {
+    "mode": [
+      "dark",
+      "light"
+    ],
+    "B:mode": [
+      "dark",
+      "light"
+    ]
+  }
 }
