@@ -12,7 +12,7 @@
 - Вне `src/api/client.ts` нет прямых `fetch`-вызовов
 
 ## UI
-- Все атомы в `src/components/ui` сверены через `pencil` MCP (`aif-handoff-ui-kit.lib.pen`)
+- Все атомы в `src/components/ui` сверены через `pencil` MCP (`ui-kit.lib.pen`)
 - `.ai-factory/references/ui-kit-atoms.md` отражает реальный набор вариантов и расхождений
 - `/ui-preview` отрисовывает все 9 атомов без регрессий
 

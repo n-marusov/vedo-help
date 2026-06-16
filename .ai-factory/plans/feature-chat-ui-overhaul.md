@@ -33,13 +33,13 @@
 
 #### Task 0.1 — Add missing chat UI components to design library and create ui-design.pen
 
-Before implementation, create the design reference in Pencil: add the missing Chat UI and Auth components to `aif-handoff-ui-kit.lib.pen`, and create a dedicated `ui-design.pen` file for the DeepSeek-style chat design exploration.
+Before implementation, create the design reference in Pencil: add the missing Chat UI and Auth components to `ui-kit.lib.pen`, and create a dedicated `ui-design.pen` file for the DeepSeek-style chat design exploration.
 
 **Files to change:**
-- `aif-handoff-ui-kit.lib.pen` — add reusable components for chat UI and auth
+- `ui-kit.lib.pen` — add reusable components for chat UI and auth
 - `ui-design.pen` — NEW: design exploration file with login screen, chat layout, avatars
 
-**Components to add to library (`aif-handoff-ui-kit.lib.pen`):**
+**Components to add to library (`ui-kit.lib.pen`):**
 
 *Atoms:*
 - `Component/Avatar/User` — user avatar (solid circle, initials, muted color)

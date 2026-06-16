@@ -1,0 +1,196 @@
+{
+  "version": "2.13",
+  "imports": {
+    "B": "./ui-kit.lib.pen"
+  },
+  "children": [
+    {
+      "type": "frame",
+      "id": "loginP",
+      "x": -34,
+      "y": -6034,
+      "name": "Login Page",
+      "width": 1920,
+      "height": 1080,
+      "fill": "$B:background",
+      "layout": "vertical",
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "loginPC",
+          "x": 0,
+          "y": 0,
+          "name": "_loginComment",
+          "enabled": false,
+          "fill": "$B:muted-foreground",
+          "content": "Login Page for VEDO Core. OAuth providers: VK, Yandex, Mail.ru, Google, Corporate SSO.",
+          "fontFamily": "IBM Plex Mono",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "loginPCard",
+          "width": 720,
+          "fill": "$B:card",
+          "cornerRadius": 16,
+          "stroke": "$B:border",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "children": [
+            {
+              "type": "frame",
+              "id": "mTQ2U",
+              "name": "headerRow",
+              "width": "fill_container",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Z0xta",
+                  "width": 56,
+                  "height": 56,
+                  "fill": "$B:primary",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "qgSib",
+                      "enabled": false,
+                      "fill": "$B:primary-foreground",
+                      "content": "V",
+                      "textAlign": "center",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 28,
+                      "fontWeight": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Zy8Uk",
+                  "name": "textCol",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t594Yu",
+                      "fill": "$B:foreground",
+                      "content": "Virtual Environment for Developing Ontologies",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 18,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "C6oBg4",
+                      "fill": "$B:muted-foreground",
+                      "content": "Build, connect, and share knowledge at scale",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "loginPOA",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "id": "vesG1",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "width": "fill_container",
+                  "height": 44,
+                  "justifyContent": "start",
+                  "padding": [0, 16],
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Continue with VK ID",
+                      "fontSize": 13
+                    }
+                  }
+                },
+                {
+                  "id": "B3cUn",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "width": "fill_container",
+                  "height": 44,
+                  "justifyContent": "start",
+                  "padding": [0, 16],
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Continue with Yandex ID",
+                      "fontSize": 13
+                    }
+                  }
+                },
+                {
+                  "id": "IfXiv",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "width": "fill_container",
+                  "height": 44,
+                  "justifyContent": "start",
+                  "padding": [0, 16],
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Continue with Mail.ru",
+                      "fontSize": 13
+                    }
+                  }
+                },
+                {
+                  "id": "G9Yo5",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "width": "fill_container",
+                  "height": 44,
+                  "justifyContent": "start",
+                  "padding": [0, 16],
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Continue with Google",
+                      "fontSize": 13
+                    }
+                  }
+                },
+                {
+                  "id": "iaw6U",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "width": "fill_container",
+                  "height": 44,
+                  "justifyContent": "start",
+                  "padding": [0, 16],
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Corporate SSO (SAML/OIDC)",
+                      "fontSize": 13
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
