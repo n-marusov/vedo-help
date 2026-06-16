@@ -37,6 +37,32 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 |----------|-------------|---------|
 | `IS_PERSISTENT` | Chroma persistence mode | `TRUE` |
 
+### KeyCloak (development only)
+
+KeyCloak is only included in the dev stack (`docker compose up`). The production stack (`docker-compose.production.yml`) does not include KeyCloak — authentication is handled via `ADMIN_API_KEY` bearer token instead.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `KEYCLOAK_DB_PASSWORD` | PostgreSQL password for KeyCloak database | `keycloak` |
+| `KEYCLOAK_ADMIN` | KeyCloak admin console username | `admin` |
+| `KEYCLOAK_ADMIN_PASSWORD` | KeyCloak admin console password | `admin` |
+| `KEYCLOAK_HOSTNAME` | KeyCloak hostname | `localhost` |
+| `VEDO_BACKEND_CLIENT_SECRET` | Client secret for `vedo-backend` confidential OIDC client | `changeme-vedo-backend-secret` |
+| `YANDEX_CLIENT_ID` | Yandex OAuth Client ID (social IdP) | _(empty — disabled)_ |
+| `YANDEX_CLIENT_SECRET` | Yandex OAuth Client Secret (social IdP) | _(empty — disabled)_ |
+| `VK_CLIENT_ID` | VK ID Client ID (social IdP) | _(empty — disabled)_ |
+| `VK_CLIENT_SECRET` | VK ID Client Secret (social IdP) | _(empty — disabled)_ |
+| `MAILRU_CLIENT_ID` | Mail.ru OAuth Client ID (social IdP) | _(empty — disabled)_ |
+| `MAILRU_CLIENT_SECRET` | Mail.ru OAuth Client Secret (social IdP) | _(empty — disabled)_ |
+
+### Test Users (local dev)
+
+| Username | Password | Roles |
+|----------|----------|-------|
+| `admin` | `KEYCLOAK_ADMIN_PASSWORD` | `admin`, `user`, `guest` |
+| `alice` | `password` | `user`, `guest` |
+| `guest` | `guest` | `guest` |
+
 ## Docker Volumes
 
 | Volume | Mount Point | Service | Purpose |
@@ -44,6 +70,7 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `chroma_data` | `/chroma/chroma` | chroma | Vector index persistence |
 | `embedding_cache` | `/data/cache` | embedding | Cached embeddings |
 | `db_data` | `/data` | backend | SQLite database file |
+| `keycloak_db_data` | `/var/lib/postgresql/data` | keycloak-db | KeyCloak PostgreSQL data |
 
 ## File Upload Limits
 

@@ -13,6 +13,7 @@ VEDO hub RAG Assistant is a personal Q&A system that ingests technical documenta
 - **Database:** SQLite (metadata), Chroma (vector search)
 - **ORM:** sqlx (Rust)
 - **Deployment:** Docker Compose, Caddy reverse proxy
+- **Authentication:** KeyCloak 26 (OIDC/OAuth2) with PostgreSQL 16
 
 ## Project Structure
 
@@ -101,7 +102,7 @@ vedo-assistant/
 ├── scripts/                    # backup.sh, restore.sh
 ├── AGENTS.md                   # This file — project map for AI agents
 ├── opencode.json               # MCP server configuration
-├── docker-compose.yml          # 4-service Docker Compose
+├── docker-compose.yml          # 6-service Docker Compose (incl. keycloak + keycloak-db)
 ├── Caddyfile                   # Reverse proxy config
 ├── Makefile                    # Developer tooling
 ├── rust-toolchain.toml         # Rust toolchain config
@@ -119,6 +120,10 @@ vedo-assistant/
 | `.ai-factory/DESCRIPTION.md` | Condensed project description for AI agents |
 | `.ai-factory/config.yaml` | AI Factory configuration (language, paths, git workflow) |
 | `.ai-factory/ARCHITECTURE.md` | Architecture pattern and folder structure guidelines |
+| `docker-compose.yml` | Core Docker Compose definition (chroma, embedding, backend, frontend, keycloak, keycloak-db) |
+| `docker-compose.override.yml` | Development overrides (hot-reload, debug ports) |
+| `docker-compose.production.yml` | Production hardening (no-exposed ports, resource limits, logging) |
+| `Caddyfile` | Reverse proxy config (API, frontend, KeyCloak auth) |
 
 ## Documentation
 

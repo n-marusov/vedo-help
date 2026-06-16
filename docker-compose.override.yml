@@ -45,6 +45,13 @@ services:
     environment:
       NODE_ENV: development
 
+  keycloak-db:
+    ports: []
+
+  keycloak:
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+
   chroma:
     ports:
       - "${CHROMA_PORT:-8000}:8000"

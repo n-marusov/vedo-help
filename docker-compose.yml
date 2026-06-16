@@ -100,6 +100,59 @@ services:
     depends_on:
       - backend
 
+  keycloak-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  keycloak:
+    build:
+      context: ./keycloak
+      target: base
+    command: start --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:-changeme-vedo-backend-secret}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
+      VK_CLIENT_ID: ${VK_CLIENT_ID:-}
+      VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
+      MAILRU_CLIENT_ID: ${MAILRU_CLIENT_ID:-}
+      MAILRU_CLIENT_SECRET: ${MAILRU_CLIENT_SECRET:-}
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/realms/master"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
 networks:
   internal:
     driver: bridge
@@ -108,3 +161,4 @@ volumes:
   chroma_data:
   embedding_cache:
   db_data:
+  keycloak_db_data:

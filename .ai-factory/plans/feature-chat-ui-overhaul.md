@@ -337,7 +337,7 @@ Mark the Chat UI overhaul phase as complete and move to the next phase in the v0
 
 ---
 
-#### [ ] Task 5.1 — Add KeyCloak + PostgreSQL to Docker Compose
+- [x] Task 5.1 — Add KeyCloak + PostgreSQL to Docker Compose
 
 Add KeyCloak and its PostgreSQL database as new services in the Docker Compose stack for local development.
 
@@ -364,7 +364,7 @@ Add KeyCloak and its PostgreSQL database as new services in the Docker Compose s
 
 ---
 
-#### [ ] Task 5.2 — Create KeyCloak realm and configure social identity providers
+- [x] Task 5.2 — Create KeyCloak realm and configure social identity providers
 
 Create a reproducible KeyCloak realm configuration with Yandex, VK, and Mail.ru as Identity Providers. The realm must be exportable as JSON for CI/CD.
 

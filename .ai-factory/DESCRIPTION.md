@@ -27,15 +27,18 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 - **Deployment:** Docker Compose with Caddy reverse proxy (VPS)
 - **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests)
 - **LLM Gateway:** OpenRouter API (configurable model)
+- **Authentication:** KeyCloak 26 (OIDC/OAuth2) with PostgreSQL storage
+- **Authorization:** Three-tier RBAC (guest/user/admin)
 
 ## Architecture Notes
 
-The system follows a four-service microservices architecture:
+The system follows a five-service microservices architecture:
 
 1. **backend** (Rust/axum) — REST API for upload, query, collection management, conversation history
 2. **embedding** (Python/FastAPI) — Text embedding service with caching
 3. **chroma** — Vector database for semantic search
 4. **frontend** (Vue 3/TypeScript) — SPA with SSE streaming for chat responses
+5. **keycloak** — Authentication server (OIDC/OAuth2) with PostgreSQL storage
 
 Backend is the orchestrator — it receives queries, retrieves chunks from Chroma, and streams LLM answers. Communication between services happens over Docker's internal network.
 

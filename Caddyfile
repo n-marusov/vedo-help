@@ -15,6 +15,7 @@ example.com {
 
 # Development
 :80 {
+    reverse_proxy /auth/* keycloak:8080
     reverse_proxy /api/* backend:3000
     reverse_proxy / frontend:80
 }
