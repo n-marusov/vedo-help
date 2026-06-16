@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import type { Message, SourceRef } from '@/api/types';
+import UserAvatar from '@/components/ui/UserAvatar.vue';
 import { marked } from 'marked';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
   message: Message;
   isStreaming?: boolean;
+  index?: number;
 }>();
 
 const sourcesExpanded = ref(false);
 
 const renderedContent = computed(() => {
   if (!props.message.content) return '';
-  return marked.parse(props.message.content, { async: false }) as string;
+  try {
+    return marked.parse(props.message.content, { async: false }) as string;
+  } catch (err) {
+    console.warn('[MessageBubble] marked.parse failed', err);
+    return props.message.content;
+  }
 });
 
 const parsedSources = computed<SourceRef[]>(() => {
@@ -27,56 +34,145 @@ const parsedSources = computed<SourceRef[]>(() => {
 function toggleSources() {
   sourcesExpanded.value = !sourcesExpanded.value;
 }
+
+const formattedTime = computed(() => {
+  return new Date(props.message.created_at).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+});
+
+onMounted(() => {
+  console.debug('[MessageBubble] mounted', {
+    role: props.message.role,
+    contentLength: props.message.content?.length || 0,
+    sourcesCount: parsedSources.value.length,
+  });
+
+  if (props.isStreaming) {
+    console.debug('[MessageBubble] streaming started', {
+      messageId: props.message.id,
+    });
+  }
+});
+
+watch(
+  () => props.isStreaming,
+  (streaming, wasStreaming) => {
+    if (streaming && !wasStreaming) {
+      console.debug('[MessageBubble] streaming started', {
+        messageId: props.message.id,
+      });
+    } else if (!streaming && wasStreaming) {
+      console.debug('[MessageBubble] streaming ended', {
+        messageId: props.message.id,
+      });
+    }
+  },
+);
 </script>
 
 <template>
   <div
     class="message-bubble"
-    :class="{
-      'message-user': message.role === 'user',
-      'message-assistant': message.role === 'assistant',
-    }"
+    :class="[
+      message.role === 'user' ? 'message-user' : 'message-assistant',
+      'message-enter',
+    ]"
+    :style="{ '--msg-index': index ?? 0 }"
+    :data-testid="
+      message.role === 'user' ? 'message-user' : 'message-assistant'
+    "
   >
-    <div class="message-avatar">
-      {{ message.role === 'user' ? '👤' : '🤖' }}
-    </div>
-    <div class="message-body">
-      <div class="message-header">
-        <span class="message-role">
-          {{ message.role === 'user' ? 'You' : 'VEDO Assistant' }}
-        </span>
-        <span class="message-time">
-          {{ new Date(message.created_at).toLocaleTimeString() }}
-        </span>
+    <!-- Avatar (assistant on left, user on right) -->
+    <UserAvatar
+      v-if="message.role === 'assistant'"
+      :role="message.role"
+      size="sm"
+      class="message-avatar"
+    />
+
+    <div class="message-content-wrapper">
+      <!-- Message content -->
+      <div
+        class="message-content"
+        :class="{
+          'message-content--user': message.role === 'user',
+          'message-content--assistant': message.role === 'assistant',
+        }"
+        :data-testid="'message-body-' + message.role"
+      >
+        <div
+          v-if="message.content"
+          class="markdown-body"
+          data-testid="message-content"
+          v-html="renderedContent"
+        />
+        <span
+          v-if="isStreaming && message.content"
+          class="streaming-cursor"
+          aria-hidden="true"
+        />
+        <div v-if="isStreaming && !message.content" class="streaming-bar" />
       </div>
 
-      <div class="message-content" v-if="message.content || isStreaming">
-        <div v-if="message.content" class="markdown-body" v-html="renderedContent" />
-        <div v-if="isStreaming && !message.content" class="typing-indicator">
-          <span class="typing-dot" />
-          <span class="typing-dot" />
-          <span class="typing-dot" />
-        </div>
+      <!-- Timestamp -->
+      <div class="message-meta">
+        <span class="message-time" data-testid="message-time">{{
+          formattedTime
+        }}</span>
       </div>
 
+      <!-- Sources -->
       <div
         v-if="parsedSources.length > 0 && message.role === 'assistant'"
         class="sources-section"
       >
-        <button class="sources-toggle" @click="toggleSources">
-          <span class="sources-icon">📚</span>
-          {{ parsedSources.length }} source{{ parsedSources.length > 1 ? 's' : '' }}
-          <span class="chevron" :class="{ expanded: sourcesExpanded }">▸</span>
+        <button
+          class="sources-toggle"
+          data-testid="sources-toggle"
+          @click="toggleSources"
+        >
+          <svg
+            aria-hidden="true"
+            class="sources-chevron"
+            :class="{ expanded: sourcesExpanded }"
+            fill="none"
+            height="12"
+            viewBox="0 0 12 12"
+            width="12"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4 2.5L7.5 6L4 9.5"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+          </svg>
+          <span
+            >{{ parsedSources.length }} source{{
+              parsedSources.length > 1 ? "s" : ""
+            }}</span
+          >
         </button>
-        <div v-if="sourcesExpanded" class="sources-list">
+        <div
+          v-if="sourcesExpanded"
+          class="sources-list"
+          data-testid="sources-list"
+        >
           <div
             v-for="(source, idx) in parsedSources"
             :key="idx"
             class="source-item"
+            data-testid="source-item"
           >
             <div class="source-header">
-              <span class="source-doc">{{ source.document_name }}</span>
-              <span class="source-relevance">
+              <span class="source-doc" data-testid="source-document">{{
+                source.document_name
+              }}</span>
+              <span class="source-relevance" data-testid="source-relevance">
                 {{ Math.round(source.relevance * 100) }}%
               </span>
             </div>
@@ -85,88 +181,86 @@ function toggleSources() {
         </div>
       </div>
     </div>
+
+    <!-- User avatar on the right -->
+    <UserAvatar
+      v-if="message.role === 'user'"
+      :role="message.role"
+      size="sm"
+      class="message-avatar"
+    />
   </div>
 </template>
 
 <style scoped>
 .message-bubble {
   display: flex;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  gap: var(--msg-gap);
+  padding: 0.375rem 1.5rem;
+  max-width: var(--max-msg-width);
 }
 
 .message-user {
+  align-self: flex-end;
   flex-direction: row-reverse;
 }
 
+.message-assistant {
+  align-self: flex-start;
+}
+
+/* ===== Avatar ===== */
 .message-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  background: #2a2a4e;
   flex-shrink: 0;
+  margin-top: 0.15rem;
 }
 
-.message-body {
-  max-width: 75%;
-  min-width: 200px;
-}
-
-.message-user .message-body {
-  background: #1a3a5c;
-  border-radius: 12px 4px 12px 12px;
-  padding: 0.75rem 1rem;
-}
-
-.message-assistant .message-body {
-  background: #1e1e3a;
-  border-radius: 4px 12px 12px 12px;
-  padding: 0.75rem 1rem;
-}
-
-.message-header {
+/* ===== Content wrapper ===== */
+.message-content-wrapper {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.35rem;
-  font-size: 0.75rem;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.message-role {
-  font-weight: 600;
-  color: #8b8bbf;
+.message-assistant .message-content-wrapper {
+  align-items: flex-start;
 }
 
-.message-time {
-  color: #5a5a7a;
-  font-size: 0.7rem;
+.message-user .message-content-wrapper {
+  align-items: flex-end;
 }
 
+/* ===== Message content ===== */
 .message-content {
   font-size: 0.9rem;
-  line-height: 1.5;
-  color: #e0e0e0;
+  line-height: 1.6;
   word-break: break-word;
+  padding: var(--msg-padding-y) var(--msg-padding-x);
+}
+
+.message-content--user {
+  background: var(--msg-user-bg);
+  color: var(--msg-user-text);
+  border-radius: var(--msg-radius-user);
+}
+
+.message-content--assistant {
+  background: transparent;
+  color: var(--msg-assistant-text);
+  border-radius: var(--msg-radius-assistant);
+  padding-left: 0;
 }
 
 .markdown-body :deep(p) {
   margin: 0.35rem 0;
+}
+
+.markdown-body :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
 }
 
 .markdown-body :deep(code) {
@@ -193,120 +287,190 @@ function toggleSources() {
   color: #6b9fff;
 }
 
-.typing-indicator {
-  display: flex;
-  gap: 4px;
-  padding: 0.5rem 0;
+/* ===== Streaming states ===== */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--msg-assistant-text);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: streamingBlink 0.8s step-end infinite;
 }
 
-.typing-dot {
-  width: 8px;
-  height: 8px;
-  background: #6b9fff;
-  border-radius: 50%;
-  animation: typingBounce 1.4s infinite ease-in-out;
-}
-
-.typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes typingBounce {
+@keyframes streamingBlink {
   0%,
-  60%,
   100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  30% {
-    transform: translateY(-6px);
     opacity: 1;
   }
+  50% {
+    opacity: 0;
+  }
 }
 
+.streaming-bar {
+  height: 4px;
+  width: 40px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--msg-assistant-text),
+    transparent
+  );
+  border-radius: 2px;
+  animation: streamingGlow var(--anim-stream-duration) ease-in-out infinite;
+}
+
+@keyframes streamingGlow {
+  0% {
+    opacity: 0.2;
+    transform: translateX(-8px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0.2;
+    transform: translateX(8px);
+  }
+}
+
+/* ===== Message meta (timestamp) ===== */
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem var(--msg-padding-x);
+}
+
+.message-user .message-meta {
+  justify-content: flex-end;
+}
+
+.message-time {
+  font-size: 0.65rem;
+  color: var(--msg-time-color);
+  line-height: 1;
+}
+
+/* ===== Sources ===== */
 .sources-section {
-  margin-top: 0.5rem;
-  border-top: 1px solid #2a2a4e;
-  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0 var(--msg-padding-x);
 }
 
 .sources-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   background: none;
-  border: 1px solid #2a2a4e;
-  border-radius: 6px;
-  padding: 0.3rem 0.6rem;
-  color: #8b8bbf;
-  font-size: 0.8rem;
+  border: none;
+  padding: 0.2rem 0;
+  color: var(--msg-time-color);
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.15s;
 }
 
 .sources-toggle:hover {
-  background: #2a2a4e;
-  color: #b0b0e0;
+  color: var(--msg-assistant-text);
 }
 
-.sources-icon {
-  font-size: 0.85rem;
-}
-
-.chevron {
+.sources-chevron {
   transition: transform 0.2s;
-  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
-.chevron.expanded {
+.sources-chevron.expanded {
   transform: rotate(90deg);
 }
 
 .sources-list {
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .source-item {
-  background: #12122a;
+  background: #1a1a32;
   border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  border-left: 3px solid #6b9fff;
+  padding: 0.45rem 0.65rem;
+  border-left: 3px solid var(--avatar-user-bg);
 }
 
 .source-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
 }
 
 .source-doc {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: #8b8bbf;
+  color: #7d7da3;
 }
 
 .source-relevance {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: #4caf50;
   font-weight: 600;
 }
 
 .source-text {
-  font-size: 0.78rem;
-  color: #a0a0c0;
+  font-size: 0.75rem;
+  color: #9a9abc;
   margin: 0;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ===== Role label ===== */
+.message-role-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--msg-time-color);
+  margin-bottom: 0.15rem;
+  padding: 0 var(--msg-padding-x);
+  line-height: 1;
+}
+
+.message-user .message-role-label {
+  text-align: right;
+}
+
+.message-assistant .message-role-label {
+  text-align: left;
+}
+
+/* ===== Entrance animation ===== */
+.message-enter {
+  animation: messageEnter var(--anim-msg-enter-duration)
+    var(--anim-msg-enter-ease) both;
+  animation-delay: calc(var(--msg-index, 0) * 50ms);
+}
+
+@keyframes messageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .message-enter {
+    animation: none;
+  }
 }
 </style>

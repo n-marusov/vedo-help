@@ -82,7 +82,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(toggle).toBeVisible({ timeout: 5000 });
     });
 
-    test('TC-THEME-LOGIN-003: theme toggle is located in login page header row', async ({ page }) => {
+    test('TC-THEME-LOGIN-003: theme toggle is located in login page header row', async ({
+      page,
+    }) => {
       await page.goto('/login');
       const headerRow = page.locator('[data-testid="login-header-row"]');
       await expect(headerRow).toBeVisible();
@@ -98,7 +100,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(toggle).toContainText('☀️');
     });
 
-    test('TC-THEME-LOGIN-005: clicking theme toggle switches login page to light theme', async ({ page }) => {
+    test('TC-THEME-LOGIN-005: clicking theme toggle switches login page to light theme', async ({
+      page,
+    }) => {
       await page.goto('/login');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       await toggle.click();
@@ -109,7 +113,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(toggle).toContainText('🌙');
     });
 
-    test('TC-THEME-LOGIN-006: clicking theme toggle twice returns to dark theme', async ({ page }) => {
+    test('TC-THEME-LOGIN-006: clicking theme toggle twice returns to dark theme', async ({
+      page,
+    }) => {
       await page.goto('/login');
       const toggle = page.locator('[data-testid="theme-toggle"]');
 
@@ -156,7 +162,9 @@ test.describe('Theme Switching (all pages)', () => {
       expect(lightColor).toBe('rgb(26, 26, 46)');
     });
 
-    test('TC-THEME-LOGIN-009: OAuth button border colors update on theme switch', async ({ page }) => {
+    test('TC-THEME-LOGIN-009: OAuth button border colors update on theme switch', async ({
+      page,
+    }) => {
       await page.goto('/login');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       const oauthBtn = page.locator('[data-testid="oauth-btn"]').first();
@@ -172,7 +180,9 @@ test.describe('Theme Switching (all pages)', () => {
       expect(lightBorder).toContain('212, 212, 224'); // #d4d4e0
     });
 
-    test('TC-THEME-LOGIN-010: login page responsive — theme toggle works on mobile', async ({ page }) => {
+    test('TC-THEME-LOGIN-010: login page responsive — theme toggle works on mobile', async ({
+      page,
+    }) => {
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto('/login');
 
@@ -204,13 +214,17 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(toggle).toBeVisible({ timeout: 5000 });
     });
 
-    test('TC-THEME-CHAT-003: theme toggle shows sun icon in dark theme on chat page', async ({ page }) => {
+    test('TC-THEME-CHAT-003: theme toggle shows sun icon in dark theme on chat page', async ({
+      page,
+    }) => {
       await page.goto('/');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       await expect(toggle).toContainText('☀️');
     });
 
-    test('TC-THEME-CHAT-004: clicking theme toggle switches chat to light theme', async ({ page }) => {
+    test('TC-THEME-CHAT-004: clicking theme toggle switches chat to light theme', async ({
+      page,
+    }) => {
       await page.goto('/');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       await toggle.click();
@@ -280,13 +294,17 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(toggle).toBeVisible({ timeout: 5000 });
     });
 
-    test('TC-THEME-ADMIN-003: theme toggle shows sun icon in dark theme on admin page', async ({ page }) => {
+    test('TC-THEME-ADMIN-003: theme toggle shows sun icon in dark theme on admin page', async ({
+      page,
+    }) => {
       await page.goto('/admin');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       await expect(toggle).toContainText('☀️');
     });
 
-    test('TC-THEME-ADMIN-004: clicking theme toggle switches admin to light theme', async ({ page }) => {
+    test('TC-THEME-ADMIN-004: clicking theme toggle switches admin to light theme', async ({
+      page,
+    }) => {
       await page.goto('/admin');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       await toggle.click();
@@ -295,7 +313,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(toggle).toContainText('🌙');
     });
 
-    test('TC-THEME-ADMIN-005: admin auth card background updates on theme switch', async ({ page }) => {
+    test('TC-THEME-ADMIN-005: admin auth card background updates on theme switch', async ({
+      page,
+    }) => {
       await page.goto('/admin');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       const authCard = page.locator('[data-testid="auth-card"]');
@@ -328,7 +348,9 @@ test.describe('Theme Switching (all pages)', () => {
   //  Cross-Page & Persistence Tests
   // ═══════════════════════════════════════════════════════════════
   test.describe('Theme Persistence', () => {
-    test('TC-THEME-PERSIST-001: theme persists when navigating from login to chat', async ({ page }) => {
+    test('TC-THEME-PERSIST-001: theme persists when navigating from login to chat', async ({
+      page,
+    }) => {
       // Switch to light theme on login page
       await page.goto('/login');
       await page.locator('[data-testid="theme-toggle"]').click();
@@ -339,7 +361,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expectLightTheme(page);
     });
 
-    test('TC-THEME-PERSIST-002: theme persists when navigating from chat to admin', async ({ page }) => {
+    test('TC-THEME-PERSIST-002: theme persists when navigating from chat to admin', async ({
+      page,
+    }) => {
       // Switch to light theme on chat page
       await page.goto('/');
       await page.locator('[data-testid="theme-toggle"]').click();
@@ -370,7 +394,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expectLightTheme(page);
     });
 
-    test('TC-THEME-PERSIST-005: dark theme saves to localStorage when toggled back', async ({ page }) => {
+    test('TC-THEME-PERSIST-005: dark theme saves to localStorage when toggled back', async ({
+      page,
+    }) => {
       await page.goto('/login');
       const toggle = page.locator('[data-testid="theme-toggle"]');
 
@@ -383,7 +409,9 @@ test.describe('Theme Switching (all pages)', () => {
       expect(await page.evaluate(() => localStorage.getItem('vedo_theme'))).toBe('dark');
     });
 
-    test('TC-THEME-PERSIST-006: theme toggle icon is consistent across page navigation', async ({ page }) => {
+    test('TC-THEME-PERSIST-006: theme toggle icon is consistent across page navigation', async ({
+      page,
+    }) => {
       // Set light theme on chat page
       await page.goto('/');
       const toggle = page.locator('[data-testid="theme-toggle"]');
@@ -396,7 +424,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expect(adminToggle).toContainText('🌙');
     });
 
-    test('TC-THEME-PERSIST-007: body background color persists on navigation after theme switch', async ({ page }) => {
+    test('TC-THEME-PERSIST-007: body background color persists on navigation after theme switch', async ({
+      page,
+    }) => {
       await page.goto('/');
       await page.locator('[data-testid="theme-toggle"]').click();
       await expectLightTheme(page);
@@ -520,7 +550,9 @@ test.describe('Theme Switching (all pages)', () => {
   //  Edge Cases
   // ═══════════════════════════════════════════════════════════════
   test.describe('Edge Cases', () => {
-    test('TC-THEME-EDGE-001: theme toggle is hidden when printing (print media query)', async ({ page }) => {
+    test('TC-THEME-EDGE-001: theme toggle is hidden when printing (print media query)', async ({
+      page,
+    }) => {
       await page.goto('/login');
       // The toggle should be hidden via @media print CSS
       const toggle = page.locator('[data-testid="theme-toggle"]');
@@ -531,7 +563,9 @@ test.describe('Theme Switching (all pages)', () => {
       });
     });
 
-    test('TC-THEME-EDGE-002: invalid localStorage value defaults to dark theme', async ({ page }) => {
+    test('TC-THEME-EDGE-002: invalid localStorage value defaults to dark theme', async ({
+      page,
+    }) => {
       await page.evaluate(() => localStorage.setItem('vedo_theme', 'invalid_value'));
 
       await page.goto('/login');
@@ -553,7 +587,9 @@ test.describe('Theme Switching (all pages)', () => {
       await expectDarkTheme(page);
     });
 
-    test('TC-THEME-EDGE-004: prefers-color-scheme media query is respected on first visit', async ({ page }) => {
+    test('TC-THEME-EDGE-004: prefers-color-scheme media query is respected on first visit', async ({
+      page,
+    }) => {
       // This test verifies that if the user has a system preference,
       // the theme toggle respects the initial state.
       // Actual emulation done via Playwright's emulation API.

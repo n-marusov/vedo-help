@@ -1,5 +1,6 @@
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';
+import './assets/design-tokens.css';
 import './assets/chat-tokens.css';
 import App from './App.vue';
 import { logChatTokenValues } from './chatTokens';

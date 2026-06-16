@@ -73,6 +73,7 @@ vedo-assistant/
 │       │   │   ├── VLabel.vue        # Field label with required state
 │       │   │   ├── VProgressBar.vue   # Animated progress bar
 │       │   │   ├── VDropZone.vue     # File drop zone (drag & drop)
+│       │   │   ├── VThemeToggle.vue  # Dark/light theme toggle (design: Component/ToggleButton)
 │       │   │   ├── VToast.vue        # Toast notification (auto-dismiss)
 │       │   │   ├── UserAvatar.vue    # Legacy avatar (deprecated, use VAvatar)
 │       │   │   └── __tests__/  # Unit tests for UI atoms
@@ -80,9 +81,9 @@ vedo-assistant/
 │       │   ├── MessageBubble.vue  # Message display with markdown, sources
 │       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
 │       │   └── DocumentList.vue  # Document upload & listing with progress
-│       ├── composables/        # useStreamingChat
+│       ├── composables/        # useTheme, useStreamingChat
 │       ├── stores/             # Pinia stores (chat, documents, collections)
-│       └── views/              # ChatView, AdminView, LoginView
+│       └── views/              # ChatView, AdminView, LoginView, AvatarPreviewView
 ├── docs/
 │   ├── technical-specification-rag-system.md  # Full technical specification
 │   ├── getting-started.md      # Installation guide
@@ -90,6 +91,13 @@ vedo-assistant/
 │   ├── api.md                  # Endpoint reference
 │   ├── configuration.md        # Environment variables
 │   └── deployment.md           # Production setup
+├── frontend/e2e/              # Playwright e2e tests
+│   ├── login.spec.ts          # Auth & login page tests
+│   ├── chat-window.spec.ts    # Chat layout & input tests
+│   ├── message-bubble.spec.ts # Message rendering & sources
+│   ├── navigation.spec.ts     # Routing & responsive layout
+│   ├── avatar.spec.ts         # Avatar component preview
+│   └── theme-switching.spec.ts# Dark/light theme toggle across pages
 ├── scripts/                    # backup.sh, restore.sh
 ├── AGENTS.md                   # This file — project map for AI agents
 ├── opencode.json               # MCP server configuration

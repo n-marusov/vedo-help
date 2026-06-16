@@ -1,8 +1,13 @@
+/* ==========================================================================
+   VEDO hub — Chat-specific Design Tokens
+   These extend design-tokens.css with chat-specific variables.
+   ========================================================================== */
+
 :root {
   /* Message spacing */
   --msg-gap: 0.75rem;
-  --msg-padding-y: 0.75rem;
-  --msg-padding-x: 1rem;
+  --msg-padding-y: 0.5rem;
+  --msg-padding-x: 0.875rem;
 
   /* Border radius */
   --msg-radius-user: 18px 6px 18px 18px;
@@ -14,14 +19,14 @@
   --anim-msg-enter-ease: cubic-bezier(0.2, 0, 0, 1);
   --anim-stream-duration: 1.4s;
 
-  /* Message colors */
+  /* Message colors (dark theme defaults) */
   --msg-user-bg: #1f5f9f;
-  --msg-assistant-bg: #1e1e3a;
+  --msg-assistant-bg: transparent;
   --msg-user-text: #ffffff;
-  --msg-assistant-text: #e8e8f2;
-  --msg-time-color: #7d7da3;
-  --avatar-user-bg: #2563eb;
-  --avatar-assistant-bg: #2a2a4e;
+  --msg-assistant-text: var(--color-foreground);
+  --msg-time-color: var(--color-muted-foreground);
+  --avatar-user-bg: var(--color-primary);
+  --avatar-assistant-bg: var(--color-muted);
 
   /* Sizing */
   --avatar-size: 32px;

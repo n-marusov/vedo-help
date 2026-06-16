@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
  * Navigation & Layout Tests (Task 3.1, 3.4)
@@ -71,7 +71,7 @@ test.describe('Responsive Layout (Task 3.4)', () => {
     const inputArea = page.locator('[data-testid="input-area"]');
     const width = await inputArea.evaluate((el) => getComputedStyle(el).width);
     const viewportWidth = 375;
-    expect(parseInt(width)).toBeCloseTo(viewportWidth, -1); // within ~10px
+    expect(Number.parseInt(width)).toBeCloseTo(viewportWidth, -1); // within ~10px
   });
 
   test('TC-RESP-003: textarea is usable on mobile (no overflow)', async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe('Responsive Layout (Task 3.4)', () => {
     const messageBody = page.locator('[data-testid^="message-body-"]').first();
     const maxWidth = await messageBody.evaluate((el) => {
       const style = getComputedStyle(el);
-      return parseFloat(style.maxWidth) || parseFloat(style.width);
+      return Number.parseFloat(style.maxWidth) || Number.parseFloat(style.width);
     });
     expect(maxWidth).toBeLessThan(1440 * 0.8); // should not take 80%+ of viewport
   });
@@ -123,7 +123,7 @@ test.describe('Responsive Layout (Task 3.4)', () => {
       // If visible on mobile, it should be at top (not taking full height sidebar)
       const sidebarWidth = await sessionSidebar.evaluate((el) => getComputedStyle(el).width);
       const viewportWidth = 375;
-      expect(parseInt(sidebarWidth)).toBeLessThanOrEqual(viewportWidth);
+      expect(Number.parseInt(sidebarWidth)).toBeLessThanOrEqual(viewportWidth);
     }
   });
 

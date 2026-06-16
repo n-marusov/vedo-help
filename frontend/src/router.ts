@@ -1,6 +1,7 @@
 import AdminView from '@/views/AdminView.vue';
 import AvatarPreviewView from '@/views/AvatarPreviewView.vue';
 import ChatView from '@/views/ChatView.vue';
+import LoginView from '@/views/LoginView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const routes = [
@@ -18,6 +19,11 @@ const routes = [
     path: '/ui-preview/avatar',
     name: 'avatar-preview',
     component: AvatarPreviewView,
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
   },
 ];
 

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
  * ChatWindow Component Tests (Task 3.2, 3.3)
@@ -104,7 +104,9 @@ test.describe('ChatWindow Layout', () => {
       await expect(sendBtn).toBeDisabled();
     });
 
-    test('TC-CHAT-012: send button is enabled when input has text and collection is selected', async ({ page }) => {
+    test('TC-CHAT-012: send button is enabled when input has text and collection is selected', async ({
+      page,
+    }) => {
       await page.goto('/');
       const input = page.locator('[data-testid="chat-input"]');
       await input.fill('Hello, VEDO!');
@@ -159,8 +161,8 @@ test.describe('ChatWindow Layout', () => {
     test('TC-ANIM-002: message animation has reasonable duration', async ({ page }) => {
       await page.goto('/');
       const message = page.locator('[data-testid^="message-"]').first();
-      const duration = await message.evaluate(
-        (el) => parseFloat(getComputedStyle(el).animationDuration),
+      const duration = await message.evaluate((el) =>
+        Number.parseFloat(getComputedStyle(el).animationDuration),
       );
       // Animation should be quick: less than 500ms
       expect(duration).toBeLessThan(0.5);

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
  * MessageBubble Component Tests (Task 2.1, 2.2)
@@ -148,7 +148,7 @@ test.describe('MessageBubble Component', () => {
       // Each dot should have a sequential animation delay
       const dots = page.locator('[data-testid="typing-dot"]');
       const delays: string[] = [];
-      for (let i = 0; i < await dots.count(); i++) {
+      for (let i = 0; i < (await dots.count()); i++) {
         const delay = await dots.nth(i).evaluate((el) => el.style.animationDelay);
         delays.push(delay);
       }
@@ -158,7 +158,9 @@ test.describe('MessageBubble Component', () => {
       }
     });
 
-    test('TC-TYPING-004: typing indicator disappears when streaming completes', async ({ page }) => {
+    test('TC-TYPING-004: typing indicator disappears when streaming completes', async ({
+      page,
+    }) => {
       await page.goto('/');
       // After streaming completes (message content is filled), typing indicator should hide
       // This requires a completed message scenario
