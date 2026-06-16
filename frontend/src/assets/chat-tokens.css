@@ -1,0 +1,30 @@
+:root {
+  /* Message spacing */
+  --msg-gap: 0.75rem;
+  --msg-padding-y: 0.75rem;
+  --msg-padding-x: 1rem;
+
+  /* Border radius */
+  --msg-radius-user: 18px 6px 18px 18px;
+  --msg-radius-assistant: 6px 18px 18px 18px;
+  --avatar-radius: 999px;
+
+  /* Animation */
+  --anim-msg-enter-duration: 180ms;
+  --anim-msg-enter-ease: cubic-bezier(0.2, 0, 0, 1);
+  --anim-stream-duration: 1.4s;
+
+  /* Message colors */
+  --msg-user-bg: #1f5f9f;
+  --msg-assistant-bg: #1e1e3a;
+  --msg-user-text: #ffffff;
+  --msg-assistant-text: #e8e8f2;
+  --msg-time-color: #7d7da3;
+  --avatar-user-bg: #2563eb;
+  --avatar-assistant-bg: #2a2a4e;
+
+  /* Sizing */
+  --avatar-size: 32px;
+  --max-msg-width: min(75%, 760px);
+  --input-min-height: 44px;
+}

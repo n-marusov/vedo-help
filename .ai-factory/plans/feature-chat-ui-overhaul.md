@@ -81,7 +81,7 @@ Before implementation, keep the Pencil design reference aligned with the actual 
 
 ### Phase 1: Design Tokens & Shared Variables
 
-#### [ ] Task 1.1 — Define chat UI design tokens
+#### [x] Task 1.1 — Define chat UI design tokens
 
 Create CSS custom properties for the chat design system. These tokens will be the single source of truth for spacing, radii, animation timing, and message colors.
 
