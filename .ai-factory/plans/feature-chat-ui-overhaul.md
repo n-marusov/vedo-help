@@ -447,7 +447,7 @@ Create new `/api/auth/*` endpoints for session management and user info retrieva
 
 ---
 
-#### [ ] Task 5.5 — Create frontend login page with social provider buttons
+#### [x] Task 5.5 — Create frontend login page with social provider buttons
 
 Create a login page at `/login` with branded buttons for Yandex, VK, and Mail.ru authentication via KeyCloak. Implement the OAuth authorization code flow (PKCE for public client).
 
@@ -493,7 +493,7 @@ Create a login page at `/login` with branded buttons for Yandex, VK, and Mail.ru
 
 ---
 
-#### [ ] Task 5.6 — Token refresh and session persistence
+#### [x] Task 5.6 — Token refresh and session persistence
 
 Implement silent token refresh using KeyCloak's refresh token and persist the auth session across page reloads.
 
@@ -520,7 +520,7 @@ Implement silent token refresh using KeyCloak's refresh token and persist the au
 
 ### Phase 6: Documentation & Cleanup
 
-#### [ ] Task 6.1 — Auth documentation and configuration guide
+#### [~] Task 6.1 — Auth documentation and configuration guide
 
 Document the complete authentication setup: KeyCloak realm configuration, social provider registration, environment variables, and troubleshooting.
 
@@ -542,7 +542,7 @@ Document the complete authentication setup: KeyCloak realm configuration, social
 
 ---
 
-#### [ ] Task 6.2 — Update ROADMAP.md
+#### [x] Task 6.2 — Update ROADMAP.md
 
 Mark the Chat UI overhaul (Phase 5 auth tasks backfilled into v0.2 scope) as complete.
 
@@ -567,8 +567,9 @@ Mark the Chat UI overhaul (Phase 5 auth tasks backfilled into v0.2 scope) as com
 | 8 | Tasks 4.2, 4.3 | Docs + roadmap | `docs(ui): update documentation for chat UI overhaul` |
 | 9 | Tasks 5.1, 5.2 | KeyCloak infra | `feat(auth): add KeyCloak + PostgreSQL to Docker Compose and configure realm` |
 | 10 | Tasks 5.3, 5.4 | Backend auth | `feat(auth): add JWT validation middleware and auth endpoints` |
-| 11 | Tasks 5.5, 5.6 | Frontend auth | `feat(auth): add login page with social providers and token refresh` |
-| 12 | Tasks 6.1, 6.2 | Auth docs | `docs(auth): document authentication setup and configuration` |
+| 11 | Tasks 5.5, 5.6 | Frontend auth | `feat(auth): add login page with social providers and token refresh` | ✅
+| 12 | Tasks 6.1, 6.2 | Auth docs | `docs(auth): document authentication setup and configuration` | ~
 
 **Total tasks:** 18 (across 7 phases)
 **Estimated commits:** 12
+**Completed:** 17/18 (5.1–5.6, 6.2 ✅; 6.1 in progress)

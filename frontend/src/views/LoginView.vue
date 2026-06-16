@@ -1,6 +1,12 @@
 <script setup>
-// No lang="ts" per project convention
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
+// No lang="ts" per project convention
+import { redirectToKeycloak } from '@/composables/useOidcAuth';
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+const isRedirecting = ref(false);
 
 const providers = [
   { id: 'vk', label: 'Continue with VK ID' },
@@ -10,9 +16,31 @@ const providers = [
   { id: 'corp-sso', label: 'Corporate SSO (SAML/OIDC)' },
 ];
 
-function handleOAuth(providerId) {
-  // Placeholder — will connect to backend OAuth flow
+onMounted(() => {
+  console.debug('[LoginView] mounted: login page with OAuth providers');
+});
+
+async function handleOAuth(providerId) {
+  if (isRedirecting.value) return;
+  isRedirecting.value = true;
   console.debug('[LoginView] OAuth button clicked:', providerId);
+
+  // Map provider IDs to KeyCloak kc_idp_hint values
+  const providerHintMap = {
+    vk: 'vk',
+    yandex: 'yandex',
+    mailru: 'mailru',
+  };
+
+  const hint = providerHintMap[providerId];
+  if (hint) {
+    await redirectToKeycloak(hint);
+  } else {
+    // For Google and Corporate SSO — redirect to the KeyCloak login page
+    // where all configured identity providers are shown
+    await redirectToKeycloak();
+  }
+  // Redirect happens — we won't return from here in normal flow
 }
 </script>
 
@@ -39,6 +67,8 @@ function handleOAuth(providerId) {
           v-for="p in providers"
           :key="p.id"
           class="oauth-btn"
+          :class="{ 'oauth-btn--loading': isRedirecting }"
+          :disabled="isRedirecting"
           data-testid="oauth-btn"
           @click="handleOAuth(p.id)"
         >

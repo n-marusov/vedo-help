@@ -83,9 +83,9 @@ vedo-assistant/
 │       │   ├── MessageBubble.vue  # Message display with markdown, sources
 │       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
 │       │   └── DocumentList.vue  # Document upload & listing with progress
-│       ├── composables/        # useTheme, useStreamingChat
+│       ├── composables/        # useTheme, useStreamingChat, useOidcAuth
 │       ├── stores/             # Pinia stores (chat, documents, collections)
-│       └── views/              # ChatView, AdminView, LoginView, AvatarPreviewView
+│       └── views/              # ChatView, AdminView, LoginView, CallbackView, AvatarPreviewView
 ├── docs/
 │   ├── technical-specification-rag-system.md  # Full technical specification
 │   ├── getting-started.md      # Installation guide
