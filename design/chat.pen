@@ -226,7 +226,6 @@
                     16,
                     20
                   ],
-                  "justifyContent": "space-between",
                   "alignItems": "center",
                   "children": [
                     {
@@ -240,16 +239,6 @@
                         },
                         "B:gz3AQ": {
                           "enabled": false
-                        }
-                      }
-                    },
-                    {
-                      "id": "toolbarNewChat",
-                      "type": "ref",
-                      "ref": "B:kLoW9",
-                      "descendants": {
-                        "B:aTVi9": {
-                          "content": "✎ New chat"
                         }
                       }
                     }
@@ -601,7 +590,6 @@
                     16,
                     20
                   ],
-                  "justifyContent": "space-between",
                   "alignItems": "center",
                   "children": [
                     {
@@ -615,16 +603,6 @@
                         },
                         "B:gz3AQ": {
                           "enabled": false
-                        }
-                      }
-                    },
-                    {
-                      "id": "toolbarNewChat",
-                      "type": "ref",
-                      "ref": "B:kLoW9",
-                      "descendants": {
-                        "B:aTVi9": {
-                          "content": "✎ New chat"
                         }
                       }
                     }

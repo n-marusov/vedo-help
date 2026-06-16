@@ -4,7 +4,6 @@ import CollectionManager from '@/components/CollectionManager.vue';
 import DocumentList from '@/components/DocumentList.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VInput from '@/components/ui/VInput.vue';
-import VThemeToggle from '@/components/ui/VThemeToggle.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
 import { onMounted, ref, watch } from 'vue';
@@ -102,7 +101,6 @@ watch(
           </p>
         </div>
         <div class="admin-header__actions">
-          <VThemeToggle />
           <VButton variant="outline" @click="handleClearApiKey">
             Clear API Key
           </VButton>

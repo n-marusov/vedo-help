@@ -2,7 +2,6 @@
 import MessageBubble from '@/components/MessageBubble.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VSelect from '@/components/ui/VSelect.vue';
-import VThemeToggle from '@/components/ui/VThemeToggle.vue';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
@@ -245,10 +244,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             class="toolbar-select"
             @update:model-value="collectionStore.setActiveCollection"
           />
-        </div>
-        <div class="toolbar-right">
-          <VThemeToggle />
-          <VButton variant="ghost" @click="handleNewChat">✎ New chat</VButton>
         </div>
       </div>
 
@@ -541,7 +536,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   height: 72px;
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
@@ -555,11 +549,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .toolbar-select {
   width: 360px;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
 }
 
 /* ===== Messages Area ===== */

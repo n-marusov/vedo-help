@@ -1,7 +1,19 @@
-<script setup></script>
+<script setup>
+import AppHeader from '@/components/AppHeader.vue';
+import { computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+const showAppHeader = computed(() => route.name !== 'login');
+
+onMounted(() => {
+  console.debug('[App] mounted: root layout initialized with persistent header');
+});
+</script>
 
 <template>
   <div class="app-layout">
+    <AppHeader v-if="showAppHeader" />
     <main class="main-content">
       <router-view />
     </main>
@@ -39,6 +51,7 @@ body {
 <style scoped>
 .app-layout {
   display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
   background-color: var(--color-background);
@@ -46,6 +59,7 @@ body {
 
 .main-content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 </style>
