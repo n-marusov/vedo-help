@@ -13,6 +13,7 @@ use tower_http::cors::CorsLayer;
 use tracing_subscriber::EnvFilter;
 
 use vedo_backend::config::AppConfig;
+use vedo_backend::modules::auth::handlers as auth_handlers;
 use vedo_backend::modules::collections::repository::CollectionRepository;
 use vedo_backend::modules::collections::{
     handlers as collections_handlers, service::CollectionService,
@@ -125,6 +126,9 @@ async fn main() {
     let app = Router::new()
         // Public routes
         .route("/health", get(health_check))
+        // Auth routes (behind auth middleware via /api/* route_layer)
+        .route("/api/auth/me", get(auth_handlers::me))
+        .route("/api/auth/logout", post(auth_handlers::logout))
         // Document routes
         .route("/api/documents/upload", post(documents_handlers::upload))
         .route("/api/documents", get(documents_handlers::list))

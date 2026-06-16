@@ -44,11 +44,16 @@ backend/
     │   │   ├── repository.rs
     │   │   └── models.rs
     │   │
-    │   └── conversations/         # Chat sessions, message history
-    │       ├── handlers.rs
-    │       ├── service.rs
-    │       ├── repository.rs
-    │       └── models.rs
+    │   ├── conversations/         # Chat sessions, message history
+    │   │   ├── handlers.rs
+    │   │   ├── service.rs
+    │   │   ├── repository.rs
+    │   │   └── models.rs
+    │   │
+    │   └── auth/                   # Auth endpoints, user context
+    │       ├── handlers.rs         # /api/auth/me, /api/auth/logout
+    │       ├── service.rs          # User info resolution
+    │       └── models.rs           # UserInfo, UserContext types
     │
     └── shared/                    # ── SHARED (cross-cutting) ──
         ├── error.rs               # Unified error types, error responses

@@ -39,7 +39,8 @@ vedo-assistant/
 │       │   ├── documents/      # Document upload, parsing, chunking
 │       │   ├── collections/    # Collection CRUD
 │       │   ├── query/          # RAG pipeline, Q&A
-│       │   └── conversations/  # Chat sessions, messages
+│       │   ├── conversations/  # Chat sessions, messages
+│       │   └── auth/           # Auth endpoints (me, logout), UserContext
 │       └── shared/
 │           ├── auth.rs         # Bearer token middleware
 │           ├── error.rs        # Unified AppError enum
@@ -124,6 +125,7 @@ vedo-assistant/
 | `docker-compose.override.yml` | Development overrides (hot-reload, debug ports) |
 | `docker-compose.production.yml` | Production hardening (no-exposed ports, resource limits, logging) |
 | `Caddyfile` | Reverse proxy config (API, frontend, KeyCloak auth) |
+| `backend/src/modules/auth/handlers.rs` | Auth endpoints: GET /api/auth/me, POST /api/auth/logout |
 
 ## Documentation
 

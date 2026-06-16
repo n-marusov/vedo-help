@@ -420,7 +420,7 @@ Extend the backend auth middleware to validate both the legacy `ADMIN_API_KEY` h
 
 ---
 
-#### [ ] Task 5.4 — Add auth endpoints and user context to backend
+#### [x] Task 5.4 — Add auth endpoints and user context to backend
 
 Create new `/api/auth/*` endpoints for session management and user info retrieval.
 
