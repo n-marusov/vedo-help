@@ -9577,7 +9577,7 @@
                       "height": "fit_content",
                       "descendants": {
                         "TPOp0": {
-                          "fill": "\\$secondary",
+                          "fill": "$secondary",
                           "width": "fit_content",
                           "height": "fit_content"
                         },
@@ -9590,7 +9590,7 @@
                           "y": 2
                         },
                         "PrEuR": {
-                          "fill": "\\$secondary",
+                          "fill": "$secondary",
                           "width": "fit_content",
                           "height": "fit_content",
                           "x": 40
@@ -9906,7 +9906,7 @@
               "id": "6iLTI",
               "name": "FilterBar",
               "width": "fill_container",
-              "fill": "\\$secondary",
+              "fill": "$secondary",
               "stroke": {
                 "type": "color",
                 "color": "$border"
@@ -10023,7 +10023,7 @@
                   "id": "YX2B8",
                   "name": "Column/Backlog",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -10146,7 +10146,7 @@
                   "id": "ojp12",
                   "name": "Column/Implementing",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -10240,7 +10240,7 @@
                   "id": "sArV3",
                   "name": "Column/Review",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -10334,7 +10334,7 @@
                   "id": "cw8hS",
                   "name": "Column/Done",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -10776,7 +10776,7 @@
                       "name": "chatTextarea",
                       "x": 40,
                       "y": 12,
-                      "fill": "\\$secondary",
+                      "fill": "$secondary",
                       "descendants": {
                         "xAwdW": {
                           "content": "Ask a question...",
@@ -11035,7 +11035,7 @@
                       "id": "PWrvy",
                       "name": "description",
                       "width": "fill_container",
-                      "fill": "\\$secondary",
+                      "fill": "$secondary",
                       "stroke": {
                         "type": "color",
                         "color": "$border"
@@ -11080,7 +11080,7 @@
                       "descendants": {
                         "0ogrO": {
                           "width": "fill_container",
-                          "fill": "\\$muted",
+                          "fill": "$muted",
                           "height": "fit_content"
                         },
                         "SaOXD": {
@@ -11103,7 +11103,7 @@
                       "id": "WJN9j",
                       "name": "agentTimeline",
                       "width": "fill_container",
-                      "fill": "\\$secondary",
+                      "fill": "$secondary",
                       "stroke": {
                         "type": "color",
                         "color": "$border"
@@ -11218,7 +11218,7 @@
               "id": "ToN9Y",
               "name": "AddTaskForm",
               "width": "fill_container",
-              "fill": "\\$secondary",
+              "fill": "$secondary",
               "stroke": {
                 "type": "color",
                 "color": "$border"
@@ -11235,7 +11235,7 @@
                   "name": "atfTitle",
                   "x": 10,
                   "y": 10,
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "descendants": {
                     "xAwdW": {
                       "content": "Task title",
@@ -11250,7 +11250,7 @@
                   "name": "atfDescFrame",
                   "width": "fill_container",
                   "height": 48,
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$input"
@@ -11277,7 +11277,7 @@
                   "id": "paILQ",
                   "name": "taskType",
                   "width": "fill_container",
-                  "fill": "\\$background",
+                  "fill": "$background",
                   "stroke": {
                     "thickness": {
                       "top": 1,
@@ -11316,7 +11316,7 @@
                           "y": 0
                         },
                         "ArGsk": {
-                          "fill": "\\$card"
+                          "fill": "$card"
                         },
                         "heLGy": {
                           "content": "Standard — Default task flow",
@@ -11341,7 +11341,7 @@
                           "y": 0
                         },
                         "ArGsk": {
-                          "fill": "\\$card"
+                          "fill": "$card"
                         },
                         "heLGy": {
                           "content": "Fix — Patch for broken behavior",
@@ -11361,7 +11361,7 @@
                       "height": "fit_content",
                       "descendants": {
                         "32HI9": {
-                          "fill": "\\$card",
+                          "fill": "$card",
                           "y": 0.5
                         },
                         "qU8Cs": {
@@ -12302,7 +12302,7 @@
                       "height": "fit_content",
                       "descendants": {
                         "TPOp0": {
-                          "fill": "\\$secondary",
+                          "fill": "$secondary",
                           "width": "fit_content",
                           "height": "fit_content"
                         },
@@ -12315,7 +12315,7 @@
                           "y": 2
                         },
                         "PrEuR": {
-                          "fill": "\\$secondary",
+                          "fill": "$secondary",
                           "width": "fit_content",
                           "height": "fit_content",
                           "x": 40
@@ -12631,7 +12631,7 @@
               "id": "ij2yj",
               "name": "FilterBar",
               "width": "fill_container",
-              "fill": "\\$secondary",
+              "fill": "$secondary",
               "stroke": {
                 "type": "color",
                 "color": "$border"
@@ -12748,7 +12748,7 @@
                   "id": "XNBpK",
                   "name": "Column/Backlog",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -12871,7 +12871,7 @@
                   "id": "Oc4YS",
                   "name": "Column/Implementing",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -12965,7 +12965,7 @@
                   "id": "BIqym",
                   "name": "Column/Review",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -13059,7 +13059,7 @@
                   "id": "HjGlO",
                   "name": "Column/Done",
                   "width": "fill_container",
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$border"
@@ -13501,7 +13501,7 @@
                       "name": "chatTextarea",
                       "x": 40,
                       "y": 12,
-                      "fill": "\\$secondary",
+                      "fill": "$secondary",
                       "descendants": {
                         "xAwdW": {
                           "content": "Ask a question...",
@@ -13760,7 +13760,7 @@
                       "id": "s4naQ",
                       "name": "description",
                       "width": "fill_container",
-                      "fill": "\\$secondary",
+                      "fill": "$secondary",
                       "stroke": {
                         "type": "color",
                         "color": "$border"
@@ -13805,7 +13805,7 @@
                       "descendants": {
                         "0ogrO": {
                           "width": "fill_container",
-                          "fill": "\\$muted",
+                          "fill": "$muted",
                           "height": "fit_content"
                         },
                         "SaOXD": {
@@ -13828,7 +13828,7 @@
                       "id": "CsgHq",
                       "name": "agentTimeline",
                       "width": "fill_container",
-                      "fill": "\\$secondary",
+                      "fill": "$secondary",
                       "stroke": {
                         "type": "color",
                         "color": "$border"
@@ -13943,7 +13943,7 @@
               "id": "xyKK4",
               "name": "AddTaskForm",
               "width": "fill_container",
-              "fill": "\\$secondary",
+              "fill": "$secondary",
               "stroke": {
                 "type": "color",
                 "color": "$border"
@@ -13960,7 +13960,7 @@
                   "name": "atfTitle",
                   "x": 10,
                   "y": 10,
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "descendants": {
                     "xAwdW": {
                       "content": "Task title",
@@ -13975,7 +13975,7 @@
                   "name": "atfDescFrame",
                   "width": "fill_container",
                   "height": 48,
-                  "fill": "\\$secondary",
+                  "fill": "$secondary",
                   "stroke": {
                     "type": "color",
                     "color": "$input"
@@ -14002,7 +14002,7 @@
                   "id": "qqJYK",
                   "name": "taskType",
                   "width": "fill_container",
-                  "fill": "\\$background",
+                  "fill": "$background",
                   "stroke": {
                     "thickness": {
                       "top": 1,
