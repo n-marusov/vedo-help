@@ -392,7 +392,7 @@ Create a reproducible KeyCloak realm configuration with Yandex, VK, and Mail.ru 
 
 ---
 
-#### [ ] Task 5.3 — Add KeyCloak JWT validation middleware to backend
+#### [x] Task 5.3 — Add KeyCloak JWT validation middleware to backend
 
 Extend the backend auth middleware to validate both the legacy `ADMIN_API_KEY` header and KeyCloak-issued JWT tokens using JWKS.
 

@@ -4,9 +4,8 @@ use std::sync::Arc;
 use axum::{
     extract::FromRef,
     middleware,
-    response::IntoResponse,
     routing::{delete, get, post},
-    Router,
+    Extension, Router,
 };
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::signal;
@@ -26,7 +25,10 @@ use vedo_backend::modules::documents::repository::DocumentRepository;
 use vedo_backend::modules::documents::{handlers as documents_handlers, service::DocumentService};
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::modules::query::{handlers as query_handlers, service::QueryService};
-use vedo_backend::shared::{auth::AuthToken, llm::OpenRouterClient};
+use vedo_backend::shared::{
+    auth::{authenticate_request, SharedJwtValidator},
+    llm::OpenRouterClient,
+};
 
 #[tokio::main]
 async fn main() {
@@ -116,6 +118,9 @@ async fn main() {
     // Auth middleware config
     let auth_config = Arc::new(config.clone());
 
+    // JWT validator — thread-safe, shared across middleware invocations
+    let jwt_validator = vedo_backend::shared::auth::JwtValidator::shared(&config);
+
     // Build router
     let app = Router::new()
         // Public routes
@@ -161,6 +166,8 @@ async fn main() {
             auth_config.clone(),
             auth_middleware,
         ))
+        // JWT validator shared across middleware
+        .layer(Extension(jwt_validator))
         // CORS
         .layer(CorsLayer::permissive())
         // Shared state
@@ -228,24 +235,22 @@ impl FromRef<AppState> for QueryService {
 }
 
 /// Auth middleware — validates Bearer token for all /api/* routes.
+///
+/// Supports both legacy admin API key and KeyCloak JWT tokens.
 async fn auth_middleware(
     axum::extract::State(config): axum::extract::State<Arc<AppConfig>>,
+    axum::extract::Extension(jwt_validator): axum::extract::Extension<SharedJwtValidator>,
     req: axum::http::Request<axum::body::Body>,
     next: middleware::Next,
 ) -> Result<axum::response::Response, axum::response::Response> {
-    if AuthToken::is_authenticated(req.headers(), &config) {
-        Ok(next.run(req).await)
-    } else {
-        Err((
-            axum::http::StatusCode::UNAUTHORIZED,
-            axum::Json(serde_json::json!({
-                "error": {
-                    "type": "unauthorized",
-                    "message": "Invalid or missing API key"
-                }
-            })),
-        )
-            .into_response())
+    match authenticate_request(req.headers(), &config, Some(&jwt_validator)).await {
+        Ok(auth_info) => {
+            // Store auth info in request extensions for downstream handlers.
+            let mut req = req;
+            req.extensions_mut().insert(auth_info);
+            Ok(next.run(req).await)
+        }
+        Err(response) => Err(response),
     }
 }
 

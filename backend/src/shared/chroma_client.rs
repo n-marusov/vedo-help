@@ -57,7 +57,9 @@ impl ChromaClient {
             match Self::try_add(&self.client, &url, &body).await {
                 Ok(()) => return Ok(()),
                 Err(e) => {
-                    tracing::warn!("Chroma add_embeddings failed (attempt {attempt}/{MAX_RETRIES}): {e}");
+                    tracing::warn!(
+                        "Chroma add_embeddings failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                    );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -66,7 +68,8 @@ impl ChromaClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
+        Err(last_error
+            .unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
     }
 
     async fn try_add(client: &Client, url: &str, body: &serde_json::Value) -> Result<(), AppError> {
@@ -118,10 +121,15 @@ impl ChromaClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
+        Err(last_error
+            .unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
     }
 
-    async fn try_query(client: &Client, url: &str, body: &serde_json::Value) -> Result<Vec<ChromaResult>, AppError> {
+    async fn try_query(
+        client: &Client,
+        url: &str,
+        body: &serde_json::Value,
+    ) -> Result<Vec<ChromaResult>, AppError> {
         let response = client
             .post(url)
             .json(body)
@@ -149,18 +157,12 @@ impl ChromaClient {
                 let distance = data["distances"][0][i].as_f64().unwrap_or(1.0);
                 let score = 1.0 - distance;
                 let metadata = &data["metadatas"][0][i];
-                let text = data["documents"][0][i]
-                    .as_str()
-                    .unwrap_or("")
-                    .to_string();
+                let text = data["documents"][0][i].as_str().unwrap_or("").to_string();
 
                 results.push(ChromaResult {
                     id: id.as_str().unwrap_or("").to_string(),
                     text,
-                    document_id: metadata["document_id"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
+                    document_id: metadata["document_id"].as_str().unwrap_or("").to_string(),
                     chunk_index: metadata["chunk_index"].as_u64().unwrap_or(0) as usize,
                     score,
                 });
@@ -182,7 +184,9 @@ impl ChromaClient {
             match Self::try_create_collection(&self.client, &url, &body).await {
                 Ok(()) => return Ok(()),
                 Err(e) => {
-                    tracing::warn!("Chroma create_collection failed (attempt {attempt}/{MAX_RETRIES}): {e}");
+                    tracing::warn!(
+                        "Chroma create_collection failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                    );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -191,10 +195,15 @@ impl ChromaClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
+        Err(last_error
+            .unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
     }
 
-    async fn try_create_collection(client: &Client, url: &str, body: &serde_json::Value) -> Result<(), AppError> {
+    async fn try_create_collection(
+        client: &Client,
+        url: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), AppError> {
         let response = client
             .post(url)
             .json(body)
@@ -225,7 +234,9 @@ impl ChromaClient {
             match Self::try_delete_collection(&self.client, &url).await {
                 Ok(()) => return Ok(()),
                 Err(e) => {
-                    tracing::warn!("Chroma delete_collection failed (attempt {attempt}/{MAX_RETRIES}): {e}");
+                    tracing::warn!(
+                        "Chroma delete_collection failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                    );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -234,7 +245,8 @@ impl ChromaClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
+        Err(last_error
+            .unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
     }
 
     async fn try_delete_collection(client: &Client, url: &str) -> Result<(), AppError> {
@@ -270,7 +282,9 @@ impl ChromaClient {
             match Self::try_delete_document(&self.client, &url, &body).await {
                 Ok(()) => return Ok(()),
                 Err(e) => {
-                    tracing::warn!("Chroma delete_document failed (attempt {attempt}/{MAX_RETRIES}): {e}");
+                    tracing::warn!(
+                        "Chroma delete_document failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                    );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -279,10 +293,15 @@ impl ChromaClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
+        Err(last_error
+            .unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
     }
 
-    async fn try_delete_document(client: &Client, url: &str, body: &serde_json::Value) -> Result<(), AppError> {
+    async fn try_delete_document(
+        client: &Client,
+        url: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), AppError> {
         let response = client
             .post(url)
             .json(body)

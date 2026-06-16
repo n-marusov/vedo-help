@@ -49,7 +49,10 @@ impl OpenRouterClient {
             .build()
             .expect("Failed to create HTTP client for OpenRouter");
 
-        tracing::debug!("OpenRouter client initialized: model={}", config.openrouter_model);
+        tracing::debug!(
+            "OpenRouter client initialized: model={}",
+            config.openrouter_model
+        );
 
         Self {
             client,
@@ -69,7 +72,12 @@ impl OpenRouterClient {
     ) -> Result<impl Stream<Item = Result<String, AppError>>, AppError> {
         let context: Vec<String> = chunks
             .iter()
-            .map(|c| format!("[Source: {} (chunk {})]\n{}", c.document_name, c.index, c.text))
+            .map(|c| {
+                format!(
+                    "[Source: {} (chunk {})]\n{}",
+                    c.document_name, c.index, c.text
+                )
+            })
             .collect();
         let context_str = context.join("\n\n");
 
@@ -82,9 +90,7 @@ impl OpenRouterClient {
             conversation_history.len()
         );
 
-        let response = self
-            .send_request_with_retry(&messages)
-            .await?;
+        let response = self.send_request_with_retry(&messages).await?;
 
         let stream = response.bytes_stream().map(|result| {
             result
@@ -158,9 +164,7 @@ impl OpenRouterClient {
                     }
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        "LLM request failed (attempt {attempt}/{MAX_RETRIES}): {e}"
-                    );
+                    tracing::warn!("LLM request failed (attempt {attempt}/{MAX_RETRIES}): {e}");
                     last_error = Some(AppError::LlmError(format!("Request failed: {e}")));
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -169,9 +173,8 @@ impl OpenRouterClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            AppError::LlmError("All retry attempts exhausted".to_string())
-        }))
+        Err(last_error
+            .unwrap_or_else(|| AppError::LlmError("All retry attempts exhausted".to_string())))
     }
 
     /// Send a single request to the OpenRouter API.
@@ -217,7 +220,12 @@ mod tests {
 
         let context = chunks
             .iter()
-            .map(|c| format!("[Source: {} (chunk {})]\n{}", c.document_name, c.index, c.text))
+            .map(|c| {
+                format!(
+                    "[Source: {} (chunk {})]\n{}",
+                    c.document_name, c.index, c.text
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 

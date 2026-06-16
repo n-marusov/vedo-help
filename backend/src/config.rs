@@ -13,6 +13,12 @@ pub struct AppConfig {
     pub port: u16,
     pub rust_log: String,
     pub frontend_url: String,
+    /// KeyCloak server base URL (e.g., http://keycloak:8080)
+    pub keycloak_url: String,
+    /// KeyCloak realm name
+    pub keycloak_realm: String,
+    /// Backend client ID for audience validation
+    pub keycloak_client_id: String,
 }
 
 impl AppConfig {
@@ -38,6 +44,11 @@ impl AppConfig {
                 .unwrap_or_else(|_| "vedo_backend=debug,tower_http=debug".to_string()),
             frontend_url: env::var("FRONTEND_URL")
                 .unwrap_or_else(|_| "http://localhost:5173".to_string()),
+            keycloak_url: env::var("KEYCLOAK_URL")
+                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            keycloak_realm: env::var("KEYCLOAK_REALM").unwrap_or_else(|_| "vedo-hub".to_string()),
+            keycloak_client_id: env::var("KEYCLOAK_CLIENT_ID")
+                .unwrap_or_else(|_| "vedo-backend".to_string()),
         }
     }
 }

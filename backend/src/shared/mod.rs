@@ -8,7 +8,7 @@ pub mod llm;
 pub mod rate_limit;
 pub mod types;
 
-pub use auth::AuthToken;
+pub use auth::{AuthToken, AuthUser, JwtValidator};
 pub use chroma_client::ChromaClient;
 pub use chunking::chunk_document;
 pub use embedding_client::EmbeddingClient;
