@@ -2,32 +2,17 @@
 
 # User Interface Guide
 
-The frontend is a single-page application (SPA) built with Vue 3 and TypeScript. It has two main views accessed from the sidebar: **Chat** (Q&A interface) and **Admin** (collection and document management).
+The frontend is a single-page application (SPA) built with Vue 3 and TypeScript. It has two main views: **Chat** (Q&A interface) and **Admin** (collection and document management). The admin panel is accessible directly via `/admin`.
 
 ## Layout
 
-The app shell consists of a dark-themed sidebar and a main content area.
-
-```
-┌──────────────┬──────────────────────────────────────┐
-│  VEDO hub    │                                      │
-│              │                                      │
-│  💬 Chat     │         Main Content Area            │
-│  ⚙️ Admin    │                                      │
-│              │                                      │
-│              │                                      │
-│  v0.1.0      │                                      │
-└──────────────┴──────────────────────────────────────┘
-```
-
-- **Sidebar** — navigation between Chat and Admin views. Displays the project name and version.
-- **Main area** — renders the active view (chat interface or admin panel).
+The app layout is minimal — full-height `<router-view />` with no persistent nav sidebar, inspired by DeepSeek's clean design. A small "V" branding badge sits in the top-left corner (non-interactive).
 
 ---
 
 ## Chat View (`/`)
 
-The chat view is the primary Q&A interface. It has two panels: a session sidebar on the left and the chat window on the right.
+The chat view is the primary Q&A interface. It has a session sidebar on the left and the chat window on the right.
 
 ### Session Sidebar
 
@@ -51,61 +36,65 @@ The chat view is the primary Q&A interface. It has two panels: a session sidebar
 | **Sessions heading** | Section title with `+ New` button to start a fresh chat |
 | **Session list** | Clickable sessions sorted by recency. Each shows title, message count, and relative time |
 | **Active session** | Highlighted with a blue border |
-| **Delete (🗑️)** | Appears on hover — removes the session after confirmation |
+| **Delete (×)** | Appears on hover — removes the session after confirmation |
+
+On mobile (<768px), the sidebar slides in from the left via a hamburger toggle. Selecting a session auto-closes the sidebar.
 
 ### Chat Window
 
 ```
 ┌───────────────────────────────────────────────┐
-│  [Select a collection ▼]                   ✏️ │
+│                                               │
+│              What would you like to know?      │
+│     Ask questions about your documents and    │
+│            get answers with citations.         │
+│                                               │
+│     Active collection: [Technical Docs ▼]      │
+│                                               │
+│  ┌────────────────────────────────────────┐   │
+│  │ How do I configure the rate limiter?   │   │
+│  └────────────────────────────────────────┘   │
+│                                               │
+│  ┌────────────────────────────────────────┐   │
+│  │ The rate limiter is configured via…    │   │
+│  │                                        │   │
+│  │ ◀ 1 source                             │   │
+│  └────────────────────────────────────────┘   │
+│                                               │
 ├───────────────────────────────────────────────┤
-│                                               │
-│  💬  VEDO RAG Assistant                       │
-│      Select a collection and ask a question.  │
-│                                               │
-│  ┌──────────────────────────────────────┐     │
-│  │ You  2:30 PM                         │     │
-│  │ How do I configure the rate limiter? │     │
-│  └──────────────────────────────────────┘     │
-│  ┌──────────────────────────────────────┐     │
-│  │ 🤖 VEDO Assistant  2:30 PM           │     │
-│  │ The rate limiter is configured via…  │     │
-│  │                                      │     │
-│  │ 📚 2 sources ▸                       │     │
-│  └──────────────────────────────────────┘     │
-│                                               │
-├───────────────────────────────────────────────┤
-│ │ Ask a question about your documents...   ➤ │
+│ ┌─────────────────────────────────────────┐   │
+│ │ Ask a question...                    ➤  │   │
+│ └─────────────────────────────────────────┘   │
 └───────────────────────────────────────────────┘
 ```
 
 | Element | Description |
 |---------|-------------|
-| **Collection selector** | Dropdown at the top — choose which collection to query. Disabled state shows a placeholder prompt |
-| **New chat (✏️)** | Clears the current conversation and creates a new session |
-| **Messages area** | Scrollable list of user and assistant messages. Shows a welcome screen when empty |
-| **Message bubbles** | User messages right-aligned (blue), assistant messages left-aligned (dark). Each shows role, timestamp, and formatted markdown content |
-| **Sources section** | Collapsible panel under assistant messages showing cited documents, chunk text previews, and relevance scores |
-| **Input area** | Textarea with auto-resize; supports Enter to send, Shift+Enter for newline |
-| **Send button (➤)** | Submits the query. Shows a spinner during streaming |
-| **Cancel (⏹)** | Appears during streaming — aborts the current LLM response |
-| **Error banner** | Red highlighted message bar when the API returns an error |
+| **Welcome screen** | Clean centered layout with a "V" logo icon, tagline, and a collection selector dropdown (shown when no messages exist) |
+| **Messages area** | Scrollable list of user and assistant messages. Centered layout with max-width for readability on wide screens |
+| **Message bubbles** | User messages right-aligned with a subtle blue background. Assistant messages left-aligned with no background (clean, no-card look). Each uses `UserAvatar` instead of emoji |
+| **Timestamp** | Subtle, small text below each message |
+| **Avatar** | `UserAvatar` component: person silhouette for user, "V" icon for assistant. Inline SVG, zero network cost |
+| **Sources section** | Collapsible panel under assistant messages. Uses a clean chevron icon. Shows document name and relevance score |
+| **Input area** | Rounded input bar with inline send button. Textarea with auto-resize (supports Enter to send, Shift+Enter for newline). Send button lights up when text is entered |
+| **Cancel (⏹ icon)** | Appears during streaming — aborts the current LLM response |
+| **Error banner** | Red bar when the API returns an error |
 
 ### Streaming Flow
 
-1. User types a question and presses Enter (or clicks Send)
+1. User types a question and presses Enter (or clicks the send icon)
 2. A user message bubble appears immediately (optimistic update)
-3. An empty assistant bubble appears with a typing indicator (three bouncing dots)
-4. As the backend streams tokens via SSE, the assistant bubble fills in progressively
-5. After completion, sources appear below the message
+3. An empty assistant bubble appears with a **streaming glow bar** (animated gradient, replacing the old three-dot bounce)
+4. As the backend streams tokens, the assistant bubble fills in progressively with a **blinking cursor** at the end
+5. After completion, sources appear below the message with a chevron toggle
 6. If the user clicks Cancel, streaming stops and the partial response is kept
 
 ### Message Sources
 
-Click the **📚 N sources** toggle to expand source citations:
+Click the **N sources** chevron to expand source citations:
 
 ```
-📚 2 sources ▾
+▶ 2 sources
 ┌──────────────────────────────────────┐
 │ config-guide.md              92%    │
 │ The rate limiter is configured by…  │
@@ -120,6 +109,14 @@ Each source shows:
 - **Document name** — the source file
 - **Relevance score** — cosine similarity percentage
 - **Text preview** — up to 3 lines of the matched chunk
+
+### Message Animations
+
+New messages animate in with a smooth entrance effect:
+- `opacity: 0 → 1` combined with `translateY(8px) → translateY(0)`
+- Duration: 180ms (configurable via `--anim-msg-enter-duration`)
+- Staggered: 50ms delay between consecutive messages (`--msg-index` CSS variable)
+- Respects `prefers-reduced-motion` — animations disabled entirely
 
 ---
 
@@ -225,13 +222,86 @@ Located in the right panel of the admin view.
 
 ---
 
+## Design Tokens
+
+The chat UI uses CSS custom properties defined in `frontend/src/assets/chat-tokens.css`. These tokens are the single source of truth for spacing, radii, animation timing, and message colors.
+
+| Token | Default | Purpose |
+|-------|---------|---------|
+| `--msg-gap` | `0.75rem` | Gap between message and avatar |
+| `--msg-padding-y` | `0.75rem` | Vertical padding in message content |
+| `--msg-padding-x` | `1rem` | Horizontal padding in message content |
+| `--msg-radius-user` | `18px 6px 18px 18px` | User bubble border radius |
+| `--msg-radius-assistant` | `6px 18px 18px 18px` | Assistant content border radius |
+| `--avatar-radius` | `999px` | Avatar circle radius |
+| `--anim-msg-enter-duration` | `180ms` | Message entrance animation duration |
+| `--anim-msg-enter-ease` | `cubic-bezier(0.2, 0, 0, 1)` | Message entrance easing |
+| `--anim-stream-duration` | `1.4s` | Streaming glow animation duration |
+| `--msg-user-bg` | `#1f5f9f` | User message background |
+| `--msg-assistant-bg` | `#1e1e3a` | Assistant message background |
+| `--msg-user-text` | `#ffffff` | User message text color |
+| `--msg-assistant-text` | `#e8e8f2` | Assistant message text color |
+| `--msg-time-color` | `#7d7da3` | Timestamp text color |
+| `--avatar-user-bg` | `#2563eb` | User avatar background |
+| `--avatar-assistant-bg` | `#2a2a4e` | Assistant avatar background |
+| `--avatar-size` | `32px` | Avatar size (base) |
+| `--max-msg-width` | `min(75%, 760px)` | Maximum message width |
+| `--input-min-height` | `44px` | Input minimum height |
+
+Tokens are logged to console at DEBUG level on app mount via `logChatTokenValues()`.
+
+## Components
+
+### UserAvatar
+
+Located in `frontend/src/components/ui/UserAvatar.vue`.
+
+**Props:**
+- `role: 'user' | 'assistant'` — required, determines icon and colors
+- `size?: 'sm' | 'md' | 'lg'` — optional, maps to `--avatar-size * factor` (0.75, 1.0, 1.25)
+
+**Design:**
+- User: solid circle with person silhouette SVG, `--avatar-user-bg` background
+- Assistant: solid circle with "V" letter SVG, `--avatar-assistant-bg` background
+
+### MessageBubble
+
+Located in `frontend/src/components/MessageBubble.vue`.
+
+**Props:**
+- `message: Message` — the message data (role, content, sources, created_at)
+- `isStreaming?: boolean` — enables streaming state animations
+- `index?: number` — used for staggered entrance animation delay
+
+**Features:**
+- Markdown rendering via `marked` library
+- Streaming glow bar (when `isStreaming && !message.content`)
+- Blinking cursor (when `isStreaming && message.content`)
+- Collapsible sources section
+- Smooth entrance animation with staggered delay
+
+### ChatWindow
+
+Located in `frontend/src/components/ChatWindow.vue`.
+
+**Features:**
+- Welcome screen with collection selector
+- Max-width centered layout (820px)
+- Auto-resizing textarea input
+- Inline send/cancel buttons
+- Scrollbar styling
+
+---
+
 ## Mobile Responsiveness
 
-Both views adapt to narrow viewports (≤768 px):
+The chat layout adapts to all viewports:
 
-- The session sidebar stacks **above** the chat window (max 200 px height)
-- The admin panels stack vertically instead of side-by-side
-- All other interactive elements remain functional without horizontal scrolling
+- **< 480px (mobile):** Full-screen chat, sidebar slides in as an overlay, input at bottom with safe-area padding (`env(safe-area-inset-bottom)`), messages use full width
+- **480px – 768px (tablet):** Collapsible sidebar via hamburger toggle, message max-width capped at 95%
+- **> 768px (desktop):** Split layout with persistent sidebar, messages centered at 820px max-width
+
+Admin view adapts similarly — panels stack vertically at narrow widths.
 
 ## See Also
 

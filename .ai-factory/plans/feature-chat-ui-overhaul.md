@@ -130,7 +130,7 @@ defineProps<{
 
 ### Phase 2: MessageBubble Redesign
 
-#### [ ] Task 2.1 — Rewrite MessageBubble with minimalistic design
+#### [x] Task 2.1 — Rewrite MessageBubble with minimalistic design
 
 Replace the current `MessageBubble.vue` with a cleaner, DeepSeek-inspired layout. Preserve existing functionality (Markdown rendering via `marked`, sources toggle) but simplify the visual hierarchy.
 
@@ -154,7 +154,7 @@ Replace the current `MessageBubble.vue` with a cleaner, DeepSeek-inspired layout
 
 ---
 
-#### [ ] Task 2.2 — Refine streaming / typing indicator
+#### [x] Task 2.2 — Refine streaming / typing indicator
 
 Replace the three-dot typing bounce animation with a smoother streaming glow animation — a subtle pulsing bar that appears at the bottom of the assistant message while content is being received.
 
@@ -175,7 +175,7 @@ Replace the three-dot typing bounce animation with a smoother streaming glow ani
 
 ### Phase 3: Layout & ChatWindow Redesign
 
-#### [ ] Task 3.1 — Remove admin navigation from main page
+#### [x] Task 3.1 — Remove admin navigation from main page
 
 The current `App.vue` renders a persistent sidebar with links to `/` (Chat) and `/admin` (Admin). In the DeepSeek-style chat, the main page should show only the chat — no navigation sidebar, no link to admin. The admin panel remains accessible exclusively via direct URL `/admin`.
 
@@ -199,7 +199,7 @@ The current `App.vue` renders a persistent sidebar with links to `/` (Chat) and 
 
 ---
 
-#### [ ] Task 3.2 — Redesign ChatWindow layout
+#### [x] Task 3.2 — Redesign ChatWindow layout
 
 Rewrite `ChatWindow.vue` with a cleaner, more focused layout now that there's no global nav sidebar. Remove the heavy header bar with collection selector — integrate collection selection into a minimal dropdown or keep in the session sidebar.
 
@@ -225,7 +225,7 @@ Rewrite `ChatWindow.vue` with a cleaner, more focused layout now that there's no
 
 ---
 
-#### [ ] Task 3.3 — Implement smooth message animations
+#### [x] Task 3.3 — Implement smooth message animations
 
 Add staggered entrance animations for messages. When a new message appears (optimistic user message or streaming assistant reply), it should animate in smoothly.
 
@@ -246,7 +246,7 @@ Add staggered entrance animations for messages. When a new message appears (opti
 
 ---
 
-#### [ ] Task 3.4 — Responsive chat layout
+#### [x] Task 3.4 — Responsive chat layout
 
 Make the chat window fully responsive for mobile and tablet viewports.
 
@@ -273,7 +273,7 @@ Make the chat window fully responsive for mobile and tablet viewports.
 
 ### Phase 4: Integration & Polish
 
-#### [ ] Task 4.1 — Add unit tests for new components
+#### [x] Task 4.1 — Add unit tests for new components
 
 Write Vitest tests for the redesigned components.
 
@@ -294,7 +294,7 @@ Write Vitest tests for the redesigned components.
 
 ---
 
-#### [ ] Task 4.2 — Documentation checkpoint
+#### [x] Task 4.2 — Documentation checkpoint
 
 Update project documentation to reflect the redesigned chat UI.
 
@@ -312,7 +312,7 @@ Update project documentation to reflect the redesigned chat UI.
 
 ---
 
-#### [ ] Task 4.3 — Update ROADMAP.md
+#### [x] Task 4.3 — Update ROADMAP.md
 
 Mark the Chat UI overhaul phase as complete and move to the next phase in the v0.2 milestone.
 

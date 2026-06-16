@@ -56,12 +56,33 @@ vedo-assistant/
 │       ├── service.py          # Sentence-transformers wrapper
 │       └── cache.py            # Disk-based embedding cache
 ├── frontend/                   # Vue 3 + TypeScript SPA
+│   ├── vitest.config.ts        # Vitest configuration
 │   └── src/
 │       ├── api/                # API client and type definitions
-│       ├── components/         # ChatWindow, MessageBubble, etc.
+│       ├── assets/
+│       │   ├── design-tokens.css # Full design system CSS (from ui-kit.lib.pen)
+│       │   └── chat-tokens.css  # Chat-specific CSS custom properties
+│       ├── components/
+│       │   ├── ui/             # Atomic UI components (Pencil design system)
+│       │   │   ├── VButton.vue       # 5 variants (primary/outline/ghost/small/destructive)
+│       │   │   ├── VInput.vue        # Text input with design tokens
+│       │   │   ├── VSelect.vue       # Custom dropdown select
+│       │   │   ├── VDialog.vue       # Modal dialog (420px, 16px radius)
+│       │   │   ├── VAvatar.vue       # User/assistant avatar (3 sizes)
+│       │   │   ├── VBadge.vue        # Status badge (sm/xs, 4 variants)
+│       │   │   ├── VLabel.vue        # Field label with required state
+│       │   │   ├── VProgressBar.vue   # Animated progress bar
+│       │   │   ├── VDropZone.vue     # File drop zone (drag & drop)
+│       │   │   ├── VToast.vue        # Toast notification (auto-dismiss)
+│       │   │   ├── UserAvatar.vue    # Legacy avatar (deprecated, use VAvatar)
+│       │   │   └── __tests__/  # Unit tests for UI atoms
+│       │   ├── __tests__/      # Unit tests for components
+│       │   ├── MessageBubble.vue  # Message display with markdown, sources
+│       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
+│       │   └── DocumentList.vue  # Document upload & listing with progress
 │       ├── composables/        # useStreamingChat
 │       ├── stores/             # Pinia stores (chat, documents, collections)
-│       └── views/              # ChatView, AdminView
+│       └── views/              # ChatView, AdminView, LoginView
 ├── docs/
 │   ├── technical-specification-rag-system.md  # Full technical specification
 │   ├── getting-started.md      # Installation guide

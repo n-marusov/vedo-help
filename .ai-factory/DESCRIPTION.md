@@ -20,7 +20,9 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 - **Backend:** Rust (axum framework, sqlx, tokio, serde, tracing)
 - **Embedding Service:** Python (FastAPI, sentence-transformers, torch)
 - **Vector Database:** Chroma (chromadb/chroma:latest)
-- **Frontend:** Vue 3 + TypeScript (streaming responses via SSE)
+- **Frontend:** Vue 3 + TypeScript (streaming responses via SSE, DeepSeek-style chat UI)
+- **Testing:** Vitest + @vue/test-utils + jsdom
+- **Design Tokens:** CSS custom properties (chat-tokens.css) for spacing, colors, animations
 - **Database:** SQLite (via sqlx) for metadata and conversation history
 - **Deployment:** Docker Compose with Caddy reverse proxy (VPS)
 - **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests)

@@ -22,12 +22,13 @@
 
 Полный редизайн интерфейса в стиле https://chat.deepseek.com/ — минималистичный чат, тёмная/светлая тема, сайдбар сессий, качественный рендеринг Markdown и кода.
 
-- [ ] **Chat UI overhaul** — переработка ChatWindow + MessageBubble: минималистичные сообщения, аватарки, плавные анимации, адаптивная вёрстка
+- [x] **Chat UI overhaul (Phases 0–4)** — дизайн-токены (`chat-tokens.css`), компонент `UserAvatar` (SVG, 3 размера), переработка `MessageBubble` (ролевые лейблы, typing indicator, источники), `ChatWindow` (хедер с селектором коллекций, +New), адаптивная вёрстка (768px/480px), E2E-тесты Playwright (42 теста, 5 spec-файлов), юнит-тесты (26)
 - [ ] **Dark/light theme** — переключаемая тема с сохранением в localStorage, CSS-переменные для всей палитры
-- [ ] **Session sidebar** — список чатов слева: поиск, группировка по датам, контекстное меню (переименовать/удалить/экспорт)
+- [x] **Session sidebar** — редизайн сайдбара сессий в стиле Pencil (312px, card bg, radius-xl)
 - [ ] **Markdown & code rendering** — полноценный рендеринг Markdown (remark/rehype), подсветка синтаксиса (shiki/prism), кнопка копирования кода
-- [ ] **Admin panel redesign** — приведение страницы управления (документы, коллекции) к единому стилю
-- [ ] **UI component refactor** — вынос атомарных компонентов в `src/components/ui/`, единая типографика, иконки Lucide
+- [x] **Admin panel redesign** — страница управления приведена к единому стилю (admin.pen, dialogs.pen)
+- [x] **UI component refactor** — вынос атомарных компонентов в `src/components/ui/`, единая типографика IBM Plex Mono
+- [x] **Login page** — страница входа с OAuth-провайдерами (login.pen)
 
 ---
 
@@ -98,7 +99,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | Milestone | Status | Фокус |
 |-----------|--------|-------|
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
-| **v0.2 — GUI Redesign** | ⏳ **0/6** | **DeepSeek-style chat UI, dark/light theme, session sidebar, Markdown rendering** |
+| v0.2 — GUI Redesign | 🔄 **4/7** | **DeepSeek-style chat UI ✅, UI atoms ✅, session sidebar ✅, admin redesign ✅, login page ✅, dark/light theme, Markdown rendering** |
 | v0.3 — Production Polish | ⏳ 0/6 | E2E, ZIP, re-indexing, confidence, graceful degradation |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
@@ -107,4 +108,5 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 
 **Старт:** 2026-06-14
 **MVP завершён:** 2026-06-15
-**Что дальше:** `/aif-plan v0.2 — GUI Redesign (DeepSeek-стиль)` → `/aif-implement`
+**Chat UI overhaul (Phases 0–4):** 2026-06-16
+**Что дальше:** `/aif-plan v0.2 — GUI Redesign (Dark/Light Theme)` → `/aif-implement`
