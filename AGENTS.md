@@ -135,6 +135,7 @@ vedo-assistant/
 | Getting Started | `docs/getting-started.md` | Prerequisites, installation, first run |
 | Architecture | `docs/architecture.md` | Service overview, modules, data flow |
 | User Interface Guide | `docs/gui.md` | Chat interface, admin panel, document management |
+| Authentication | `docs/auth.md` | KeyCloak setup, social providers, OAuth flow |
 | API Reference | `docs/api.md` | Endpoints, authentication, examples |
 | Configuration | `docs/configuration.md` | Environment variables, Docker settings |
 | Deployment | `docs/deployment.md` | VPS setup, Docker Compose, CI/CD |

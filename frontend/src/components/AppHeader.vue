@@ -5,7 +5,8 @@ import { getApiKey } from '@/api/client';
  * Provides persistent VEDO branding, a theme toggle, and user menu for app pages.
  */
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
-import { decodeToken, logout } from '@/composables/useOidcAuth';
+import { logout } from '@/composables/useOidcAuth';
+import { userName, userProvider } from '@/stores/auth';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const userMenuOpen = ref(false);
@@ -13,11 +14,9 @@ const userMenuOpen = ref(false);
 const userInfo = computed(() => {
   const token = getApiKey();
   if (!token) return null;
-  const decoded = decodeToken(token);
-  if (!decoded) return null;
   return {
-    name: decoded.name || decoded.preferred_username || 'User',
-    provider: decoded.provider || null,
+    name: userName.value || 'User',
+    provider: userProvider.value,
   };
 });
 
@@ -264,3 +263,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

@@ -1,4 +1,4 @@
-[← User Interface Guide](gui.md) · [Back to README](../README.md) · [Configuration →](configuration.md)
+[← User Interface Guide](gui.md) · [Back to README](../README.md) · [Auth →](auth.md)
 
 # API Reference
 

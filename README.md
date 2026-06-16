@@ -49,6 +49,7 @@ open http://localhost:5173
 | [Architecture](docs/architecture.md) | Service overview, modules, data flow |
 | [User Interface Guide](docs/gui.md) | Chat interface, admin panel, document management |
 | [API Reference](docs/api.md) | Endpoints, authentication, examples |
+| [Authentication](docs/auth.md) | KeyCloak setup, social providers, OAuth flow |
 | [Configuration](docs/configuration.md) | Environment variables, Docker settings |
 | [Deployment](docs/deployment.md) | VPS setup, Docker Compose, CI/CD |
 | [Technical Spec](docs/technical-specification-rag-system.md) | Full system specification (source of truth) |

@@ -520,7 +520,7 @@ Implement silent token refresh using KeyCloak's refresh token and persist the au
 
 ### Phase 6: Documentation & Cleanup
 
-#### [~] Task 6.1 — Auth documentation and configuration guide
+#### [x] Task 6.1 — Auth documentation and configuration guide
 
 Document the complete authentication setup: KeyCloak realm configuration, social provider registration, environment variables, and troubleshooting.
 
@@ -568,8 +568,8 @@ Mark the Chat UI overhaul (Phase 5 auth tasks backfilled into v0.2 scope) as com
 | 9 | Tasks 5.1, 5.2 | KeyCloak infra | `feat(auth): add KeyCloak + PostgreSQL to Docker Compose and configure realm` |
 | 10 | Tasks 5.3, 5.4 | Backend auth | `feat(auth): add JWT validation middleware and auth endpoints` |
 | 11 | Tasks 5.5, 5.6 | Frontend auth | `feat(auth): add login page with social providers and token refresh` | ✅
-| 12 | Tasks 6.1, 6.2 | Auth docs | `docs(auth): document authentication setup and configuration` | ~
+| 12 | Tasks 6.1, 6.2 | Auth docs | `docs(auth): document authentication setup and configuration` | ✅
 
 **Total tasks:** 18 (across 7 phases)
 **Estimated commits:** 12
-**Completed:** 17/18 (5.1–5.6, 6.2 ✅; 6.1 in progress)
+**Completed:** 18/18 ✅

@@ -1,4 +1,5 @@
 import { restoreSession } from '@/composables/useOidcAuth';
+import { isAuthenticated } from '@/stores/auth';
 import AdminView from '@/views/AdminView.vue';
 import AvatarPreviewView from '@/views/AvatarPreviewView.vue';
 import CallbackView from '@/views/CallbackView.vue';
@@ -47,10 +48,10 @@ restoreSession();
  * for protected routes, except the login and callback pages themselves.
  */
 router.beforeEach((to, _from, next) => {
-  const publicRoutes = ['login', 'callback', 'avatar-preview'];
+  // Only login and callback are public; all other routes require authentication.
+  const publicRoutes = ['login', 'callback'];
   if (!publicRoutes.includes(to.name as string)) {
-    const key = localStorage.getItem('vedo_auth_token');
-    if (!key) {
+    if (!isAuthenticated.value) {
       console.debug('[Router] No auth token found, redirecting to login');
       next({ name: 'login' });
       return;

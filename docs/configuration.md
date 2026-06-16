@@ -1,4 +1,4 @@
-[← API Reference](api.md) · [Back to README](../README.md) · [Deployment →](deployment.md)
+[← Auth](auth.md) · [Back to README](../README.md) · [Deployment →](deployment.md)
 
 # Configuration
 
