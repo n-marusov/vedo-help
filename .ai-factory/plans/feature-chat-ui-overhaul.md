@@ -31,42 +31,49 @@
 
 ### Phase 0: Design Exploration (Pencil)
 
-#### Task 0.1 — Add missing chat UI components to design library and create ui-design.pen
+#### [ ] Task 0.1 — Sync Pencil design library and page/dialog design files
 
-Before implementation, create the design reference in Pencil: add the missing Chat UI and Auth components to `ui-kit.lib.pen`, and create a dedicated `ui-design.pen` file for the DeepSeek-style chat design exploration.
+Before implementation, keep the Pencil design reference aligned with the actual `design/` directory. The design system lives in `design/ui-kit.lib.pen`, while screen-level layouts are split into separate page files instead of a single `ui-design.pen` exploration file.
 
-**Files to change:**
-- `ui-kit.lib.pen` — add reusable components for chat UI and auth
-- `ui-design.pen` — NEW: design exploration file with login screen, chat layout, avatars
+**Files to change/maintain:**
+- `design/ui-kit.lib.pen` — reusable design library with tokens, atoms, molecules, and organisms for chat, admin, auth, upload, dialogs, and source previews
+- `design/chat.pen` — Chat page layouts, FullHD `1920×1080`, dark theme on the left and light theme on the right, horizontally separated by `150px`
+- `design/admin.pen` — Admin page layouts, FullHD `1920×1080`, dark theme on the left and light theme on the right, horizontally separated by `150px`
+- `design/dialogs.pen` — dialog window layouts, stacked vertically; each row contains dark and light variants aligned by top edge with `150px` horizontal and vertical gaps
+- `design/login.pen` — existing login page reference using the same UI-kit import and visual language
 
-**Components to add to library (`ui-kit.lib.pen`):**
+**Design library components currently reused from `ui-kit.lib.pen`:**
 
 *Atoms:*
-- `Component/Avatar/User` — user avatar (solid circle, initials, muted color)
-- `Component/Avatar/Assistant` — assistant avatar (solid circle, "V" letter, primary color)
-- `Component/MessageBubble/User` — user message bubble (right-aligned, primary bg)
-- `Component/MessageBubble/Assistant` — assistant message bubble (left-aligned, no bg, clean)
-- `Component/StreamingBar` — animated gradient bar for streaming state
-- `Component/SocialButton/Yandex` — Yandex OAuth button with brand colors
-- `Component/SocialButton/VK` — VK ID OAuth button with brand colors (#0077FF)
-- `Component/SocialButton/Mailru` — Mail.ru OAuth button with brand colors (#005FF9)
+- `Component/Button`, `Component/Button/Outline`, `Component/Button/Ghost`, `Component/Button/XS`
+- `Component/Input`, `Component/Select`, `Component/AlertBox`, `Component/ProgressBar`
+- `Component/Avatar`, `Component/SendButton`, `Component/StreamingBar`, `Component/StreamingIndicator`
 
 *Molecules:*
-- `Component/SourceItem` — source reference card (doc name + relevance %)
-- `Component/SourcesList` — collapsible list of source items
-- `Component/ChatInput` — clean input with send button inside
+- `Component/SourceItem` — source reference row/card with document name and relevance score
+- `Component/ChatInput` — prompt input with inline send button
+- `Component/FileListItem`, `Component/DropZone`, `Component/FormField`, `Component/FormDialog`
 
-*Organisms:*
-- `Organism/LoginCard` — centered login card with branded social buttons
-- `Organism/ChatMessages` — full message list with avatars + bubbles
+*Organisms / screen-level reusable components:*
+- `Component/Message/User` — right-aligned user message
+- `Component/Message/Bot` — assistant message
+- `Component/Message/BotWithSources` — assistant message with source citations
+- `Component/LoginCard` — centered auth card with provider button area
+- `Component/Dialog` and `Component/ConfirmDialog` — modal dialog references
 
-**Design exploration (`ui-design.pen`):**
-- Login Screen with Yandex, VK, Mail.ru branded buttons
-- Chat Screen with DeepSeek-style messages (assistant left, user right, no colored bg for assistant)
-- UserAvatar component (U / V initial letters, 32px, colored circles)
-- Source items in messages
-- Streaming indicator (progress bar)
-- Clean input area with send button
+**Page design requirements:**
+- Keep global Chat/Admin navigation sidebar out of page designs; only page-local sidebars remain (for example, chat sessions or admin collections).
+- Maintain separate page files for Chat and Admin rather than a combined `ui-design.pen`.
+- Every page artboard must be FullHD (`1920×1080`).
+- Dark theme variant must be placed on the left; light theme variant must be placed to the right with a `150px` gap and aligned to the same top edge.
+- Dialog variants must be arranged vertically, with each light variant mirrored to the right of its dark variant and aligned by top edge.
+- All screen files must import the design library via `"imports": { "B": "./ui-kit.lib.pen" }` and reuse `ref` components where available.
+
+**Design coverage:**
+- Chat page: session sidebar, collection selector, welcome state, user/assistant messages, citations, streaming/typing state, and prompt input.
+- Admin page: collection list, document list, upload action, drag-and-drop upload area, upload progress, and API key clear action.
+- Dialogs: Admin Access, Create Collection, Delete Collection, Delete Document, Upload Progress, Source Preview, and Upload Error.
+- Login reference: OAuth/social-provider login card remains in `design/login.pen` for auth phase continuity.
 
 **Dependencies:** None
 
@@ -74,7 +81,7 @@ Before implementation, create the design reference in Pencil: add the missing Ch
 
 ### Phase 1: Design Tokens & Shared Variables
 
-#### Task 1.1 — Define chat UI design tokens
+#### [ ] Task 1.1 — Define chat UI design tokens
 
 Create CSS custom properties for the chat design system. These tokens will be the single source of truth for spacing, radii, animation timing, and message colors.
 
@@ -94,7 +101,7 @@ Create CSS custom properties for the chat design system. These tokens will be th
 
 ---
 
-#### Task 1.2 — Design avatar component
+#### [ ] Task 1.2 — Design avatar component
 
 Create a lightweight `UserAvatar` component that renders either an SVG icon (user) or a branded "V" icon (assistant) instead of emoji.
 
@@ -123,7 +130,7 @@ defineProps<{
 
 ### Phase 2: MessageBubble Redesign
 
-#### Task 2.1 — Rewrite MessageBubble with minimalistic design
+#### [ ] Task 2.1 — Rewrite MessageBubble with minimalistic design
 
 Replace the current `MessageBubble.vue` with a cleaner, DeepSeek-inspired layout. Preserve existing functionality (Markdown rendering via `marked`, sources toggle) but simplify the visual hierarchy.
 
@@ -147,7 +154,7 @@ Replace the current `MessageBubble.vue` with a cleaner, DeepSeek-inspired layout
 
 ---
 
-#### Task 2.2 — Refine streaming / typing indicator
+#### [ ] Task 2.2 — Refine streaming / typing indicator
 
 Replace the three-dot typing bounce animation with a smoother streaming glow animation — a subtle pulsing bar that appears at the bottom of the assistant message while content is being received.
 
@@ -168,7 +175,7 @@ Replace the three-dot typing bounce animation with a smoother streaming glow ani
 
 ### Phase 3: Layout & ChatWindow Redesign
 
-#### Task 3.1 — Remove admin navigation from main page
+#### [ ] Task 3.1 — Remove admin navigation from main page
 
 The current `App.vue` renders a persistent sidebar with links to `/` (Chat) and `/admin` (Admin). In the DeepSeek-style chat, the main page should show only the chat — no navigation sidebar, no link to admin. The admin panel remains accessible exclusively via direct URL `/admin`.
 
@@ -192,7 +199,7 @@ The current `App.vue` renders a persistent sidebar with links to `/` (Chat) and 
 
 ---
 
-#### Task 3.2 — Redesign ChatWindow layout
+#### [ ] Task 3.2 — Redesign ChatWindow layout
 
 Rewrite `ChatWindow.vue` with a cleaner, more focused layout now that there's no global nav sidebar. Remove the heavy header bar with collection selector — integrate collection selection into a minimal dropdown or keep in the session sidebar.
 
@@ -218,7 +225,7 @@ Rewrite `ChatWindow.vue` with a cleaner, more focused layout now that there's no
 
 ---
 
-#### Task 3.3 — Implement smooth message animations
+#### [ ] Task 3.3 — Implement smooth message animations
 
 Add staggered entrance animations for messages. When a new message appears (optimistic user message or streaming assistant reply), it should animate in smoothly.
 
@@ -239,7 +246,7 @@ Add staggered entrance animations for messages. When a new message appears (opti
 
 ---
 
-#### Task 3.4 — Responsive chat layout
+#### [ ] Task 3.4 — Responsive chat layout
 
 Make the chat window fully responsive for mobile and tablet viewports.
 
@@ -266,7 +273,7 @@ Make the chat window fully responsive for mobile and tablet viewports.
 
 ### Phase 4: Integration & Polish
 
-#### Task 4.1 — Add unit tests for new components
+#### [ ] Task 4.1 — Add unit tests for new components
 
 Write Vitest tests for the redesigned components.
 
@@ -287,7 +294,7 @@ Write Vitest tests for the redesigned components.
 
 ---
 
-#### Task 4.2 — Documentation checkpoint
+#### [ ] Task 4.2 — Documentation checkpoint
 
 Update project documentation to reflect the redesigned chat UI.
 
@@ -305,7 +312,7 @@ Update project documentation to reflect the redesigned chat UI.
 
 ---
 
-#### Task 4.3 — Update ROADMAP.md
+#### [ ] Task 4.3 — Update ROADMAP.md
 
 Mark the Chat UI overhaul phase as complete and move to the next phase in the v0.2 milestone.
 
@@ -330,7 +337,7 @@ Mark the Chat UI overhaul phase as complete and move to the next phase in the v0
 
 ---
 
-#### Task 5.1 — Add KeyCloak + PostgreSQL to Docker Compose
+#### [ ] Task 5.1 — Add KeyCloak + PostgreSQL to Docker Compose
 
 Add KeyCloak and its PostgreSQL database as new services in the Docker Compose stack for local development.
 
@@ -357,7 +364,7 @@ Add KeyCloak and its PostgreSQL database as new services in the Docker Compose s
 
 ---
 
-#### Task 5.2 — Create KeyCloak realm and configure social identity providers
+#### [ ] Task 5.2 — Create KeyCloak realm and configure social identity providers
 
 Create a reproducible KeyCloak realm configuration with Yandex, VK, and Mail.ru as Identity Providers. The realm must be exportable as JSON for CI/CD.
 
@@ -385,7 +392,7 @@ Create a reproducible KeyCloak realm configuration with Yandex, VK, and Mail.ru 
 
 ---
 
-#### Task 5.3 — Add KeyCloak JWT validation middleware to backend
+#### [ ] Task 5.3 — Add KeyCloak JWT validation middleware to backend
 
 Extend the backend auth middleware to validate both the legacy `ADMIN_API_KEY` header and KeyCloak-issued JWT tokens using JWKS.
 
@@ -413,7 +420,7 @@ Extend the backend auth middleware to validate both the legacy `ADMIN_API_KEY` h
 
 ---
 
-#### Task 5.4 — Add auth endpoints and user context to backend
+#### [ ] Task 5.4 — Add auth endpoints and user context to backend
 
 Create new `/api/auth/*` endpoints for session management and user info retrieval.
 
@@ -440,7 +447,7 @@ Create new `/api/auth/*` endpoints for session management and user info retrieva
 
 ---
 
-#### Task 5.5 — Create frontend login page with social provider buttons
+#### [ ] Task 5.5 — Create frontend login page with social provider buttons
 
 Create a login page at `/login` with branded buttons for Yandex, VK, and Mail.ru authentication via KeyCloak. Implement the OAuth authorization code flow (PKCE for public client).
 
@@ -486,7 +493,7 @@ Create a login page at `/login` with branded buttons for Yandex, VK, and Mail.ru
 
 ---
 
-#### Task 5.6 — Token refresh and session persistence
+#### [ ] Task 5.6 — Token refresh and session persistence
 
 Implement silent token refresh using KeyCloak's refresh token and persist the auth session across page reloads.
 
@@ -513,7 +520,7 @@ Implement silent token refresh using KeyCloak's refresh token and persist the au
 
 ### Phase 6: Documentation & Cleanup
 
-#### Task 6.1 — Auth documentation and configuration guide
+#### [ ] Task 6.1 — Auth documentation and configuration guide
 
 Document the complete authentication setup: KeyCloak realm configuration, social provider registration, environment variables, and troubleshooting.
 
@@ -535,7 +542,7 @@ Document the complete authentication setup: KeyCloak realm configuration, social
 
 ---
 
-#### Task 6.2 — Update ROADMAP.md
+#### [ ] Task 6.2 — Update ROADMAP.md
 
 Mark the Chat UI overhaul (Phase 5 auth tasks backfilled into v0.2 scope) as complete.
 

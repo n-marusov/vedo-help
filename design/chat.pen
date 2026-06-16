@@ -1,0 +1,708 @@
+{
+  "version": "2.13",
+  "imports": {
+    "B": "./ui-kit.lib.pen"
+  },
+  "children": [
+    {
+      "type": "frame",
+      "id": "chatPageDark",
+      "x": 0,
+      "y": 0,
+      "name": "Chat Page — Dark Theme",
+      "width": 1920,
+      "height": 1080,
+      "fill": "$B:background",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "chatMain",
+          "name": "Chat Workspace",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "horizontal",
+          "padding": 24,
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "sessionPanel",
+              "name": "Session Sidebar",
+              "width": 312,
+              "height": "fill_container",
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "sessionHeader",
+                  "width": "fill_container",
+                  "justifyContent": "space-between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "sessionTitle",
+                      "type": "ref",
+                      "ref": "B:OWO60",
+                      "descendants": {
+                        "B:Ay8ex": {
+                          "content": "SESSIONS"
+                        }
+                      }
+                    },
+                    {
+                      "id": "newSessionBtn",
+                      "type": "ref",
+                      "ref": "B:ahk3w",
+                      "descendants": {
+                        "B:OgZRR": {
+                          "content": "+ New"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sessionList",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "sessionActive",
+                      "width": "fill_container",
+                      "fill": "$B:accent",
+                      "stroke": "$B:primary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 14,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s1Title",
+                          "fill": "$B:foreground",
+                          "content": "How to configure rate limiter?",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s1Meta",
+                          "fill": "$B:muted-foreground",
+                          "content": "3 msg · 2h ago                                      🗑",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sessionTwo",
+                      "width": "fill_container",
+                      "fill": "$B:background",
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 14,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s2Title",
+                          "fill": "$B:foreground",
+                          "content": "API setup",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s2Meta",
+                          "fill": "$B:muted-foreground",
+                          "content": "1 msg · 1d ago                                      🗑",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sessionThree",
+                      "width": "fill_container",
+                      "fill": "$B:background",
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 14,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s3Title",
+                          "fill": "$B:foreground",
+                          "content": "Deployment checklist",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s3Meta",
+                          "fill": "$B:muted-foreground",
+                          "content": "8 msg · 4d ago",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "chatWindow",
+              "name": "Chat Window",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 18,
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "chatToolbar",
+                  "width": "fill_container",
+                  "height": 72,
+                  "stroke": "$B:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "justifyContent": "space-between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "collectionSelect",
+                      "type": "ref",
+                      "ref": "B:K5sXB",
+                      "width": 360,
+                      "descendants": {
+                        "B:SKPVU": {
+                          "content": "Technical Documentation"
+                        },
+                        "B:gz3AQ": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "toolbarNewChat",
+                      "type": "ref",
+                      "ref": "B:kLoW9",
+                      "descendants": {
+                        "B:aTVi9": {
+                          "content": "✎ New chat"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "messagesArea",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 18,
+                  "padding": 28,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "welcomeBlock",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "padding": [
+                        12,
+                        0
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "welcomeIcon",
+                          "fill": "$B:primary",
+                          "content": "💬",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 26,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "welcomeTitle",
+                          "fill": "$B:foreground",
+                          "content": "VEDO RAG Assistant",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 18,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "welcomeText",
+                          "fill": "$B:muted-foreground",
+                          "content": "Select a collection and ask a question.",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12
+                        }
+                      ]
+                    },
+                    {
+                      "id": "userMessage",
+                      "type": "ref",
+                      "ref": "B:nyfFs",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:MPMYV": {
+                          "content": "How do I configure the rate limiter?"
+                        },
+                        "B:7Q6jV": {
+                          "content": "2:30 PM"
+                        }
+                      }
+                    },
+                    {
+                      "id": "assistantMessage",
+                      "type": "ref",
+                      "ref": "B:dpGYm",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:EDJeT": {
+                          "content": "The rate limiter is configured via the backend rate limit middleware. Set the maximum request body size and use the configured layer on upload/query routes."
+                        },
+                        "B:92HG2": {
+                          "content": "config-guide.md"
+                        },
+                        "B:H2OqV": {
+                          "content": "92%"
+                        },
+                        "B:BINPk": {
+                          "content": "2:30 PM"
+                        }
+                      }
+                    },
+                    {
+                      "id": "typingState",
+                      "type": "ref",
+                      "ref": "B:qorwN",
+                      "width": 180
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "chatComposer",
+                  "width": "fill_container",
+                  "stroke": "$B:border",
+                  "strokeWidth": {
+                    "top": 1
+                  },
+                  "padding": 20,
+                  "children": [
+                    {
+                      "id": "chatInput",
+                      "type": "ref",
+                      "ref": "B:Rup2V",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:nsMG4": {
+                          "content": "Ask a question about your documents..."
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "theme": {
+        "mode": "dark"
+      }
+    },
+    {
+      "type": "frame",
+      "id": "chatPageLight",
+      "x": 2070,
+      "y": 0,
+      "name": "Chat Page — Light Theme",
+      "width": 1920,
+      "height": 1080,
+      "fill": "$B:background",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "chatMain",
+          "name": "Chat Workspace",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "horizontal",
+          "padding": 24,
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "sessionPanel",
+              "name": "Session Sidebar",
+              "width": 312,
+              "height": "fill_container",
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "sessionHeader",
+                  "width": "fill_container",
+                  "justifyContent": "space-between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "sessionTitle",
+                      "type": "ref",
+                      "ref": "B:OWO60",
+                      "descendants": {
+                        "B:Ay8ex": {
+                          "content": "SESSIONS"
+                        }
+                      }
+                    },
+                    {
+                      "id": "newSessionBtn",
+                      "type": "ref",
+                      "ref": "B:ahk3w",
+                      "descendants": {
+                        "B:OgZRR": {
+                          "content": "+ New"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sessionList",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "sessionActive",
+                      "width": "fill_container",
+                      "fill": "$B:accent",
+                      "stroke": "$B:primary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 14,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s1Title",
+                          "fill": "$B:foreground",
+                          "content": "How to configure rate limiter?",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s1Meta",
+                          "fill": "$B:muted-foreground",
+                          "content": "3 msg · 2h ago                                      🗑",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sessionTwo",
+                      "width": "fill_container",
+                      "fill": "$B:background",
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 14,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s2Title",
+                          "fill": "$B:foreground",
+                          "content": "API setup",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s2Meta",
+                          "fill": "$B:muted-foreground",
+                          "content": "1 msg · 1d ago                                      🗑",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sessionThree",
+                      "width": "fill_container",
+                      "fill": "$B:background",
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 14,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s3Title",
+                          "fill": "$B:foreground",
+                          "content": "Deployment checklist",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s3Meta",
+                          "fill": "$B:muted-foreground",
+                          "content": "8 msg · 4d ago",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "chatWindow",
+              "name": "Chat Window",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 18,
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "chatToolbar",
+                  "width": "fill_container",
+                  "height": 72,
+                  "stroke": "$B:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "justifyContent": "space-between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "collectionSelect",
+                      "type": "ref",
+                      "ref": "B:K5sXB",
+                      "width": 360,
+                      "descendants": {
+                        "B:SKPVU": {
+                          "content": "Technical Documentation"
+                        },
+                        "B:gz3AQ": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "toolbarNewChat",
+                      "type": "ref",
+                      "ref": "B:kLoW9",
+                      "descendants": {
+                        "B:aTVi9": {
+                          "content": "✎ New chat"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "messagesArea",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 18,
+                  "padding": 28,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "welcomeBlock",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "padding": [
+                        12,
+                        0
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "welcomeIcon",
+                          "fill": "$B:primary",
+                          "content": "💬",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 26,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "welcomeTitle",
+                          "fill": "$B:foreground",
+                          "content": "VEDO RAG Assistant",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 18,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "welcomeText",
+                          "fill": "$B:muted-foreground",
+                          "content": "Select a collection and ask a question.",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12
+                        }
+                      ]
+                    },
+                    {
+                      "id": "userMessage",
+                      "type": "ref",
+                      "ref": "B:nyfFs",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:MPMYV": {
+                          "content": "How do I configure the rate limiter?"
+                        },
+                        "B:7Q6jV": {
+                          "content": "2:30 PM"
+                        }
+                      }
+                    },
+                    {
+                      "id": "assistantMessage",
+                      "type": "ref",
+                      "ref": "B:dpGYm",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:EDJeT": {
+                          "content": "The rate limiter is configured via the backend rate limit middleware. Set the maximum request body size and use the configured layer on upload/query routes."
+                        },
+                        "B:92HG2": {
+                          "content": "config-guide.md"
+                        },
+                        "B:H2OqV": {
+                          "content": "92%"
+                        },
+                        "B:BINPk": {
+                          "content": "2:30 PM"
+                        }
+                      }
+                    },
+                    {
+                      "id": "typingState",
+                      "type": "ref",
+                      "ref": "B:qorwN",
+                      "width": 180
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "chatComposer",
+                  "width": "fill_container",
+                  "stroke": "$B:border",
+                  "strokeWidth": {
+                    "top": 1
+                  },
+                  "padding": 20,
+                  "children": [
+                    {
+                      "id": "chatInput",
+                      "type": "ref",
+                      "ref": "B:Rup2V",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:nsMG4": {
+                          "content": "Ask a question about your documents..."
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "theme": {
+        "mode": "light"
+      }
+    }
+  ]
+}

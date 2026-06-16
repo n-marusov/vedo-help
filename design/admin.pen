@@ -1,0 +1,644 @@
+{
+  "version": "2.13",
+  "imports": {
+    "B": "./ui-kit.lib.pen"
+  },
+  "children": [
+    {
+      "type": "frame",
+      "id": "adminPageDark",
+      "x": 0,
+      "y": 0,
+      "name": "Admin Page — Dark Theme",
+      "width": 1920,
+      "height": 1080,
+      "fill": "$B:background",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "adminWorkspace",
+          "name": "Admin Workspace",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "adminHeader",
+              "width": "fill_container",
+              "height": 64,
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "adminTitleBlock",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "adminTitle",
+                      "fill": "$B:foreground",
+                      "content": "Admin Panel",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "adminSub",
+                      "fill": "$B:muted-foreground",
+                      "content": "Manage collections, uploads, and indexed knowledge sources",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "id": "clearKeyBtn",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Clear API Key"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "adminPanels",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "horizontal",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "collectionsPanel",
+                  "width": 380,
+                  "height": "fill_container",
+                  "fill": "$B:card",
+                  "stroke": "$B:border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 16,
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "collectionsHeader",
+                      "width": "fill_container",
+                      "justifyContent": "space-between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "collectionsTitle",
+                          "type": "ref",
+                          "ref": "B:OWO60",
+                          "descendants": {
+                            "B:Ay8ex": {
+                              "content": "COLLECTIONS"
+                            }
+                          }
+                        },
+                        {
+                          "id": "newCollectionBtn",
+                          "type": "ref",
+                          "ref": "B:ahk3w",
+                          "descendants": {
+                            "B:OgZRR": {
+                              "content": "+ New"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "collectionList",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "id": "collectionCardOne",
+                          "type": "ref",
+                          "ref": "B:Nie8I",
+                          "width": "fill_container",
+                          "stroke": "$B:primary",
+                          "descendants": {
+                            "B:Ap3op": {
+                              "content": "Technical Docs"
+                            },
+                            "B:kaoPr": {
+                              "content": "Project specifications and development guides · 5 documents                                      🗑"
+                            }
+                          }
+                        },
+                        {
+                          "id": "collectionCardTwo",
+                          "type": "ref",
+                          "ref": "B:Nie8I",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:Ap3op": {
+                              "content": "API Reference"
+                            },
+                            "B:kaoPr": {
+                              "content": "OpenAPI specs and endpoint notes · 2 documents                                      🗑"
+                            }
+                          }
+                        },
+                        {
+                          "id": "collectionCardThree",
+                          "type": "ref",
+                          "ref": "B:Nie8I",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:Ap3op": {
+                              "content": "Deployment"
+                            },
+                            "B:kaoPr": {
+                              "content": "Docker Compose, Caddy, VPS runbooks · 4 documents"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "documentsPanel",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$B:card",
+                  "stroke": "$B:border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 16,
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "documentsHeader",
+                      "width": "fill_container",
+                      "justifyContent": "space-between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "documentsTitle",
+                          "type": "ref",
+                          "ref": "B:OWO60",
+                          "descendants": {
+                            "B:Ay8ex": {
+                              "content": "DOCUMENTS"
+                            }
+                          }
+                        },
+                        {
+                          "id": "uploadBtn",
+                          "type": "ref",
+                          "ref": "B:3CI7c",
+                          "descendants": {
+                            "B:wMRLg": {
+                              "content": "📤 Upload"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "dropZone",
+                      "type": "ref",
+                      "ref": "B:1kAx2",
+                      "width": "fill_container",
+                      "height": 128,
+                      "descendants": {
+                        "B:HaNWx": {
+                          "content": "Drop PDF, MD, TXT, HTML, JSON, or ZIP files here"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uploadProgress",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "uploadProgressMeta",
+                          "width": "fill_container",
+                          "justifyContent": "space-between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "uploadName",
+                              "fill": "$B:foreground",
+                              "content": "technical-specification-rag-system.md",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12
+                            },
+                            {
+                              "type": "text",
+                              "id": "uploadPercent",
+                              "fill": "$B:muted-foreground",
+                              "content": "64%",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12
+                            }
+                          ]
+                        },
+                        {
+                          "id": "progressBar",
+                          "type": "ref",
+                          "ref": "B:BJBat",
+                          "width": "fill_container"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "documentList",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "id": "fileOne",
+                          "type": "ref",
+                          "ref": "B:9RljR",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:tFVbx": {
+                              "content": "📄 spec.pdf (application/pdf, 200 KB) · Jun 14, 2026"
+                            }
+                          }
+                        },
+                        {
+                          "id": "fileTwo",
+                          "type": "ref",
+                          "ref": "B:9RljR",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:tFVbx": {
+                              "content": "📝 getting-started.md (text/markdown, 12 KB) · Jun 13, 2026"
+                            }
+                          }
+                        },
+                        {
+                          "id": "fileThree",
+                          "type": "ref",
+                          "ref": "B:9RljR",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:tFVbx": {
+                              "content": "🌐 architecture.html (text/html, 48 KB) · Jun 12, 2026"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "theme": {
+        "mode": "dark"
+      }
+    },
+    {
+      "type": "frame",
+      "id": "adminPageLight",
+      "x": 2070,
+      "y": 0,
+      "name": "Admin Page — Light Theme",
+      "width": 1920,
+      "height": 1080,
+      "fill": "$B:background",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "adminWorkspace",
+          "name": "Admin Workspace",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "adminHeader",
+              "width": "fill_container",
+              "height": 64,
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "adminTitleBlock",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "adminTitle",
+                      "fill": "$B:foreground",
+                      "content": "Admin Panel",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "adminSub",
+                      "fill": "$B:muted-foreground",
+                      "content": "Manage collections, uploads, and indexed knowledge sources",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "id": "clearKeyBtn",
+                  "type": "ref",
+                  "ref": "B:c8T4z",
+                  "descendants": {
+                    "B:esH0z": {
+                      "content": "Clear API Key"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "adminPanels",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "horizontal",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "collectionsPanel",
+                  "width": 380,
+                  "height": "fill_container",
+                  "fill": "$B:card",
+                  "stroke": "$B:border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 16,
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "collectionsHeader",
+                      "width": "fill_container",
+                      "justifyContent": "space-between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "collectionsTitle",
+                          "type": "ref",
+                          "ref": "B:OWO60",
+                          "descendants": {
+                            "B:Ay8ex": {
+                              "content": "COLLECTIONS"
+                            }
+                          }
+                        },
+                        {
+                          "id": "newCollectionBtn",
+                          "type": "ref",
+                          "ref": "B:ahk3w",
+                          "descendants": {
+                            "B:OgZRR": {
+                              "content": "+ New"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "collectionList",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "id": "collectionCardOne",
+                          "type": "ref",
+                          "ref": "B:Nie8I",
+                          "width": "fill_container",
+                          "stroke": "$B:primary",
+                          "descendants": {
+                            "B:Ap3op": {
+                              "content": "Technical Docs"
+                            },
+                            "B:kaoPr": {
+                              "content": "Project specifications and development guides · 5 documents                                      🗑"
+                            }
+                          }
+                        },
+                        {
+                          "id": "collectionCardTwo",
+                          "type": "ref",
+                          "ref": "B:Nie8I",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:Ap3op": {
+                              "content": "API Reference"
+                            },
+                            "B:kaoPr": {
+                              "content": "OpenAPI specs and endpoint notes · 2 documents                                      🗑"
+                            }
+                          }
+                        },
+                        {
+                          "id": "collectionCardThree",
+                          "type": "ref",
+                          "ref": "B:Nie8I",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:Ap3op": {
+                              "content": "Deployment"
+                            },
+                            "B:kaoPr": {
+                              "content": "Docker Compose, Caddy, VPS runbooks · 4 documents"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "documentsPanel",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$B:card",
+                  "stroke": "$B:border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 16,
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "documentsHeader",
+                      "width": "fill_container",
+                      "justifyContent": "space-between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "documentsTitle",
+                          "type": "ref",
+                          "ref": "B:OWO60",
+                          "descendants": {
+                            "B:Ay8ex": {
+                              "content": "DOCUMENTS"
+                            }
+                          }
+                        },
+                        {
+                          "id": "uploadBtn",
+                          "type": "ref",
+                          "ref": "B:3CI7c",
+                          "descendants": {
+                            "B:wMRLg": {
+                              "content": "📤 Upload"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "dropZone",
+                      "type": "ref",
+                      "ref": "B:1kAx2",
+                      "width": "fill_container",
+                      "height": 128,
+                      "descendants": {
+                        "B:HaNWx": {
+                          "content": "Drop PDF, MD, TXT, HTML, JSON, or ZIP files here"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uploadProgress",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "uploadProgressMeta",
+                          "width": "fill_container",
+                          "justifyContent": "space-between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "uploadName",
+                              "fill": "$B:foreground",
+                              "content": "technical-specification-rag-system.md",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12
+                            },
+                            {
+                              "type": "text",
+                              "id": "uploadPercent",
+                              "fill": "$B:muted-foreground",
+                              "content": "64%",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12
+                            }
+                          ]
+                        },
+                        {
+                          "id": "progressBar",
+                          "type": "ref",
+                          "ref": "B:BJBat",
+                          "width": "fill_container"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "documentList",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "id": "fileOne",
+                          "type": "ref",
+                          "ref": "B:9RljR",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:tFVbx": {
+                              "content": "📄 spec.pdf (application/pdf, 200 KB) · Jun 14, 2026"
+                            }
+                          }
+                        },
+                        {
+                          "id": "fileTwo",
+                          "type": "ref",
+                          "ref": "B:9RljR",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:tFVbx": {
+                              "content": "📝 getting-started.md (text/markdown, 12 KB) · Jun 13, 2026"
+                            }
+                          }
+                        },
+                        {
+                          "id": "fileThree",
+                          "type": "ref",
+                          "ref": "B:9RljR",
+                          "width": "fill_container",
+                          "descendants": {
+                            "B:tFVbx": {
+                              "content": "🌐 architecture.html (text/html, 48 KB) · Jun 12, 2026"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "theme": {
+        "mode": "light"
+      }
+    }
+  ]
+}

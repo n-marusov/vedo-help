@@ -1,0 +1,897 @@
+{
+  "version": "2.13",
+  "imports": {
+    "B": "./ui-kit.lib.pen"
+  },
+  "children": [
+    {
+      "type": "frame",
+      "id": "dialogsBoard",
+      "x": 0,
+      "y": 0,
+      "name": "Dialog Windows — Vertical Dark and Light Columns",
+      "width": 990,
+      "height": "fit_content",
+      "fill": "$B:background",
+      "children": [
+        {
+          "type": "frame",
+          "id": "dialogsDarkColumn",
+          "name": "Dialogs — Dark Theme",
+          "width": 420,
+          "layout": "vertical",
+          "gap": 150,
+          "alignItems": "start",
+          "children": [
+            {
+              "type": "frame",
+              "id": "adminAccessDialogDark",
+              "name": "Admin Access Dialog — Dark Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "accessHeader",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "accessTitle",
+                      "fill": "$B:foreground",
+                      "content": "Admin Access",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "accessDesc",
+                      "fill": "$B:muted-foreground",
+                      "content": "Enter your API key to manage collections and documents.",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "accessForm",
+                  "width": "fill_container",
+                  "layout": "horizontal",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "apiKeyInput",
+                      "type": "ref",
+                      "ref": "B:yA4l7",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:xAwdW": {
+                          "content": "Enter API key..."
+                        }
+                      }
+                    },
+                    {
+                      "id": "setKeyBtn",
+                      "type": "ref",
+                      "ref": "B:3CI7c",
+                      "descendants": {
+                        "B:wMRLg": {
+                          "content": "Set Key"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "accessHint",
+                  "type": "ref",
+                  "ref": "B:nkhJd",
+                  "width": "fill_container",
+                  "descendants": {
+                    "B:goVRa": {
+                      "content": "The key is stored locally and can be cleared from the Admin panel."
+                    }
+                  }
+                }
+              ],
+              "theme": {
+                "mode": "dark"
+              }
+            },
+            {
+              "id": "createCollectionDialogDark",
+              "type": "ref",
+              "ref": "B:Ukc8A",
+              "width": 420,
+              "descendants": {
+                "B:yMIu4": {
+                  "content": "Create Collection"
+                },
+                "B:k3rqY/B:mb8pl": {
+                  "content": "Name"
+                },
+                "B:k3rqY/B:d4cd2": {
+                  "content": "Technical Documentation"
+                },
+                "B:GCZ4W": {
+                  "content": "Description is optional",
+                  "fill": "$B:muted-foreground",
+                  "enabled": true
+                },
+                "B:FrAxx/B:esH0z": {
+                  "content": "Cancel"
+                },
+                "B:hJ4do/B:wMRLg": {
+                  "content": "Create"
+                }
+              },
+              "theme": {
+                "mode": "dark"
+              },
+              "name": "undefined — Dark Theme"
+            },
+            {
+              "id": "deleteCollectionDialogDark",
+              "type": "ref",
+              "ref": "B:aTMES",
+              "width": 420,
+              "descendants": {
+                "B:d38UP": {
+                  "content": "Delete collection?"
+                },
+                "B:mB1Mi": {
+                  "content": "This removes the collection and all indexed documents."
+                },
+                "B:b17V1": {
+                  "content": "Technical Docs contains 5 documents. This action cannot be undone."
+                },
+                "B:JFWx1/B:esH0z": {
+                  "content": "Cancel"
+                },
+                "B:Yw7PF/B:wMRLg": {
+                  "content": "Delete"
+                }
+              },
+              "theme": {
+                "mode": "dark"
+              },
+              "name": "undefined — Dark Theme"
+            },
+            {
+              "id": "deleteDocumentDialogDark",
+              "type": "ref",
+              "ref": "B:aTMES",
+              "width": 420,
+              "descendants": {
+                "B:d38UP": {
+                  "content": "Delete document?"
+                },
+                "B:mB1Mi": {
+                  "content": "Remove this file from the active collection."
+                },
+                "B:b17V1": {
+                  "content": "spec.pdf will be removed from search results after deletion."
+                },
+                "B:JFWx1/B:esH0z": {
+                  "content": "Cancel"
+                },
+                "B:Yw7PF/B:wMRLg": {
+                  "content": "Delete"
+                }
+              },
+              "theme": {
+                "mode": "dark"
+              },
+              "name": "undefined — Dark Theme"
+            },
+            {
+              "type": "frame",
+              "id": "uploadProgressDialogDark",
+              "name": "Upload Progress Dialog — Dark Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uploadDialogTitle",
+                  "fill": "$B:foreground",
+                  "content": "Uploading documents",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "uploadDialogDesc",
+                  "fill": "$B:muted-foreground",
+                  "content": "Indexing starts after each file upload completes.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "uploadRow",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "uploadMeta",
+                      "width": "fill_container",
+                      "justifyContent": "space-between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uploadFile",
+                          "fill": "$B:foreground",
+                          "content": "getting-started.md",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "uploadValue",
+                          "fill": "$B:muted-foreground",
+                          "content": "64%",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "uploadBar",
+                      "type": "ref",
+                      "ref": "B:BJBat",
+                      "width": "fill_container",
+                      "descendants": {}
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uploadActions",
+                  "width": "fill_container",
+                  "justifyContent": "end",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "id": "uploadCancel",
+                      "type": "ref",
+                      "ref": "B:c8T4z",
+                      "descendants": {
+                        "B:esH0z": {
+                          "content": "Cancel"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "theme": {
+                "mode": "dark"
+              }
+            },
+            {
+              "type": "frame",
+              "id": "sourcePreviewDialogDark",
+              "name": "Source Preview Dialog — Dark Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sourceDialogTitle",
+                  "fill": "$B:foreground",
+                  "content": "Source preview",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "id": "sourceItem",
+                  "type": "ref",
+                  "ref": "B:hcfFJ",
+                  "width": "fill_container",
+                  "descendants": {
+                    "B:bFbxL": {
+                      "content": "config-guide.md"
+                    },
+                    "B:GJzWl": {
+                      "content": "92%"
+                    }
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "sourceExcerpt",
+                  "width": "fill_container",
+                  "fill": "$B:background",
+                  "stroke": "$B:border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 12,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "sourceExcerptText",
+                      "fill": "$B:foreground",
+                      "content": "The rate limiter is configured by the backend middleware. Use environment settings to control request limits and upload body size.",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sourceActions",
+                  "width": "fill_container",
+                  "justifyContent": "end",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "id": "sourceClose",
+                      "type": "ref",
+                      "ref": "B:3CI7c",
+                      "descendants": {
+                        "B:wMRLg": {
+                          "content": "Close"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "theme": {
+                "mode": "dark"
+              }
+            },
+            {
+              "type": "frame",
+              "id": "uploadErrorDialogDark",
+              "name": "Upload Error Dialog — Dark Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "errorTitle",
+                  "fill": "$B:foreground",
+                  "content": "Upload failed",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "id": "errorAlert",
+                  "type": "ref",
+                  "ref": "B:nkhJd",
+                  "width": "fill_container",
+                  "descendants": {
+                    "B:goVRa": {
+                      "content": "archive.zip exceeds the configured upload limit."
+                    },
+                    "B:TITDo/B:TITDo_ic": {
+                      "content": "!"
+                    }
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "errorActions",
+                  "width": "fill_container",
+                  "justifyContent": "end",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "id": "errorDismiss",
+                      "type": "ref",
+                      "ref": "B:c8T4z",
+                      "descendants": {
+                        "B:esH0z": {
+                          "content": "Dismiss"
+                        }
+                      }
+                    },
+                    {
+                      "id": "errorRetry",
+                      "type": "ref",
+                      "ref": "B:3CI7c",
+                      "descendants": {
+                        "B:wMRLg": {
+                          "content": "Retry"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "theme": {
+                "mode": "dark"
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dialogsLightColumn",
+          "name": "Dialogs — Light Theme",
+          "width": 420,
+          "layout": "vertical",
+          "gap": 150,
+          "alignItems": "start",
+          "children": [
+            {
+              "type": "frame",
+              "id": "adminAccessDialogLight",
+              "name": "Admin Access Dialog — Light Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "accessHeader",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "accessTitle",
+                      "fill": "$B:foreground",
+                      "content": "Admin Access",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "accessDesc",
+                      "fill": "$B:muted-foreground",
+                      "content": "Enter your API key to manage collections and documents.",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "accessForm",
+                  "width": "fill_container",
+                  "layout": "horizontal",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "apiKeyInput",
+                      "type": "ref",
+                      "ref": "B:yA4l7",
+                      "width": "fill_container",
+                      "descendants": {
+                        "B:xAwdW": {
+                          "content": "Enter API key..."
+                        }
+                      }
+                    },
+                    {
+                      "id": "setKeyBtn",
+                      "type": "ref",
+                      "ref": "B:3CI7c",
+                      "descendants": {
+                        "B:wMRLg": {
+                          "content": "Set Key"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "accessHint",
+                  "type": "ref",
+                  "ref": "B:nkhJd",
+                  "width": "fill_container",
+                  "descendants": {
+                    "B:goVRa": {
+                      "content": "The key is stored locally and can be cleared from the Admin panel."
+                    }
+                  }
+                }
+              ],
+              "theme": {
+                "mode": "light"
+              }
+            },
+            {
+              "id": "createCollectionDialogLight",
+              "type": "ref",
+              "ref": "B:Ukc8A",
+              "width": 420,
+              "descendants": {
+                "B:yMIu4": {
+                  "content": "Create Collection"
+                },
+                "B:k3rqY/B:mb8pl": {
+                  "content": "Name"
+                },
+                "B:k3rqY/B:d4cd2": {
+                  "content": "Technical Documentation"
+                },
+                "B:GCZ4W": {
+                  "content": "Description is optional",
+                  "fill": "$B:muted-foreground",
+                  "enabled": true
+                },
+                "B:FrAxx/B:esH0z": {
+                  "content": "Cancel"
+                },
+                "B:hJ4do/B:wMRLg": {
+                  "content": "Create"
+                }
+              },
+              "theme": {
+                "mode": "light"
+              },
+              "name": "undefined — Light Theme"
+            },
+            {
+              "id": "deleteCollectionDialogLight",
+              "type": "ref",
+              "ref": "B:aTMES",
+              "width": 420,
+              "descendants": {
+                "B:d38UP": {
+                  "content": "Delete collection?"
+                },
+                "B:mB1Mi": {
+                  "content": "This removes the collection and all indexed documents."
+                },
+                "B:b17V1": {
+                  "content": "Technical Docs contains 5 documents. This action cannot be undone."
+                },
+                "B:JFWx1/B:esH0z": {
+                  "content": "Cancel"
+                },
+                "B:Yw7PF/B:wMRLg": {
+                  "content": "Delete"
+                }
+              },
+              "theme": {
+                "mode": "light"
+              },
+              "name": "undefined — Light Theme"
+            },
+            {
+              "id": "deleteDocumentDialogLight",
+              "type": "ref",
+              "ref": "B:aTMES",
+              "width": 420,
+              "descendants": {
+                "B:d38UP": {
+                  "content": "Delete document?"
+                },
+                "B:mB1Mi": {
+                  "content": "Remove this file from the active collection."
+                },
+                "B:b17V1": {
+                  "content": "spec.pdf will be removed from search results after deletion."
+                },
+                "B:JFWx1/B:esH0z": {
+                  "content": "Cancel"
+                },
+                "B:Yw7PF/B:wMRLg": {
+                  "content": "Delete"
+                }
+              },
+              "theme": {
+                "mode": "light"
+              },
+              "name": "undefined — Light Theme"
+            },
+            {
+              "type": "frame",
+              "id": "uploadProgressDialogLight",
+              "name": "Upload Progress Dialog — Light Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uploadDialogTitle",
+                  "fill": "$B:foreground",
+                  "content": "Uploading documents",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "uploadDialogDesc",
+                  "fill": "$B:muted-foreground",
+                  "content": "Indexing starts after each file upload completes.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "uploadRow",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "uploadMeta",
+                      "width": "fill_container",
+                      "justifyContent": "space-between",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uploadFile",
+                          "fill": "$B:foreground",
+                          "content": "getting-started.md",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "uploadValue",
+                          "fill": "$B:muted-foreground",
+                          "content": "64%",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "uploadBar",
+                      "type": "ref",
+                      "ref": "B:BJBat",
+                      "width": "fill_container",
+                      "descendants": {}
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uploadActions",
+                  "width": "fill_container",
+                  "justifyContent": "end",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "id": "uploadCancel",
+                      "type": "ref",
+                      "ref": "B:c8T4z",
+                      "descendants": {
+                        "B:esH0z": {
+                          "content": "Cancel"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "theme": {
+                "mode": "light"
+              }
+            },
+            {
+              "type": "frame",
+              "id": "sourcePreviewDialogLight",
+              "name": "Source Preview Dialog — Light Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sourceDialogTitle",
+                  "fill": "$B:foreground",
+                  "content": "Source preview",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "id": "sourceItem",
+                  "type": "ref",
+                  "ref": "B:hcfFJ",
+                  "width": "fill_container",
+                  "descendants": {
+                    "B:bFbxL": {
+                      "content": "config-guide.md"
+                    },
+                    "B:GJzWl": {
+                      "content": "92%"
+                    }
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "sourceExcerpt",
+                  "width": "fill_container",
+                  "fill": "$B:background",
+                  "stroke": "$B:border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 12,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "sourceExcerptText",
+                      "fill": "$B:foreground",
+                      "content": "The rate limiter is configured by the backend middleware. Use environment settings to control request limits and upload body size.",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sourceActions",
+                  "width": "fill_container",
+                  "justifyContent": "end",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "id": "sourceClose",
+                      "type": "ref",
+                      "ref": "B:3CI7c",
+                      "descendants": {
+                        "B:wMRLg": {
+                          "content": "Close"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "theme": {
+                "mode": "light"
+              }
+            },
+            {
+              "type": "frame",
+              "id": "uploadErrorDialogLight",
+              "name": "Upload Error Dialog — Light Theme",
+              "width": 420,
+              "fill": "$B:card",
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "errorTitle",
+                  "fill": "$B:foreground",
+                  "content": "Upload failed",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "id": "errorAlert",
+                  "type": "ref",
+                  "ref": "B:nkhJd",
+                  "width": "fill_container",
+                  "descendants": {
+                    "B:goVRa": {
+                      "content": "archive.zip exceeds the configured upload limit."
+                    },
+                    "B:TITDo/B:TITDo_ic": {
+                      "content": "!"
+                    }
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "errorActions",
+                  "width": "fill_container",
+                  "justifyContent": "end",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "id": "errorDismiss",
+                      "type": "ref",
+                      "ref": "B:c8T4z",
+                      "descendants": {
+                        "B:esH0z": {
+                          "content": "Dismiss"
+                        }
+                      }
+                    },
+                    {
+                      "id": "errorRetry",
+                      "type": "ref",
+                      "ref": "B:3CI7c",
+                      "descendants": {
+                        "B:wMRLg": {
+                          "content": "Retry"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "theme": {
+                "mode": "light"
+              }
+            }
+          ]
+        }
+      ],
+      "layout": "horizontal",
+      "gap": 150,
+      "alignItems": "start"
+    }
+  ]
+}
