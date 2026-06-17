@@ -24,28 +24,62 @@ pub async fn upload(
 ) -> Result<Json<UploadResponse>, AppError> {
     tracing::info!("Document upload request received");
 
-    let field = multipart
+    let mut collection_id: Option<Uuid> = None;
+    let mut filename: Option<String> = None;
+    let mut content_type: Option<String> = None;
+    let mut file_data: Option<Vec<u8>> = None;
+
+    while let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::BadRequest(format!("Invalid multipart data: {e}")))?
-        .ok_or_else(|| AppError::BadRequest("No file provided".to_string()))?;
+    {
+        let name = field.name().unwrap_or("").to_string();
+        match name.as_str() {
+            "file" => {
+                filename = Some(field.file_name().unwrap_or("unknown").to_string());
+                content_type = Some(
+                    field
+                        .content_type()
+                        .map(|m| m.to_string())
+                        .unwrap_or_default(),
+                );
+                let data = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
+                tracing::debug!(
+                    "Uploaded file: {name}, type={ct}, size={}",
+                    data.len(),
+                    name = filename.as_deref().unwrap_or("unknown"),
+                    ct = content_type.as_deref().unwrap_or(""),
+                );
+                file_data = Some(data.to_vec());
+            }
+            "collection_id" => {
+                let val = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("Invalid collection_id: {e}")))?;
+                collection_id = Some(Uuid::parse_str(&val).map_err(|_| {
+                    AppError::BadRequest(format!("Invalid collection_id format: {val}"))
+                })?);
+            }
+            _ => {
+                tracing::warn!("Unknown field in multipart: {name}");
+            }
+        }
+    }
 
-    let filename = field.file_name().unwrap_or("unknown").to_string();
-    let content_type = field
-        .content_type()
-        .map(|m| m.to_string())
-        .unwrap_or_default();
-    let data = field
-        .bytes()
-        .await
-        .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
+    let collection_id = collection_id
+        .ok_or_else(|| AppError::BadRequest("collection_id is required".to_string()))?;
+    let filename = filename.unwrap_or_else(|| "unknown".to_string());
+    let content_type = content_type.unwrap_or_default();
+    let data = file_data.ok_or_else(|| AppError::BadRequest("No file provided".to_string()))?;
 
-    tracing::debug!(
-        "Uploaded file: {filename}, type={content_type}, size={}",
-        data.len()
-    );
-
-    let response = svc.process_upload(&data, &filename, content_type).await?;
+    let response = svc
+        .process_upload(&data, &filename, collection_id, content_type)
+        .await?;
 
     tracing::info!(
         "Upload complete: doc_id={}, chunks={}",

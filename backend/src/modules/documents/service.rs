@@ -6,7 +6,7 @@ use crate::modules::documents::models::{
 use crate::modules::documents::repository::DocumentRepository;
 use crate::shared::chunking::chunk_document;
 use crate::shared::error::AppError;
-use crate::shared::file_validation::validate_file;
+use crate::shared::file_validation::{validate_file, MAX_FILE_SIZE};
 use crate::shared::types::FileType;
 
 /// Service for document management operations.
@@ -26,12 +26,13 @@ impl DocumentService {
         &self,
         data: &[u8],
         filename: &str,
+        collection_id: Uuid,
         _content_type: String,
     ) -> Result<UploadResponse, AppError> {
         // 1. Validate file
         let file_type = validate_file(data, filename)?;
         tracing::info!(
-            "Document uploaded: {filename} ({file_type:?}, {size} bytes)",
+            "Document uploaded: {filename} ({file_type:?}, {size} bytes) -> collection {collection_id}",
             size = data.len()
         );
 
@@ -58,7 +59,7 @@ impl DocumentService {
             file_type: format!("{:?}", file_type),
             file_size: data.len() as i64,
             uploaded_at: chrono::Utc::now(),
-            collection_id: Uuid::default(), // Will be set by client later
+            collection_id,
         };
 
         self.repo.save_document(&doc).await?;
@@ -133,7 +134,7 @@ impl DocumentService {
             let mut extracted: Vec<(String, Vec<u8>)> = Vec::new();
 
             for idx in 0..total_count {
-                let mut entry = match archive.by_index(idx) {
+                let entry = match archive.by_index(idx) {
                     Ok(e) => e,
                     Err(e) => {
                         tracing::warn!("Failed to read entry at index {idx}: {e}");
@@ -145,13 +146,43 @@ impl DocumentService {
                     continue;
                 }
 
-                let name = entry.mangled_name().to_string_lossy().to_string();
-                let entry_size = entry.size() as usize;
+                let name = entry
+                    .mangled_name()
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| {
+                        let raw = entry.mangled_name().to_string_lossy().to_string();
+                        tracing::warn!("ZIP entry has no valid filename, using raw name: {raw}");
+                        raw
+                    });
+                let entry_size = entry.size();
                 tracing::debug!("Extracting: {name} ({entry_size} bytes)");
 
-                let mut entry_data = Vec::with_capacity(entry_size);
-                if entry.read_to_end(&mut entry_data).is_err() {
+                // Guard against zip bombs: reject entries whose declared uncompressed size
+                // exceeds the limit before allocating (prevents Vec::with_capacity OOM).
+                if entry_size > MAX_FILE_SIZE {
+                    tracing::warn!(
+                        "File skipped: {name} - declared uncompressed size {entry_size} exceeds limit",
+                    );
+                    continue;
+                }
+
+                let mut entry_data = Vec::with_capacity(entry_size as usize);
+                // Use a size-bounded reader as defense-in-depth against decompression bombs
+                // (a ZIP can advertise a small uncompressed size while expanding to gigabytes).
+                let mut limited = entry.take(MAX_FILE_SIZE + 1);
+                if limited.read_to_end(&mut entry_data).is_err() {
                     tracing::warn!("File skipped: {name} - failed to read data");
+                    continue;
+                }
+
+                // Post-check: if the bounded reader filled past MAX_FILE_SIZE, the decompressed
+                // data exceeded the limit and was truncated — reject it.
+                if entry_data.len() as u64 > MAX_FILE_SIZE {
+                    tracing::warn!(
+                        "File skipped: {name} - decompressed data exceeds maximum size of {} MB",
+                        MAX_FILE_SIZE / (1024 * 1024),
+                    );
                     continue;
                 }
 
