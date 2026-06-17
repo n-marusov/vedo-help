@@ -45,7 +45,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
 
 ### Phase 2: RED — Write Tests First
 
-- [ ] **Task 3: Write E2E tests (Playwright)**
+- [x] **Task 3: Write E2E tests (Playwright)**
   - Add new e2e spec `frontend/e2e/zip-upload.spec.ts` with scenarios:
     - Upload a valid ZIP file via the admin panel → verify files appear in document list
     - Upload a ZIP with >10 files → verify 413 error message is shown in UI
@@ -54,7 +54,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
   - Run tests to verify they fail (RED) before implementation
   - **Files:** `frontend/e2e/zip-upload.spec.ts`
 
-- [ ] **Task 4: Write backend unit tests**
+- [x] **Task 4: Write backend unit tests**
   - Write `#[cfg(test)]` module in `backend/src/shared/file_validation.rs`:
     - `test_validate_zip_valid()` — valid ZIP bytes → `Ok(FileType::Zip)`
     - `test_validate_zip_invalid_magic()` — wrong bytes → error
@@ -73,7 +73,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
 
 ### Phase 3: GREEN — Implement Backend
 
-- [ ] **Task 5: Implement `process_zip_upload` in `DocumentService`**
+- [x] **Task 5: Implement `process_zip_upload` in `DocumentService`**
   - Accept `&[u8]` (raw ZIP bytes) and `collection_id: Uuid`
   - Open ZIP archive using `zip::ZipArchive`
   - Enumerate entries:
@@ -91,7 +91,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
     - WARN: per-file "File skipped: {name} - {reason}"
     - INFO: "ZIP upload complete: {ok}/{total} files processed"
 
-- [ ] **Task 6: Add `upload_zip` handler + wire route**
+- [x] **Task 6: Add `upload_zip` handler + wire route**
   - New handler `upload_zip` in `documents/handlers.rs`
     - Accept multipart with `file` (the ZIP) and `collection_id` fields
     - Extract raw bytes, call `svc.process_zip_upload()`
@@ -111,7 +111,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
 
 ### Phase 4: GREEN — Implement Frontend
 
-- [ ] **Task 7: Add frontend ZIP upload types and store method**
+- [x] **Task 7: Add frontend ZIP upload types and store method**
   - Add to `frontend/src/api/types.ts`:
     - `ZipUploadItem { filename: string; status: string; document_id: string | null; error: string | null }`
     - `ZipUploadResponse { total_files: number; processed: number; failed: number; items: ZipUploadItem[] }`
@@ -125,7 +125,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
   - **Files:** `frontend/src/api/types.ts`, `frontend/src/stores/documents.ts`
   - **Logging (frontend):** console.debug on progress, console.warn on errors
 
-- [ ] **Task 8: Update `DocumentList.vue` for ZIP file handling**
+- [x] **Task 8: Update `DocumentList.vue` for ZIP file handling**
   - In `handleFilesSelected()`: detect `.zip` files in the selected file list
     - If a `.zip` file is detected → call `documentStore.uploadZip()` instead of per-file `uploadDocument()`
     - Mixed .zip and non-zip files: process ZIP via batch endpoint, individual files via regular upload
@@ -139,7 +139,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
 
 ### Phase 5: Validation
 
-- [ ] **Task 9: Documentation and build verification**
+- [x] **Task 9: Documentation and build verification**
   - Update `docs/api.md` to add the `POST /api/documents/upload-zip` endpoint documentation
   - Update `docs/gui.md` if needed to describe ZIP upload UI
   - Run `npm run ai:validate` (per RULES.md) and verify exit code 0

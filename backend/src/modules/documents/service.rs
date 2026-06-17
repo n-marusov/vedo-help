@@ -1,6 +1,8 @@
 use uuid::Uuid;
 
-use crate::modules::documents::models::{Document, DocumentSummary, UploadResponse};
+use crate::modules::documents::models::{
+    Chunk, Document, DocumentSummary, UploadResponse, ZipUploadItem, ZipUploadResponse,
+};
 use crate::modules::documents::repository::DocumentRepository;
 use crate::shared::chunking::chunk_document;
 use crate::shared::error::AppError;
@@ -103,6 +105,198 @@ impl DocumentService {
     pub async fn delete_document(&self, id: Uuid) -> Result<(), AppError> {
         self.repo.delete_document(id).await
     }
+
+    /// Process a ZIP batch upload: extract, validate, chunk, and save each file.
+    pub async fn process_zip_upload(
+        &self,
+        data: &[u8],
+        collection_id: Uuid,
+    ) -> Result<ZipUploadResponse, AppError> {
+        use std::io::Cursor;
+        use std::io::Read;
+
+        tracing::info!(
+            "Processing ZIP upload for collection {collection_id}: {} bytes",
+            data.len()
+        );
+
+        // Read all entries into memory synchronously (ZipFile is not Send)
+        // Returns: Vec<(filename, file_data)>
+        let extracted = {
+            let reader = Cursor::new(data);
+            let mut archive = zip::ZipArchive::new(reader)
+                .map_err(|e| AppError::FileError(format!("Invalid ZIP file: {e}")))?;
+
+            tracing::debug!("ZIP opened: {} entries found", archive.len());
+
+            let total_count = archive.len();
+            let mut extracted: Vec<(String, Vec<u8>)> = Vec::new();
+
+            for idx in 0..total_count {
+                let mut entry = match archive.by_index(idx) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::warn!("Failed to read entry at index {idx}: {e}");
+                        continue;
+                    }
+                };
+
+                if entry.is_dir() {
+                    continue;
+                }
+
+                let name = entry.mangled_name().to_string_lossy().to_string();
+                let entry_size = entry.size() as usize;
+                tracing::debug!("Extracting: {name} ({entry_size} bytes)");
+
+                let mut entry_data = Vec::with_capacity(entry_size);
+                if entry.read_to_end(&mut entry_data).is_err() {
+                    tracing::warn!("File skipped: {name} - failed to read data");
+                    continue;
+                }
+
+                extracted.push((name, entry_data));
+            }
+
+            extracted
+        };
+
+        let file_count = extracted.len();
+
+        // Enforce 10-file limit
+        if file_count > 10 {
+            tracing::warn!("ZIP contains {file_count} files, exceeds limit of 10");
+            return Err(AppError::PayloadTooLarge(format!(
+                "ZIP contains more than 10 files (found {file_count})",
+            )));
+        }
+
+        // Process each extracted file asynchronously
+        let mut processed = 0usize;
+        let mut failed = 0usize;
+        let mut items = Vec::new();
+
+        for (name, entry_data) in extracted {
+            tracing::debug!("Processing: {name} ({} bytes)", entry_data.len());
+
+            // Detect inner file type by extension
+            let inner_file_type = match crate::shared::types::FileType::from_extension(&name) {
+                Some(ft) => ft,
+                None => {
+                    tracing::warn!("File skipped: {name} - unsupported file extension");
+                    items.push(ZipUploadItem {
+                        filename: name.clone(),
+                        status: "skipped".to_string(),
+                        document_id: None,
+                        error: Some("Unsupported file extension".to_string()),
+                    });
+                    failed += 1;
+                    continue;
+                }
+            };
+
+            // Validate via validate_file
+            if let Err(e) = validate_file(&entry_data, &name) {
+                tracing::warn!("File skipped: {name} - {e}");
+                items.push(ZipUploadItem {
+                    filename: name.clone(),
+                    status: "skipped".to_string(),
+                    document_id: None,
+                    error: Some(format!("Validation failed: {e}")),
+                });
+                failed += 1;
+                continue;
+            }
+
+            // Parse file content
+            let text = match parse_file_content(&entry_data, &name, &inner_file_type) {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::warn!("File skipped: {name} - parse error: {e}");
+                    items.push(ZipUploadItem {
+                        filename: name.clone(),
+                        status: "failed".to_string(),
+                        document_id: None,
+                        error: Some(format!("Parse error: {e}")),
+                    });
+                    failed += 1;
+                    continue;
+                }
+            };
+
+            // Chunk text
+            let chunks = chunk_document(&text);
+            tracing::debug!("File processed: {name} -> {} chunks", chunks.len());
+
+            // Create document record
+            let doc_id = Uuid::new_v4();
+            let doc = Document {
+                id: doc_id,
+                name: name.clone(),
+                file_type: format!("{:?}", inner_file_type),
+                file_size: entry_data.len() as i64,
+                uploaded_at: chrono::Utc::now(),
+                collection_id,
+            };
+
+            // Save document (async, no ZipFile borrow)
+            if let Err(e) = self.repo.save_document(&doc).await {
+                tracing::warn!("File skipped: {name} - failed to save: {e}");
+                items.push(ZipUploadItem {
+                    filename: name.clone(),
+                    status: "failed".to_string(),
+                    document_id: None,
+                    error: Some(format!("Database error: {e}")),
+                });
+                failed += 1;
+                continue;
+            }
+
+            // Save chunks
+            let mut save_ok = true;
+            for chunk in &chunks {
+                let chunk_record = Chunk {
+                    id: Uuid::new_v4(),
+                    document_id: doc_id,
+                    index: chunk.index,
+                    text: chunk.text.clone(),
+                };
+                if let Err(e) = self.repo.save_chunk(&chunk_record).await {
+                    tracing::warn!("Failed to save chunk {} for {name}: {e}", chunk.index);
+                    save_ok = false;
+                    break;
+                }
+            }
+
+            if !save_ok {
+                items.push(ZipUploadItem {
+                    filename: name.clone(),
+                    status: "failed".to_string(),
+                    document_id: None,
+                    error: Some("Failed to save chunks".to_string()),
+                });
+                failed += 1;
+                continue;
+            }
+
+            processed += 1;
+            items.push(ZipUploadItem {
+                filename: name,
+                status: "success".to_string(),
+                document_id: Some(doc_id),
+                error: None,
+            });
+        }
+
+        tracing::info!("ZIP upload complete: {processed}/{file_count} files processed");
+
+        Ok(ZipUploadResponse {
+            total_files: file_count,
+            processed,
+            failed,
+            items,
+        })
+    }
 }
 
 /// Parse file content into plain text based on file type.
@@ -131,7 +325,178 @@ fn parse_file_content(
     }
 }
 
-/// Extract text from a DOCX file using docx-rs.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Helper: create an in-memory ZIP with given (filename, content) pairs.
+    fn make_zip(files: &[(&str, &str)]) -> Vec<u8> {
+        let buf = std::io::Cursor::new(Vec::new());
+        let mut zip = zip::ZipWriter::new(buf);
+        for &(name, content) in files {
+            let options: zip::write::FileOptions<()> = zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            zip.start_file(name, options).unwrap();
+            zip.write_all(content.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
+
+    #[tokio::test]
+    async fn test_process_zip_with_5_md_files() {
+        let data = make_zip(&[
+            ("file1.md", "# File 1"),
+            ("file2.md", "# File 2"),
+            ("file3.md", "# File 3"),
+            ("file4.md", "# File 4"),
+            ("file5.md", "# File 5"),
+        ]);
+        let result = make_service()
+            .await
+            .process_zip_upload(&data, Uuid::new_v4())
+            .await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.processed, 5);
+        assert_eq!(response.failed, 0);
+        assert_eq!(response.total_files, 5);
+    }
+
+    #[tokio::test]
+    async fn test_process_zip_with_11_files_returns_413() {
+        let names: Vec<String> = (0..11).map(|i| format!("doc-{i}.md")).collect();
+        let refs: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "# content")).collect();
+        let data = make_zip(&refs);
+        let result = make_service()
+            .await
+            .process_zip_upload(&data, Uuid::new_v4())
+            .await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::PayloadTooLarge(_) => {}
+            _ => panic!("Expected PayloadTooLarge error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_process_zip_mixed_valid_invalid() {
+        let data = make_zip(&[
+            ("valid.md", "# Valid"),
+            ("script.exe", "fake exe"),
+            ("notes.txt", "Plain text"),
+        ]);
+        let result = make_service()
+            .await
+            .process_zip_upload(&data, Uuid::new_v4())
+            .await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.processed > 0);
+        assert!(response.processed < response.total_files);
+    }
+
+    #[tokio::test]
+    async fn test_process_zip_empty() {
+        let data = make_zip(&[]);
+        let result = make_service()
+            .await
+            .process_zip_upload(&data, Uuid::new_v4())
+            .await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.total_files, 0);
+        assert_eq!(response.processed, 0);
+    }
+
+    #[tokio::test]
+    async fn test_process_zip_corrupted() {
+        let data = vec![0x00, 0x01, 0x02, 0x03];
+        let result = make_service()
+            .await
+            .process_zip_upload(&data, Uuid::new_v4())
+            .await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::FileError(_) => {}
+            _ => panic!("Expected FileError for corrupted ZIP"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_process_zip_unsupported_types_skipped() {
+        let data = make_zip(&[
+            ("valid.md", "# Valid"),
+            ("readme.txt", "Plain text"),
+            ("app.exe", "binary"),
+        ]);
+        let result = make_service()
+            .await
+            .process_zip_upload(&data, Uuid::new_v4())
+            .await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.processed >= 1);
+        // .txt and .exe should be skipped, only .md processed
+        assert!(response.failed > 0 || response.processed < response.total_files);
+    }
+
+    /// Create a DocumentService with an in-memory repository for testing.
+    async fn make_service() -> DocumentService {
+        // Use shared cache mode so all pool connections see the same in-memory DB
+        let pool = sqlx::SqlitePool::connect("sqlite:file::memory:?cache=shared")
+            .await
+            .expect("Failed to create in-memory SQLite pool");
+
+        // Create schema in the in-memory database
+        // Disable FK enforcement for test isolation
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .ok();
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS collections (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                created_at TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .ok();
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                file_type TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                uploaded_at TEXT NOT NULL,
+                collection_id TEXT NOT NULL,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+            )",
+        )
+        .execute(&pool)
+        .await
+        .ok();
+        sqlx::query(
+            r#"CREATE TABLE IF NOT EXISTS chunks (
+                id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                "index" INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )"#,
+        )
+        .execute(&pool)
+        .await
+        .ok();
+
+        let repo = DocumentRepository::new(pool);
+        DocumentService::new(repo)
+    }
+}
+
 fn extract_docx_text(data: &[u8]) -> Result<String, AppError> {
     use docx_rs::*;
     let doc = read_docx(data).map_err(|e| AppError::FileError(format!("DOCX parse error: {e}")))?;

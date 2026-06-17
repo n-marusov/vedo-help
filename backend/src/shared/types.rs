@@ -44,4 +44,16 @@ impl FileType {
             FileType::Zip => "application/zip",
         }
     }
+
+    /// Detect file type from a filename extension.
+    pub fn from_extension(filename: &str) -> Option<FileType> {
+        let ext = filename.rsplit('.').next()?.to_lowercase();
+        match ext.as_str() {
+            "pdf" => Some(FileType::Pdf),
+            "md" | "markdown" => Some(FileType::Markdown),
+            "docx" => Some(FileType::Docx),
+            "zip" => Some(FileType::Zip),
+            _ => None,
+        }
+    }
 }

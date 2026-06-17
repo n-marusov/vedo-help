@@ -10,6 +10,7 @@ use axum::{
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::signal;
 use tower_http::cors::CorsLayer;
+use tower_http::limit::RequestBodyLimitLayer;
 use tracing_subscriber::EnvFilter;
 
 use vedo_backend::config::AppConfig;
@@ -131,6 +132,11 @@ async fn main() {
         .route("/api/auth/logout", post(auth_handlers::logout))
         // Document routes
         .route("/api/documents/upload", post(documents_handlers::upload))
+        .route(
+            "/api/documents/upload-zip",
+            post(documents_handlers::upload_zip)
+                .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024)),
+        )
         .route("/api/documents", get(documents_handlers::list))
         .route("/api/documents/{id}", delete(documents_handlers::delete))
         // Collection routes
@@ -322,15 +328,13 @@ async fn run_migrations(db: &sqlx::SqlitePool) {
     .expect("Failed to create documents table");
 
     sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS chunks (
+        r#"CREATE TABLE IF NOT EXISTS chunks (
             id TEXT PRIMARY KEY,
             document_id TEXT NOT NULL,
             "index" INTEGER NOT NULL,
             text TEXT NOT NULL,
             FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-        )
-        "#,
+        )"#,
     )
     .execute(db)
     .await

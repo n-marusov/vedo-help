@@ -165,4 +165,39 @@ mod tests {
             .to_string()
             .contains("exceeds maximum size"));
     }
+
+    #[test]
+    fn test_validate_zip_valid() {
+        let content = b"PK\x03\x04...";
+        assert!(validate_zip_magic(content).is_ok());
+        let result = validate_file(content, "archive.zip");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Zip);
+    }
+
+    #[test]
+    fn test_validate_zip_invalid_magic() {
+        let content = b"Not a ZIP file";
+        assert!(validate_zip_magic(content).is_err());
+        let result = validate_file(content, "archive.zip");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("missing ZIP header"));
+    }
+
+    #[test]
+    fn test_validate_zip_empty() {
+        let result = validate_zip_magic(b"");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_zip_extension() {
+        let content = b"PK\x03\x04 content";
+        let result = validate_file(content, "data.zip");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Zip);
+    }
 }

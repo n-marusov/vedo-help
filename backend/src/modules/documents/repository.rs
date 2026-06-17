@@ -132,7 +132,7 @@ impl DocumentRepository {
 
     /// Save a chunk record to SQLite.
     pub async fn save_chunk(&self, chunk: &Chunk) -> Result<(), AppError> {
-        sqlx::query("INSERT INTO chunks (id, document_id, index, text) VALUES (?, ?, ?, ?)")
+        sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
             .bind(chunk.id.to_string())
             .bind(chunk.document_id.to_string())
             .bind(chunk.index as i64)
@@ -147,7 +147,7 @@ impl DocumentRepository {
     /// Retrieve chunks by document ID, ordered by index.
     pub async fn get_chunks(&self, document_id: Uuid) -> Result<Vec<Chunk>, AppError> {
         let rows = sqlx::query_as::<_, (String, String, i64, String)>(
-            "SELECT id, document_id, index, text FROM chunks WHERE document_id = ? ORDER BY index",
+            r#"SELECT id, document_id, "index", text FROM chunks WHERE document_id = ? ORDER BY "index""#
         )
         .bind(document_id.to_string())
         .fetch_all(&self.db)

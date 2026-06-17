@@ -36,6 +36,7 @@ Requests without a valid token return `401 Unauthorized`.
 | 401 | `unauthorized` | Missing or invalid API key |
 | 404 | `not_found` | Resource not found |
 | 415 | `file_error` | Unsupported or corrupt file |
+| 413 | `payload_too_large` | ZIP exceeds 10-file limit or body > 50 MB |
 | 429 | `rate_limited` | Too many requests |
 | 502 | `embedding_error` | Embedding service unavailable |
 | 502 | `chroma_error` | Chroma unavailable |
@@ -58,13 +59,13 @@ curl http://localhost:3000/health
 
 #### `POST /api/documents/upload`
 
-Upload a document (or ZIP batch) to a collection.
+Upload a single document to a collection. For ZIP archives, use `POST /api/documents/upload-zip`.
 
 **Request:** `multipart/form-data`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `file` | File | PDF, Markdown, DOCX, or ZIP (max 50 MB) |
+| `file` | File | PDF, Markdown, or DOCX (max 50 MB) |
 | `collection_id` | string | Target collection UUID |
 
 ```bash
@@ -103,6 +104,60 @@ Delete a document and its chunks.
 curl -X DELETE http://localhost:3000/api/documents/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 ```
+
+#### `POST /api/documents/upload-zip`
+
+Upload a ZIP archive for batch processing (up to 10 files, max 50 MB).
+
+**Request:** `multipart/form-data`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `file` | File | ZIP archive (max 50 MB, max 10 files inside) |
+| `collection_id` | string | Target collection UUID |
+
+```bash
+curl -X POST http://localhost:3000/api/documents/upload-zip \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -F "file=@docs.zip" \
+  -F "collection_id=550e8400-e29b-41d4-a716-446655440000"
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "total_files": 3,
+  "processed": 2,
+  "failed": 1,
+  "items": [
+    {
+      "filename": "readme.md",
+      "status": "success",
+      "document_id": "660e8400-e29b-41d4-a716-446655440000",
+      "error": null
+    },
+    {
+      "filename": "notes.txt",
+      "status": "skipped",
+      "document_id": null,
+      "error": "Unsupported file extension"
+    },
+    {
+      "filename": "corrupt.docx",
+      "status": "failed",
+      "document_id": null,
+      "error": "Parse error: ..."
+    }
+  ]
+}
+```
+
+**Error responses:**
+
+| Status | Error Type | Description |
+|--------|-----------|-------------|
+| 413 | `payload_too_large` | ZIP contains >10 files or exceeds 50 MB |
 
 ### Collections
 

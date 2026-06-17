@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import VButton from '@/components/ui/VButton.vue';
-import VDialog from '@/components/ui/VDialog.vue';
-import VDropZone from '@/components/ui/VDropZone.vue';
-import VProgressBar from '@/components/ui/VProgressBar.vue';
-import { useCollectionStore } from '@/stores/collections';
-import { useDocumentStore } from '@/stores/documents';
-import { onMounted, ref } from 'vue';
+import VButton from "@/components/ui/VButton.vue";
+import VDialog from "@/components/ui/VDialog.vue";
+import VDropZone from "@/components/ui/VDropZone.vue";
+import VProgressBar from "@/components/ui/VProgressBar.vue";
+import { useCollectionStore } from "@/stores/collections";
+import { useDocumentStore } from "@/stores/documents";
+import { onMounted, ref } from "vue";
 
 const documentStore = useDocumentStore();
 const collectionStore = useCollectionStore();
 
 const isUploading = ref(false);
 const uploadProgress = ref<number | null>(null);
-const uploadingFileName = ref<string>('');
+const uploadingFileName = ref<string>("");
 
 const showDeleteDialog = ref(false);
 const deletingDoc = ref<{ id: string; name: string } | null>(null);
@@ -28,52 +28,90 @@ function loadDocuments() {
 }
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString([], {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function getFileIcon(fileType: string): string {
   const type = fileType.toLowerCase();
-  if (type.includes('pdf')) return '📄';
-  if (type.includes('markdown') || type.endsWith('md')) return '📝';
-  if (type.includes('html')) return '🌐';
-  if (type.includes('json')) return '📋';
-  if (type.includes('text') || type.endsWith('txt')) return '📃';
-  if (type.includes('zip') || type.includes('tar') || type.includes('gz')) return '📦';
-  return '📎';
+  if (type.includes("pdf")) return "📄";
+  if (type.includes("markdown") || type.endsWith("md")) return "📝";
+  if (type.includes("html")) return "🌐";
+  if (type.includes("json")) return "📋";
+  if (type.includes("text") || type.endsWith("txt")) return "📃";
+  if (type.includes("zip") || type.includes("tar") || type.includes("gz"))
+    return "📦";
+  return "📎";
 }
 
 function formatFileType(fileType: string): string {
   const type = fileType.toLowerCase();
-  if (type.includes('pdf')) return 'PDF';
-  if (type.includes('markdown') || type.endsWith('md')) return 'Markdown';
-  if (type.includes('html')) return 'HTML';
-  if (type.includes('json')) return 'JSON';
-  if (type.includes('text') || type.endsWith('txt')) return 'Text';
-  if (type.includes('zip') || type.includes('tar') || type.includes('gz')) return 'Archive';
-  return type.split('/').pop() || type;
+  if (type.includes("pdf")) return "PDF";
+  if (type.includes("markdown") || type.endsWith("md")) return "Markdown";
+  if (type.includes("html")) return "HTML";
+  if (type.includes("json")) return "JSON";
+  if (type.includes("text") || type.endsWith("txt")) return "Text";
+  if (type.includes("zip") || type.includes("tar") || type.includes("gz"))
+    return "Archive";
+  return type.split("/").pop() || type;
 }
+
+const zipResult = ref<{
+  processed: number;
+  total: number;
+  failed: number;
+} | null>(null);
 
 async function handleFilesSelected(files: File[]) {
   const collectionId = collectionStore.activeCollectionId;
   if (!collectionId) return;
 
   isUploading.value = true;
+  zipResult.value = null;
 
-  for (const file of files) {
+  // Separate ZIP files from regular files
+  const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
+  const regularFiles = files.filter(
+    (f) => !f.name.toLowerCase().endsWith(".zip"),
+  );
+
+  // Process ZIP files via batch endpoint
+  for (const file of zipFiles) {
+    uploadingFileName.value = file.name;
+    uploadProgress.value = 0;
+
+    const result = await documentStore.uploadZip(
+      file,
+      collectionId,
+      (progress) => {
+        uploadProgress.value = progress;
+      },
+    );
+
+    if (result) {
+      zipResult.value = {
+        processed: result.processed,
+        total: result.total_files,
+        failed: result.failed,
+      };
+    }
+  }
+
+  // Process regular files individually
+  for (const file of regularFiles) {
     uploadingFileName.value = file.name;
     uploadProgress.value = 0;
 
@@ -84,7 +122,11 @@ async function handleFilesSelected(files: File[]) {
 
   isUploading.value = false;
   uploadProgress.value = null;
-  uploadingFileName.value = '';
+  uploadingFileName.value = "";
+}
+
+function clearZipResult() {
+  zipResult.value = null;
 }
 
 function promptDelete(doc: { id: string; name: string }) {
@@ -101,7 +143,7 @@ async function handleDeleteConfirm() {
 }
 
 // Watch for collection changes
-import { watch } from 'vue';
+import { watch } from "vue";
 watch(
   () => collectionStore.activeCollectionId,
   () => {
@@ -112,6 +154,24 @@ watch(
 
 <template>
   <div class="document-list">
+    <!-- ZIP batch result -->
+    <div v-if="zipResult" class="dl-zip-result">
+      <div class="dl-zip-result__header">
+        <span class="dl-zip-result__title">📦 ZIP Batch Result</span>
+        <button class="dl-zip-result__close" @click="clearZipResult">✕</button>
+      </div>
+      <div class="dl-zip-result__summary">
+        <strong>{{ zipResult.processed }}</strong> of
+        <strong>{{ zipResult.total }}</strong> files processed
+        <span v-if="zipResult.failed > 0">
+          ·
+          <strong style="color: var(--color-destructive)">{{
+            zipResult.failed
+          }}</strong>
+          failed
+        </span>
+      </div>
+    </div>
     <!-- Header -->
     <div class="dl-header">
       <span class="dl-label">DOCUMENTS</span>
@@ -252,6 +312,52 @@ watch(
   margin-top: 6px;
   font-size: var(--font-size-2xs, 11px);
   opacity: 0.7;
+}
+
+/* ── ZIP result ── */
+.dl-zip-result {
+  padding: 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dl-zip-result__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dl-zip-result__title {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.dl-zip-result__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-muted-foreground);
+  padding: 2px 4px;
+  border-radius: var(--radius-xs, 4px);
+}
+
+.dl-zip-result__close:hover {
+  background: var(--color-hover);
+}
+
+.dl-zip-result__summary {
+  color: var(--color-muted-foreground);
+  font-size: var(--font-size-2xs, 11px);
+}
+
+.dl-zip-result__summary strong {
+  color: var(--color-foreground);
 }
 
 /* ── Upload progress ── */
