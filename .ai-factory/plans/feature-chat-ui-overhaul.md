@@ -22,8 +22,9 @@
 
 | Field | Value |
 |-------|-------|
-| Milestone | v0.2 — GUI Redesign |
-| Rationale | This is the first phase of the GUI Redesign milestone — the chat interface is the primary user-facing surface and must match DeepSeek-level quality before proceeding to theme, sidebar, and Markdown rendering phases. |
+| Milestone | v0.2 — GUI Redesign (6/6 ✅)
+v0.2.1 — Markdown & Code Rendering (next) |
+| Rationale | This plan covers the DeepSeek-style chat UI redesign. Markdown & code rendering is now a separate follow-up milestone (v0.2.1). |
 
 ---
 

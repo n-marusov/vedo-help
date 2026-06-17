@@ -25,11 +25,18 @@
 - [x] **Chat UI overhaul (Phases 0–4)** — дизайн-токены (`chat-tokens.css`), компонент `UserAvatar` (SVG, 3 размера), переработка `MessageBubble` (ролевые лейблы, typing indicator, источники), `ChatWindow` (хедер с селектором коллекций, +New), адаптивная вёрстка (768px/480px), E2E-тесты Playwright (42 теста, 5 spec-файлов), юнит-тесты (26)
 - [x] **Dark/light theme** — переключаемая тема с сохранением в localStorage, CSS-переменные для всей палитры
 - [x] **Session sidebar** — редизайн сайдбара сессий в стиле Pencil (312px, card bg, radius-xl)
-- [ ] **Markdown & code rendering** — полноценный рендеринг Markdown (remark/rehype), подсветка синтаксиса (shiki/prism), кнопка копирования кода
 - [x] **Admin panel redesign** — страница управления приведена к единому стилю (admin.pen, dialogs.pen)
 - [x] **UI component refactor** — вынос атомарных компонентов в `src/components/ui/`, единая типографика IBM Plex Mono
 - [x] **Login page** — страница входа с OAuth-провайдерами (login.pen)
 - [x] **Auth documentation** — docs/auth.md with KeyCloak setup, social providers, OAuth flow, troubleshooting
+
+---
+
+## Milestone: v0.2.1 — Markdown & Code Rendering
+
+Полноценный рендеринг Markdown и подсветка синтаксиса в сообщениях чата.
+
+- [ ] **Markdown & code rendering** — полноценный рендеринг Markdown (remark/rehype), подсветка синтаксиса (shiki/prism), кнопка копирования кода
 
 ---
 
@@ -100,7 +107,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | Milestone | Status | Фокус |
 |-----------|--------|-------|
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
-| v0.2 — GUI Redesign | 🔄 **7/7** | **DeepSeek-style chat UI ✅, UI atoms ✅, session sidebar ✅, admin redesign ✅, login page ✅, dark/light theme ✅, Markdown rendering** |
+| v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
+| v0.2.1 — Markdown & Code Rendering | ⏳ 0/1 | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Production Polish | ⏳ 0/6 | E2E, ZIP, re-indexing, confidence, graceful degradation |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
@@ -110,4 +118,4 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Старт:** 2026-06-14
 **MVP завершён:** 2026-06-15
 **Chat UI overhaul (Phases 0–4):** 2026-06-16
-**Что дальше:** `/aif-plan v0.3 — Production Polish` → `/aif-implement`
+**Что дальше:** `/aif-plan v0.2.1 — Markdown & Code Rendering` → `/aif-implement`
