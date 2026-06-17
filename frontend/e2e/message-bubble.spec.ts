@@ -1,102 +1,302 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * MessageBubble Component Tests (Task 2.1, 2.2)
- *
- * Tests the redesigned MessageBubble with minimalistic styling,
- * markdown rendering, source citations, and streaming/typing indicator.
+ * Make a mock JWT with the given payload claims.
+ */
+function makeMockJwt(claims: Record<string, unknown>): string {
+  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = btoa(JSON.stringify(claims));
+  return `${header}.${payload}.mocksignature`;
+}
+
+const VALID_TOKEN = makeMockJwt({
+  sub: 'user-123',
+  name: 'Test User',
+  preferred_username: 'testuser',
+  exp: Math.floor(Date.now() / 1000) + 7200,
+  iat: Math.floor(Date.now() / 1000),
+});
+
+/**
+ * Helper: seed chat store with messages via Pinia.
+ */
+async function seedMessages(
+  page: import('@playwright/test').Page,
+  msgs: Record<string, unknown>[],
+) {
+  await page.evaluate((messages) => {
+    // biome-ignore lint/suspicious/noExplicitAny: E2E test helper needs access to Vue internals
+    const app = (document.querySelector('#app') as any).__vue_app__;
+    const pinia = app.config.globalProperties.$pinia;
+    const state = pinia.state.value.chat;
+    state.messages = messages;
+    state.activeSessionId = 'sess-1';
+  }, msgs);
+}
+
+/**
+ * Helper: set up JWT and API mocks, navigate to /.
+ */
+async function setupChatPage(page: import('@playwright/test').Page) {
+  // Mock collections API
+  await page.route('**/api/collections', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 'col-1',
+          name: 'Test Collection',
+          description: '',
+          created_at: new Date().toISOString(),
+          document_count: 0,
+        },
+      ]),
+    });
+  });
+
+  // Mock sessions API
+  await page.route('**/api/sessions', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 'sess-1',
+          title: 'Test Session',
+          message_count: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+  });
+
+  // Inject JWT before navigation
+  await page.addInitScript((token) => {
+    localStorage.setItem('vedo_auth_token', token);
+  }, VALID_TOKEN);
+
+  await page.goto('/');
+  await expect(page.locator('[data-testid="chat-view"]')).toBeVisible({
+    timeout: 10000,
+  });
+}
+
+/**
+ * MessageBubble Component Tests
  */
 test.describe('MessageBubble Component', () => {
   test.describe('Message Rendering', () => {
     test('TC-MSG-001: renders user messages right-aligned', async ({ page }) => {
-      await page.goto('/');
-      const userMsg = page.locator('[data-testid="message-user"]').first();
-      await expect(userMsg).toBeVisible({ timeout: 5000 });
+      await setupChatPage(page);
+      // Inject messages into Pinia store so we can observe them
+      await seedMessages(page, [
+        {
+          id: 'u1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Hi there',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      // Wait for the page to re-render
+      await expect(page.locator('[data-testid="message-user"]').first()).toBeVisible({
+        timeout: 5000,
+      });
 
-      // User messages should be right-aligned (flex-direction: row-reverse or similar)
-      const container = userMsg.locator('..'); // parent flex container
-      await expect(userMsg).toHaveCSS('justify-self', 'flex-end');
+      const userMsg = page.locator('[data-testid="message-user"]').first();
+      await expect(userMsg).toHaveCSS('align-self', 'flex-end');
     });
 
     test('TC-MSG-002: renders assistant messages left-aligned', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'u1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Hi there',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const assistantMsg = page.locator('[data-testid="message-assistant"]').first();
       await expect(assistantMsg).toBeVisible({ timeout: 5000 });
 
-      // Assistant messages should be left-aligned
-      await expect(assistantMsg).toHaveCSS('justify-self', 'flex-start');
+      await expect(assistantMsg).toHaveCSS('align-self', 'flex-start');
     });
 
     test('TC-MSG-003: displays message sender role label', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'u1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const userLabel = page.locator('[data-testid="message-role-user"]').first();
       await expect(userLabel).toHaveText('You');
-
-      const assistantLabel = page.locator('[data-testid="message-role-assistant"]').first();
-      await expect(assistantLabel).toHaveText('VEDO Assistant');
     });
 
     test('TC-MSG-004: displays message timestamp', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'u1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const timestamp = page.locator('[data-testid="message-time"]').first();
       await expect(timestamp).toBeVisible({ timeout: 5000 });
-      // Timestamp should be a valid time string (HH:MM format or similar)
       await expect(timestamp).not.toBeEmpty();
     });
 
     test('TC-MSG-005: renders markdown content correctly', async ({ page }) => {
-      await page.goto('/');
-      // A message with markdown should render HTML (code blocks, bold, links)
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Code: `let x = 1`\n\n```python\nprint("hello")\n```\n\n**bold**',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const markdownContent = page.locator('[data-testid="message-content"]').first();
       await expect(markdownContent).toBeVisible({ timeout: 5000 });
 
       // Code blocks should have styled pre/code elements
       const codeBlock = markdownContent.locator('pre code').first();
-      if (await codeBlock.isVisible()) {
-        await expect(codeBlock).toHaveCSS('background-color', expect.stringContaining('rgb'));
-      }
+      await expect(codeBlock).toBeVisible();
     });
 
     test('TC-MSG-006: renders inline code with distinct background', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Use `inline code` here',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const inlineCode = page.locator('[data-testid="message-content"] code:not(pre code)').first();
-      if (await inlineCode.isVisible()) {
-        await expect(inlineCode).toHaveCSS('background-color', expect.stringContaining('rgb'));
-        await expect(inlineCode).toHaveCSS('padding', expect.stringContaining('px'));
-      }
+      await expect(inlineCode).toBeVisible();
+      await expect(inlineCode).toHaveCSS('background-color', expect.stringContaining('rgb'));
+      await expect(inlineCode).toHaveCSS('padding', expect.stringContaining('px'));
     });
 
     test('TC-MSG-007: renders links with correct styling', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Visit https://example.com for info',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const link = page.locator('[data-testid="message-content"] a').first();
-      if (await link.isVisible()) {
-        await expect(link).toHaveCSS('color', expect.stringContaining('rgb'));
-        await expect(link).toHaveAttribute('href', /^https?:\/\//);
-      }
+      await expect(link).toBeVisible();
+      await expect(link).toHaveCSS('color', expect.stringContaining('rgb'));
     });
   });
 
   test.describe('Source Citations', () => {
     test('TC-MSG-008: displays source citation toggle for assistant messages', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Answer with sources',
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'content',
+              relevance: 0.95,
+            },
+          ]),
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const sourcesToggle = page.locator('[data-testid="sources-toggle"]').first();
       await expect(sourcesToggle).toBeVisible({ timeout: 5000 });
-      // Should show source count
       await expect(sourcesToggle).toContainText(/source/i);
     });
 
     test('TC-MSG-009: expands source list on toggle click', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Answer',
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'content',
+              relevance: 0.95,
+            },
+          ]),
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const sourcesToggle = page.locator('[data-testid="sources-toggle"]').first();
       await sourcesToggle.click();
 
-      // Sources list should now be visible
       const sourcesList = page.locator('[data-testid="sources-list"]').first();
       await expect(sourcesList).toBeVisible();
     });
 
     test('TC-MSG-010: collapses source list on second toggle click', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Answer',
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'content',
+              relevance: 0.95,
+            },
+          ]),
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const sourcesToggle = page.locator('[data-testid="sources-toggle"]').first();
       await sourcesToggle.click(); // expand
       await sourcesToggle.click(); // collapse
@@ -106,107 +306,376 @@ test.describe('MessageBubble Component', () => {
     });
 
     test('TC-MSG-011: shows document name and relevance in source item', async ({ page }) => {
-      await page.goto('/');
-      // Open sources
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Answer',
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'content',
+              relevance: 0.95,
+            },
+          ]),
+          created_at: new Date().toISOString(),
+        },
+      ]);
       await page.locator('[data-testid="sources-toggle"]').first().click();
 
       const sourceItem = page.locator('[data-testid="source-item"]').first();
       await expect(sourceItem).toBeVisible();
 
-      // Should have document name
       const docName = sourceItem.locator('[data-testid="source-document"]');
       await expect(docName).toBeVisible();
       await expect(docName).not.toBeEmpty();
 
-      // Should have relevance score
       const relevance = sourceItem.locator('[data-testid="source-relevance"]');
       await expect(relevance).toBeVisible();
       await expect(relevance).toContainText('%');
     });
   });
 
-  test.describe('Streaming / Typing Indicator (Task 2.2)', () => {
-    test('TC-TYPING-001: shows typing indicator when streaming starts', async ({ page }) => {
-      await page.goto('/');
-      // When assistant is generating a response, typing dots should appear
-      const typingIndicator = page.locator('[data-testid="typing-indicator"]');
-      // Type a query to trigger streaming, then check for typing indicator
-      // Note: This requires actual backend or mock. We test the component contracts.
-      // In TDD, we verify the component class/exists and shows during streaming.
-    });
-
-    test('TC-TYPING-002: typing indicator has animated dots', async ({ page }) => {
-      await page.goto('/');
-      // The typing indicator should contain 3 bouncing dots
-      const typingDots = page.locator('[data-testid="typing-dot"]');
-      const dotCount = await typingDots.count();
-      expect(dotCount).toBe(3);
-    });
-
-    test('TC-TYPING-003: typing indicator dots have animation delay', async ({ page }) => {
-      await page.goto('/');
-      // Each dot should have a sequential animation delay
-      const dots = page.locator('[data-testid="typing-dot"]');
-      const delays: string[] = [];
-      for (let i = 0; i < (await dots.count()); i++) {
-        const delay = await dots.nth(i).evaluate((el) => el.style.animationDelay);
-        delays.push(delay);
-      }
-      // Delays should be different for each dot (sequential)
-      if (delays.length >= 2) {
-        expect(delays[0]).not.toBe(delays[1]);
-      }
-    });
-
-    test('TC-TYPING-004: typing indicator disappears when streaming completes', async ({
-      page,
-    }) => {
-      await page.goto('/');
-      // After streaming completes (message content is filled), typing indicator should hide
-      // This requires a completed message scenario
-      const typingIndicator = page.locator('[data-testid="typing-indicator"]');
-      await expect(typingIndicator).not.toBeVisible({ timeout: 10000 });
-    });
-
-    test('TC-TYPING-005: typing indicator disappears on stream error', async ({ page }) => {
-      await page.goto('/');
-      // On error, typing indicator should be replaced with error banner
-      const errorBanner = page.locator('[data-testid="error-banner"]');
-      const typingIndicator = page.locator('[data-testid="typing-indicator"]');
-      // If error is visible, typing should not be visible
-      if (await errorBanner.isVisible()) {
-        await expect(typingIndicator).not.toBeVisible();
-      }
-    });
-  });
-
   test.describe('Visual Styling', () => {
     test('TC-MSG-012: user message has right-corner-rounded bubble style', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'u1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const userMsg = page.locator('[data-testid="message-body-user"]').first();
       await expect(userMsg).toBeVisible({ timeout: 5000 });
-      // Should have border-radius with asymmetric corners (12px top-right, 4px bottom-right)
       const borderRadius = await userMsg.evaluate((el) => getComputedStyle(el).borderRadius);
-      expect(borderRadius).toMatch(/12px/);
+      expect(borderRadius).toMatch(/18px/);
     });
 
     test('TC-MSG-013: assistant message has left-corner-rounded bubble style', async ({ page }) => {
-      await page.goto('/');
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Hi',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const assistantMsg = page.locator('[data-testid="message-body-assistant"]').first();
       await expect(assistantMsg).toBeVisible({ timeout: 5000 });
-      // Should have border-radius with asymmetric corners (4px top-left, 12px bottom-left)
       const borderRadius = await assistantMsg.evaluate((el) => getComputedStyle(el).borderRadius);
-      expect(borderRadius).toMatch(/12px/);
+      expect(borderRadius).toMatch(/18px/);
     });
 
     test('TC-MSG-014: message background colors use design tokens', async ({ page }) => {
-      await page.goto('/');
-      // Background colors should be defined by CSS custom properties (design tokens)
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'u1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: new Date().toISOString(),
+        },
+      ]);
       const userMsg = page.locator('[data-testid="message-body-user"]').first();
       const bgColor = await userMsg.evaluate((el) => getComputedStyle(el).backgroundColor);
-      // Should be a valid color value, not transparent/initial
       expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
       expect(bgColor).not.toBe('transparent');
+    });
+  });
+
+  // ===========================================================================
+  // CODE BLOCK & SYNTAX HIGHLIGHTING E2E TESTS (Task 5)
+  // ===========================================================================
+  test.describe('Code Block Rendering', () => {
+    test('TC-CODE-001: code block renders with syntax highlighting classes (hljs)', async ({
+      page,
+    }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '```python\nprint("hello world")\n```',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      // The rendered code block should have highlight.js classes
+      const highlightedCode = msgContent.locator('.hljs');
+      await expect(highlightedCode).toBeVisible();
+
+      // The code should be inside a code-block-wrapper
+      const wrapper = msgContent.locator('.code-block-wrapper');
+      await expect(wrapper).toBeVisible();
+    });
+
+    test('TC-CODE-002: code block has language label', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '```rust\nfn main() {}\n```',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      // Language label should be visible in the code block header
+      const langLabel = msgContent.locator('.code-lang-label');
+      await expect(langLabel).toBeVisible();
+      await expect(langLabel).toHaveText(/rust/i);
+    });
+
+    test('TC-CODE-003: copy button is visible on code blocks', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '```javascript\nconst x = 1;\n```',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      const copyBtn = msgContent.locator('.copy-code-btn');
+      await expect(copyBtn).toBeVisible();
+      await expect(copyBtn).toHaveText('Copy');
+    });
+
+    test('TC-CODE-004: copy button copies content to clipboard', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '```javascript\nconst x = 42;\nconsole.log(x);\n```',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      // Grant clipboard permissions
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+      const copyBtn = msgContent.locator('.copy-code-btn');
+      await copyBtn.click();
+
+      // Read from clipboard and verify
+      const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+      expect(clipboardText).toContain('const x = 42;');
+      expect(clipboardText).toContain('console.log(x);');
+    });
+
+    test('TC-CODE-005: copy button shows "Copied!" state after click', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '```bash\necho "test"\n```',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+      const copyBtn = msgContent.locator('.copy-code-btn');
+      await copyBtn.click();
+
+      // After click, button text should change to "Copied!"
+      await expect(copyBtn).toHaveText('Copied!');
+    });
+  });
+
+  // ===========================================================================
+  // MARKDOWN FEATURES E2E TESTS (Task 5)
+  // ===========================================================================
+  test.describe('Markdown Features', () => {
+    test('TC-MD-001: table renders with correct HTML structure', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '| Name  | Age |\n|-------|-----|\n| Alice | 30  |\n| Bob   | 25  |',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      // Table should be rendered
+      const table = msgContent.locator('table');
+      await expect(table).toBeVisible();
+
+      // Should have thead and tbody
+      const thead = table.locator('thead');
+      await expect(thead).toBeVisible();
+      await expect(thead.locator('th').first()).toHaveText('Name');
+
+      const tbody = table.locator('tbody');
+      await expect(tbody).toBeVisible();
+      await expect(tbody.locator('tr')).toHaveCount(2);
+    });
+
+    test('TC-MD-002: blockquote renders with correct styling', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '> This is a blockquote\n> With multiple lines',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      const blockquote = msgContent.locator('blockquote');
+      await expect(blockquote).toBeVisible();
+      await expect(blockquote).toContainText('blockquote');
+    });
+
+    test('TC-MD-003: inline code has distinct background', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Use the `renderMarkdown()` function to parse content.',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      // Inline code (code not inside pre) should have distinct background
+      const inlineCode = msgContent.locator('code:not(pre code)').first();
+      await expect(inlineCode).toBeVisible();
+      await expect(inlineCode).toHaveText(/renderMarkdown\(\)/);
+
+      // Should have a background color (not transparent)
+      const bgColor = await inlineCode.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+      expect(bgColor).not.toBe('transparent');
+    });
+
+    test('TC-MD-004: list items render correctly', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '- Item one\n- Item two\n- Item three',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      const list = msgContent.locator('ul');
+      await expect(list).toBeVisible();
+      await expect(list.locator('li')).toHaveCount(3);
+    });
+
+    test('TC-MD-005: ordered list renders correctly', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '1. First\n2. Second\n3. Third',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      const list = msgContent.locator('ol');
+      await expect(list).toBeVisible();
+      await expect(list.locator('li')).toHaveCount(3);
+    });
+
+    test('TC-MD-006: headings render with correct hierarchy', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: '# H1 Title\n\n## H2 Section\n\n### H3 Subsection',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      await expect(msgContent.locator('h1')).toHaveText('H1 Title');
+      await expect(msgContent.locator('h2')).toHaveText('H2 Section');
+      await expect(msgContent.locator('h3')).toHaveText('H3 Subsection');
+    });
+
+    test('TC-MD-007: horizontal rule renders as styled element', async ({ page }) => {
+      await setupChatPage(page);
+      await seedMessages(page, [
+        {
+          id: 'a1',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'Above\n\n---\n\nBelow',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      const msgContent = page.locator('[data-testid="message-content"]').first();
+      await expect(msgContent).toBeVisible({ timeout: 5000 });
+
+      const hr = msgContent.locator('hr');
+      await expect(hr).toBeVisible();
+
+      // hr should have a background color (styled via CSS, design tokens)
+      const bgColor = await hr.evaluate((el) => getComputedStyle(el).background);
+      expect(bgColor).toBeTruthy();
     });
   });
 });

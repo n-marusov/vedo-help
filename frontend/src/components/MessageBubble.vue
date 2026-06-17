@@ -291,6 +291,117 @@ watch(
   color: #6b9fff;
 }
 
+/* ===== GFM Tables ===== */
+.markdown-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.markdown-body :deep(th) {
+  background: var(--color-secondary);
+  color: var(--color-foreground);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border: 1px solid var(--color-border);
+}
+
+.markdown-body :deep(td) {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.markdown-body :deep(tr:nth-child(even)) {
+  background: var(--color-secondary);
+}
+
+/* ===== Blockquotes ===== */
+.markdown-body :deep(blockquote) {
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.75rem;
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-muted-foreground);
+  background: var(--color-secondary);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+
+.markdown-body :deep(blockquote p) {
+  margin: 0.25rem 0;
+}
+
+/* ===== Lists ===== */
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 0.35rem 0;
+  padding-left: 1.5rem;
+}
+
+.markdown-body :deep(li) {
+  margin: 0.15rem 0;
+}
+
+.markdown-body :deep(ul > li) {
+  list-style-type: disc;
+}
+
+.markdown-body :deep(ol > li) {
+  list-style-type: decimal;
+}
+
+/* ===== Horizontal Rules ===== */
+.markdown-body :deep(hr) {
+  border: none;
+  height: 1px;
+  background: var(--color-border);
+  margin: 1rem 0;
+}
+
+/* ===== Headings ===== */
+.markdown-body :deep(h1) {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+  color: var(--color-foreground);
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0.85rem 0 0.4rem;
+  color: var(--color-foreground);
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.7rem 0 0.35rem;
+  color: var(--color-foreground);
+}
+
+.markdown-body :deep(h4) {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.6rem 0 0.3rem;
+  color: var(--color-foreground);
+}
+
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== Images ===== */
+.markdown-body :deep(img) {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin: 0.5rem 0;
+}
+
 /* ===== Code blocks with syntax highlighting ===== */
 .markdown-body :deep(.code-block-wrapper) {
   margin: 0.5rem 0;
