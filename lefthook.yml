@@ -4,9 +4,27 @@ pre-commit:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc,css}"
       run: frontend/node_modules/.bin/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
       stage_fixed: true
+    rust-fmt:
+      glob: "*.rs"
+      run: cd backend && cargo fmt
+      stage_fixed: true
+    ruff-format:
+      glob: "*.py"
+      run: cd embedding && ruff format src/
+      stage_fixed: true
+    ruff-lint:
+      glob: "*.py"
+      run: cd embedding && ruff check --fix src/
+      stage_fixed: true
 
 pre-push:
   commands:
     biome-ci:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc,css}"
       run: frontend/node_modules/.bin/biome ci --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {push_files}
+    rust-clippy:
+      glob: "*.rs"
+      run: cd backend && cargo clippy -- -D warnings
+    ruff-ci:
+      glob: "*.py"
+      run: cd embedding && ruff check src/
