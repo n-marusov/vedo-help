@@ -40,16 +40,31 @@
 
 ---
 
-## Milestone: v0.3 — Production Polish
+## Milestone: v0.3 — Admin Panel & Production Polish
 
-Закрытие пробелов MVP: E2E-тесты, ZIP-загрузка, re-indexing, confidence score, graceful degradation.
+Закрытие пробелов MVP: управление коллекциями и загрузка документов через админ-панель, E2E-тесты, ZIP-загрузка, re-indexing, confidence score, graceful degradation.
 
 - [ ] **E2E tests** — Playwright: upload → query → sources, запуск в CI
 - [ ] **Chroma integration tests** — убрать `--ignored`, развернуть Chroma в CI
+- [ ] **Collection management in admin panel** — UI для CRUD коллекций в админ-панели (создание, удаление, переименование, список)
+- [ ] **Document upload through admin panel** — интерфейс загрузки документов с дроп-зоной, прогресс-баром, валидацией
 - [ ] **ZIP batch upload** — до 10 файлов, HTTP 413 при превышении
 - [ ] **Document re-indexing** — деактивация старых чанков при перезагрузке
 - [ ] **Confidence indicator** — relevance score в UI (sources)
 - [ ] **Graceful degradation** — fallback-модель + кэширование ответов
+
+---
+
+## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework
+
+Реализация базовой логики ответов и доработка чата: улучшение потокового вывода, обработка ошибок LLM, сохранение контекста, UI для редактирования/удаления сообщений.
+
+- [ ] **Streaming response improvements** — стабильный SSE, обработка разрывов соединения, повторное подключение
+- [ ] **LLM error handling** — таймауты, fallback-модель при недоступности основной, понятные сообщения об ошибках
+- [ ] **Message editing & deletion** — UI для редактирования и удаления сообщений в чате
+- [ ] **Context management** — корректная передача истории диалога в LLM (sliding window)
+- [ ] **Chat export** — экспорт истории чата (JSON/Markdown)
+- [ ] **Empty state & loading skeletons** — улучшенные состояния загрузки и пустого чата
 
 ---
 
@@ -109,7 +124,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ⏳ 0/1 | Markdown rendering, syntax highlighting, copy button |
-| v0.3 — Production Polish | ⏳ 0/6 | E2E, ZIP, re-indexing, confidence, graceful degradation |
+| v0.3 — Admin Panel & Production Polish | ⏳ 0/8 | Collection & document management in admin panel, E2E, ZIP, re-indexing, confidence, graceful degradation |
+| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 0/6 | Streaming improvements, LLM error handling, message editing, context, export, empty state |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
@@ -118,4 +134,4 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Старт:** 2026-06-14
 **MVP завершён:** 2026-06-15
 **Chat UI overhaul (Phases 0–4):** 2026-06-16
-**Что дальше:** `/aif-plan v0.2.1 — Markdown & Code Rendering` → `/aif-implement`
+**Что дальше:** `/aif-plan v0.3 — Admin Panel & Production Polish` → `/aif-implement`
