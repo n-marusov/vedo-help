@@ -6,3 +6,4 @@
 
 - Always run `npm run ai:validate` after any implementation task and verify it exits with code 0
 - Follow TDD methodology: first write e2e tests (if absent per test plan), then unit tests, then implement code, and ensure all tests pass before marking task complete
+- Always verify Docker images build successfully and `docker-compose up` deploys without errors, then run `docker-compose down` to clean up containers
