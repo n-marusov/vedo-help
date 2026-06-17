@@ -25,6 +25,8 @@ use vedo_backend::modules::conversations::{
 };
 use vedo_backend::modules::documents::repository::DocumentRepository;
 use vedo_backend::modules::documents::{handlers as documents_handlers, service::DocumentService};
+use vedo_backend::modules::git_sync::repository::GitRepoRepository;
+use vedo_backend::modules::git_sync::{handlers as git_sync_handlers, service::GitSyncService};
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::modules::query::{handlers as query_handlers, service::QueryService};
 use vedo_backend::shared::{
@@ -119,6 +121,7 @@ async fn main() {
     let _query_repo = QueryRepository::new(db.clone(), &chroma_url);
     let collection_repo = CollectionRepository::new(db.clone());
     let conversation_repo = ConversationRepository::new(db.clone());
+    let git_repo_repo = GitRepoRepository::new(db.clone());
 
     // Services
     let doc_service = DocumentService::new(doc_repo);
@@ -126,6 +129,12 @@ async fn main() {
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service =
         QueryService::new(db.clone(), &chroma_url, llm_client, &embedding_service_url);
+    let git_sync_service = GitSyncService::new(
+        git_repo_repo,
+        chroma_url.clone(),
+        embedding_service_url.clone(),
+        std::path::PathBuf::from(&config.git_clone_root),
+    );
 
     // Auth middleware config
     let auth_config = Arc::new(config.clone());
@@ -156,6 +165,22 @@ async fn main() {
         .route(
             "/api/collections/{id}",
             delete(collections_handlers::delete),
+        )
+        // Git sync routes
+        .route("/api/git-sync/repos", post(git_sync_handlers::create_repo))
+        .route("/api/git-sync/repos", get(git_sync_handlers::list_repos))
+        .route("/api/git-sync/repos/{id}", get(git_sync_handlers::get_repo))
+        .route(
+            "/api/git-sync/repos/{id}/sync",
+            post(git_sync_handlers::trigger_sync),
+        )
+        .route(
+            "/api/git-sync/repos/{id}/status",
+            get(git_sync_handlers::get_sync_status),
+        )
+        .route(
+            "/api/git-sync/repos/{id}",
+            delete(git_sync_handlers::delete_repo),
         )
         // Query routes
         .route("/api/query", post(query_handlers::query_handler))
@@ -196,6 +221,7 @@ async fn main() {
             collection_service,
             conversation_service,
             query_service,
+            git_sync_service,
         });
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
@@ -228,6 +254,7 @@ pub struct AppState {
     pub collection_service: CollectionService,
     pub conversation_service: ConversationService,
     pub query_service: QueryService,
+    pub git_sync_service: GitSyncService,
 }
 
 impl FromRef<AppState> for DocumentService {
@@ -251,6 +278,12 @@ impl FromRef<AppState> for ConversationService {
 impl FromRef<AppState> for QueryService {
     fn from_ref(state: &AppState) -> Self {
         state.query_service.clone()
+    }
+}
+
+impl FromRef<AppState> for GitSyncService {
+    fn from_ref(state: &AppState) -> Self {
+        state.git_sync_service.clone()
     }
 }
 

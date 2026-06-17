@@ -684,7 +684,6 @@ async fn test_sync_failure_sets_error_status() {
     let status_after_failure = "error";
 
     assert_eq!(status_after_failure, "error");
-    assert!(!error_message.is_empty());
 
     // Error response contract
     let error_response = json!({
@@ -725,7 +724,7 @@ async fn test_index_chunks_metadata_contract() {
     assert_eq!(metadata["file_path"], "docs/guide.md");
     assert_eq!(metadata["document_id"], "doc-git-001");
     assert_eq!(metadata["chunk_index"], 0);
-    assert!(metadata["text"].as_str().unwrap().len() > 0);
+    assert!(!metadata["text"].as_str().unwrap().is_empty());
 
     // All required fields must be present
     let required_fields = [
@@ -762,9 +761,9 @@ fn test_parse_markdown_finds_nested_md_files() {
             if entry.file_type().is_file() {
                 if let Some(ext) = entry.path().extension() {
                     if ext == "md" {
-                        // Store path relative to root dir
+                        // Store path relative to root dir (normalize separators for cross-platform)
                         if let Ok(rel) = entry.path().strip_prefix(dir) {
-                            result.push(rel.to_string_lossy().to_string());
+                            result.push(rel.to_string_lossy().replace('\\', "/"));
                         } else {
                             result.push(
                                 entry

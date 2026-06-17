@@ -49,7 +49,9 @@
 - [x] **Collection management in admin panel** — UI для CRUD коллекций в админ-панели (создание, удаление, переименование, список)
 - [x] **Document upload through admin panel** — интерфейс загрузки документов с дроп-зоной, прогресс-баром, валидацией
 - [x] **ZIP batch upload** — до 10 файлов, HTTP 413 при превышении, batch-эндпоинт `/api/documents/upload-zip`
-- [ ] **Git repository sync** — подключение Git-репозитория (GitHub/GitLab/Bitbucket): клонирование/пулл, парсинг Markdown-документов из репозитория, индексация в Chroma, webhook-уведомления при обновлении
+- [~] **Git repository sync** — подключение Git-репозитория (GitHub/GitLab/Bitbucket): клонирование/пулл, парсинг Markdown-документов из репозитория, индексация в Chroma, webhook-уведомления при обновлении
+  - ✅ **Бэкенд (Phase 1–4, Tasks 1–10):** полный API (6 эндпоинтов), GitSyncService (clone/pull → parse → chunk → embed → index), E2E-тесты (9), unit-тесты (14), интеграционные тесты (8), миграция БД
+  - ⏳ **Webhook, polling, фронтенд (Phase 5–6, Tasks 11–14):** не реализовано
 - [ ] **Document re-indexing** — деактивация старых чанков при перезагрузке
 - [x] **Confidence indicator** — relevance score в UI (sources)
 - [ ] **Embedding submission in upload pipeline** — `process_upload` и `process_zip_upload` сохраняют чанки только в SQLite, но не отправляют их в `EmbeddingClient`/Chroma. Добавить вызов эмбеддинга и `chroma_client.add()` в оба пути; при ошибке эмбеддинга — откат сохранённых чанков (или флаг `pending_embedding` с retry-джобой)
@@ -126,7 +128,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
-| v0.3 — Admin Panel & Production Polish | ⏳ 6/10 | Collection & document management, confidence indicator, ZIP upload ✅; Git sync, re-indexing, embedding submission, graceful degradation ❌ |
+| v0.3 — Admin Panel & Production Polish | ⏳ 6/10 | Collection & document management, confidence indicator, ZIP upload ✅; Git sync backend ✅/frontend ❌; re-indexing, embedding submission, graceful degradation ❌ |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 2/6 | Streaming, LLM error handling ✅; message editing, context, export, empty state ❌ |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |

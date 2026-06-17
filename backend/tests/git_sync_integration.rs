@@ -302,9 +302,7 @@ async fn test_incremental_sync_detects_changes() {
     let initial_count = walkdir::WalkDir::new(&clone_path)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "md")
-        })
+        .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
         .count();
 
     assert!(
@@ -345,9 +343,7 @@ async fn test_incremental_sync_detects_changes() {
     let updated_count = walkdir::WalkDir::new(clone_temp2.path())
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "md")
-        })
+        .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
         .count();
 
     // Incremental: updated count should be greater than initial
@@ -485,9 +481,7 @@ async fn test_sync_empty_repo() {
     let md_count = walkdir::WalkDir::new(&clone_path)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "md")
-        })
+        .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
         .count();
 
     assert_eq!(md_count, 0, "empty repo should have 0 .md files");
@@ -561,9 +555,7 @@ async fn test_sync_repo_with_nested_dirs() {
     let md_files: Vec<_> = walkdir::WalkDir::new(&clone_path)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "md")
-        })
+        .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
         .map(|e| {
             let rel = e.path().strip_prefix(&clone_path).unwrap_or(e.path());
             rel.to_string_lossy().to_string()
@@ -628,7 +620,7 @@ async fn test_sync_repo_with_nested_dirs() {
         .await
         .expect("query nested docs");
 
-    assert!(results.len() >= 1, "should find results from nested files");
+    assert!(!results.is_empty(), "should find results from nested files");
 
     // At least one result should have correct document_id pattern
     assert!(
@@ -702,7 +694,7 @@ async fn test_sync_status_transitions_contract() {
 
     assert_eq!(error_response["status"], "error");
     assert!(error_response["error"].as_str().is_some());
-    assert!(error_response["error"].as_str().unwrap().len() > 0);
+    assert!(!error_response["error"].as_str().unwrap().is_empty());
 
     // Status values must be in the valid set
     let valid_statuses = ["idle", "syncing", "error"];
@@ -814,7 +806,7 @@ async fn test_concurrent_sync_on_same_repo_is_safe() {
     // If deduplication logic is implemented, this might differ
     // The key contract: no error, no corruption
     assert!(
-        results.len() >= 1,
+        !results.is_empty(),
         "should have query results after concurrent sync attempt"
     );
 

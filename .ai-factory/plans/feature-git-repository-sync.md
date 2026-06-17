@@ -219,7 +219,7 @@ Green phase: implement code → cargo test → PASS
 
 ### Phase 4: API — handlers and wiring
 
-- [ ] **Task 9: Implement `git_sync` Axum handlers**
+- [x] **Task 9: Implement `git_sync` Axum handlers**
   - Create `backend/src/modules/git_sync/handlers.rs`:
     ```rust
     pub async fn create_repo(State(svc): State<GitSyncService>, Json(req): Json<CreateRepoRequest>) -> Result<Json<GitRepoSummary>, AppError>;
@@ -238,7 +238,7 @@ Green phase: implement code → cargo test → PASS
   - **Logging:** INFO `[handler::create_repo] url=%s collection_id=%s`; INFO `[handler::trigger_sync] repo_id=%s`; DEBUG with extracted path params; ERROR on all failures; never log `access_token`
   - **Gate:** `cargo test test_create_and_list_repo` PASSES (Task 2 integration test — after wiring in Task 10)
 
-- [ ] **Task 10: Wire `GitSyncService` into `main.rs`, `lib.rs`, `modules/mod.rs`**
+- [x] **Task 10: Wire `GitSyncService` into `main.rs`, `lib.rs`, `modules/mod.rs`**
   - Create `backend/src/modules/git_sync/mod.rs`:
     ```rust
     pub mod handlers;
