@@ -87,3 +87,33 @@ export interface ZipUploadResponse {
 	failed: number;
 	items: ZipUploadItem[];
 }
+
+export interface GitRepoSummary {
+	id: string;
+	url: string;
+	branch: string;
+	local_path: string;
+	last_commit_hash?: string;
+	last_synced_at?: string;
+	collection_id: string;
+	collection_name: string;
+	status: "idle" | "syncing" | "error";
+	created_at: string;
+	updated_at: string;
+}
+
+export interface CreateRepoRequest {
+	url: string;
+	branch?: string;
+	access_token?: string;
+	collection_id: string;
+}
+
+export interface SyncStatusResponse {
+	repo_id: string;
+	status: string;
+	files_indexed: number;
+	chunks_total: number;
+	last_commit?: string;
+	error?: string;
+}

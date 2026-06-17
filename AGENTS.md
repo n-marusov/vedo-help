@@ -86,7 +86,8 @@ vedo-assistant/
 │       │   ├── __tests__/      # Unit tests for components
 │       │   ├── MessageBubble.vue  # Message display with markdown, sources
 │       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
-│       │   └── DocumentList.vue  # Document upload & listing with progress
+│       │   ├── DocumentList.vue  # Document upload & listing with progress
+│       │   └── GitRepoManager.vue  # Git repo connect, sync, delete
 │       ├── chatTokens.ts       # Chat design token logging utility
 │       ├── utils/              # Shared utilities
 │       │   └── markdown.ts      # Markdown renderer with highlight.js & GFM

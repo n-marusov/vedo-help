@@ -2,6 +2,7 @@
 import { getApiKey, setApiKey } from '@/api/client';
 import CollectionManager from '@/components/CollectionManager.vue';
 import DocumentList from '@/components/DocumentList.vue';
+import GitRepoManager from '@/components/GitRepoManager.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VInput from '@/components/ui/VInput.vue';
 import { useCollectionStore } from '@/stores/collections';
@@ -13,6 +14,7 @@ const documentStore = useDocumentStore();
 
 const apiKeyInput = ref('');
 const showAuthInput = ref(true);
+const activeAdminTab = ref<'data' | 'git'>('data');
 
 onMounted(() => {
   const existingKey = getApiKey();
@@ -107,8 +109,26 @@ watch(
         </div>
       </header>
 
+      <!-- Tab Navigation -->
+      <div class="admin-tabs" data-testid="admin-tabs">
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeAdminTab === 'data' }"
+          @click="activeAdminTab = 'data'"
+        >
+          Collections & Documents
+        </button>
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeAdminTab === 'git' }"
+          @click="activeAdminTab = 'git'"
+        >
+          Git Repositories
+        </button>
+      </div>
+
       <!-- Content Panels -->
-      <div class="admin-content">
+      <div v-if="activeAdminTab === 'data'" class="admin-content">
         <!-- Collections Panel -->
         <aside class="collections-panel">
           <CollectionManager />
@@ -117,6 +137,13 @@ watch(
         <!-- Documents Panel -->
         <main class="documents-panel">
           <DocumentList />
+        </main>
+      </div>
+
+      <!-- Git Repositories Panel -->
+      <div v-else class="admin-content">
+        <main class="documents-panel">
+          <GitRepoManager />
         </main>
       </div>
     </div>
@@ -242,6 +269,38 @@ watch(
   font-family: var(--font-family);
   font-size: var(--font-size-xs, 12px);
   color: var(--color-muted-foreground);
+}
+
+/* ── Tab Navigation ── */
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.admin-tab {
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 600;
+  padding: 10px 18px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.admin-tab:hover {
+  color: var(--color-foreground);
+}
+
+.admin-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 /* ── Content Panels ── */

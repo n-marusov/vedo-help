@@ -305,7 +305,7 @@ Green phase: implement code → cargo test → PASS
 
 ### Phase 6: Frontend — types, client, UI component
 
-- [ ] **Task 13: Add API types and client methods**
+- [x] **Task 13: Add API types and client methods**
   - Add to `frontend/src/api/types.ts`:
     ```typescript
     export interface GitRepoSummary {
@@ -333,7 +333,7 @@ Green phase: implement code → cargo test → PASS
   - **Files:** `frontend/src/api/types.ts`, `frontend/src/api/client.ts`
   - **Gate:** `npm run type-check` succeeds (or equivalent TS check)
 
-- [ ] **Task 14: Build `GitRepoManager.vue` admin component**
+- [x] **Task 14: Build `GitRepoManager.vue` admin component**
   - Create `frontend/src/components/GitRepoManager.vue`:
     - **Template:**
       - Header: "Git Repositories" + "Connect Repository" button (VButton, primary variant)
