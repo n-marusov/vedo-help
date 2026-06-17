@@ -45,6 +45,54 @@ describe('MessageBubble', () => {
     expect(wrapper.html()).toContain('<strong>bold</strong>');
   });
 
+  it('renders code block with syntax highlighting classes', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '```python\nprint("hello")\n```',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    // Should have highlight.js class on the code element
+    expect(html).toContain('hljs');
+    // Should have code block wrapper
+    expect(html).toContain('code-block-wrapper');
+    // Should have copy button
+    expect(html).toContain('copy-code-btn');
+    // Should have language label
+    expect(html).toContain('code-lang-label');
+  });
+
+  it('renders code block without language label for plain code blocks', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '```\nplain code\n```',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    expect(html).toContain('code-block-wrapper');
+    expect(html).toContain('copy-code-btn');
+    // Language label should be empty span
+    expect(html).toContain('code-lang-label');
+  });
+
+  it('does not wrap inline code in code-block-wrapper', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: 'Use `code` inline',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    // Inline code should not have the wrapper
+    // But it should have a <code> tag
+    expect(html).toContain('<code>');
+  });
+
   it('shows source toggle when sources are present', () => {
     const wrapper = mount(MessageBubble, {
       props: {

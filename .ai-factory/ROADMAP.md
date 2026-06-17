@@ -36,7 +36,7 @@
 
 Полноценный рендеринг Markdown и подсветка синтаксиса в сообщениях чата.
 
-- [ ] **Markdown & code rendering** — полноценный рендеринг Markdown (remark/rehype), подсветка синтаксиса (shiki/prism), кнопка копирования кода
+- [x] **Markdown & code rendering** — полноценный рендеринг Markdown (remark/rehype), подсветка синтаксиса (shiki/prism), кнопка копирования кода
 
 ---
 
@@ -123,7 +123,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 |-----------|--------|-------|
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
-| v0.2.1 — Markdown & Code Rendering | ⏳ 0/1 | Markdown rendering, syntax highlighting, copy button |
+| v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ 0/8 | Collection & document management in admin panel, E2E, ZIP, re-indexing, confidence, graceful degradation |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 0/6 | Streaming improvements, LLM error handling, message editing, context, export, empty state |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |

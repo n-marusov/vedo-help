@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Message, SourceRef } from '@/api/types';
 import UserAvatar from '@/components/ui/UserAvatar.vue';
-import { marked } from 'marked';
+import { decodeCode, renderMarkdown } from '@/utils/markdown';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -14,12 +14,7 @@ const sourcesExpanded = ref(false);
 
 const renderedContent = computed(() => {
   if (!props.message.content) return '';
-  try {
-    return marked.parse(props.message.content, { async: false }) as string;
-  } catch (err) {
-    console.warn('[MessageBubble] marked.parse failed', err);
-    return props.message.content;
-  }
+  return renderMarkdown(props.message.content);
 });
 
 const parsedSources = computed<SourceRef[]>(() => {
@@ -35,6 +30,25 @@ function toggleSources() {
   sourcesExpanded.value = !sourcesExpanded.value;
 }
 
+function handleMarkdownClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  const btn = target.closest('.copy-code-btn') as HTMLElement | null;
+  if (!btn || !btn.dataset.code) return;
+
+  const code = decodeCode(btn.dataset.code);
+  navigator.clipboard
+    .writeText(code)
+    .then(() => {
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    })
+    .catch((err) => {
+      console.warn('[MessageBubble] copy failed', err);
+    });
+}
 const formattedTime = computed(() => {
   return new Date(props.message.created_at).toLocaleTimeString([], {
     hour: '2-digit',
@@ -107,6 +121,7 @@ watch(
           class="markdown-body"
           data-testid="message-content"
           v-html="renderedContent"
+          @click.stop="handleMarkdownClick"
         />
         <span
           v-if="isStreaming && message.content"
@@ -264,27 +279,185 @@ watch(
 }
 
 .markdown-body :deep(code) {
-  background: #2a2a4e;
+  background: var(--color-border);
   padding: 0.15rem 0.35rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.85em;
+  font-family: var(--font-family);
+  color: var(--color-foreground);
+}
+
+.markdown-body :deep(a) {
+  color: #6b9fff;
+}
+
+/* ===== Code blocks with syntax highlighting ===== */
+.markdown-body :deep(.code-block-wrapper) {
+  margin: 0.5rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-card);
+}
+
+.markdown-body :deep(.code-block-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.75rem;
+  background: var(--color-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.markdown-body :deep(.code-lang-label) {
+  font-size: 0.7rem;
+  color: var(--color-muted-foreground);
+  font-family: var(--font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.markdown-body :deep(.copy-code-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-family: var(--font-family);
+  color: var(--color-muted-foreground);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+  line-height: 1.4;
+}
+
+.markdown-body :deep(.copy-code-btn:hover) {
+  color: var(--color-foreground);
+  border-color: var(--color-input);
+}
+
+.markdown-body :deep(.copy-code-btn:active) {
+  opacity: 0.8;
 }
 
 .markdown-body :deep(pre) {
-  background: #12122a;
-  border-radius: 8px;
+  margin: 0;
   padding: 0.75rem;
   overflow-x: auto;
-  margin: 0.5rem 0;
+  background: var(--color-card);
 }
 
 .markdown-body :deep(pre code) {
   background: none;
   padding: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
-.markdown-body :deep(a) {
-  color: #6b9fff;
+/* highlight.js dark theme overrides */
+.markdown-body :deep(.hljs) {
+  color: var(--color-foreground);
+  background: transparent;
+}
+
+.markdown-body :deep(.hljs-keyword) {
+  color: #c792ea;
+}
+
+.markdown-body :deep(.hljs-string) {
+  color: #c3e88d;
+}
+
+.markdown-body :deep(.hljs-number) {
+  color: #f78c6c;
+}
+
+.markdown-body :deep(.hljs-comment) {
+  color: #676e95;
+  font-style: italic;
+}
+
+.markdown-body :deep(.hljs-function) {
+  color: #82aaff;
+}
+
+.markdown-body :deep(.hljs-title) {
+  color: #82aaff;
+}
+
+.markdown-body :deep(.hljs-built_in) {
+  color: #ffcb6b;
+}
+
+.markdown-body :deep(.hljs-type) {
+  color: #ffcb6b;
+}
+
+.markdown-body :deep(.hljs-literal) {
+  color: #f78c6c;
+}
+
+.markdown-body :deep(.hljs-attr) {
+  color: #f07178;
+}
+
+.markdown-body :deep(.hljs-attribute) {
+  color: #c792ea;
+}
+
+.markdown-body :deep(.hljs-selector-tag),
+.markdown-body :deep(.hljs-selector-class),
+.markdown-body :deep(.hljs-selector-id) {
+  color: #ffcb6b;
+}
+
+.markdown-body :deep(.hljs-meta) {
+  color: #89ddff;
+}
+
+.markdown-body :deep(.hljs-tag) {
+  color: #f07178;
+}
+
+.markdown-body :deep(.hljs-name) {
+  color: #f07178;
+}
+
+.markdown-body :deep(.hljs-variable) {
+  color: #f07178;
+}
+
+.markdown-body :deep(.hljs-params) {
+  color: var(--color-foreground);
+}
+
+.markdown-body :deep(.hljs-symbol) {
+  color: #c792ea;
+}
+
+.markdown-body :deep(.hljs-section) {
+  color: #82aaff;
+}
+
+.markdown-body :deep(.hljs-addition) {
+  color: #c3e88d;
+}
+
+.markdown-body :deep(.hljs-deletion) {
+  color: #f07178;
+}
+
+.markdown-body :deep(.hljs-emphasis) {
+  font-style: italic;
+}
+
+.markdown-body :deep(.hljs-strong) {
+  font-weight: bold;
 }
 
 /* ===== Streaming states ===== */
