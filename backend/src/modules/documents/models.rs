@@ -40,3 +40,21 @@ pub struct Chunk {
     pub index: usize,
     pub text: String,
 }
+
+/// Result of processing a single file within a ZIP archive.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZipUploadItem {
+    pub filename: String,
+    pub status: String,
+    pub document_id: Option<Uuid>,
+    pub error: Option<String>,
+}
+
+/// Response returned after processing a ZIP batch upload.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZipUploadResponse {
+    pub total_files: usize,
+    pub processed: usize,
+    pub failed: usize,
+    pub items: Vec<ZipUploadItem>,
+}

@@ -125,6 +125,9 @@ fn parse_file_content(
             let text = extract_docx_text(data)?;
             Ok(text)
         }
+        FileType::Zip => Err(AppError::FileError(
+            "ZIP files cannot be parsed directly — use the batch upload endpoint".to_string(),
+        )),
     }
 }
 

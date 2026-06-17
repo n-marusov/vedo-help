@@ -13,7 +13,7 @@ pub use chroma_client::ChromaClient;
 pub use chunking::chunk_document;
 pub use embedding_client::EmbeddingClient;
 pub use error::AppError;
-pub use file_validation::validate_file;
+pub use file_validation::{validate_file, validate_zip_magic};
 pub use llm::OpenRouterClient;
 pub use rate_limit::body_limit_layer;
 pub use types::{ChromaResult, ChunkData, Embedding, FileType};

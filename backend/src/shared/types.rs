@@ -29,6 +29,7 @@ pub enum FileType {
     Pdf,
     Markdown,
     Docx,
+    Zip,
 }
 
 impl FileType {
@@ -40,6 +41,7 @@ impl FileType {
             FileType::Docx => {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             }
+            FileType::Zip => "application/zip",
         }
     }
 }

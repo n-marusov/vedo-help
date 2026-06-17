@@ -4,6 +4,9 @@ use crate::shared::types::FileType;
 /// Maximum allowed file size in bytes (50 MB).
 pub const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
+/// Magic bytes for ZIP-based formats (DOCX, ZIP, XLSX, etc.): `PK\x03\x04`
+const ZIP_MAGIC: &[u8] = b"PK\x03\x04";
+
 /// Validate an uploaded file: check MIME type, magic bytes, and size.
 ///
 /// Returns the detected `FileType` on success.
@@ -40,6 +43,7 @@ fn detect_file_type(filename: &str, content: &[u8]) -> Result<FileType, AppError
                 "pdf" => Some(FileType::Pdf),
                 "md" | "markdown" => Some(FileType::Markdown),
                 "docx" => Some(FileType::Docx),
+                "zip" => Some(FileType::Zip),
                 _ => None,
             }
         })
@@ -54,6 +58,7 @@ fn detect_file_type(filename: &str, content: &[u8]) -> Result<FileType, AppError
         FileType::Pdf => validate_pdf_magic(content),
         FileType::Markdown => Ok(()), // No magic bytes for MD — trust extension
         FileType::Docx => validate_docx_magic(content),
+        FileType::Zip => validate_zip_magic(content),
     }?;
 
     Ok(extension)
@@ -71,11 +76,22 @@ fn validate_pdf_magic(content: &[u8]) -> Result<(), AppError> {
 
 /// Check DOCX magic bytes: `PK\x03\x04` (ZIP header).
 fn validate_docx_magic(content: &[u8]) -> Result<(), AppError> {
-    if content.len() < 4 || &content[0..4] != b"PK\x03\x04" {
+    if content.len() < 4 || &content[0..4] != ZIP_MAGIC {
         return Err(AppError::FileError(
             "Invalid DOCX file: missing ZIP header".to_string(),
         ));
     }
+    Ok(())
+}
+
+/// Check ZIP magic bytes: `PK\x03\x04` (ZIP header).
+pub fn validate_zip_magic(content: &[u8]) -> Result<(), AppError> {
+    if content.len() < 4 || &content[0..4] != ZIP_MAGIC {
+        return Err(AppError::FileError(
+            "Invalid ZIP file: missing ZIP header".to_string(),
+        ));
+    }
+    tracing::debug!("ZIP magic bytes validated: {} bytes", content.len());
     Ok(())
 }
 

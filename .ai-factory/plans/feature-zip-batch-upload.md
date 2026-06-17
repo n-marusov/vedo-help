@@ -25,7 +25,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
 
 ### Phase 1: Foundation — Types & Infrastructure
 
-- [ ] **Task 1: Add `zip` crate dependency and `FileType::Zip` variant**
+- [x] **Task 1: Add `zip` crate dependency and `FileType::Zip` variant**
   - Add `zip = "2"` to `backend/Cargo.toml` dependencies
   - Add `Zip` variant to `FileType` enum in `backend/src/shared/types.rs`
   - Implement `mime_type()` for `Zip` variant → `"application/zip"`
@@ -33,7 +33,7 @@ Rationale: ZIP batch upload closes a documented gap where the frontend accepts .
   - **Files:** `backend/Cargo.toml`, `backend/src/shared/types.rs`
   - **Logging:** DEBUG on type registration, INFO on first use
 
-- [ ] **Task 2: Add `ZipUploadResponse` models + `AppError::PayloadTooLarge` + ZIP validation**
+- [x] **Task 2: Add `ZipUploadResponse` models + `AppError::PayloadTooLarge` + ZIP validation**
   - Create `ZipUploadItem` struct: `{filename: String, status: String, document_id: Option<Uuid>, error: Option<String>}`
   - Create `ZipUploadResponse` struct: `{total_files: usize, processed: usize, failed: usize, items: Vec<ZipUploadItem>}`
   - Derive `Serialize` for all new types
