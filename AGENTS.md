@@ -31,26 +31,29 @@ vedo-assistant/
 │   │   └── base.md             # Project conventions and code rules
 │   └── qa/                     # QA artifacts
 ├── backend/                    # Rust/axum REST API
-│   └── src/
-│       ├── main.rs             # Server startup, router wiring
-│       ├── config.rs           # Environment-based configuration
-│       ├── lib.rs              # Re-exports
-│       ├── modules/
-│       │   ├── documents/      # Document upload, parsing, chunking
-│       │   ├── collections/    # Collection CRUD
-│       │   ├── query/          # RAG pipeline, Q&A
-│       │   ├── conversations/  # Chat sessions, messages
-│       │   └── auth/           # Auth endpoints (me, logout), UserContext
-│       └── shared/
-│           ├── auth.rs         # Bearer token middleware
-│           ├── error.rs        # Unified AppError enum
-│           ├── llm.rs          # OpenRouter client
-│           ├── chroma_client.rs  # Chroma HTTP client
-│           ├── chunking.rs     # Text splitting
-│           ├── embedding_client.rs  # Embedding service client
-│           ├── file_validation.rs  # MIME + magic bytes
-│           ├── rate_limit.rs   # Body size limiting
-│           └── types.rs        # Shared type definitions
+│   ├── src/
+│   │   ├── main.rs             # Server startup, router wiring
+│   │   ├── config.rs           # Environment-based configuration
+│   │   ├── lib.rs              # Re-exports
+│   │   ├── modules/
+│   │   │   ├── documents/      # Document upload, parsing, chunking
+│   │   │   ├── collections/    # Collection CRUD
+│   │   │   ├── query/          # RAG pipeline, Q&A
+│   │   │   ├── conversations/  # Chat sessions, messages
+│   │   │   └── auth/           # Auth endpoints (me, logout), UserContext
+│   │   └── shared/
+│   │       ├── auth.rs         # Bearer token middleware
+│   │       ├── error.rs        # Unified AppError enum
+│   │       ├── llm.rs          # OpenRouter client
+│   │       ├── chroma_client.rs  # Chroma HTTP client
+│   │       ├── chunking.rs     # Text splitting
+│   │       ├── embedding_client.rs  # Embedding service client
+│   │       ├── file_validation.rs  # MIME + magic bytes
+│   │       ├── rate_limit.rs   # Body size limiting
+│   │       └── types.rs        # Shared type definitions
+│   └── tests/
+│       ├── common/mod.rs    # Test helpers (in-memory SQLite, test config)
+│       └── integration.rs   # Chroma integration tests (requires Chroma service)
 ├── embedding/                  # Python/FastAPI embedding service
 │   └── src/
 │       ├── main.py             # FastAPI app, /embed and /health

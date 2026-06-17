@@ -13,6 +13,21 @@ env:
 jobs:
   backend:
     runs-on: ubuntu-latest
+
+    services:
+      chroma:
+        image: chromadb/chroma:0.6.3
+        env:
+          IS_PERSISTENT: "FALSE"
+        ports:
+          - 8000:8000
+        options: >-
+          --health-cmd "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/v1/heartbeat\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 30s
+
     steps:
       - uses: actions/checkout@v4
 
@@ -43,8 +58,10 @@ jobs:
         run: cargo test --lib
         working-directory: backend
 
-      - name: Integration tests (ignored by default)
-        run: cargo test --test integration -- --ignored || echo "No integration tests yet"
+      - name: Integration tests (requires Chroma service)
+        run: cargo test --test integration
+        env:
+          CHROMA_URL: http://localhost:8000
 
   embedding:
     runs-on: ubuntu-latest

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Message, SourceRef } from '@/api/types';
-import UserAvatar from '@/components/ui/UserAvatar.vue';
-import { decodeCode, renderMarkdown } from '@/utils/markdown';
-import { computed, onMounted, ref, watch } from 'vue';
+import type { Message, SourceRef } from "@/api/types";
+import UserAvatar from "@/components/ui/UserAvatar.vue";
+import { decodeCode, renderMarkdown } from "@/utils/markdown";
+import { computed, onMounted, ref, watch } from "vue";
 
 const props = defineProps<{
   message: Message;
@@ -13,7 +13,7 @@ const props = defineProps<{
 const sourcesExpanded = ref(false);
 
 const renderedContent = computed(() => {
-  if (!props.message.content) return '';
+  if (!props.message.content) return "";
   return renderMarkdown(props.message.content);
 });
 
@@ -32,7 +32,7 @@ function toggleSources() {
 
 function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
-  const btn = target.closest('.copy-code-btn') as HTMLElement | null;
+  const btn = target.closest(".copy-code-btn") as HTMLElement | null;
   if (!btn || !btn.dataset.code) return;
 
   const code = decodeCode(btn.dataset.code);
@@ -40,31 +40,32 @@ function handleMarkdownClick(event: MouseEvent) {
     .writeText(code)
     .then(() => {
       const originalText = btn.textContent;
-      btn.textContent = 'Copied!';
+      btn.textContent = "Copied!";
+      console.info("[MessageBubble] code copied", { length: code.length });
       setTimeout(() => {
         btn.textContent = originalText;
       }, 2000);
     })
     .catch((err) => {
-      console.warn('[MessageBubble] copy failed', err);
+      console.warn("[MessageBubble] copy failed", err);
     });
 }
 const formattedTime = computed(() => {
   return new Date(props.message.created_at).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
   });
 });
 
 onMounted(() => {
-  console.debug('[MessageBubble] mounted', {
+  console.debug("[MessageBubble] mounted", {
     role: props.message.role,
     contentLength: props.message.content?.length || 0,
     sourcesCount: parsedSources.value.length,
   });
 
   if (props.isStreaming) {
-    console.debug('[MessageBubble] streaming started', {
+    console.debug("[MessageBubble] streaming started", {
       messageId: props.message.id,
     });
   }
@@ -74,11 +75,11 @@ watch(
   () => props.isStreaming,
   (streaming, wasStreaming) => {
     if (streaming && !wasStreaming) {
-      console.debug('[MessageBubble] streaming started', {
+      console.debug("[MessageBubble] streaming started", {
         messageId: props.message.id,
       });
     } else if (!streaming && wasStreaming) {
-      console.debug('[MessageBubble] streaming ended', {
+      console.debug("[MessageBubble] streaming ended", {
         messageId: props.message.id,
       });
     }
