@@ -233,15 +233,13 @@ describe("CollectionManager", () => {
 			description: "Original description",
 		});
 		store.collections = [origCollection];
-		const updateSpy = vi
-			.spyOn(store, "updateCollection")
-			.mockResolvedValue(
-				makeCollection({
-					id: "rename-id",
-					name: "Renamed",
-					description: "Original description",
-				}),
-			);
+		const updateSpy = vi.spyOn(store, "updateCollection").mockResolvedValue(
+			makeCollection({
+				id: "rename-id",
+				name: "Renamed",
+				description: "Original description",
+			}),
+		);
 		vi.spyOn(store, "fetchCollections").mockResolvedValue();
 
 		const wrapper = mount(CollectionManager, {
