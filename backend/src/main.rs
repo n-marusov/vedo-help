@@ -373,5 +373,39 @@ async fn run_migrations(db: &sqlx::SqlitePool) {
     .await
     .expect("Failed to create messages table");
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS git_repositories (
+            id TEXT PRIMARY KEY,
+            url TEXT NOT NULL,
+            branch TEXT NOT NULL DEFAULT 'main',
+            access_token TEXT,
+            local_path TEXT NOT NULL,
+            last_commit_hash TEXT,
+            last_synced_at TEXT,
+            collection_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'idle' CHECK(status IN ('idle','syncing','error')),
+            webhook_secret TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+        )
+        "#,
+    )
+    .execute(db)
+    .await
+    .expect("Failed to create git_repositories table");
+
+    sqlx::query(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_git_repos_collection
+            ON git_repositories(collection_id)
+        "#,
+    )
+    .execute(db)
+    .await
+    .expect("Failed to create git_repositories index");
+
+    tracing::info!("Git repositories table migration applied");
     tracing::info!("Database migrations completed");
 }

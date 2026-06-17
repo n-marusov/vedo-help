@@ -52,12 +52,13 @@ text-splitter = "0.7"
 pdf-extract = "0.7"
 docx-rs = "0.3"
 zip = "2"
+git2 = "0.19"
+walkdir = "2"
 
 [dev-dependencies]
 mockall = "0.12"
 rstest = "0.18"
 tempfile = "3"
-walkdir = "2"
 
 [lib]
 name = "vedo_backend"

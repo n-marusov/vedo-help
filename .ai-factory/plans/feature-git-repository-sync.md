@@ -99,7 +99,7 @@ Green phase: implement code → cargo test → PASS
 
 ### Phase 2: Foundation — DB, models, repository
 
-- [ ] **Task 4: Add `git2` dependency and `git_repositories` table migration**
+- [x] **Task 4: Add `git2` dependency and `git_repositories` table migration**
   - Add `git2 = "0.19"` to `backend/Cargo.toml` under `[dependencies]`
   - Add `sqlx` migration in `backend/src/main.rs` `run_migrations()`:
     ```sql
@@ -124,7 +124,7 @@ Green phase: implement code → cargo test → PASS
   - **Logging:** INFO "Git repositories table migration applied"; DEBUG with column count; ERROR if migration fails with full SQL error
   - **Gate:** `cargo build` succeeds; integration test `test_create_and_list_repo` still FAILS (no handler yet — expected)
 
-- [ ] **Task 5: Define `GitRepo` models and request/response DTOs**
+- [x] **Task 5: Define `GitRepo` models and request/response DTOs**
   - Create `backend/src/modules/git_sync/models.rs`:
     ```rust
     pub struct GitRepo {
@@ -152,7 +152,7 @@ Green phase: implement code → cargo test → PASS
   - **Logging:** N/A — pure data types; DEBUG in `From` impl tracing the stripping of sensitive fields
   - **Gate:** `cargo build` succeeds; unit test `test_create_repo_persists_all_fields` still FAILS (no repository yet — expected)
 
-- [ ] **Task 6: Implement `GitRepoRepository` for SQLite CRUD**
+- [x] **Task 6: Implement `GitRepoRepository` for SQLite CRUD**
   - Create `backend/src/modules/git_sync/repository.rs`:
     ```rust
     pub struct GitRepoRepository { db: SqlitePool }
@@ -176,7 +176,7 @@ Green phase: implement code → cargo test → PASS
 
 ### Phase 3: Core Service — clone, pull, parse, index
 
-- [ ] **Task 7: Implement `GitSyncService` — core pipeline**
+- [x] **Task 7: Implement `GitSyncService` — core pipeline**
   - Create `backend/src/modules/git_sync/service.rs`:
     ```rust
     pub struct GitSyncService {
@@ -208,7 +208,7 @@ Green phase: implement code → cargo test → PASS
   - **Logging:** INFO `[GitSyncService::sync_repo] started repo_id=%s` / `completed files=%d chunks=%d`; DEBUG on git operations (branch, commit hash); WARN on skipped files (too large, non-UTF-8); ERROR on git/embedding/Chroma failures with full context; never log `access_token`
   - **Gate:** `cargo test test_sync_full_clone_triggers_indexing` PASSES (Task 3 unit test green); `cargo test test_sync_markdown_repo_from_local_fixture` PASSES (Task 2 integration test green after wiring — expected FAIL before Task 10)
 
-- [ ] **Task 8: Add `GIT_CLONE_ROOT` config and directory initialization**
+- [x] **Task 8: Add `GIT_CLONE_ROOT` config and directory initialization**
   - Add to `AppConfig` in `backend/src/config.rs`:
     - `pub git_clone_root: String` — env `GIT_CLONE_ROOT`, default `"data/git-repos"`
     - `pub git_sync_interval_secs: u64` — env `GIT_SYNC_INTERVAL_SECS`, default `0`
