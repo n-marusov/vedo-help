@@ -19,6 +19,10 @@ pub struct AppConfig {
     pub keycloak_realm: String,
     /// Backend client ID for audience validation
     pub keycloak_client_id: String,
+    /// Root directory for cloned git repositories
+    pub git_clone_root: String,
+    /// Git sync polling interval in seconds (0 = disabled)
+    pub git_sync_interval_secs: u64,
 }
 
 impl AppConfig {
@@ -49,6 +53,12 @@ impl AppConfig {
             keycloak_realm: env::var("KEYCLOAK_REALM").unwrap_or_else(|_| "vedo-hub".to_string()),
             keycloak_client_id: env::var("KEYCLOAK_CLIENT_ID")
                 .unwrap_or_else(|_| "vedo-backend".to_string()),
+            git_clone_root: env::var("GIT_CLONE_ROOT")
+                .unwrap_or_else(|_| "data/git-repos".to_string()),
+            git_sync_interval_secs: env::var("GIT_SYNC_INTERVAL_SECS")
+                .unwrap_or_else(|_| "0".to_string())
+                .parse()
+                .expect("GIT_SYNC_INTERVAL_SECS must be a valid number"),
         }
     }
 }

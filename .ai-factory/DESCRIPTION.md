@@ -17,7 +17,7 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 
 ## Tech Stack
 
-- **Backend:** Rust (axum framework, sqlx, tokio, serde, tracing, jsonwebtoken)
+- **Backend:** Rust (axum framework, sqlx, tokio, serde, tracing, jsonwebtoken, git2)
 - **Embedding Service:** Python (FastAPI, sentence-transformers, torch)
 - **Vector Database:** Chroma (chromadb/chroma:latest)
 - **Frontend:** Vue 3 + TypeScript (streaming responses via SSE, DeepSeek-style chat UI)

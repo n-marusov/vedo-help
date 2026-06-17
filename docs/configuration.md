@@ -22,6 +22,8 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `RUST_LOG` | Logging filter directive | `info` |
 | `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | LLM model identifier | `openai/gpt-4o-mini` |
+| `GIT_CLONE_ROOT` | Root directory for cloned git repositories | `data/git-repos` |
+| `GIT_SYNC_INTERVAL_SECS` | Git sync polling interval in seconds (0 = disabled) | `0` |
 | `OPENROUTER_API_KEY` | OpenRouter API key | _(required)_ |
 
 ### Embedding Service

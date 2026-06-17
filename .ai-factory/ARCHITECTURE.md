@@ -50,10 +50,15 @@ backend/
     │   │   ├── repository.rs
     │   │   └── models.rs
     │   │
-    │   └── auth/                   # Auth endpoints, user context
-    │       ├── handlers.rs         # /api/auth/me, /api/auth/logout
-    │       ├── service.rs          # User info resolution
-    │       └── models.rs           # UserInfo, UserContext types
+    │   ├── auth/                   # Auth endpoints, user context
+    │   │   ├── handlers.rs         # /api/auth/me, /api/auth/logout
+    │   │   ├── service.rs          # User info resolution
+    │   │   └── models.rs           # UserInfo, UserContext types
+    │   │
+    │   └── git_sync/               # Git repository sync
+    │       ├── models.rs           # GitRepo, DTOs
+    │       ├── repository.rs       # SQLite CRUD
+    │       └── service.rs          # Clone, pull, parse, index pipeline
     │
     └── shared/                    # ── SHARED (cross-cutting) ──
         ├── error.rs               # Unified error types, error responses

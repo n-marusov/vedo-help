@@ -1,0 +1,802 @@
+use std::path::{Path, PathBuf};
+
+use chrono::Utc;
+use uuid::Uuid;
+
+use crate::modules::git_sync::models::{GitRepo, SyncStatusResponse};
+use crate::modules::git_sync::repository::GitRepoRepository;
+use crate::shared::chroma_client::ChromaClient;
+use crate::shared::chunking::chunk_document;
+use crate::shared::embedding_client::EmbeddingClient;
+use crate::shared::error::AppError;
+
+/// Maximum file size for parsing (10 MB).
+const MAX_MD_FILE_SIZE: u64 = 10 * 1024 * 1024;
+
+/// Core service for Git repository sync operations.
+///
+/// Orchestrates the full pipeline: clone/pull → parse markdown → chunk →
+/// embed → index into Chroma. All git operations run in `spawn_blocking`
+/// to avoid blocking the async runtime.
+///
+/// The `access_token` is never logged — it is redacted from all tracing output.
+#[derive(Clone, Debug)]
+pub struct GitSyncService {
+    pub repo: GitRepoRepository,
+    pub chroma_url: String,
+    pub embedding_url: String,
+    pub clone_root: PathBuf,
+}
+
+impl GitSyncService {
+    /// Create a new `GitSyncService`.
+    pub fn new(
+        repo: GitRepoRepository,
+        chroma_url: String,
+        embedding_url: String,
+        clone_root: PathBuf,
+    ) -> Self {
+        tracing::info!(
+            "[GitSyncService::new] chroma_url={chroma_url}, embedding_url={embedding_url}, \
+             clone_root={}",
+            clone_root.display()
+        );
+        Self {
+            repo,
+            chroma_url,
+            embedding_url,
+            clone_root,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Public API
+    // -----------------------------------------------------------------------
+
+    /// Full sync orchestrator for a single repo.
+    ///
+    /// 1. Sets status to `syncing`
+    /// 2. If no `last_commit_hash` → full clone + parse all `.md` files
+    /// 3. Else → pull + diff → parse only changed files
+    /// 4. Index chunks into Chroma
+    /// 5. Update `last_commit_hash`, `last_synced_at`, status → `idle`
+    /// 6. On failure → status → `error`
+    pub async fn sync_repo(&self, repo_id: Uuid) -> Result<SyncStatusResponse, AppError> {
+        tracing::info!("[GitSyncService::sync_repo] started repo_id={repo_id}");
+
+        // Fetch repo metadata
+        let git_repo = self.repo.get_repo(repo_id).await?;
+        let collection_name = self
+            .repo
+            .get_collection_name(git_repo.collection_id)
+            .await?;
+
+        // Set status to syncing
+        let now = Utc::now();
+        self.repo
+            .update_sync_status(
+                repo_id,
+                &git_repo.last_commit_hash.clone().unwrap_or_default(),
+                &now,
+                "syncing",
+            )
+            .await?;
+
+        let local_path = self.clone_root.join(repo_id.to_string());
+
+        let result = if git_repo.last_commit_hash.is_none() {
+            tracing::info!("[GitSyncService::sync_repo] full clone mode repo_id={repo_id}");
+            self.full_sync(&git_repo, &local_path, &collection_name)
+                .await
+        } else {
+            tracing::info!("[GitSyncService::sync_repo] incremental sync mode repo_id={repo_id}");
+            self.incremental_sync(&git_repo, &local_path, &collection_name)
+                .await
+        };
+
+        match result {
+            Ok((new_commit, files_indexed, chunks_total)) => {
+                let now = Utc::now();
+                self.repo
+                    .update_sync_status(repo_id, &new_commit, &now, "idle")
+                    .await?;
+
+                tracing::info!(
+                    "[GitSyncService::sync_repo] completed repo_id={repo_id} \
+                     files={files_indexed} chunks={chunks_total}"
+                );
+
+                Ok(SyncStatusResponse {
+                    repo_id,
+                    status: "idle".to_string(),
+                    files_indexed,
+                    chunks_total,
+                    last_commit: Some(new_commit),
+                    error: None,
+                })
+            }
+            Err(e) => {
+                tracing::error!("[GitSyncService::sync_repo] failed repo_id={repo_id} error={e}");
+                let now = Utc::now();
+                // Preserve the old commit hash on failure
+                let old_commit = git_repo.last_commit_hash.clone().unwrap_or_default();
+                self.repo
+                    .update_sync_status(repo_id, &old_commit, &now, "error")
+                    .await?;
+
+                Ok(SyncStatusResponse {
+                    repo_id,
+                    status: "error".to_string(),
+                    files_indexed: 0,
+                    chunks_total: 0,
+                    last_commit: git_repo.last_commit_hash,
+                    error: Some(e.to_string()),
+                })
+            }
+        }
+    }
+
+    /// Clone a repository to the local filesystem.
+    ///
+    /// Injects the access token into the URL (`https://{token}@host/path`)
+    /// for authentication. Runs in `spawn_blocking` since `git2` is synchronous.
+    /// The `access_token` is never logged.
+    pub async fn clone_repo(&self, git_repo: &GitRepo) -> Result<PathBuf, AppError> {
+        let repo_id = git_repo.id;
+        let clone_url = Self::inject_token(&git_repo.url, &git_repo.access_token);
+        let redacted_url = Self::redact_clone_url(&clone_url);
+        let branch = git_repo.branch.clone();
+        let local_path = self.clone_root.join(repo_id.to_string());
+
+        tracing::info!(
+            "[GitSyncService::clone_repo] starting repo_id={repo_id} branch={branch} \
+             url={redacted_url} local_path={:?}",
+            local_path
+        );
+
+        let local_path_clone = local_path.clone();
+        let cloned_path = tokio::task::spawn_blocking(move || {
+            let mut fetch_opts = git2::FetchOptions::new();
+            fetch_opts.download_tags(git2::AutotagOption::All);
+
+            let mut builder = git2::build::RepoBuilder::new();
+            builder.fetch_options(fetch_opts);
+            builder.branch(&branch);
+
+            builder.clone(&clone_url, &local_path_clone).map_err(|e| {
+                tracing::error!(
+                    "[GitSyncService::clone_repo] clone failed repo_id={repo_id} error={e}",
+                );
+                AppError::InternalError(format!("Failed to clone repository: {e}"))
+            })?;
+
+            tracing::debug!("[GitSyncService::clone_repo] clone completed repo_id={repo_id}",);
+
+            Ok::<PathBuf, AppError>(local_path_clone)
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "[GitSyncService::clone_repo] spawn_blocking panicked repo_id={repo_id} error={e}",
+            );
+            AppError::InternalError(format!("Clone task failed: {e}"))
+        })??;
+
+        Ok(cloned_path)
+    }
+
+    /// Pull (fetch + fast-forward) an existing local repository.
+    ///
+    /// Returns `(old_commit, new_commit)` for computing the diff.
+    pub async fn pull_repo(
+        &self,
+        local_path: &Path,
+        branch: &str,
+        access_token: &Option<String>,
+        repo_url: &str,
+    ) -> Result<(String, String), AppError> {
+        let local_path = local_path.to_path_buf();
+        let branch = branch.to_string();
+        let pull_url = Self::inject_token(repo_url, access_token);
+
+        tracing::debug!(
+            "[GitSyncService::pull_repo] starting local_path={:?} branch={branch}",
+            local_path
+        );
+
+        tokio::task::spawn_blocking(move || {
+            let repo = git2::Repository::open(&local_path).map_err(|e| {
+                tracing::error!(
+                    "[GitSyncService::pull_repo] open failed local_path={:?} error={e}",
+                    local_path
+                );
+                AppError::InternalError(format!("Failed to open repository: {e}"))
+            })?;
+
+            // Get the current HEAD commit before fetch
+            let old_commit = repo
+                .head()
+                .ok()
+                .and_then(|head| head.peel_to_commit().ok())
+                .map(|c| c.id().to_string())
+                .unwrap_or_default();
+
+            // Set authenticated remote URL for fetch
+            repo.remote_set_url("origin", &pull_url).map_err(|e| {
+                tracing::error!("[GitSyncService::pull_repo] set remote URL failed error={e}");
+                AppError::InternalError(format!("Failed to set remote URL: {e}"))
+            })?;
+
+            let mut fetch_opts = git2::FetchOptions::new();
+            fetch_opts.download_tags(git2::AutotagOption::All);
+
+            repo.find_remote("origin")
+                .and_then(|mut remote| remote.fetch(&[&branch], Some(&mut fetch_opts), None))
+                .map_err(|e| {
+                    tracing::error!(
+                        "[GitSyncService::pull_repo] fetch failed local_path={:?} error={e}",
+                        local_path
+                    );
+                    AppError::InternalError(format!("Failed to fetch from remote: {e}"))
+                })?;
+
+            // Fast-forward merge
+            let fetch_head = repo
+                .find_reference("FETCH_HEAD")
+                .map_err(|e| AppError::InternalError(format!("Failed to find FETCH_HEAD: {e}")))?;
+            let fetch_commit = repo
+                .reference_to_annotated_commit(&fetch_head)
+                .map_err(|e| {
+                    AppError::InternalError(format!("Failed to resolve FETCH_HEAD: {e}"))
+                })?;
+
+            let new_commit = fetch_commit.id().to_string();
+
+            // Only fast-forward if there are new commits
+            if old_commit != new_commit {
+                let refname = format!("refs/heads/{branch}");
+                if let Ok(annotated) = repo.reference_to_annotated_commit(&fetch_head) {
+                    if let Ok(mut reference) = repo.find_reference(&refname) {
+                        let _ = reference.set_target(annotated.id(), "fast-forward");
+                    }
+                }
+            }
+
+            tracing::debug!(
+                "[GitSyncService::pull_repo] completed old_commit={old_commit} \
+                 new_commit={new_commit}"
+            );
+
+            Ok((old_commit, new_commit))
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!("[GitSyncService::pull_repo] spawn_blocking panicked error={e}");
+            AppError::InternalError(format!("Pull task failed: {e}"))
+        })?
+    }
+
+    /// Get changed `.md` files between two commits using git diff.
+    pub async fn get_changed_files(
+        &self,
+        local_path: &Path,
+        old_commit: &str,
+        new_commit: &str,
+    ) -> Result<Vec<String>, AppError> {
+        let local_path = local_path.to_path_buf();
+        let old_commit = old_commit.to_string();
+        let new_commit = new_commit.to_string();
+
+        tracing::debug!(
+            "[GitSyncService::get_changed_files] local_path={:?} \
+             old={old_commit} new={new_commit}",
+            local_path
+        );
+
+        tokio::task::spawn_blocking(move || {
+            let repo = git2::Repository::open(&local_path).map_err(|e| {
+                tracing::error!("[GitSyncService::get_changed_files] open failed error={e}");
+                AppError::InternalError(format!("Failed to open repository: {e}"))
+            })?;
+
+            let old_tree = repo
+                .find_commit(
+                    git2::Oid::from_str(&old_commit)
+                        .map_err(|e| AppError::InternalError(format!("Invalid old commit: {e}")))?,
+                )
+                .map_err(|e| AppError::InternalError(format!("Failed to find old commit: {e}")))?
+                .tree()
+                .map_err(|e| AppError::InternalError(format!("Failed to get old tree: {e}")))?;
+
+            let new_tree = repo
+                .find_commit(
+                    git2::Oid::from_str(&new_commit)
+                        .map_err(|e| AppError::InternalError(format!("Invalid new commit: {e}")))?,
+                )
+                .map_err(|e| AppError::InternalError(format!("Failed to find new commit: {e}")))?
+                .tree()
+                .map_err(|e| AppError::InternalError(format!("Failed to get new tree: {e}")))?;
+
+            let diff = repo
+                .diff_tree_to_tree(Some(&old_tree), Some(&new_tree), None)
+                .map_err(|e| AppError::InternalError(format!("Failed to compute diff: {e}")))?;
+
+            let mut changed_files = Vec::new();
+            diff.foreach(
+                &mut |delta, _| {
+                    if let Some(path) = delta.new_file().path() {
+                        if let Some(ext) = path.extension() {
+                            if ext == "md" {
+                                changed_files.push(path.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+                    true
+                },
+                None,
+                None,
+                None,
+            )
+            .map_err(|e| AppError::InternalError(format!("Failed to iterate diff: {e}")))?;
+
+            tracing::debug!(
+                "[GitSyncService::get_changed_files] found {} changed .md files",
+                changed_files.len()
+            );
+
+            Ok(changed_files)
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "[GitSyncService::get_changed_files] spawn_blocking panicked error={e}"
+            );
+            AppError::InternalError(format!("Diff task failed: {e}"))
+        })?
+    }
+
+    /// Walk a directory recursively, collecting all `.md` files with their content.
+    ///
+    /// If `filter` is provided, only include files whose relative path is in the list.
+    /// Files larger than 10 MB are skipped with a WARN log.
+    pub async fn parse_markdown_files(
+        &self,
+        dir: &Path,
+        filter: Option<&[String]>,
+    ) -> Result<Vec<(String, String)>, AppError> {
+        let dir = dir.to_path_buf();
+        let filter: Option<Vec<String>> = filter.map(|f| f.to_vec());
+
+        tracing::debug!(
+            "[GitSyncService::parse_markdown_files] entry dir={:?} filter={}",
+            dir,
+            if filter.is_some() { "provided" } else { "none" }
+        );
+
+        tokio::task::spawn_blocking(move || {
+            let mut files = Vec::new();
+
+            for entry in walkdir::WalkDir::new(&dir)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    if ext != "md" {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+
+                // Compute path relative to root dir
+                let rel_path = path
+                    .strip_prefix(&dir)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string();
+
+                // Apply filter if present
+                if let Some(ref filter) = filter {
+                    if !filter.contains(&rel_path) {
+                        continue;
+                    }
+                }
+
+                // Check file size — skip >10MB
+                if let Ok(metadata) = path.metadata() {
+                    if metadata.len() > MAX_MD_FILE_SIZE {
+                        tracing::warn!(
+                            "[GitSyncService::parse_markdown_files] skipped large file \
+                             path={rel_path} size={}",
+                            metadata.len()
+                        );
+                        continue;
+                    }
+                }
+
+                // Read file content
+                match std::fs::read_to_string(path) {
+                    Ok(content) => {
+                        files.push((rel_path, content));
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "[GitSyncService::parse_markdown_files] skipped non-UTF-8 file \
+                             path={rel_path} error={e}"
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            tracing::debug!(
+                "[GitSyncService::parse_markdown_files] found {} .md files",
+                files.len()
+            );
+
+            Ok(files)
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "[GitSyncService::parse_markdown_files] spawn_blocking panicked error={e}"
+            );
+            AppError::InternalError(format!("Parse task failed: {e}"))
+        })?
+    }
+
+    /// Index parsed markdown files into Chroma via chunking + embedding.
+    ///
+    /// For each file:
+    /// 1. `chunk_document()` splits text into chunks
+    /// 2. `EmbeddingClient::embed()` produces vectors
+    /// 3. `ChromaClient::add_embeddings()` stores them with metadata
+    ///
+    /// Returns `(files_count, chunks_total)`.
+    pub async fn index_chunks(
+        &self,
+        collection_name: &str,
+        repo_id: Uuid,
+        files: &[(String, String)],
+    ) -> Result<(usize, usize), AppError> {
+        tracing::info!(
+            "[GitSyncService::index_chunks] entry collection={collection_name} \
+             repo_id={repo_id} files={}",
+            files.len()
+        );
+
+        let chroma = ChromaClient::new(&self.chroma_url);
+        let embedding_client = EmbeddingClient::new(&self.embedding_url);
+
+        let mut files_indexed = 0usize;
+        let mut chunks_total = 0usize;
+        let mut all_ids = Vec::new();
+        let mut all_embeddings = Vec::new();
+        let mut all_metadatas = Vec::new();
+
+        for (file_path, content) in files {
+            // Chunk the document
+            let chunks = chunk_document(content);
+            if chunks.is_empty() {
+                continue;
+            }
+
+            let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
+            let chunk_count = chunks.len();
+
+            // Embed
+            let embeddings = embedding_client
+                .embed(chunk_texts.clone())
+                .await
+                .map_err(|e| {
+                    tracing::error!(
+                        "[GitSyncService::index_chunks] embedding failed repo_id={repo_id} \
+                         file={file_path} error={e}"
+                    );
+                    e
+                })?;
+
+            // Prepare IDs and metadata
+            let doc_id = format!("git-{repo_id}-{}", file_path.replace('/', "-"));
+            for (i, chunk) in chunks.iter().enumerate() {
+                let chunk_id = format!("{doc_id}-{i}");
+                all_ids.push(chunk_id);
+                all_embeddings.push(embeddings[i].clone());
+                all_metadatas.push(serde_json::json!({
+                    "text": chunk.text,
+                    "document_id": doc_id,
+                    "chunk_index": chunk.index,
+                    "source": "git",
+                    "repo_id": repo_id.to_string(),
+                    "file_path": file_path,
+                }));
+            }
+
+            files_indexed += 1;
+            chunks_total += chunk_count;
+        }
+
+        // Send all embeddings to Chroma in one batch
+        if !all_ids.is_empty() {
+            tracing::debug!(
+                "[GitSyncService::index_chunks] sending {} chunks to Chroma collection={collection_name}",
+                all_ids.len()
+            );
+
+            chroma
+                .add_embeddings(collection_name, &all_ids, &all_embeddings, &all_metadatas)
+                .await
+                .map_err(|e| {
+                    tracing::error!(
+                        "[GitSyncService::index_chunks] Chroma add_embeddings failed \
+                         collection={collection_name} repo_id={repo_id} error={e}"
+                    );
+                    e
+                })?;
+        }
+
+        tracing::info!(
+            "[GitSyncService::index_chunks] completed files={files_indexed} chunks={chunks_total}"
+        );
+
+        Ok((files_indexed, chunks_total))
+    }
+
+    /// Delete the local clone directory for a repo.
+    pub async fn delete_repo_local(&self, repo_id: Uuid) -> Result<(), AppError> {
+        let local_path = self.clone_root.join(repo_id.to_string());
+
+        tracing::info!(
+            "[GitSyncService::delete_repo_local] deleting local clone repo_id={repo_id} \
+             path={:?}",
+            local_path
+        );
+
+        tokio::task::spawn_blocking(move || {
+            if local_path.exists() {
+                std::fs::remove_dir_all(&local_path).map_err(|e| {
+                    tracing::error!(
+                        "[GitSyncService::delete_repo_local] failed repo_id={repo_id} \
+                         path={:?} error={e}",
+                        local_path,
+                    );
+                    AppError::InternalError(format!("Failed to remove local clone directory: {e}"))
+                })?;
+
+                tracing::debug!("[GitSyncService::delete_repo_local] removed repo_id={repo_id}");
+            } else {
+                tracing::debug!(
+                    "[GitSyncService::delete_repo_local] clone directory not found \
+                     repo_id={repo_id} path={:?}",
+                    local_path
+                );
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "[GitSyncService::delete_repo_local] spawn_blocking panicked error={e}"
+            );
+            AppError::InternalError(format!("Delete local repo task failed: {e}"))
+        })?
+    }
+
+    /// Full cleanup: delete Chroma collection → delete local clone → delete SQLite row.
+    pub async fn delete_repo_and_cleanup(&self, repo_id: Uuid) -> Result<(), AppError> {
+        tracing::info!("[GitSyncService::delete_repo_and_cleanup] starting repo_id={repo_id}");
+
+        // Get repo to know the collection name
+        let git_repo = self.repo.get_repo(repo_id).await?;
+        let collection_name = self
+            .repo
+            .get_collection_name(git_repo.collection_id)
+            .await?;
+
+        // 1. Delete Chroma collection (best-effort)
+        let chroma = ChromaClient::new(&self.chroma_url);
+        if let Err(e) = chroma.delete_collection(&collection_name).await {
+            tracing::warn!(
+                "[GitSyncService::delete_repo_and_cleanup] failed to delete Chroma \
+                 collection {collection_name}: {e}"
+            );
+        }
+
+        // 2. Delete local clone
+        self.delete_repo_local(repo_id).await?;
+
+        // 3. Delete SQLite row
+        self.repo.delete_repo(repo_id).await?;
+
+        tracing::info!("[GitSyncService::delete_repo_and_cleanup] completed repo_id={repo_id}");
+
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Internal helpers
+    // -----------------------------------------------------------------------
+
+    /// Full sync: clone → parse all .md → index.
+    async fn full_sync(
+        &self,
+        git_repo: &GitRepo,
+        _local_path: &Path,
+        collection_name: &str,
+    ) -> Result<(String, usize, usize), AppError> {
+        // 1. Clone
+        let local_path = self.clone_repo(git_repo).await?;
+
+        // 2. Get HEAD commit
+        let head_commit = tokio::task::spawn_blocking({
+            let local_path = local_path.clone();
+            move || -> Result<String, AppError> {
+                let repo = git2::Repository::open(&local_path).map_err(|e| {
+                    AppError::InternalError(format!("Failed to open cloned repo: {e}"))
+                })?;
+                let head = repo
+                    .head()
+                    .map_err(|e| AppError::InternalError(format!("Failed to get HEAD: {e}")))?;
+                let commit = head
+                    .peel_to_commit()
+                    .map_err(|e| AppError::InternalError(format!("Failed to peel commit: {e}")))?;
+                Ok(commit.id().to_string())
+            }
+        })
+        .await
+        .map_err(|e| AppError::InternalError(format!("Spawn blocked failed: {e}")))??;
+
+        // 3. Parse all .md files
+        let files = self.parse_markdown_files(&local_path, None).await?;
+
+        if files.is_empty() {
+            tracing::info!(
+                "[GitSyncService::full_sync] no .md files found repo_id={}",
+                git_repo.id
+            );
+            return Ok((head_commit, 0, 0));
+        }
+
+        // 4. Index chunks
+        let (files_indexed, chunks_total) = self
+            .index_chunks(collection_name, git_repo.id, &files)
+            .await?;
+
+        Ok((head_commit, files_indexed, chunks_total))
+    }
+
+    /// Incremental sync: pull → diff → parse changed files → re-index.
+    async fn incremental_sync(
+        &self,
+        git_repo: &GitRepo,
+        local_path: &Path,
+        collection_name: &str,
+    ) -> Result<(String, usize, usize), AppError> {
+        // 1. Pull
+        let (old_commit, new_commit) = self
+            .pull_repo(
+                local_path,
+                &git_repo.branch,
+                &git_repo.access_token,
+                &git_repo.url,
+            )
+            .await?;
+
+        // If no new commits, return early
+        if old_commit == new_commit {
+            tracing::debug!(
+                "[GitSyncService::incremental_sync] no new commits repo_id={}",
+                git_repo.id
+            );
+            return Ok((new_commit, 0, 0));
+        }
+
+        // 2. Get changed .md files
+        let changed_files = self
+            .get_changed_files(local_path, &old_commit, &new_commit)
+            .await?;
+
+        if changed_files.is_empty() {
+            tracing::debug!(
+                "[GitSyncService::incremental_sync] no changed .md files repo_id={}",
+                git_repo.id
+            );
+            return Ok((new_commit, 0, 0));
+        }
+
+        // 3. Parse only changed files
+        let files = self
+            .parse_markdown_files(local_path, Some(&changed_files))
+            .await?;
+
+        // 4. Re-index
+        let (files_indexed, chunks_total) = self
+            .index_chunks(collection_name, git_repo.id, &files)
+            .await?;
+
+        Ok((new_commit, files_indexed, chunks_total))
+    }
+
+    /// Inject an access token into a git HTTPS URL.
+    ///
+    /// `https://host/path` → `https://{token}@host/path`
+    /// Non-HTTPS URLs (SSH, file://) are returned unchanged.
+    /// An empty or `None` token is treated as no token.
+    /// Inject an access token into a git HTTPS URL for actual git operations.
+    ///
+    /// `https://host/path` → `https://{token}@host/path`
+    /// Non-HTTPS URLs (SSH, file://) are returned unchanged.
+    /// The real token is used — never log the result of this function.
+    /// An empty or `None` token is treated as no token.
+    fn inject_token(url: &str, token: &Option<String>) -> String {
+        match token {
+            Some(t) if !t.is_empty() => {
+                if let Some(rest) = url.strip_prefix("https://") {
+                    format!("https://{}@{rest}", t)
+                } else {
+                    url.to_string()
+                }
+            }
+            _ => url.to_string(),
+        }
+    }
+
+    /// Return a redacted version of the clone URL for safe logging.
+    /// Substitutes the token portion with `[REDACTED]`.
+    fn redact_clone_url(url: &str) -> String {
+        if let Some(at_pos) = url.find('@') {
+            if url.starts_with("https://") {
+                format!("https://[REDACTED]{}", &url[at_pos..])
+            } else {
+                url.to_string()
+            }
+        } else {
+            url.to_string()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inject_token_https_with_token() {
+        let url = "https://github.com/user/repo.git";
+        let result = GitSyncService::inject_token(url, &Some("ghp_secret123".to_string()));
+        assert_eq!(result, "https://ghp_secret123@github.com/user/repo.git");
+    }
+
+    #[test]
+    fn test_inject_token_no_token() {
+        let url = "https://github.com/user/pub.git";
+        let result = GitSyncService::inject_token(url, &None);
+        assert_eq!(result, "https://github.com/user/pub.git");
+    }
+
+    #[test]
+    fn test_inject_token_empty_token() {
+        let url = "https://github.com/user/pub.git";
+        let result = GitSyncService::inject_token(url, &Some(String::new()));
+        assert_eq!(result, "https://github.com/user/pub.git");
+    }
+
+    #[test]
+    fn test_inject_token_ssh_url() {
+        let url = "git@github.com:user/repo.git";
+        let result = GitSyncService::inject_token(url, &Some("token".to_string()));
+        assert_eq!(result, "git@github.com:user/repo.git");
+    }
+
+    #[test]
+    fn test_inject_token_file_url() {
+        let url = "file:///tmp/repo";
+        let result = GitSyncService::inject_token(url, &Some("token".to_string()));
+        assert_eq!(result, "file:///tmp/repo");
+    }
+}

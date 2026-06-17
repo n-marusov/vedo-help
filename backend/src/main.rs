@@ -85,6 +85,16 @@ async fn main() {
         });
     tracing::info!("Database connected: {}", config.database_url);
 
+    // Ensure git clone root directory exists
+    tracing::info!("Git clone root: {}", config.git_clone_root);
+    std::fs::create_dir_all(&config.git_clone_root).unwrap_or_else(|e| {
+        tracing::error!(
+            "Failed to create git clone root directory {}: {e}",
+            config.git_clone_root
+        );
+        std::process::exit(1);
+    });
+
     // Run migrations
     run_migrations(&db).await;
 

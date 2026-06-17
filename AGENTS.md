@@ -40,7 +40,8 @@ vedo-assistant/
 │   │   │   ├── collections/    # Collection CRUD
 │   │   │   ├── query/          # RAG pipeline, Q&A
 │   │   │   ├── conversations/  # Chat sessions, messages
-│   │   │   └── auth/           # Auth endpoints (me, logout), UserContext
+│   │   │   ├── auth/           # Auth endpoints (me, logout), UserContext
+│   │   │   └── git_sync/        # Git repository sync (clone, pull, parse, index)
 │   │   └── shared/
 │   │       ├── auth.rs         # Bearer token middleware
 │   │       ├── error.rs        # Unified AppError enum
