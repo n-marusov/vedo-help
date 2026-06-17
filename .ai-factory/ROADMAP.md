@@ -46,12 +46,13 @@
 
 - [x] **E2E tests** — Playwright: upload → query → sources, запуск в CI
 - [x] **Chroma integration tests** — убрать `--ignored`, развернуть Chroma в CI
-- [ ] **Collection management in admin panel** — UI для CRUD коллекций в админ-панели (создание, удаление, переименование, список)
-- [ ] **Document upload through admin panel** — интерфейс загрузки документов с дроп-зоной, прогресс-баром, валидацией
-- [ ] **ZIP batch upload** — до 10 файлов, HTTP 413 при превышении
+- [x] **Collection management in admin panel** — UI для CRUD коллекций в админ-панели (создание, удаление, переименование, список)
+- [x] **Document upload through admin panel** — интерфейс загрузки документов с дроп-зоной, прогресс-баром, валидацией
+- [ ] **ZIP batch upload** — до 10 файлов, HTTP 413 при превышении (фронтенд принимает .zip, бэкенд не обрабатывает)
+- [ ] **Git repository sync** — подключение Git-репозитория (GitHub/GitLab/Bitbucket): клонирование/пулл, парсинг Markdown-документов из репозитория, индексация в Chroma, webhook-уведомления при обновлении
 - [ ] **Document re-indexing** — деактивация старых чанков при перезагрузке
-- [ ] **Confidence indicator** — relevance score в UI (sources)
-- [ ] **Graceful degradation** — fallback-модель + кэширование ответов
+- [x] **Confidence indicator** — relevance score в UI (sources)
+- [ ] **Graceful degradation** — fallback-модель + кэширование ответов (есть retry + кэш эмбеддингов, нет fallback LLM)
 
 ---
 
@@ -59,12 +60,12 @@
 
 Реализация базовой логики ответов и доработка чата: улучшение потокового вывода, обработка ошибок LLM, сохранение контекста, UI для редактирования/удаления сообщений.
 
-- [ ] **Streaming response improvements** — стабильный SSE, обработка разрывов соединения, повторное подключение
-- [ ] **LLM error handling** — таймауты, fallback-модель при недоступности основной, понятные сообщения об ошибках
+- [x] **Streaming response improvements** — SSE с chunk/sources/done событиями, NDJSON-парсинг на фронтенде
+- [x] **LLM error handling** — retry (3 попытки), 60s timeout, error-события SSE, отображение ошибок в UI
 - [ ] **Message editing & deletion** — UI для редактирования и удаления сообщений в чате
-- [ ] **Context management** — корректная передача истории диалога в LLM (sliding window)
-- [ ] **Chat export** — экспорт истории чата (JSON/Markdown)
-- [ ] **Empty state & loading skeletons** — улучшенные состояния загрузки и пустого чата
+- [ ] **Context management** — sliding window + token budget (сейчас передаётся вся история)
+- [ ] **Chat export** — экспорт истории чата (JSON/Markdown, backend API готов, нет кнопки в UI)
+- [ ] **Empty state & loading skeletons** — базовые empty state есть, нет анимированных скелетонов
 
 ---
 
@@ -124,8 +125,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
-| v0.3 — Admin Panel & Production Polish | ⏳ 2/8 | Chroma integration tests, Collection & document management in admin panel, E2E, ZIP, re-indexing, confidence, graceful degradation |
-| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 0/6 | Streaming improvements, LLM error handling, message editing, context, export, empty state |
+| v0.3 — Admin Panel & Production Polish | ⏳ 5/9 | Collection & document management, confidence indicator ✅; ZIP, Git sync, re-indexing, graceful degradation ❌ |
+| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 2/6 | Streaming, LLM error handling ✅; message editing, context, export, empty state ❌ |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
@@ -134,4 +135,4 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Старт:** 2026-06-14
 **MVP завершён:** 2026-06-15
 **Chat UI overhaul (Phases 0–4):** 2026-06-16
-**Что дальше:** `/aif-plan v0.3 — Admin Panel & Production Polish` → `/aif-implement`
+**Что дальше:** `/aif-implement` — завершение v0.3 (ZIP batch upload, document re-indexing, graceful degradation) и v0.3.1 (message editing, context window, chat export UI, loading skeletons)
