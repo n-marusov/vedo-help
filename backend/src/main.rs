@@ -9,6 +9,7 @@ use axum::{
 };
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::signal;
+use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing_subscriber::EnvFilter;
@@ -136,6 +137,17 @@ async fn main() {
         std::path::PathBuf::from(&config.git_clone_root),
     );
 
+    // Create broadcast channel for shutdown signal
+    let (shutdown_tx, shutdown_rx) = broadcast::channel::<()>(1);
+
+    // Start the polling scheduler background task
+    let scheduler_svc = Arc::new(git_sync_service.clone());
+    tokio::spawn(async move {
+        scheduler_svc
+            .start_scheduler(config.git_sync_interval_secs, shutdown_rx)
+            .await;
+    });
+
     // Auth middleware config
     let auth_config = Arc::new(config.clone());
 
@@ -206,6 +218,8 @@ async fn main() {
             "/api/sessions/{id}/export",
             get(conversations_handlers::export_session),
         )
+        // Webhook endpoint — public (auth is handled via HMAC/token, not Bearer)
+        .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))
         // Auth middleware for all /api/* routes
         .route_layer(middleware::from_fn_with_state(
             auth_config.clone(),
@@ -238,7 +252,7 @@ async fn main() {
         });
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown_signal_with_tx(shutdown_tx))
         .await
         .unwrap_or_else(|e| {
             tracing::error!("Server error: {e}");
@@ -313,7 +327,8 @@ async fn health_check() -> &'static str {
 }
 
 /// Wait for SIGINT or SIGTERM to initiate graceful shutdown.
-async fn shutdown_signal() {
+/// Sends a signal on the broadcast channel to notify background tasks.
+async fn shutdown_signal_with_tx(tx: broadcast::Sender<()>) {
     let ctrl_c = async {
         signal::ctrl_c()
             .await
@@ -332,8 +347,12 @@ async fn shutdown_signal() {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
+        _ = ctrl_c => {
+            let _ = tx.send(());
+        },
+        _ = terminate => {
+            let _ = tx.send(());
+        },
     }
 }
 

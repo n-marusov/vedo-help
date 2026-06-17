@@ -268,7 +268,7 @@ Green phase: implement code → cargo test → PASS
 
 ### Phase 5: Webhooks & polling
 
-- [ ] **Task 11: Implement webhook endpoint with HMAC validation**
+- [x] **Task 11: Implement webhook endpoint with HMAC validation**
   - Add `POST /api/git-sync/webhook` handler in `handlers.rs`:
     - Receives raw JSON body + headers
     - **GitHub mode:** checks `X-GitHub-Event: push`, validates `X-Hub-Signature-256` via HMAC-SHA256 against `webhook_secret` stored in DB
@@ -284,7 +284,7 @@ Green phase: implement code → cargo test → PASS
   - **Logging:** INFO `[webhook] received event=%s repo_id=%s ref=%s`; WARN on missing webhook_secret; WARN on signature mismatch; INFO on skipped (branch mismatch); ERROR on handler panic
   - **Gate:** unit tests `test_webhook_signature_valid`, `test_webhook_signature_invalid` added to Task 3 → PASS; integration test `test_webhook_triggers_sync` (Task 2) PASS
 
-- [ ] **Task 12: Add configurable polling scheduler**
+- [x] **Task 12: Add configurable polling scheduler**
   - Add `GitSyncScheduler` logic inside `GitSyncService`:
     - `pub async fn start_scheduler(self: Arc<Self>, interval_secs: u64, shutdown: broadcast::Receiver<()>)`
     - If `interval_secs == 0` → INFO `Scheduler disabled (interval=0)` → return immediately

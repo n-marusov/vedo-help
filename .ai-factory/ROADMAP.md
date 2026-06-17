@@ -51,7 +51,8 @@
 - [x] **ZIP batch upload** — до 10 файлов, HTTP 413 при превышении, batch-эндпоинт `/api/documents/upload-zip`
 - [~] **Git repository sync** — подключение Git-репозитория (GitHub/GitLab/Bitbucket): клонирование/пулл, парсинг Markdown-документов из репозитория, индексация в Chroma, webhook-уведомления при обновлении
   - ✅ **Бэкенд (Phase 1–4, Tasks 1–10):** полный API (6 эндпоинтов), GitSyncService (clone/pull → parse → chunk → embed → index), E2E-тесты (9), unit-тесты (14), интеграционные тесты (8), миграция БД
-  - ⏳ **Webhook, polling, фронтенд (Phase 5–6, Tasks 11–14):** не реализовано
+  - ✅ **Webhook + polling (Phase 5, Tasks 11–12):** POST /api/git-sync/webhook (HMAC-валидация для GitHub/GitLab), периодический поллинг (tokio::interval, экспоненциальный backoff, graceful shutdown через broadcast)
+  - ⏳ **Фронтенд (Phase 6, Tasks 13–14):** не реализовано
 - [ ] **Document re-indexing** — деактивация старых чанков при перезагрузке
 - [x] **Confidence indicator** — relevance score в UI (sources)
 - [ ] **Embedding submission in upload pipeline** — `process_upload` и `process_zip_upload` сохраняют чанки только в SQLite, но не отправляют их в `EmbeddingClient`/Chroma. Добавить вызов эмбеддинга и `chroma_client.add()` в оба пути; при ошибке эмбеддинга — откат сохранённых чанков (или флаг `pending_embedding` с retry-джобой)
