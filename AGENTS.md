@@ -83,7 +83,9 @@ vedo-assistant/
 │       │   ├── MessageBubble.vue  # Message display with markdown, sources
 │       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
 │       │   └── DocumentList.vue  # Document upload & listing with progress
-│       ├── composables/        # useTheme, useStreamingChat, useOidcAuth
+│       ├── chatTokens.ts       # Chat design token logging utility
+│       ├── utils/              # Shared utilities
+│       │   └── markdown.ts      # Markdown renderer with highlight.js & GFM
 │       ├── stores/             # Pinia stores (chat, documents, collections)
 │       └── views/              # ChatView, AdminView, LoginView, CallbackView, AvatarPreviewView
 ├── docs/
@@ -99,7 +101,11 @@ vedo-assistant/
 │   ├── message-bubble.spec.ts # Message rendering & sources
 │   ├── navigation.spec.ts     # Routing & responsive layout
 │   ├── avatar.spec.ts         # Avatar component preview
-│   └── theme-switching.spec.ts# Dark/light theme toggle across pages
+│   ├── theme-switching.spec.ts# Dark/light theme toggle across pages
+│   └── rag-flow.spec.ts       # RAG flow: upload → query → sources
+├── .github/                    # GitHub Actions CI
+│   └── workflows/
+│       └── e2e.yml            # Playwright E2E tests in CI
 ├── scripts/                    # backup.sh, restore.sh
 ├── AGENTS.md                   # This file — project map for AI agents
 ├── opencode.json               # MCP server configuration

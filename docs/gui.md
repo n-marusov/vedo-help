@@ -274,11 +274,22 @@ Located in `frontend/src/components/MessageBubble.vue`.
 - `index?: number` — used for staggered entrance animation delay
 
 **Features:**
-- Markdown rendering via `marked` library
+- Markdown rendering via `marked` library (GFM enabled)
+- **Syntax highlighting** — code blocks rendered via `highlight.js` with dark theme, supports Python, Rust, TypeScript, JavaScript, Bash, JSON, SQL, CSS, HTML, Markdown, and plaintext
+- **Language labels** — each code block shows the detected or explicit language name in the header (`code-lang-label`)
+- **Copy button** — each code block has a "Copy" button that copies the code content to clipboard; shows "Copied!" state for 2 seconds
+- **GFM tables** — tables render with `<thead>`, `<tbody>`, alternating row colors, and border styling
+- **Blockquotes** — styled with left primary border and muted background
+- **Lists** — ordered and unordered with proper indentation and markers
+- **Headings** — `h1`–`h6` proportional sizing via design tokens
+- **Horizontal rules** — styled via design tokens
+- **Images** — max-width constrained, border-radius
 - Streaming glow bar (when `isStreaming && !message.content`)
 - Blinking cursor (when `isStreaming && message.content`)
 - Collapsible sources section
 - Smooth entrance animation with staggered delay
+
+**Markdown module:** `frontend/src/utils/markdown.ts` — custom `marked` renderer with `highlight.js` integration, imports only used languages for bundle size optimization.
 
 ### ChatWindow
 

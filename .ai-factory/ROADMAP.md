@@ -44,7 +44,7 @@
 
 Закрытие пробелов MVP: управление коллекциями и загрузка документов через админ-панель, E2E-тесты, ZIP-загрузка, re-indexing, confidence score, graceful degradation.
 
-- [ ] **E2E tests** — Playwright: upload → query → sources, запуск в CI
+- [x] **E2E tests** — Playwright: upload → query → sources, запуск в CI
 - [ ] **Chroma integration tests** — убрать `--ignored`, развернуть Chroma в CI
 - [ ] **Collection management in admin panel** — UI для CRUD коллекций в админ-панели (создание, удаление, переименование, список)
 - [ ] **Document upload through admin panel** — интерфейс загрузки документов с дроп-зоной, прогресс-баром, валидацией
@@ -124,7 +124,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
-| v0.3 — Admin Panel & Production Polish | ⏳ 0/8 | Collection & document management in admin panel, E2E, ZIP, re-indexing, confidence, graceful degradation |
+| v0.3 — Admin Panel & Production Polish | ⏳ 1/8 | Collection & document management in admin panel, E2E, ZIP, re-indexing, confidence, graceful degradation |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 0/6 | Streaming improvements, LLM error handling, message editing, context, export, empty state |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
