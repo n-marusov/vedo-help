@@ -7,7 +7,7 @@
  * authenticated requests.
  *
  * Flow:
- * 1. LoginView calls `redirectToKeycloak(providerHint?)` → user goes to KeyCloak
+ * 1. LoginView calls `redirectToKeycloak()` → user goes to KeyCloak
  * 2. KeyCloak redirects to `/callback?code=...&state=...`
  * 3. CallbackView calls `handleCallback()` → verifies state, exchanges code for tokens via PKCE
  * 4. Access + refresh tokens are stored; access token set on API client
@@ -21,7 +21,7 @@ import { ref } from 'vue';
 
 // ── Configuration ──
 
-const KEYCLOAK_BASE = '/auth'; // Proxied via Caddy (prod) or Vite (dev)
+const KEYCLOAK_BASE = import.meta.env.VITE_KEYCLOAK_BASE_URL ?? 'http://localhost:8080';
 const REALM = 'vedo-hub';
 const CLIENT_ID = 'vedo-frontend';
 const REDIRECT_URI = `${window.location.origin}/callback`;
@@ -248,13 +248,8 @@ let refreshTimerHandle: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Redirect the browser to KeyCloak's authorization endpoint with PKCE + state.
- *
- * @param providerHint - Optional `kc_idp_hint` to skip the KeyCloak login page
- *                        and go directly to the social identity provider.
- *                        Supported: 'vk', 'yandex', 'mailru'.
- *                        Omit to show the KeyCloak login page with all providers.
  */
-export async function redirectToKeycloak(providerHint?: string): Promise<void> {
+export async function redirectToKeycloak(): Promise<void> {
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   const state = generateState();
@@ -267,14 +262,11 @@ export async function redirectToKeycloak(providerHint?: string): Promise<void> {
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
     scope: 'openid profile email',
+    prompt: 'login',
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state,
   });
-
-  if (providerHint) {
-    params.set('kc_idp_hint', providerHint);
-  }
 
   const authUrl = `${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/auth?${params.toString()}`;
 
@@ -600,7 +592,7 @@ export function useOidcAuth() {
   return {
     /** Reactive — whether a valid auth session exists. */
     isAuthenticated,
-    /** Redirect to KeyCloak authorization with optional provider hint. */
+    /** Redirect to KeyCloak local login. */
     redirectToKeycloak,
     /** Handle OAuth callback (code exchange). */
     handleCallback,

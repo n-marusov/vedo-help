@@ -50,6 +50,7 @@ services:
       - ./frontend/package.json:/app/package.json
     environment:
       NODE_ENV: development
+      VITE_KEYCLOAK_PROXY_TARGET: http://keycloak:8080
 
   keycloak-db:
     ports: []

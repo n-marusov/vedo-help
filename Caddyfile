@@ -3,6 +3,9 @@
 
 # Production (auto TLS via Let's Encrypt)
 example.com {
+    handle_path /auth/* {
+        reverse_proxy keycloak:8080
+    }
     reverse_proxy /api/* backend:3000
     reverse_proxy / backend:80
     tls your-email@example.com
@@ -15,7 +18,9 @@ example.com {
 
 # Development
 :80 {
-    reverse_proxy /auth/* keycloak:8080
+    handle_path /auth/* {
+        reverse_proxy keycloak:8080
+    }
     reverse_proxy /api/* backend:3000
     reverse_proxy / frontend:80
 }

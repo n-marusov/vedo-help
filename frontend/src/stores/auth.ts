@@ -18,7 +18,7 @@ export const isAuthenticated = ref(!!getApiKey());
 /** The current user display name, derived from the JWT. */
 export const userName = ref<string | null>(null);
 
-/** The OIDC provider (e.g. 'yandex', 'vk', 'mailru', 'password'). */
+/** The OIDC provider, currently local Keycloak password auth. */
 export const userProvider = ref<string | null>(null);
 
 // ── Actions ──

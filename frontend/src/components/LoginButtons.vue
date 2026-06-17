@@ -14,22 +14,11 @@ const providers = [
   { id: 'corp-sso', label: 'Corporate SSO (SAML/OIDC)' },
 ];
 
-async function handleOAuth(providerId: string) {
+async function handleOAuth() {
   if (isRedirecting.value) return;
   isRedirecting.value = true;
 
-  const providerHintMap: Record<string, string> = {
-    vk: 'vk',
-    yandex: 'yandex',
-    mailru: 'mailru',
-  };
-
-  const hint = providerHintMap[providerId];
-  if (hint) {
-    await redirectToKeycloak(hint);
-  } else {
-    await redirectToKeycloak();
-  }
+  await redirectToKeycloak();
 }
 </script>
 
@@ -41,8 +30,8 @@ async function handleOAuth(providerId: string) {
       class="oauth-btn"
       :class="{ 'oauth-btn--loading': isRedirecting }"
       :disabled="isRedirecting"
-      data-testid="oauth-btn"
-      @click="handleOAuth(p.id)"
+      :data-testid="`btn-login-${p.id}`"
+      @click="handleOAuth"
     >
       <!-- VK ID icon -->
       <svg

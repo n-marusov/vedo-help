@@ -2,6 +2,8 @@ import { URL, fileURLToPath } from 'node:url';
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
+const keycloakProxyTarget = process.env.VITE_KEYCLOAK_PROXY_TARGET ?? 'http://localhost:8080';
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -11,6 +13,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/auth': {
+        target: keycloakProxyTarget,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/auth/, ''),
+      },
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,

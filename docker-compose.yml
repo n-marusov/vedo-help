@@ -119,9 +119,7 @@ services:
       start_period: 30s
 
   keycloak:
-    build:
-      context: ./keycloak
-      target: base
+    image: quay.io/keycloak/keycloak:26.1
     command: start --import-realm
     environment:
       KC_DB: postgres
@@ -130,16 +128,12 @@ services:
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
       KC_HTTP_ENABLED: "true"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HOSTNAME_STRICT: "false"
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:-changeme-vedo-backend-secret}
-      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
-      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
-      VK_CLIENT_ID: ${VK_CLIENT_ID:-}
-      VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
-      MAILRU_CLIENT_ID: ${MAILRU_CLIENT_ID:-}
-      MAILRU_CLIENT_SECRET: ${MAILRU_CLIENT_SECRET:-}
+    volumes:
+      - ./keycloak/realm-import.json:/opt/keycloak/data/import/realm-import.json
     depends_on:
       keycloak-db:
         condition: service_healthy

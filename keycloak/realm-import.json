@@ -98,7 +98,7 @@
       "serviceAccountsEnabled": true,
       "authorizationServicesEnabled": false,
       "protocol": "openid-connect",
-      "secret": "${VEDO_BACKEND_CLIENT_SECRET}",
+      "secret": "changeme-vedo-backend-secret",
       "redirectUris": [],
       "webOrigins": [],
       "protocolMappers": [
@@ -134,7 +134,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "${KEYCLOAK_ADMIN_PASSWORD}",
+          "value": "admin",
           "temporary": false
         }
       ],
@@ -188,38 +188,7 @@
       "enabled": true
     }
   ],
-  "identityProviders": [
-    {
-      "alias": "yandex",
-      "displayName": "Yandex",
-      "enabled": false,
-      "providerId": "yandex",
-      "config": {
-        "clientId": "${YANDEX_CLIENT_ID}",
-        "clientSecret": "${YANDEX_CLIENT_SECRET}"
-      }
-    },
-    {
-      "alias": "vk",
-      "displayName": "VK ID",
-      "enabled": false,
-      "providerId": "vk",
-      "config": {
-        "clientId": "${VK_CLIENT_ID}",
-        "clientSecret": "${VK_CLIENT_SECRET}"
-      }
-    },
-    {
-      "alias": "mailru",
-      "displayName": "Mail.ru",
-      "enabled": false,
-      "providerId": "mailru",
-      "config": {
-        "clientId": "${MAILRU_CLIENT_ID}",
-        "clientSecret": "${MAILRU_CLIENT_SECRET}"
-      }
-    }
-  ],
+  "identityProviders": [],
   "defaultRoles": ["guest"],
   "scopeMappings": [
     {
