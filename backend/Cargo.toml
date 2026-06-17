@@ -57,6 +57,7 @@ zip = "2"
 mockall = "0.12"
 rstest = "0.18"
 tempfile = "3"
+walkdir = "2"
 
 [lib]
 name = "vedo_backend"

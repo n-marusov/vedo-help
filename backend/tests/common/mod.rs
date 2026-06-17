@@ -32,7 +32,7 @@ pub async fn setup_test_db() -> SqlitePool {
         "CREATE TABLE IF NOT EXISTS chunks (
             id TEXT PRIMARY KEY,
             document_id TEXT NOT NULL,
-            index INTEGER NOT NULL,
+            chunk_index INTEGER NOT NULL,
             text TEXT NOT NULL,
             FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
         )",

@@ -46,7 +46,7 @@ Green phase: implement code → cargo test → PASS
 
 ### Phase 1: Tests First (E2E → Integration → Unit)
 
-- [ ] **Task 1: Write E2E tests for Git sync UI (Playwright)**
+- [x] **Task 1: Write E2E tests for Git sync UI (Playwright)**
   - Create `frontend/e2e/git-sync.spec.ts`:
     - **Test: `register new git repo`** — navigate Admin → "Git Repositories" tab → fill form (URL, branch, collection, token) → submit → verify new repo row appears in the table with status badge "idle"
     - **Test: `trigger sync and observe results`** — register repo → click "Sync Now" button → verify status badge transitions to "syncing" (spinner visible) → wait for completion → verify badge shows "idle" with `last_synced_at` timestamp and `files_indexed` count displayed
@@ -59,7 +59,7 @@ Green phase: implement code → cargo test → PASS
   - **Files:** `frontend/e2e/git-sync.spec.ts` (new)
   - **Logging:** N/A (Playwright uses its own tracing)
 
-- [ ] **Task 2: Write integration tests for Git sync backend (Rust + Chroma)**
+- [x] **Task 2: Write integration tests for Git sync backend (Rust + Chroma)**
   - Create `backend/tests/git_sync_integration.rs`:
     - **`test_create_and_list_repo`** — POST create repo via handler → GET list → verify response contains the created repo with correct `url`, `branch`, `collection_id`, `status: "idle"`
     - **`test_sync_markdown_repo_from_local_fixture`** — create a local bare git repo in `tests/fixtures/sample-docs/` (2-3 `.md` files with distinct content) → register as `file:///...` repo → trigger sync → verify `SyncStatusResponse.files_indexed >= 2` and `chunks_total > 0` → query Chroma via `ChromaClient::query()` with a known phrase from a fixture file → verify at least one result with correct `document_id` and `score > 0`
@@ -74,7 +74,7 @@ Green phase: implement code → cargo test → PASS
   - **Files:** `backend/tests/git_sync_integration.rs` (new), `backend/tests/common/mod.rs` (add git_repo fixture helpers if needed)
   - **Logging:** RUST_LOG=debug during test execution for verbose failure diagnostics
 
-- [ ] **Task 3: Write unit tests for GitSyncService and GitRepoRepository (Rust)**
+- [x] **Task 3: Write unit tests for GitSyncService and GitRepoRepository (Rust)**
   - Create `backend/tests/git_sync_unit.rs`:
     - **Repository tests** (using in-memory SQLite):
       - `test_create_repo_persists_all_fields` — create `GitRepo` with all fields set → verify `get_repo()` returns identical data (except `access_token` which should be present in DB but omitted in `GitRepoSummary`)
