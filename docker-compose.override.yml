@@ -4,6 +4,12 @@ services:
   backend:
     build:
       target: development
+    dns:
+      # Explicit public DNS — same rationale as embedding service.
+      # Without this, VPN clients on the host can block resolution of
+      # crates.io (cargo metadata / cargo run in dev mode).
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
       - "${BACKEND_PORT:-3000}:3000"
       - "2345:2345" # Debug port (Delve)
