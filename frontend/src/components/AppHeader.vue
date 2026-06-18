@@ -1,22 +1,27 @@
-<script setup>
-import { getAccessToken } from '@/api/client';
+<script setup lang="ts">
+import { decodeToken } from '@/api/auth';
 /**
  * Global page header synced with design/ui-kit.lib.pen → Component/PageHeader.
  * Provides persistent VEDO branding, a theme toggle, and user menu for app pages.
  */
+import { getAccessToken } from '@/api/client';
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
 import { logout } from '@/composables/useOidcAuth';
 import { userName, userProvider } from '@/stores/auth';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 const userMenuOpen = ref(false);
 
 const userInfo = computed(() => {
   const token = getAccessToken();
   if (!token) return null;
+  const decoded = decodeToken(token);
+  const roles = (decoded?.realm_access as { roles?: string[] })?.roles ?? [];
   return {
     name: userName.value || 'User',
     provider: userProvider.value,
+    isAdmin: roles.includes('admin') || roles.includes('vedo-admin'),
   };
 });
 
@@ -32,6 +37,12 @@ function toggleUserMenu() {
 function handleLogout() {
   userMenuOpen.value = false;
   logout();
+}
+
+const router = useRouter();
+function navigateToAdmin() {
+  userMenuOpen.value = false;
+  router.push('/admin');
 }
 
 function closeMenuOnOutside(e) {
@@ -51,10 +62,10 @@ onUnmounted(() => {
 
 <template>
   <header class="app-header" data-testid="app-header">
-    <div class="app-header__brand" aria-label="VEDO home">
+    <router-link to="/" class="app-header__brand" aria-label="VEDO home">
       <span class="app-header__logo" aria-hidden="true">💬</span>
       <span class="app-header__name">VEDO</span>
-    </div>
+    </router-link>
 
     <div class="app-header__actions" data-testid="app-header-actions">
       <VThemeToggle />
@@ -85,6 +96,13 @@ onUnmounted(() => {
             >
           </div>
           <div class="app-header__dropdown-divider" />
+          <button
+            v-if="userInfo.isAdmin"
+            class="app-header__dropdown-item"
+            @click="navigateToAdmin"
+          >
+            Admin Panel
+          </button>
           <button
             class="app-header__dropdown-item app-header__dropdown-item--danger"
             @click="handleLogout"
@@ -119,6 +137,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .app-header__logo {
@@ -127,6 +148,10 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
+}
+
+.app-header__brand:hover {
+  opacity: 0.8;
 }
 
 .app-header__name {
