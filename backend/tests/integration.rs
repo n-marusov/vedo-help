@@ -449,3 +449,54 @@ async fn test_full_crud_lifecycle() {
         .await
         .expect("step 5: delete collection");
 }
+
+// ---------------------------------------------------------------------------
+// regression: Chroma collection naming constraints
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn test_create_collection_with_uuid_name() {
+    // Regression: the backend uses UUIDs as Chroma collection names to work around
+    // Chroma's ASCII-only naming constraint. Verify that UUID-formatted strings
+    // (36 chars, hex + hyphens) are accepted.
+    let client = ChromaClient::new(&chroma_url());
+    let uuid = uuid::Uuid::new_v4();
+    let name = uuid.to_string();
+
+    // UUIDs satisfy Chroma's naming rules:
+    //   1. 3-63 chars ✓ (36 chars)
+    //   2. Start/end with alphanumeric ✓
+    //   3. Only alphanumeric, underscores, hyphens ✓
+    //   4. No consecutive periods ✓
+    //   5. Not a valid IPv4 address ✓
+    client
+        .create_collection(&name)
+        .await
+        .expect("UUID-formatted name should be accepted by Chroma");
+
+    client
+        .delete_collection(&name)
+        .await
+        .expect("should delete collection");
+}
+
+#[tokio::test]
+async fn test_create_collection_with_cyrillic_name_fails() {
+    // Regression: document the Chroma constraint so future developers know.
+    // Non-ASCII names like "Техническая документация" are rejected.
+    // The backend works around this by using UUID as the Chroma collection name.
+    let client = ChromaClient::new(&chroma_url());
+    let name = format!("test_{}_{}", "кириллица", uuid::Uuid::new_v4());
+
+    let result = client.create_collection(&name).await;
+    assert!(
+        result.is_err(),
+        "Cyrillic collection name should be rejected by Chroma"
+    );
+
+    let err = format!("{}", result.unwrap_err());
+    assert!(
+        err.contains("InvalidArgumentError") || err.contains("400"),
+        "Error should mention invalid argument or HTTP 400: {err}"
+    );
+}

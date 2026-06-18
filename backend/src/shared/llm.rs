@@ -223,7 +223,7 @@ mod tests {
         let config = AppConfig::from_env();
         let client = OpenRouterClient::from_config(&config);
 
-        let chunks = vec![CrateChunkData {
+        let chunks = [CrateChunkData {
             text: "Rust is a systems programming language.".to_string(),
             index: 0,
             document_name: "rust-intro.md".to_string(),

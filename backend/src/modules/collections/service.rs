@@ -47,9 +47,11 @@ impl CollectionService {
         // Create in SQLite first
         self.repo.create_collection(&collection).await?;
 
-        // Create in Chroma
+        // Create in Chroma — use UUID as Chroma collection name (Chroma only
+        // accepts ASCII alphanumeric, underscores and hyphens). The display name
+        // is stored in SQLite and shown in the UI.
         let chroma = ChromaClient::new(&self.chroma_url);
-        if let Err(e) = chroma.create_collection(&name).await {
+        if let Err(e) = chroma.create_collection(&id.to_string()).await {
             // Rollback SQLite creation if Chroma fails
             tracing::error!(
                 "Failed to create Chroma collection '{name}', rolling back SQLite: {e}"
@@ -103,9 +105,9 @@ impl CollectionService {
         // Delete from SQLite first (includes cascade to documents/chunks)
         self.repo.delete_collection(id).await?;
 
-        // Delete from Chroma
+        // Delete from Chroma — use UUID as collection name (re-derived from id)
         let chroma = ChromaClient::new(&self.chroma_url);
-        if let Err(e) = chroma.delete_collection(&collection.name).await {
+        if let Err(e) = chroma.delete_collection(&id.to_string()).await {
             // Log but don't fail — the SQLite data is already cleaned up
             tracing::warn!(
                 "Chroma collection '{name}' may still exist after SQLite delete: {e}",

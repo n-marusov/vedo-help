@@ -97,7 +97,7 @@ mod tests {
     fn test_chunk_respects_size() {
         // Create text with multiple paragraphs that exceeds chunk size
         let text = (0..5)
-            .map(|i| format!("Paragraph {} with some content.\n\n", "A".repeat(200)))
+            .map(|_i| format!("Paragraph {} with some content.\n\n", "A".repeat(200)))
             .collect::<String>();
         let chunks = chunk_document(&text);
         assert!(
