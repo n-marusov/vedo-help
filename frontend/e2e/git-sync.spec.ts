@@ -113,8 +113,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Use admin tabs to switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -138,23 +139,6 @@ test.describe("Git Sync: Repository Management", () => {
 
 		const tokenInput = page.locator('[data-testid="git-repo-token-input"]');
 		await tokenInput.fill("ghp_test123");
-
-		// Select collection from dropdown (VSelect — custom component)
-		const collectionSelect = page.locator(
-			'[data-testid="git-repo-collection-select"]',
-		);
-		// DEBUG [e2e] VSelect interaction: trigger click → option click
-		// Click the trigger button to open the dropdown
-		const selectTrigger = collectionSelect.locator(".v-select__trigger");
-		await selectTrigger.click();
-		// Wait for dropdown to appear (teleported to body)
-		const dropdown = page.locator(".v-select__dropdown");
-		await expect(dropdown).toBeVisible({ timeout: 3000 });
-		// Click the option with value "col-1"
-		const option = dropdown.locator(".v-select__option", {
-			hasText: "Test Collection",
-		});
-		await option.click();
 
 		// Submit
 		const submitBtn = page.locator('[data-testid="btn-git-repo-register"]');
@@ -238,8 +222,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -296,8 +281,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -342,8 +328,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -404,8 +391,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -419,7 +407,7 @@ test.describe("Git Sync: Repository Management", () => {
 		await expect(statusBadge).toContainText(/error/i);
 	});
 
-	test("TC-GIT-006: list shows multiple repos with correct collection names", async ({
+	test("TC-GIT-006: list shows repos for the selected collection only", async ({
 		page,
 	}) => {
 		const multipleRepos = [
@@ -464,8 +452,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -473,19 +462,13 @@ test.describe("Git Sync: Repository Management", () => {
 		const gitManager = page.locator('[data-testid="git-repo-manager"]');
 		await expect(gitManager).toBeVisible({ timeout: 5000 });
 
-		// Should have 2 repo rows
+		// Should show only repos from the selected collection
 		const repoRows = page.locator('[data-testid="git-repo-row"]');
-		await expect(repoRows).toHaveCount(2);
+		await expect(repoRows).toHaveCount(1);
 
-		// First row should show correct URL and collection name
 		const firstRow = repoRows.first();
 		await expect(firstRow).toContainText("github.com/user/docs.git");
-		await expect(firstRow).toContainText("Engineering Docs");
-
-		// Second row should show correct URL and collection name
-		const secondRow = repoRows.nth(1);
-		await expect(secondRow).toContainText("github.com/user/api.git");
-		await expect(secondRow).toContainText("API Reference");
+		await expect(firstRow).not.toContainText("github.com/user/api.git");
 	});
 
 	test("TC-GIT-007: unauthenticated access returns 401 redirect", async ({
@@ -548,8 +531,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
@@ -603,8 +587,9 @@ test.describe("Git Sync: Repository Management", () => {
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
+		await page.locator(".cm-card", { hasText: "Test Collection" }).click();
 
-		// Switch to Git Repositories tab
+		// Open the Git Repositories source tab
 		const gitTab = page.locator("button", { hasText: "Git Repositories" });
 		await expect(gitTab).toBeVisible({ timeout: 5000 });
 		await gitTab.click();
