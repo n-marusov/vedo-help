@@ -1,5 +1,5 @@
-import { getApiKey, setApiKey } from '@/api/client';
-import { ref } from 'vue';
+import { getAccessToken, setAccessToken } from "@/api/client";
+import { ref } from "vue";
 
 /**
  * Pinia-style auth store (lightweight, no Pinia dependency needed).
@@ -13,7 +13,7 @@ import { ref } from 'vue';
 // ── Reactive state ──
 
 /** Whether a validated auth session exists. */
-export const isAuthenticated = ref(!!getApiKey());
+export const isAuthenticated = ref(!!getAccessToken());
 
 /** The current user display name, derived from the JWT. */
 export const userName = ref<string | null>(null);
@@ -23,16 +23,20 @@ export const userProvider = ref<string | null>(null);
 
 // ── Actions ──
 
-export function setAuthToken(token: string, name?: string, provider?: string): void {
-  setApiKey(token);
-  isAuthenticated.value = true;
-  if (name !== undefined) userName.value = name;
-  if (provider !== undefined) userProvider.value = provider;
+export function setAuthToken(
+	token: string,
+	name?: string,
+	provider?: string,
+): void {
+	setAccessToken(token);
+	isAuthenticated.value = true;
+	if (name !== undefined) userName.value = name;
+	if (provider !== undefined) userProvider.value = provider;
 }
 
 export function clearAuth(): void {
-  setApiKey('');
-  isAuthenticated.value = false;
-  userName.value = null;
-  userProvider.value = null;
+	setAccessToken("");
+	isAuthenticated.value = false;
+	userName.value = null;
+	userProvider.value = null;
 }

@@ -4,8 +4,6 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { VALID_TOKEN, mockCollections, setupAuth } from "./helpers";
 
-const ADMIN_API_KEY = "test-admin-key-123";
-
 /**
  * Build a minimal valid ZIP file buffer containing the given files.
  * Constructs the ZIP binary manually (local file headers + central directory + EOCD).
@@ -124,13 +122,9 @@ test.describe("ZIP batch upload", () => {
 
 		// Login via API key + JWT + mock collections
 		// DEBUG [e2e] zip-upload: mocking collections + setting API key
-		await page.addInitScript(
-			(data: { token: string; apiKey: string }) => {
-				localStorage.setItem("vedo_auth_token", data.token);
-				localStorage.setItem("vedo_api_key", data.apiKey);
-			},
-			{ token: VALID_TOKEN, apiKey: ADMIN_API_KEY },
-		);
+		await page.addInitScript((token: string) => {
+			localStorage.setItem("vedo_auth_token", token);
+		}, VALID_TOKEN);
 
 		// Mock collections so admin panel shows documents area
 		await mockCollections(page);

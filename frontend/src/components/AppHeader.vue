@@ -1,5 +1,5 @@
 <script setup>
-import { getApiKey } from '@/api/client';
+import { getAccessToken } from '@/api/client';
 /**
  * Global page header synced with design/ui-kit.lib.pen → Component/PageHeader.
  * Provides persistent VEDO branding, a theme toggle, and user menu for app pages.
@@ -12,7 +12,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 const userMenuOpen = ref(false);
 
 const userInfo = computed(() => {
-  const token = getApiKey();
+  const token = getAccessToken();
   if (!token) return null;
   return {
     name: userName.value || 'User',
@@ -263,4 +263,3 @@ onUnmounted(() => {
   }
 }
 </style>
-

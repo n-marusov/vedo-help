@@ -92,7 +92,6 @@ test.describe("RAG Flow: Upload → Query → Sources", () => {
 	}) => {
 		// Set API key in localStorage to skip auth gate
 		await page.addInitScript((token: string) => {
-			localStorage.setItem("vedo_api_key", "test-api-key-12345");
 			localStorage.setItem("vedo_auth_token", token);
 		}, VALID_TOKEN);
 

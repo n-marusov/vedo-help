@@ -17,8 +17,6 @@ const VALID_TOKEN = makeMockJwt({
 	iat: Math.floor(Date.now() / 1000),
 });
 
-const API_KEY = "test-admin-key-123";
-
 /** Mock git repos for the happy path */
 const MOCK_REPOS = [
 	{
@@ -47,14 +45,10 @@ const EMPTY_REPOS: typeof MOCK_REPOS = [];
  */
 test.describe("Git Sync: Repository Management", () => {
 	test.beforeEach(async ({ page }) => {
-		// Inject auth + API key before navigation
-		await page.addInitScript(
-			(data: { token: string; apiKey: string }) => {
-				localStorage.setItem("vedo_auth_token", data.token);
-				localStorage.setItem("vedo_api_key", data.apiKey);
-			},
-			{ token: VALID_TOKEN, apiKey: API_KEY },
-		);
+		// Inject auth token before navigation
+		await page.addInitScript((token: string) => {
+			localStorage.setItem("vedo_auth_token", token);
+		}, VALID_TOKEN);
 
 		// Mock collections API
 		await page.route("**/api/collections", async (route) => {

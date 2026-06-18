@@ -1,4 +1,4 @@
-import { ApiError, api } from "@/api/client";
+import { ApiError, api, getAccessToken } from "@/api/client";
 import type { Document, UploadResponse, ZipUploadResponse } from "@/api/types";
 import { defineStore } from "pinia";
 import { ref } from "vue";
@@ -43,9 +43,9 @@ export const useDocumentStore = defineStore("documents", () => {
 					const xhr = new XMLHttpRequest();
 					xhr.open("POST", "/api/documents/upload");
 
-					const apiKey = localStorage.getItem("vedo_api_key");
-					if (apiKey) {
-						xhr.setRequestHeader("Authorization", `Bearer ${apiKey}`);
+					const token = getAccessToken();
+					if (token) {
+						xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 					}
 
 					xhr.upload.onprogress = (event) => {
@@ -119,9 +119,9 @@ export const useDocumentStore = defineStore("documents", () => {
 				const xhr = new XMLHttpRequest();
 				xhr.open("POST", "/api/documents/upload-zip");
 
-				const apiKey = localStorage.getItem("vedo_api_key");
-				if (apiKey) {
-					xhr.setRequestHeader("Authorization", `Bearer ${apiKey}`);
+				const token = getAccessToken();
+				if (token) {
+					xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 				}
 
 				xhr.upload.onprogress = (event) => {

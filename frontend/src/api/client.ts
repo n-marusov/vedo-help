@@ -6,14 +6,14 @@ import type {
 
 const API_BASE = "/api";
 
-let apiKey: string | null = null;
+let accessToken: string | null = null;
 
-export function setApiKey(key: string) {
-	apiKey = key;
+export function setAccessToken(token: string) {
+	accessToken = token;
 }
 
-export function getApiKey(): string | null {
-	return apiKey;
+export function getAccessToken(): string | null {
+	return accessToken;
 }
 
 export class ApiError extends Error {
@@ -29,8 +29,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 	};
-	if (apiKey) {
-		headers.Authorization = `Bearer ${apiKey}`;
+	if (accessToken) {
+		headers.Authorization = `Bearer ${accessToken}`;
 	}
 	const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 	if (!res.ok) {
@@ -61,8 +61,8 @@ export const api = {
 		api.del<{ status: string; id: string }>(`/git-sync/repos/${id}`),
 	upload: <T>(path: string, formData: FormData) => {
 		const headers: Record<string, string> = {};
-		if (apiKey) {
-			headers.Authorization = `Bearer ${apiKey}`;
+		if (accessToken) {
+			headers.Authorization = `Bearer ${accessToken}`;
 		}
 		return fetch(`${API_BASE}${path}`, {
 			method: "POST",
