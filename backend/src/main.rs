@@ -148,9 +148,6 @@ async fn main() {
             .await;
     });
 
-    // Auth middleware config
-    let auth_config = Arc::new(config.clone());
-
     // JWT validator — thread-safe, shared across middleware invocations
     let jwt_validator = vedo_backend::shared::auth::JwtValidator::shared(&config);
 
@@ -219,10 +216,7 @@ async fn main() {
             get(conversations_handlers::export_session),
         )
         // Auth middleware for all /api/* routes (applies to routes defined above)
-        .route_layer(middleware::from_fn_with_state(
-            auth_config.clone(),
-            auth_middleware,
-        ))
+        .route_layer(middleware::from_fn(auth_middleware))
         // Webhook endpoint — public, registered AFTER route_layer so auth middleware
         // does not apply. Auth is handled via HMAC signature or webhook token.
         .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))
@@ -302,16 +296,13 @@ impl FromRef<AppState> for GitSyncService {
     }
 }
 
-/// Auth middleware — validates Bearer token for all /api/* routes.
-///
-/// Supports both legacy admin API key and KeyCloak JWT tokens.
+/// Auth middleware — validates Bearer JWT token for all /api/* routes.
 async fn auth_middleware(
-    axum::extract::State(config): axum::extract::State<Arc<AppConfig>>,
     axum::extract::Extension(jwt_validator): axum::extract::Extension<SharedJwtValidator>,
     req: axum::http::Request<axum::body::Body>,
     next: middleware::Next,
 ) -> Result<axum::response::Response, axum::response::Response> {
-    match authenticate_request(req.headers(), &config, Some(&jwt_validator)).await {
+    match authenticate_request(req.headers(), Some(&jwt_validator)).await {
         Ok(auth_info) => {
             // Store auth info in request extensions for downstream handlers.
             let mut req = req;

@@ -3,7 +3,6 @@ use std::env;
 /// Application configuration loaded from environment variables.
 #[derive(Clone, Debug)]
 pub struct AppConfig {
-    pub admin_api_key: String,
     pub database_url: String,
     pub embedding_service_url: String,
     pub chroma_url: String,
@@ -29,7 +28,6 @@ impl AppConfig {
     /// Load configuration from environment variables with sensible defaults.
     pub fn from_env() -> Self {
         Self {
-            admin_api_key: env::var("ADMIN_API_KEY").unwrap_or_else(|_| "change-me".to_string()),
             database_url: env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite:data/vedo.db?mode=rwc".to_string()),
             embedding_service_url: env::var("EMBEDDING_SERVICE_URL")

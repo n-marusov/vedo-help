@@ -26,11 +26,8 @@ pub async fn me(
 /// with the id_token_hint.
 pub async fn logout(Extension(auth_info): Extension<AuthInfo>) -> Json<serde_json::Value> {
     tracing::info!(
-        "POST /api/auth/logout — user logged out (auth={})",
-        match auth_info {
-            crate::shared::auth::AuthInfo::ApiKey => "api_key".to_string(),
-            crate::shared::auth::AuthInfo::User(u) => format!("jwt:sub={}", u.sub),
-        }
+        "POST /api/auth/logout — user logged out (sub={})",
+        auth_info.user.sub
     );
 
     Json(serde_json::json!({

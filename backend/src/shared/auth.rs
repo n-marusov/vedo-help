@@ -32,19 +32,10 @@ pub struct AuthUser {
     pub provider: Option<String>,
 }
 
-/// The result of token validation — either the admin API key or a JWT user.
+/// The result of JWT token validation — carries the authenticated user's claims.
 #[derive(Debug, Clone)]
-pub enum AuthInfo {
-    /// Legacy admin API key was used.
-    ApiKey,
-    /// A valid JWT was presented; carries the user's claims.
-    User(AuthUser),
-}
-
-/// Simple auth token wrapper (legacy compatibility).
-#[derive(Debug, Clone)]
-pub struct AuthToken {
-    pub token: String,
+pub struct AuthInfo {
+    pub user: AuthUser,
 }
 
 // ---------------------------------------------------------------------------
@@ -249,68 +240,16 @@ impl JwtValidator {
 pub type SharedJwtValidator = Arc<Mutex<JwtValidator>>;
 
 // ---------------------------------------------------------------------------
-// AuthToken — legacy helper
+// JWT-only authentication for middleware
 // ---------------------------------------------------------------------------
 
-#[allow(clippy::result_large_err)]
-impl AuthToken {
-    /// Validate the Authorization header against the configured API key.
-    ///
-    /// This is synchronous and only checks the legacy API key. Returns `Self`
-    /// on success or a 401 `Response` on failure.
-    pub fn check(headers: &HeaderMap, config: &AppConfig) -> Result<Self, Response> {
-        let remote_addr = headers
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("unknown");
-
-        headers
-            .get("authorization")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .map(|token| {
-                if token == config.admin_api_key {
-                    Ok(AuthToken {
-                        token: token.to_string(),
-                    })
-                } else {
-                    tracing::warn!("Unauthorized request from {remote_addr}: invalid API key");
-                    Err(auth_failure_response())
-                }
-            })
-            .unwrap_or_else(|| {
-                tracing::warn!(
-                    "Unauthorized request from {remote_addr}: missing or malformed auth header"
-                );
-                Err(auth_failure_response())
-            })
-    }
-
-    /// Synchronous check — admin API key only.
-    /// Returns `true` if the request carries a valid `Bearer <admin_api_key>`.
-    pub fn is_authenticated(headers: &HeaderMap, config: &AppConfig) -> bool {
-        headers
-            .get("authorization")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .map(|token| token == config.admin_api_key)
-            .unwrap_or(false)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Combined async authentication for middleware
-// ---------------------------------------------------------------------------
-
-/// Validate an HTTP request using both the legacy API key and JWT methods.
+/// Validate an HTTP request using JWT validation.
 ///
-/// 1. Try legacy API key (synchronous fast path).
-/// 2. Fall through to JWT validation via the shared `JwtValidator`.
-///
-/// Returns `AuthInfo` on success or a 401 response on failure.
+/// Extracts the Bearer token from the Authorization header and validates it
+/// against the KeyCloak JWKS endpoint. Returns the authenticated user's info
+/// or a 401 response on failure.
 pub async fn authenticate_request(
     headers: &HeaderMap,
-    config: &AppConfig,
     jwt_validator: Option<&SharedJwtValidator>,
 ) -> Result<AuthInfo, Response> {
     let remote_addr = headers
@@ -332,28 +271,20 @@ pub async fn authenticate_request(
         }
     };
 
-    // 1. Try legacy API key validation (fast path).
-    if token == config.admin_api_key {
-        tracing::info!("Auth: admin API key — {remote_addr}");
-        return Ok(AuthInfo::ApiKey);
-    }
-
-    // 2. Try JWT validation when a validator is available.
+    // Validate via JWT when a validator is available.
     if let Some(shared) = jwt_validator {
         let mut validator = shared.lock().await;
         if let Some(user) = validator.validate(token).await {
             tracing::info!("Auth: JWT — sub={}, provider={:?}", user.sub, user.provider);
-            return Ok(AuthInfo::User(user));
+            return Ok(AuthInfo { user });
         }
 
         tracing::warn!("Unauthorized request from {remote_addr}: JWT validation failed");
         return Err(auth_failure_response());
     }
 
-    // 3. No validator available — token did not match the API key.
-    tracing::warn!(
-        "Unauthorized request from {remote_addr}: invalid API key (JWT validator not configured)"
-    );
+    // No validator available — cannot validate the token.
+    tracing::warn!("Unauthorized request from {remote_addr}: no JWT validator configured");
     Err(auth_failure_response())
 }
 
@@ -366,7 +297,7 @@ fn auth_failure_response() -> Response {
     let body = json!({
         "error": {
             "type": "unauthorized",
-            "message": "Invalid or missing API key"
+            "message": "Invalid or missing token"
         }
     });
 
