@@ -12,6 +12,15 @@
 |--------|---------|------------------|
 | **A: Auth-токен не установлен** | ~40 | `chat-window.spec.ts` и `navigation.spec.ts` не вызывают `setupAuth(page)` перед `goto('/')` → роутер редиректит на `/login` |
 | **B: `selectOption` на кастомном VSelect** | 7 | `git-sync.spec.ts` вызывает `.selectOption()` на `<div>`-based кастомном дропдауне (`VSelect`) |
+
+## Текущий статус
+
+- [x] Task 1: setupAuth в chat-window.spec.ts
+- [x] Task 2: setupAuth в navigation.spec.ts
+- [x] Task 3: VSelect в git-sync.spec.ts
+- [x] Task 4: ZIP-upload collection mock
+- [x] Task 5: CSS shorthand assertions
+- [x] Task 6: theme-switching setupAuth
 | **C: ZIP upload без коллекции** | 4 | `zip-upload.spec.ts` ждёт `.dl-label`, но админ-панель не показывает документы без выбранной коллекции |
 | **D: CSS shorthand assertions** | 2 | `message-bubble.spec.ts` использует `toHaveCSS("padding", ...)` — shorthand может быть пустым |
 | **E: Мелочи (уже пофикшены)** | 4 | `rag-flow.spec.ts: __dirname` в ES module (исправлено), таймауты |

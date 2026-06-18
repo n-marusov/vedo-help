@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { setupAuth } from "./helpers";
 
 /**
  * Theme Switching E2E Tests
@@ -225,6 +226,11 @@ test.describe("Theme Switching (all pages)", () => {
 	//  Chat Page Theme Tests
 	// ═══════════════════════════════════════════════════════════════
 	test.describe("Chat Page", () => {
+		test.beforeEach(async ({ page }) => {
+			// DEBUG [e2e] theme-switching: auth setup for chat/admin tests
+			await setupAuth(page);
+		});
+
 		test("TC-THEME-CHAT-001: chat page defaults to dark theme", async ({
 			page,
 		}) => {
@@ -327,6 +333,11 @@ test.describe("Theme Switching (all pages)", () => {
 	//  Admin Page Theme Tests
 	// ═══════════════════════════════════════════════════════════════
 	test.describe("Admin Page", () => {
+		test.beforeEach(async ({ page }) => {
+			// DEBUG [e2e] theme-switching: auth setup for chat/admin tests
+			await setupAuth(page);
+		});
+
 		test("TC-THEME-ADMIN-001: admin page defaults to dark theme", async ({
 			page,
 		}) => {
