@@ -267,6 +267,39 @@ impl ChromaClient {
         Ok(())
     }
 
+    /// Delete documents from a collection by a metadata filter.
+    ///
+    /// Uses Chroma's `where` filter to delete only entries matching the criteria.
+    pub async fn delete_where(
+        &self,
+        collection: &str,
+        filter: &serde_json::Value,
+    ) -> Result<(), AppError> {
+        tracing::debug!("Chroma delete_where: collection={collection}, filter={filter}",);
+
+        let body = json!({ "where": filter });
+        let url = format!("{}/api/v1/collections/{}/delete", self.base_url, collection);
+
+        let mut last_error = None;
+        for attempt in 1..=MAX_RETRIES {
+            match Self::try_delete_document(&self.client, &url, &body).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    tracing::warn!(
+                        "Chroma delete_where failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                    );
+                    last_error = Some(e);
+                    if attempt < MAX_RETRIES {
+                        tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
+                    }
+                }
+            }
+        }
+
+        Err(last_error
+            .unwrap_or_else(|| AppError::ChromaError("All retry attempts exhausted".to_string())))
+    }
+
     /// Delete documents from a collection by their IDs.
     pub async fn delete_document(&self, collection: &str, ids: &[String]) -> Result<(), AppError> {
         tracing::debug!(

@@ -44,6 +44,8 @@ pub struct GitRepoSummary {
     pub id: Uuid,
     pub url: String,
     pub branch: String,
+    /// Internal filesystem path — excluded from API responses.
+    #[serde(skip_serializing)]
     pub local_path: String,
     pub last_commit_hash: Option<String>,
     pub last_synced_at: Option<DateTime<Utc>>,

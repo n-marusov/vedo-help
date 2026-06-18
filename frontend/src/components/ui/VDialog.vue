@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import VButton from './VButton.vue';
+import VButton from "./VButton.vue";
 
 withDefaults(
   defineProps<{
@@ -8,14 +8,14 @@ withDefaults(
     description?: string;
     confirmText?: string;
     cancelText?: string;
-    variant?: 'default' | 'destructive';
+    variant?: "default" | "destructive";
   }>(),
   {
-    title: '',
-    description: '',
-    confirmText: 'Confirm',
-    cancelText: 'Cancel',
-    variant: 'default',
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    variant: "default",
   },
 );
 
@@ -27,7 +27,12 @@ const emit = defineEmits<{
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="dialog-overlay" @click.self="emit('close')">
+    <div
+      v-if="open"
+      class="dialog-overlay"
+      data-testid="confirm-dialog"
+      @click.self="emit('close')"
+    >
       <div class="dialog-card" role="dialog" :aria-label="title">
         <div v-if="title" class="dialog-header">
           <h2 class="dialog-title">{{ title }}</h2>
@@ -40,11 +45,16 @@ const emit = defineEmits<{
 
         <div class="dialog-actions">
           <slot name="actions">
-            <VButton variant="outline" @click="emit('close')">
+            <VButton
+              variant="outline"
+              data-testid="btn-dialog-cancel"
+              @click="emit('close')"
+            >
               {{ cancelText }}
             </VButton>
             <VButton
               :variant="variant === 'destructive' ? 'destructive' : 'primary'"
+              data-testid="btn-dialog-confirm"
               @click="emit('confirm')"
             >
               {{ confirmText }}

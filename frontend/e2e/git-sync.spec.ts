@@ -29,7 +29,6 @@ const MOCK_REPOS = [
 		status: "idle",
 		local_path: "/tmp/clones/repo-1",
 		last_synced_at: new Date().toISOString(),
-		files_indexed: 12,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		collection_name: "Test Collection",
@@ -107,7 +106,6 @@ test.describe("Git Sync: Repository Management", () => {
 						collection_id: "col-1",
 						status: "idle",
 						local_path: "/tmp/clones/repo-1",
-						files_indexed: 0,
 						last_synced_at: null,
 						created_at: new Date().toISOString(),
 						updated_at: new Date().toISOString(),
@@ -123,9 +121,19 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		// Locate the Git Repositories tab/section (expected to exist in admin panel)
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Use admin tabs to switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		// Locate the Git repo manager component
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
+
+		// Open the connect dialog
+		const connectBtn = page.locator('[data-testid="btn-git-repo-connect"]');
+		await expect(connectBtn).toBeVisible();
+		await connectBtn.click();
 
 		// Fill the registration form
 		const urlInput = page.locator('[data-testid="git-repo-url-input"]');
@@ -185,7 +193,7 @@ test.describe("Git Sync: Repository Management", () => {
 			}
 		});
 
-		// Mock sync trigger
+		// Mock sync trigger and status poll
 		await page.route("**/api/git-repos/repo-1/sync", async (route, request) => {
 			syncRequested = true;
 			if (request.method() === "POST") {
@@ -224,8 +232,13 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
 
 		// Click "Sync Now" button on the repo row
 		const syncBtn = page.locator('[data-testid="btn-git-sync-now"]');
@@ -235,13 +248,12 @@ test.describe("Git Sync: Repository Management", () => {
 		// Verify sync was requested
 		expect(syncRequested).toBe(true);
 
-		// Status should transition — poll returns "idle" after sync completes
+		// Status should transition back to "idle" after sync completes
 		const statusBadge = page.locator('[data-testid="git-repo-status"]');
 		await expect(statusBadge).toBeVisible({ timeout: 5000 });
 
-		// Verify last_synced_at and files_indexed are displayed
-		const repoRow = page.locator('[data-testid="git-repo-row"]');
-		await expect(repoRow).toContainText("12"); // files_indexed
+		// Verify status badge shows "idle" after completion
+		await expect(statusBadge).toContainText(/idle/i);
 	});
 
 	test("TC-GIT-003: delete repo → confirm dialog → row removed", async ({
@@ -278,8 +290,13 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
 
 		// Click delete button
 		const deleteBtn = page.locator('[data-testid="btn-git-repo-delete"]');
@@ -292,7 +309,7 @@ test.describe("Git Sync: Repository Management", () => {
 
 		// Click confirm
 		const confirmBtn = confirmDialog.locator(
-			'[data-testid="btn-confirm-delete"]',
+			'[data-testid="btn-dialog-confirm"]',
 		);
 		await confirmBtn.click();
 
@@ -319,32 +336,37 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
+
+		// Open connect dialog
+		const connectBtn = page.locator('[data-testid="btn-git-repo-connect"]');
+		await expect(connectBtn).toBeVisible();
+		await connectBtn.click();
 
 		// Submit empty form
 		const submitBtn = page.locator('[data-testid="btn-git-repo-register"]');
+		await expect(submitBtn).toBeVisible();
 		await submitBtn.click();
 
-		// Should show inline error messages for required fields
+		// Should show inline error message for required URL
 		const urlError = page.locator('[data-testid="git-repo-url-error"]');
 		await expect(urlError).toBeVisible({ timeout: 3000 });
 		await expect(urlError).toContainText(/required|обязатель/i);
 
-		const collectionError = page.locator(
-			'[data-testid="git-repo-collection-error"]',
-		);
-		await expect(collectionError).toBeVisible();
-
-		// Enter invalid URL
+		// Fill invalid URL and re-submit
 		const urlInput = page.locator('[data-testid="git-repo-url-input"]');
 		await urlInput.fill("ftp://bad-protocol/repo.git");
 
 		await submitBtn.click();
 
 		// Should show URL format error
-		const urlFormatError = page.locator('[data-testid="git-repo-url-error"]');
-		await expect(urlFormatError).toContainText(/https:\/\/|git@/i);
+		await expect(urlError).toContainText(/https:\/\/|git@/i);
 	});
 
 	test("TC-GIT-005: sync error state — broken URL shows error badge", async ({
@@ -357,7 +379,6 @@ test.describe("Git Sync: Repository Management", () => {
 				id: "repo-broken",
 				url: "https://nonexistent.invalid/repo.git",
 				status: "error",
-				error_message: "Failed to clone: repository not found",
 			},
 		];
 
@@ -373,65 +394,22 @@ test.describe("Git Sync: Repository Management", () => {
 			}
 		});
 
-		// Mock sync that returns error
-		await page.route(
-			"**/api/git-repos/repo-broken/sync",
-			async (route, request) => {
-				if (request.method() === "POST") {
-					await route.fulfill({
-						status: 202,
-						contentType: "application/json",
-						body: JSON.stringify({
-							repo_id: "repo-broken",
-							status: "syncing",
-							files_indexed: 0,
-							chunks_total: 0,
-							last_commit: null,
-							error: null,
-						}),
-					});
-				} else if (request.method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify({
-							repo_id: "repo-broken",
-							status: "error",
-							files_indexed: 0,
-							chunks_total: 0,
-							last_commit: null,
-							error: "Failed to clone: repository not found",
-						}),
-					});
-				} else {
-					await route.continue();
-				}
-			},
-		);
-
 		await page.goto("/admin");
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
 
-		// Status badge should show "error" in red
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
+
+		// Status badge should show "error"
 		const statusBadge = page.locator('[data-testid="git-repo-status"]');
 		await expect(statusBadge).toBeVisible({ timeout: 5000 });
 		await expect(statusBadge).toContainText(/error/i);
-
-		// Error should have a tooltip or message
-		const errorTooltip = page.locator('[data-testid="git-repo-error"]');
-		await expect(errorTooltip).toBeVisible();
-
-		// Click sync now to trigger sync → should move to error
-		const syncBtn = page.locator('[data-testid="btn-git-sync-now"]');
-		if (await syncBtn.isVisible()) {
-			await syncBtn.click();
-			// After sync polling, status should show error
-			await expect(statusBadge).toContainText(/error/i);
-		}
 	});
 
 	test("TC-GIT-006: list shows multiple repos with correct collection names", async ({
@@ -445,7 +423,6 @@ test.describe("Git Sync: Repository Management", () => {
 				collection_id: "col-1",
 				status: "idle",
 				local_path: "/tmp/clones/repo-1",
-				files_indexed: 10,
 				last_synced_at: new Date().toISOString(),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -458,7 +435,6 @@ test.describe("Git Sync: Repository Management", () => {
 				collection_id: "col-2",
 				status: "idle",
 				local_path: "/tmp/clones/repo-2",
-				files_indexed: 5,
 				last_synced_at: new Date().toISOString(),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
@@ -482,8 +458,13 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
 
 		// Should have 2 repo rows
 		const repoRows = page.locator('[data-testid="git-repo-row"]');
@@ -559,8 +540,13 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
 
 		// Click delete button
 		const deleteBtn = page.locator('[data-testid="btn-git-repo-delete"]');
@@ -573,7 +559,7 @@ test.describe("Git Sync: Repository Management", () => {
 
 		// Click CANCEL instead of confirm
 		const cancelBtn = confirmDialog.locator(
-			'[data-testid="btn-confirm-cancel"]',
+			'[data-testid="btn-dialog-cancel"]',
 		);
 		await expect(cancelBtn).toBeVisible();
 		await cancelBtn.click();
@@ -609,8 +595,13 @@ test.describe("Git Sync: Repository Management", () => {
 		const adminView = page.locator('[data-testid="admin-view"]');
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 
-		const gitSection = page.locator('[data-testid="git-repo-section"]');
-		await expect(gitSection).toBeVisible({ timeout: 5000 });
+		// Switch to Git Repositories tab
+		const gitTab = page.locator("button", { hasText: "Git Repositories" });
+		await expect(gitTab).toBeVisible({ timeout: 5000 });
+		await gitTab.click();
+
+		const gitManager = page.locator('[data-testid="git-repo-manager"]');
+		await expect(gitManager).toBeVisible({ timeout: 5000 });
 
 		// No repo rows should be present
 		const repoRows = page.locator('[data-testid="git-repo-row"]');

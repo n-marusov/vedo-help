@@ -469,28 +469,18 @@ async fn test_create_repo_same_url_allowed() {
 }
 
 // ---------------------------------------------------------------------------
-// Service contract tests (token injection, file parsing, pipeline order)
+// Service contract tests (token injection via actual GitSyncService)
 // ---------------------------------------------------------------------------
 
 /// Test: clone URL injects token correctly.
 #[test]
 fn test_clone_repo_injects_token() {
-    // URL transformation logic (to be in GitSyncService::clone_repo)
-    fn inject_token(url: &str, token: &str) -> String {
-        if token.is_empty() {
-            return url.to_string();
-        }
-        // Remove https:// prefix, insert token, re-add prefix
-        if let Some(rest) = url.strip_prefix("https://") {
-            format!("https://{token}@{rest}")
-        } else {
-            url.to_string()
-        }
-    }
-
     let url = "https://github.com/user/repo.git";
     let token = "ghp_secret123";
-    let transformed = inject_token(url, token);
+    let transformed = vedo_backend::modules::git_sync::service::GitSyncService::inject_token(
+        url,
+        &Some(token.to_string()),
+    );
     assert_eq!(
         transformed,
         "https://ghp_secret123@github.com/user/repo.git"
@@ -500,26 +490,39 @@ fn test_clone_repo_injects_token() {
 /// Test: clone URL without token passes through unchanged.
 #[test]
 fn test_clone_repo_no_token_uses_url_as_is() {
-    fn inject_token(url: &str, token: &str) -> String {
-        if token.is_empty() {
-            return url.to_string();
-        }
-        if let Some(rest) = url.strip_prefix("https://") {
-            format!("https://{token}@{rest}")
-        } else {
-            url.to_string()
-        }
-    }
-
     assert_eq!(
-        inject_token("https://github.com/user/pub.git", ""),
+        vedo_backend::modules::git_sync::service::GitSyncService::inject_token(
+            "https://github.com/user/pub.git",
+            &None,
+        ),
         "https://github.com/user/pub.git"
     );
     assert_eq!(
-        inject_token("git@github.com:user/repo.git", ""),
+        vedo_backend::modules::git_sync::service::GitSyncService::inject_token(
+            "git@github.com:user/repo.git",
+            &None,
+        ),
         "git@github.com:user/repo.git"
     );
-    assert_eq!(inject_token("file:///tmp/repo", ""), "file:///tmp/repo");
+    assert_eq!(
+        vedo_backend::modules::git_sync::service::GitSyncService::inject_token(
+            "file:///tmp/repo",
+            &None,
+        ),
+        "file:///tmp/repo"
+    );
+}
+
+/// Test: empty token treated same as no token.
+#[test]
+fn test_clone_repo_empty_token_same_as_none() {
+    assert_eq!(
+        vedo_backend::modules::git_sync::service::GitSyncService::inject_token(
+            "https://github.com/user/pub.git",
+            &Some(String::new()),
+        ),
+        "https://github.com/user/pub.git"
+    );
 }
 
 /// Test: parse_markdown finds only .md files.

@@ -472,6 +472,7 @@ impl GitSyncService {
 
         tokio::task::spawn_blocking(move || {
             let mut files = Vec::new();
+            let mut skipped = 0usize;
 
             for entry in walkdir::WalkDir::new(&dir)
                 .into_iter()
@@ -512,6 +513,7 @@ impl GitSyncService {
                              path={rel_path} size={}",
                             metadata.len()
                         );
+                        skipped += 1;
                         continue;
                     }
                 }
@@ -526,14 +528,16 @@ impl GitSyncService {
                             "[GitSyncService::parse_markdown_files] skipped non-UTF-8 file \
                              path={rel_path} error={e}"
                         );
+                        skipped += 1;
                         continue;
                     }
                 }
-            }
+            } // end for loop
 
             tracing::debug!(
-                "[GitSyncService::parse_markdown_files] found {} .md files",
-                files.len()
+                "[GitSyncService::parse_markdown_files] found {} .md files, skipped {} files",
+                files.len(),
+                skipped
             );
 
             Ok(files)
@@ -684,7 +688,10 @@ impl GitSyncService {
         })?
     }
 
-    /// Full cleanup: delete Chroma collection → delete local clone → delete SQLite row.
+    /// Full cleanup: delete Chroma documents → delete local clone → delete SQLite row.
+    ///
+    /// Uses Chroma's `where` filter to remove only git-sourced chunks from the
+    /// collection, preserving any manually uploaded documents in the same collection.
     pub async fn delete_repo_and_cleanup(&self, repo_id: Uuid) -> Result<(), AppError> {
         tracing::info!("[GitSyncService::delete_repo_and_cleanup] starting repo_id={repo_id}");
 
@@ -695,12 +702,17 @@ impl GitSyncService {
             .get_collection_name(git_repo.collection_id)
             .await?;
 
-        // 1. Delete Chroma collection (best-effort)
+        // 1. Delete git-sourced embeddings from Chroma using metadata filter
+        //    (preserves any manually uploaded documents in the same collection)
         let chroma = ChromaClient::new(&self.chroma_url);
-        if let Err(e) = chroma.delete_collection(&collection_name).await {
+        let filter = serde_json::json!({
+            "source": "git",
+            "repo_id": repo_id.to_string(),
+        });
+        if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
             tracing::warn!(
                 "[GitSyncService::delete_repo_and_cleanup] failed to delete Chroma \
-                 collection {collection_name}: {e}"
+                             entries for repo_id={repo_id} in collection {collection_name}: {e}"
             );
         }
 
@@ -830,7 +842,7 @@ impl GitSyncService {
     /// Non-HTTPS URLs (SSH, file://) are returned unchanged.
     /// The real token is used — never log the result of this function.
     /// An empty or `None` token is treated as no token.
-    fn inject_token(url: &str, token: &Option<String>) -> String {
+    pub fn inject_token(url: &str, token: &Option<String>) -> String {
         match token {
             Some(t) if !t.is_empty() => {
                 if let Some(rest) = url.strip_prefix("https://") {

@@ -218,13 +218,14 @@ async fn main() {
             "/api/sessions/{id}/export",
             get(conversations_handlers::export_session),
         )
-        // Webhook endpoint — public (auth is handled via HMAC/token, not Bearer)
-        .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))
-        // Auth middleware for all /api/* routes
+        // Auth middleware for all /api/* routes (applies to routes defined above)
         .route_layer(middleware::from_fn_with_state(
             auth_config.clone(),
             auth_middleware,
         ))
+        // Webhook endpoint — public, registered AFTER route_layer so auth middleware
+        // does not apply. Auth is handled via HMAC signature or webhook token.
+        .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))
         // JWT validator shared across middleware
         .layer(Extension(jwt_validator))
         // CORS
