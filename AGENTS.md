@@ -170,6 +170,11 @@ vedo-assistant/
   - Correct: First `git checkout main`, then `git pull origin main`
 - Before implementing any feature, reference `.ai-factory/DESCRIPTION.md` and `docs/technical-specification-rag-system.md` for requirements and design decisions.
 - For deployment-related tasks, consult Section 7 of the technical specification.
+- Adhere to each service's linter/formatter configuration and run the respective format + lint check before considering any code change complete:
+  - **Rust** (`backend/`): `cargo fmt` and `cargo clippy` — rustfmt uses default settings (no custom config).
+  - **Python** (`embedding/`): `ruff format` and `ruff check` — configured via `[tool.ruff]` in `embedding/pyproject.toml`.
+  - **TypeScript/Vue** (`frontend/`): `npx biome format` and `npx biome check` — configured via `frontend/biome.json`.
+  Do not rely solely on the agent's own code style preferences; the project's tool configs are the source of truth.
 
 ## CRITICAL: Post-Implementation Checklist
 
