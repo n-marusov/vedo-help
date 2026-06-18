@@ -49,12 +49,11 @@ test.describe("Git Sync: Repository Management", () => {
 	test.beforeEach(async ({ page }) => {
 		// Inject auth + API key before navigation
 		await page.addInitScript(
-			(token: string, apiKey: string) => {
-				localStorage.setItem("vedo_auth_token", token);
-				localStorage.setItem("vedo_api_key", apiKey);
+			(data: { token: string; apiKey: string }) => {
+				localStorage.setItem("vedo_auth_token", data.token);
+				localStorage.setItem("vedo_api_key", data.apiKey);
 			},
-			VALID_TOKEN,
-			API_KEY,
+			{ token: VALID_TOKEN, apiKey: API_KEY },
 		);
 
 		// Mock collections API
@@ -146,11 +145,22 @@ test.describe("Git Sync: Repository Management", () => {
 		const tokenInput = page.locator('[data-testid="git-repo-token-input"]');
 		await tokenInput.fill("ghp_test123");
 
-		// Select collection from dropdown
+		// Select collection from dropdown (VSelect — custom component)
 		const collectionSelect = page.locator(
 			'[data-testid="git-repo-collection-select"]',
 		);
-		await collectionSelect.selectOption("col-1");
+		// DEBUG [e2e] VSelect interaction: trigger click → option click
+		// Click the trigger button to open the dropdown
+		const selectTrigger = collectionSelect.locator(".v-select__trigger");
+		await selectTrigger.click();
+		// Wait for dropdown to appear (teleported to body)
+		const dropdown = page.locator(".v-select__dropdown");
+		await expect(dropdown).toBeVisible({ timeout: 3000 });
+		// Click the option with value "col-1"
+		const option = dropdown.locator(".v-select__option", {
+			hasText: "Test Collection",
+		});
+		await option.click();
 
 		// Submit
 		const submitBtn = page.locator('[data-testid="btn-git-repo-register"]');

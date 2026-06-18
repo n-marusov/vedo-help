@@ -2,6 +2,7 @@ import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { VALID_TOKEN, mockCollections, setupAuth } from "./helpers";
 
 const ADMIN_API_KEY = "test-admin-key-123";
 
@@ -120,11 +121,21 @@ test.describe("ZIP batch upload", () => {
 
 	test.beforeEach(async ({ page }) => {
 		tmpDir = mkdtempSync(join(tmpdir(), "zip-upload-test-"));
-		// Login via API key
+
+		// Login via API key + JWT + mock collections
+		// DEBUG [e2e] zip-upload: mocking collections + setting API key
+		await page.addInitScript(
+			(data: { token: string; apiKey: string }) => {
+				localStorage.setItem("vedo_auth_token", data.token);
+				localStorage.setItem("vedo_api_key", data.apiKey);
+			},
+			{ token: VALID_TOKEN, apiKey: ADMIN_API_KEY },
+		);
+
+		// Mock collections so admin panel shows documents area
+		await mockCollections(page);
+
 		await page.goto("/");
-		await page.evaluate((apiKey) => {
-			localStorage.setItem("vedo_api_key", apiKey);
-		}, ADMIN_API_KEY);
 	});
 
 	test.afterEach(() => {
