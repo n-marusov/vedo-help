@@ -4,7 +4,7 @@
 
 ## System Overview
 
-The system uses a four-service microservices architecture. The **backend** is the orchestrator — it accepts user requests, coordinates retrieval from Chroma, calls the embedding service, and streams LLM responses. All inter-service communication happens over Docker's internal bridge network.
+The system uses a six-service microservices architecture. The **backend** is the orchestrator — it accepts user requests, coordinates retrieval from Chroma, calls the embedding service, and streams LLM responses. All inter-service communication happens over Docker's internal bridge network.
 
 ```mermaid
 graph TB
@@ -13,23 +13,31 @@ graph TB
     end
 
     subgraph "Docker Network"
+        K[KeyCloak<br/>OIDC Provider]
         F[Frontend<br/>Vue 3 + TypeScript]
         BE[Backend<br/>Rust / axum]
         ES[Embedding Service<br/>Python / FastAPI]
         CDB[(Chroma<br/>Vector DB)]
         SQL[(SQLite<br/>Metadata)]
+        PDB[(PostgreSQL<br/>KeyCloak DB)]
     end
 
     B -- "HTTP 80" --> F
+    B -- "Auth redirect" --> K
     F -- "API /api/*" --> BE
+    F -- "Token exchange" --> K
+    BE -- "JWT validation" --> K
     BE -- "POST /embed" --> ES
     BE -- "Chroma API" --> CDB
     BE -- "sqlx" --> SQL
+    K --> PDB
 
     classDef svc fill:#e3f2fd,stroke:#1565c0
     classDef db fill:#fff3e0,stroke:#e65100
+    classDef auth fill:#f3e5f5,stroke:#7b1fa2
     class F,BE,ES svc
-    class CDB,SQL db
+    class CDB,SQL,PDB db
+    class K auth
 ```
 
 ## Service Breakdown
@@ -47,9 +55,11 @@ backend/src/
 │   ├── documents/       # Upload, parsing, chunking
 │   ├── collections/     # Collection CRUD
 │   ├── query/           # RAG pipeline, Q&A
-│   └── conversations/   # Chat sessions, messages
+│   ├── conversations/   # Chat sessions, messages
+│   ├── auth/            # Auth endpoints (me, logout), UserContext
+│   └── git_sync/        # Git repository sync (clone, pull, parse, index)
 └── shared/
-    ├── auth.rs          # Bearer token middleware
+    ├── auth.rs          # Bearer token middleware, JWT validator
     ├── error.rs         # Unified AppError enum
     ├── llm.rs           # OpenRouter client
     ├── chunking.rs      # Text splitting
@@ -81,33 +91,75 @@ embedding/src/
 
 Persistent ChromaDB instance storing document chunk vectors. Data persists in a Docker volume (`chroma_data`).
 
-### 4. Frontend (Vue 3 + TypeScript)
+### 4. KeyCloak (OIDC/OAuth2 Identity Provider)
 
-Single-page application with two views:
+KeyCloak 26 provides authentication via the OAuth 2.0 Authorization Code flow with PKCE. It runs with a dedicated PostgreSQL 16 database (`keycloak-db`).
+
+- **Realm:** `vedo-hub` with three-tier RBAC (`guest`, `user`, `admin`)
+- **Clients:** `vedo-frontend` (public, PKCE) and `vedo-backend` (confidential, service accounts)
+- **Social Identity Providers:** Yandex, VK ID, Mail.ru (optional, enabled via env vars)
+- **Realm import:** `keycloak/realm-import.json` with env var substitution on startup
+
+In production, KeyCloak is excluded from the stack — authentication falls back to `ADMIN_API_KEY` bearer token.
+
+### 5. Frontend (Vue 3 + TypeScript)
+
+Single-page application with five views:
 
 - **Chat view** (`/`) — streaming Q&A interface with message history
 - **Admin view** (`/admin`) — document upload and collection management
+- **Login view** (`/login`) — social login via KeyCloak (Yandex, VK ID, Mail.ru)
+- **Callback view** (`/callback`) — OIDC callback handler (PKCE code exchange)
+- **Avatar Preview view** (`/avatar-preview`) — UI component playground
 
 ```
 frontend/src/
 ├── main.ts
 ├── App.vue
-├── router.ts              # Vue Router (/, /admin)
+├── assets/
+│   ├── design-tokens.css    # Full design system CSS (from ui-kit.lib.pen)
+│   └── chat-tokens.css      # Chat-specific CSS custom properties
 ├── api/
-│   ├── client.ts          # Axios-like API client
-│   └── types.ts           # TypeScript interfaces
+│   ├── client.ts            # API client with Bearer token support
+│   ├── types.ts             # TypeScript interfaces (document, collection, session, git-sync, etc.)
+│   └── auth.ts              # Token storage in localStorage
 ├── components/
-│   ├── ChatWindow.vue     # Chat message list + input
-│   ├── MessageBubble.vue  # Single message with citations
-│   ├── DocumentList.vue   # Uploaded documents list
-│   └── CollectionManager.vue  # Collection CRUD
+│   ├── ui/                  # Atomic UI components (Pencil design system)
+│   │   ├── VButton.vue      # 5 variants (primary/outline/ghost/small/destructive)
+│   │   ├── VInput.vue       # Text input with design tokens
+│   │   ├── VSelect.vue      # Custom dropdown select
+│   │   ├── VDialog.vue      # Modal dialog (420px, 16px radius)
+│   │   ├── VAvatar.vue      # User/assistant avatar (3 sizes)
+│   │   ├── VBadge.vue       # Status badge (sm/xs, 4 variants)
+│   │   ├── VLabel.vue       # Field label with required state
+│   │   ├── VProgressBar.vue # Animated progress bar
+│   │   ├── VDropZone.vue    # File drop zone (drag & drop)
+│   │   ├── VThemeToggle.vue # Dark/light theme toggle
+│   │   └── VToast.vue       # Toast notification (auto-dismiss)
+│   ├── AppHeader.vue        # Top navigation bar
+│   ├── LoginButtons.vue     # Social login provider buttons
+│   ├── ChatWindow.vue       # Chat message list + input
+│   ├── MessageBubble.vue    # Single message with citations
+│   ├── DocumentList.vue     # Uploaded documents list
+│   ├── CollectionManager.vue  # Collection CRUD
+│   └── GitRepoManager.vue   # Git repo connect, sync, delete
 ├── stores/
-│   ├── chat.ts            # Pinia store for chat state
-│   ├── documents.ts       # Documents store
-│   └── collections.ts     # Collections store
+│   ├── chat.ts              # Pinia store for chat state
+│   ├── documents.ts         # Documents store
+│   ├── collections.ts       # Collections store
+│   └── auth.ts              # Auth/user store
+├── composables/
+│   ├── useOidcAuth.ts       # PKCE OIDC auth flow
+│   ├── useStreamingChat.ts  # SSE streaming composable
+│   └── useTheme.ts          # Theme switching
+├── utils/
+│   └── markdown.ts          # Markdown renderer with highlight.js & GFM
 └── views/
-    ├── ChatView.vue       # Main chat page
-    └── AdminView.vue      # Admin panel
+    ├── ChatView.vue         # Main chat page
+    ├── AdminView.vue        # Admin panel
+    ├── LoginView.vue        # Login with social providers
+    ├── CallbackView.vue     # OIDC callback handler
+    └── AvatarPreviewView.vue # UI component preview
 ```
 
 ## Document Ingestion Flow

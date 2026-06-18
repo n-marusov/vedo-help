@@ -113,23 +113,21 @@ Docker Compose uses `restart: unless-stopped` on all services for automatic reco
 
 ## Operations Scripts
 
-Production operation scripts are available in `deploy/scripts/`:
+Production operation scripts are available in `scripts/`:
 
 | Script | Purpose |
 |--------|---------|
-| `deploy.sh` | Initial deployment with pre-flight checks |
-| `update.sh` | Zero-downtime rolling update (with backup) |
-| `logs.sh` | Log aggregation and filtering |
-| `health-check.sh` | Full diagnostics and health verification |
-| `rollback.sh` | Roll back to a previous version |
-| `backup.sh` | Backup SQLite database and Chroma vector store |
+| `scripts/backup.sh` | Backup SQLite database and Chroma vector store |
+| `scripts/restore.sh` | Restore from a previous backup |
+| `scripts/smoke-test.sh` | Smoke test — start services and verify health endpoints |
+| `scripts/smoke-test-dns.sh` | DNS resolution test for embedding service (VPN-independent) |
 
 ## Backup & Restore
 
 ### Automated backup
 
 ```bash
-./deploy/scripts/backup.sh
+./scripts/backup.sh
 ```
 
 Creates timestamped, compressed backups in `backups/` with retention policy (7 daily, 4 weekly, 12 monthly).

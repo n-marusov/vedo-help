@@ -38,7 +38,7 @@ Other variables have sensible defaults — see [Configuration](configuration.md)
 docker compose up -d
 ```
 
-This starts four services:
+This starts six services:
 
 | Service | Port (dev) | Description |
 |---------|-----------|-------------|
@@ -46,6 +46,8 @@ This starts four services:
 | `embedding` | `8001` | Python embedding API |
 | `backend` | `3000` | Rust REST API |
 | `frontend` | `5173` (dev) | Vue 3 web interface |
+| `keycloak` | `8080` | OIDC/OAuth2 identity provider |
+| `keycloak-db` | — | PostgreSQL for KeyCloak data |
 
 ### 4. Verify it works
 
