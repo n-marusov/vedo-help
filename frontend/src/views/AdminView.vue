@@ -9,7 +9,7 @@ import { onMounted, ref, watch } from 'vue';
 const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
-const activeAdminTab = ref<'data' | 'git'>('data');
+const activeSourceTab = ref<'documents' | 'git'>('documents');
 
 onMounted(() => {
   loadData();
@@ -36,41 +36,33 @@ watch(
 <template>
   <div class="admin-view" data-testid="admin-view">
     <div class="admin-panel">
-      <!-- Tab Navigation -->
-      <div class="admin-tabs" data-testid="admin-tabs">
-        <button
-          class="admin-tab"
-          :class="{ 'admin-tab--active': activeAdminTab === 'data' }"
-          @click="activeAdminTab = 'data'"
-        >
-          Collections & Documents
-        </button>
-        <button
-          class="admin-tab"
-          :class="{ 'admin-tab--active': activeAdminTab === 'git' }"
-          @click="activeAdminTab = 'git'"
-        >
-          Git Repositories
-        </button>
-      </div>
-
-      <!-- Content Panels -->
-      <div v-if="activeAdminTab === 'data'" class="admin-content">
+      <div class="admin-content">
         <!-- Collections Panel -->
         <aside class="collections-panel">
           <CollectionManager />
         </aside>
 
-        <!-- Documents Panel -->
-        <main class="documents-panel">
-          <DocumentList />
-        </main>
-      </div>
+        <!-- Sources Panel -->
+        <main class="sources-panel">
+          <div class="source-tabs" data-testid="source-tabs">
+            <button
+              class="source-tab"
+              :class="{ 'source-tab--active': activeSourceTab === 'documents' }"
+              @click="activeSourceTab = 'documents'"
+            >
+              Documents
+            </button>
+            <button
+              class="source-tab"
+              :class="{ 'source-tab--active': activeSourceTab === 'git' }"
+              @click="activeSourceTab = 'git'"
+            >
+              Git Repositories
+            </button>
+          </div>
 
-      <!-- Git Repositories Panel -->
-      <div v-else class="admin-content">
-        <main class="documents-panel">
-          <GitRepoManager />
+          <DocumentList v-if="activeSourceTab === 'documents'" />
+          <GitRepoManager v-else />
         </main>
       </div>
     </div>
@@ -94,39 +86,6 @@ watch(
   height: 100%;
   overflow: hidden;
   padding: 24px;
-  gap: 20px;
-}
-
-/* ── Tab Navigation ── */
-.admin-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.admin-tab {
-  font-family: var(--font-family);
-  font-size: var(--font-size-xs, 12px);
-  font-weight: 600;
-  padding: 10px 18px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--color-muted-foreground);
-  cursor: pointer;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.admin-tab:hover {
-  color: var(--color-foreground);
-}
-
-.admin-tab--active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
 }
 
 /* ── Content Panels ── */
@@ -152,8 +111,8 @@ watch(
   overflow: hidden;
 }
 
-/* Documents Panel */
-.documents-panel {
+/* Sources Panel */
+.sources-panel {
   flex: 1;
   background: var(--color-card);
   border: 1px solid var(--color-border);
@@ -165,13 +124,44 @@ watch(
   overflow: hidden;
 }
 
+/* ── Source Tab Navigation ── */
+.source-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.source-tab {
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 600;
+  padding: 10px 18px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.source-tab:hover {
+  color: var(--color-foreground);
+}
+
+.source-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Mobile Responsive
    ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
   .admin-panel {
     padding: 16px;
-    gap: 16px;
   }
 
   .admin-content {

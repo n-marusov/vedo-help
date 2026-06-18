@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, watch } from 'vue';
 import VButton from './VButton.vue';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     open: boolean;
     title?: string;
@@ -23,6 +24,28 @@ const emit = defineEmits<{
   close: [];
   confirm: [];
 }>();
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.open) {
+    emit('close');
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+  document.body.style.overflow = '';
+});
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+  },
+);
 </script>
 
 <template>
@@ -33,7 +56,12 @@ const emit = defineEmits<{
       data-testid="confirm-dialog"
       @click.self="emit('close')"
     >
-      <div class="dialog-card" role="dialog" :aria-label="title">
+      <div
+        class="dialog-card"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="title"
+      >
         <div v-if="title" class="dialog-header">
           <h2 class="dialog-title">{{ title }}</h2>
         </div>

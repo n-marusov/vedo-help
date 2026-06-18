@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -8,21 +8,20 @@ const props = withDefaults(
     placeholder?: string;
   }>(),
   {
-    placeholder: "Select...",
+    placeholder: 'Select...',
   },
 );
 
 const emit = defineEmits<{
-  "update:modelValue": [value: string | null];
+  'update:modelValue': [value: string | null];
 }>();
 
 const open = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
+const dropdownStyle = ref<Record<string, string>>({});
 
-const isPlaceholder = computed(
-  () => props.modelValue == null || props.modelValue === "",
-);
+const isPlaceholder = computed(() => props.modelValue == null || props.modelValue === '');
 
 const selectedLabel = computed(() => {
   if (isPlaceholder.value) return props.placeholder;
@@ -30,16 +29,43 @@ const selectedLabel = computed(() => {
   return match ? match.label : props.placeholder;
 });
 
-function toggle() {
+async function toggle() {
   open.value = !open.value;
+  if (open.value) {
+    await nextTick();
+    updateDropdownPosition();
+  }
+}
+
+function updateDropdownPosition() {
+  if (!triggerRef.value) return;
+
+  const rect = triggerRef.value.getBoundingClientRect();
+  dropdownStyle.value = {
+    left: `${rect.left}px`,
+    minWidth: `${rect.width}px`,
+    top: `${rect.bottom + 4}px`,
+  };
+  console.debug('[FIX:v-select-dropdown] positioned dropdown', {
+    left: rect.left,
+    optionCount: props.options.length,
+    top: rect.bottom + 4,
+    width: rect.width,
+  });
+}
+
+function handleViewportChange() {
+  if (open.value) {
+    updateDropdownPosition();
+  }
 }
 
 function select(value: string) {
   // If the same option is clicked again, deselect (emit null)
   if (value === props.modelValue) {
-    emit("update:modelValue", null);
+    emit('update:modelValue', null);
   } else {
-    emit("update:modelValue", value);
+    emit('update:modelValue', value);
   }
   open.value = false;
 }
@@ -56,20 +82,33 @@ function handleClickOutside(e: MouseEvent) {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") {
+  if (e.key === 'Escape') {
     open.value = false;
   }
 }
 
 onMounted(() => {
-  document.addEventListener("click", handleClickOutside);
-  document.addEventListener("keydown", handleKeydown);
+  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('keydown', handleKeydown);
+  window.addEventListener('resize', handleViewportChange);
+  window.addEventListener('scroll', handleViewportChange, true);
 });
 
 onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
-  document.removeEventListener("keydown", handleKeydown);
+  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('resize', handleViewportChange);
+  window.removeEventListener('scroll', handleViewportChange, true);
 });
+watch(
+  () => props.options,
+  async () => {
+    if (open.value) {
+      await nextTick();
+      updateDropdownPosition();
+    }
+  },
+);
 </script>
 
 <template>
@@ -96,7 +135,7 @@ onUnmounted(() => {
         ref="dropdownRef"
         class="v-select__dropdown"
         data-testid="collection-select-dropdown"
-        :style="triggerRef ? { minWidth: `${triggerRef.offsetWidth}px` } : {}"
+        :style="dropdownStyle"
       >
         <button
           v-for="opt in options"
@@ -178,7 +217,7 @@ onUnmounted(() => {
   margin-top: var(--space-1);
   overflow: hidden;
   padding: var(--space-1) 0;
-  position: absolute;
+  position: fixed;
   z-index: 1000;
 }
 
