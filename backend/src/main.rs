@@ -153,9 +153,7 @@ async fn main() {
 
     // Build router
     let app = Router::new()
-        // Public routes
-        .route("/health", get(health_check))
-        // Auth routes (behind auth middleware via /api/* route_layer)
+        // Auth routes (behind auth middleware via route_layer)
         .route("/api/auth/me", get(auth_handlers::me))
         .route("/api/auth/logout", post(auth_handlers::logout))
         // Document routes
@@ -217,6 +215,8 @@ async fn main() {
         )
         // Auth middleware for all /api/* routes (applies to routes defined above)
         .route_layer(middleware::from_fn(auth_middleware))
+        // Public routes registered AFTER route_layer so auth middleware does not apply.
+        .route("/health", get(health_check))
         // Webhook endpoint — public, registered AFTER route_layer so auth middleware
         // does not apply. Auth is handled via HMAC signature or webhook token.
         .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))

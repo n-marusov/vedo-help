@@ -98,6 +98,7 @@ pub fn setup_test_config() -> AppConfig {
         rust_log: "off".to_string(),
         frontend_url: "http://localhost:5173".to_string(),
         keycloak_url: "http://localhost:8080".to_string(),
+        keycloak_jwks_url: "http://localhost:8080".to_string(),
         keycloak_realm: "vedo-hub".to_string(),
         keycloak_client_id: "vedo-backend".to_string(),
         git_clone_root: "/tmp/test-git-repos".to_string(),

@@ -1,199 +1,197 @@
 {
-  "realm": "vedo-hub",
-  "displayName": "VEDO hub",
-  "displayNameHtml": "<h2>VEDO hub</h2>",
-  "enabled": true,
-  "sslRequired": "external",
-  "loginWithEmailAllowed": true,
-  "registrationAllowed": false,
-  "registrationEmailAsUsername": true,
-  "bruteForceProtected": true,
-  "roles": {
-    "realm": [
-      {
-        "name": "guest",
-        "description": "Read-only guest. Can view public pages only.",
-        "composite": false,
-        "clientRole": false,
-        "attributes": {}
-      },
-      {
-        "name": "user",
-        "description": "Regular user. Can use RAG queries, manage own conversations and documents.",
-        "composite": false,
-        "clientRole": false,
-        "attributes": {}
-      },
-      {
-        "name": "admin",
-        "description": "Administrator. Full access to all features including admin panel.",
-        "composite": false,
-        "clientRole": false,
-        "attributes": {}
-      }
-    ]
-  },
-  "requiredCredentials": ["password"],
-  "clients": [
-    {
-      "clientId": "vedo-frontend",
-      "name": "VEDO hub Frontend",
-      "description": "Vue 3 SPA — public client (PKCE-flow).",
-      "enabled": true,
-      "publicClient": true,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": false,
-      "authorizationServicesEnabled": false,
-      "protocol": "openid-connect",
-      "rootUrl": "http://localhost:5173",
-      "baseUrl": "/",
-      "redirectUris": [
-        "http://localhost:5173/*",
-        "http://localhost:80/*"
-      ],
-      "webOrigins": [
-        "http://localhost:5173",
-        "http://localhost:80"
-      ],
-      "protocolMappers": [
-        {
-          "name": "provider-claim",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "config": {
-            "user.attribute": "provider",
-            "claim.name": "provider",
-            "access.token.claim": true,
-            "id.token.claim": true,
-            "userinfo.token.claim": true,
-            "jsonType.label": "String"
-          }
-        },
-        {
-          "name": "realm-roles",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-realm-role-mapper",
-          "config": {
-            "user.attribute": "realmRoles",
-            "claim.name": "roles",
-            "access.token.claim": true,
-            "id.token.claim": true,
-            "userinfo.token.claim": true,
-            "multivalued": true
-          }
-        }
-      ]
-    },
-    {
-      "clientId": "vedo-backend",
-      "name": "VEDO hub Backend",
-      "description": "Rust/axum API server — confidential client with service account.",
-      "enabled": true,
-      "publicClient": false,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": true,
-      "authorizationServicesEnabled": false,
-      "protocol": "openid-connect",
-      "secret": "changeme-vedo-backend-secret",
-      "redirectUris": [],
-      "webOrigins": [],
-      "protocolMappers": [
-        {
-          "name": "realm-roles",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-realm-role-mapper",
-          "config": {
-            "user.attribute": "realmRoles",
-            "claim.name": "roles",
-            "access.token.claim": true,
-            "id.token.claim": true,
-            "userinfo.token.claim": true,
-            "multivalued": true
-          }
-        }
-      ],
-      "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "roles",
-        "profile",
-        "email"
-      ]
-    }
-  ],
-  "users": [
-    {
-      "username": "admin",
-      "email": "admin@vedo.local",
-      "emailVerified": true,
-      "enabled": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "admin",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["admin", "user", "guest"],
-      "attributes": {
-        "provider": ["password"]
-      }
-    },
-    {
-      "username": "alice",
-      "email": "alice@vedo.local",
-      "firstName": "Alice",
-      "lastName": "Johnson",
-      "emailVerified": true,
-      "enabled": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["user", "guest"],
-      "attributes": {
-        "provider": ["password"]
-      }
-    },
-    {
-      "username": "guest",
-      "email": "guest@vedo.local",
-      "firstName": "Guest",
-      "lastName": "User",
-      "emailVerified": false,
-      "enabled": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "guest",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["guest"],
-      "attributes": {
-        "provider": ["password"]
-      }
-    },
-    {
-      "username": "service-account-vedo-backend",
-      "serviceAccountClientId": "vedo-backend",
-      "realmRoles": ["user"],
-      "enabled": true
-    }
-  ],
-  "identityProviders": [],
-  "defaultRoles": ["guest"],
-  "scopeMappings": [
-    {
-      "client": "vedo-frontend",
-      "roles": ["guest", "user", "admin"]
-    }
-  ]
+	"realm": "vedo-hub",
+	"displayName": "VEDO hub",
+	"displayNameHtml": "<h2>VEDO hub</h2>",
+	"enabled": true,
+	"sslRequired": "external",
+	"loginWithEmailAllowed": true,
+	"registrationAllowed": false,
+	"registrationEmailAsUsername": true,
+	"bruteForceProtected": true,
+	"roles": {
+		"realm": [
+			{
+				"name": "guest",
+				"description": "Read-only guest. Can view public pages only.",
+				"composite": false,
+				"clientRole": false,
+				"attributes": {}
+			},
+			{
+				"name": "user",
+				"description": "Regular user. Can use RAG queries, manage own conversations and documents.",
+				"composite": false,
+				"clientRole": false,
+				"attributes": {}
+			},
+			{
+				"name": "admin",
+				"description": "Administrator. Full access to all features including admin panel.",
+				"composite": false,
+				"clientRole": false,
+				"attributes": {}
+			}
+		]
+	},
+	"requiredCredentials": ["password"],
+	"clients": [
+		{
+			"clientId": "vedo-frontend",
+			"name": "VEDO hub Frontend",
+			"description": "Vue 3 SPA — public client (PKCE-flow).",
+			"enabled": true,
+			"publicClient": true,
+			"standardFlowEnabled": true,
+			"implicitFlowEnabled": false,
+			"directAccessGrantsEnabled": true,
+			"serviceAccountsEnabled": false,
+			"authorizationServicesEnabled": false,
+			"protocol": "openid-connect",
+			"rootUrl": "http://localhost:5173",
+			"baseUrl": "/",
+			"redirectUris": ["http://localhost:5173/*", "http://localhost:80/*"],
+			"webOrigins": ["http://localhost:5173", "http://localhost:80"],
+			"protocolMappers": [
+				{
+					"name": "audience-vedo-backend",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-audience-mapper",
+					"config": {
+						"included.client.audience": "vedo-backend",
+						"id.token.claim": false,
+						"access.token.claim": true
+					}
+				},
+				{
+					"name": "provider-claim",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-usermodel-attribute-mapper",
+					"config": {
+						"user.attribute": "provider",
+						"claim.name": "provider",
+						"access.token.claim": true,
+						"id.token.claim": true,
+						"userinfo.token.claim": true,
+						"jsonType.label": "String"
+					}
+				},
+				{
+					"name": "realm-roles",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-realm-role-mapper",
+					"config": {
+						"user.attribute": "realmRoles",
+						"claim.name": "roles",
+						"access.token.claim": true,
+						"id.token.claim": true,
+						"userinfo.token.claim": true,
+						"multivalued": true
+					}
+				}
+			]
+		},
+		{
+			"clientId": "vedo-backend",
+			"name": "VEDO hub Backend",
+			"description": "Rust/axum API server — confidential client with service account.",
+			"enabled": true,
+			"publicClient": false,
+			"standardFlowEnabled": true,
+			"implicitFlowEnabled": false,
+			"directAccessGrantsEnabled": false,
+			"serviceAccountsEnabled": true,
+			"authorizationServicesEnabled": false,
+			"protocol": "openid-connect",
+			"secret": "changeme-vedo-backend-secret",
+			"redirectUris": [],
+			"webOrigins": [],
+			"protocolMappers": [
+				{
+					"name": "realm-roles",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-realm-role-mapper",
+					"config": {
+						"user.attribute": "realmRoles",
+						"claim.name": "roles",
+						"access.token.claim": true,
+						"id.token.claim": true,
+						"userinfo.token.claim": true,
+						"multivalued": true
+					}
+				}
+			],
+			"defaultClientScopes": ["web-origins", "acr", "roles", "profile", "email"]
+		}
+	],
+	"users": [
+		{
+			"username": "admin",
+			"email": "admin@vedo.local",
+			"emailVerified": true,
+			"enabled": true,
+			"credentials": [
+				{
+					"type": "password",
+					"value": "admin",
+					"temporary": false
+				}
+			],
+			"realmRoles": ["admin", "user", "guest"],
+			"attributes": {
+				"provider": ["password"]
+			}
+		},
+		{
+			"username": "alice",
+			"email": "alice@vedo.local",
+			"firstName": "Alice",
+			"lastName": "Johnson",
+			"emailVerified": true,
+			"enabled": true,
+			"credentials": [
+				{
+					"type": "password",
+					"value": "password",
+					"temporary": false
+				}
+			],
+			"realmRoles": ["user", "guest"],
+			"attributes": {
+				"provider": ["password"]
+			}
+		},
+		{
+			"username": "guest",
+			"email": "guest@vedo.local",
+			"firstName": "Guest",
+			"lastName": "User",
+			"emailVerified": false,
+			"enabled": true,
+			"credentials": [
+				{
+					"type": "password",
+					"value": "guest",
+					"temporary": false
+				}
+			],
+			"realmRoles": ["guest"],
+			"attributes": {
+				"provider": ["password"]
+			}
+		},
+		{
+			"username": "service-account-vedo-backend",
+			"serviceAccountClientId": "vedo-backend",
+			"realmRoles": ["user"],
+			"enabled": true
+		}
+	],
+	"identityProviders": [],
+	"defaultRoles": ["guest"],
+	"scopeMappings": [
+		{
+			"client": "vedo-frontend",
+			"roles": ["guest", "user", "admin"]
+		}
+	]
 }

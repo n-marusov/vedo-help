@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 
 ### KeyCloak (development only)
 
-KeyCloak is only included in the dev stack (`docker compose up`). The production stack (`docker-compose.production.yml`) does not include KeyCloak — authentication is handled via `ADMIN_API_KEY` bearer token instead.
+KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a public issuer URL that must match the `iss` claim in browser-issued tokens, and an internal JWKS URL used to fetch signing keys from Docker's internal network.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -49,6 +49,9 @@ KeyCloak is only included in the dev stack (`docker compose up`). The production
 | `KEYCLOAK_ADMIN` | KeyCloak admin console username | `admin` |
 | `KEYCLOAK_ADMIN_PASSWORD` | KeyCloak admin console password | `admin` |
 | `KEYCLOAK_HOSTNAME` | KeyCloak hostname | `localhost` |
+| `KEYCLOAK_PUBLIC_URL` | Public issuer URL used for JWT `iss` validation | `http://localhost:8080` |
+| `KEYCLOAK_JWKS_URL` | Internal URL used by backend to fetch JWKS | `http://keycloak:8080` in Docker Compose |
+| `KEYCLOAK_URL` | Backward-compatible fallback for public issuer URL | `http://localhost:8080` |
 | `VEDO_BACKEND_CLIENT_SECRET` | Client secret for `vedo-backend` confidential OIDC client | `changeme-vedo-backend-secret` |
 | `YANDEX_CLIENT_ID` | Yandex OAuth Client ID (social IdP) | _(empty — disabled)_ |
 | `YANDEX_CLIENT_SECRET` | Yandex OAuth Client Secret (social IdP) | _(empty — disabled)_ |

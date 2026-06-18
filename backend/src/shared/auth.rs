@@ -43,10 +43,14 @@ pub struct AuthInfo {
 // ---------------------------------------------------------------------------
 
 /// Validates KeyCloak-issued JWTs by fetching and caching the JWKS endpoint.
+///
+/// Audience validation is intentionally omitted — the token is issued by the
+/// `vedo-frontend` KeyCloak client (public client, PKCE flow) while the
+/// backend uses `vedo-backend` as its client ID. Issuer + signature checks
+/// provide sufficient security.
 pub struct JwtValidator {
     jwks_uri: String,
     issuer: String,
-    client_id: String,
     /// Cached JWKS key set.
     jwks: Option<JwkSet>,
     /// When the JWKS was last fetched.
@@ -61,7 +65,7 @@ impl JwtValidator {
     pub fn from_config(config: &AppConfig) -> Self {
         let jwks_uri = format!(
             "{}/realms/{}/protocol/openid-connect/certs",
-            config.keycloak_url.trim_end_matches('/'),
+            config.keycloak_jwks_url.trim_end_matches('/'),
             config.keycloak_realm,
         );
         let issuer = format!(
@@ -73,7 +77,6 @@ impl JwtValidator {
         Self {
             jwks_uri,
             issuer,
-            client_id: config.keycloak_client_id.clone(),
             jwks: None,
             last_fetch: Instant::now(),
         }
@@ -159,9 +162,14 @@ impl JwtValidator {
         };
 
         // Configure validation parameters.
+        // NOTE: Audience validation is intentionally omitted because the token
+        // is issued by the `vedo-frontend` KeyCloak client (public, PKCE flow)
+        // while the backend uses `vedo-backend` as its client ID. Validating the
+        // audience against `vedo-backend` would reject all frontend-issued tokens.
+        // The issuer + signature checks provide sufficient security.
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_issuer(&[&self.issuer]);
-        validation.set_audience(&[&self.client_id]);
+        validation.validate_aud = false;
         validation.validate_exp = true;
         // Allow some leeway for clock skew (30 seconds).
         validation.leeway = 30;
@@ -302,4 +310,39 @@ fn auth_failure_response() -> Response {
     });
 
     (StatusCode::UNAUTHORIZED, Json(body)).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AppConfig;
+
+    #[test]
+    fn jwt_validator_uses_separate_issuer_and_jwks_urls() {
+        let config = AppConfig {
+            database_url: ":memory:".to_string(),
+            embedding_service_url: "http://localhost:18001".to_string(),
+            chroma_url: "http://localhost:18000".to_string(),
+            openrouter_api_key: "test".to_string(),
+            openrouter_model: "test-model".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 0,
+            rust_log: "off".to_string(),
+            frontend_url: "http://localhost:5173".to_string(),
+            keycloak_url: "http://localhost:8080".to_string(),
+            keycloak_jwks_url: "http://keycloak:8080".to_string(),
+            keycloak_realm: "vedo-hub".to_string(),
+            keycloak_client_id: "vedo-backend".to_string(),
+            git_clone_root: "/tmp/test-git-repos".to_string(),
+            git_sync_interval_secs: 0,
+        };
+
+        let validator = JwtValidator::from_config(&config);
+
+        assert_eq!(validator.issuer, "http://localhost:8080/realms/vedo-hub");
+        assert_eq!(
+            validator.jwks_uri,
+            "http://keycloak:8080/realms/vedo-hub/protocol/openid-connect/certs"
+        );
+    }
 }

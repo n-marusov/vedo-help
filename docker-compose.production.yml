@@ -109,6 +109,9 @@ services:
     logging: *default-logging
     ports: []
 
+  keycloak:
+    ports: []
+
 networks:
   internal:
     driver: bridge

@@ -12,11 +12,15 @@ pub struct AppConfig {
     pub port: u16,
     pub rust_log: String,
     pub frontend_url: String,
-    /// KeyCloak server base URL (e.g., http://keycloak:8080)
+    /// Public KeyCloak issuer base URL used in JWT `iss` validation.
+    /// This must match the URL seen by the browser when tokens are issued.
     pub keycloak_url: String,
+    /// Internal KeyCloak base URL used by the backend to fetch JWKS.
+    /// In Docker this is usually http://keycloak:8080 while the issuer remains localhost.
+    pub keycloak_jwks_url: String,
     /// KeyCloak realm name
     pub keycloak_realm: String,
-    /// Backend client ID for audience validation
+    /// Backend client ID retained for KeyCloak client configuration.
     pub keycloak_client_id: String,
     /// Root directory for cloned git repositories
     pub git_clone_root: String,
@@ -27,6 +31,13 @@ pub struct AppConfig {
 impl AppConfig {
     /// Load configuration from environment variables with sensible defaults.
     pub fn from_env() -> Self {
+        let keycloak_url = env::var("KEYCLOAK_PUBLIC_URL")
+            .or_else(|_| env::var("KEYCLOAK_URL"))
+            .unwrap_or_else(|_| "http://localhost:8080".to_string());
+        let keycloak_jwks_url = env::var("KEYCLOAK_JWKS_URL")
+            .or_else(|_| env::var("KEYCLOAK_INTERNAL_URL"))
+            .unwrap_or_else(|_| keycloak_url.clone());
+
         Self {
             database_url: env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite:data/vedo.db?mode=rwc".to_string()),
@@ -46,8 +57,8 @@ impl AppConfig {
                 .unwrap_or_else(|_| "vedo_backend=debug,tower_http=debug".to_string()),
             frontend_url: env::var("FRONTEND_URL")
                 .unwrap_or_else(|_| "http://localhost:5173".to_string()),
-            keycloak_url: env::var("KEYCLOAK_URL")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            keycloak_url,
+            keycloak_jwks_url,
             keycloak_realm: env::var("KEYCLOAK_REALM").unwrap_or_else(|_| "vedo-hub".to_string()),
             keycloak_client_id: env::var("KEYCLOAK_CLIENT_ID")
                 .unwrap_or_else(|_| "vedo-backend".to_string()),
