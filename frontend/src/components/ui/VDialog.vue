@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import VButton from "./VButton.vue";
+import VButton from './VButton.vue';
 
 withDefaults(
   defineProps<{
@@ -8,14 +8,14 @@ withDefaults(
     description?: string;
     confirmText?: string;
     cancelText?: string;
-    variant?: "default" | "destructive";
+    variant?: 'default' | 'destructive';
   }>(),
   {
-    title: "",
-    description: "",
-    confirmText: "Confirm",
-    cancelText: "Cancel",
-    variant: "default",
+    title: '',
+    description: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    variant: 'default',
   },
 );
 

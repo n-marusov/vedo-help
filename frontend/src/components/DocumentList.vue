@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import VButton from "@/components/ui/VButton.vue";
-import VDialog from "@/components/ui/VDialog.vue";
-import VDropZone from "@/components/ui/VDropZone.vue";
-import VProgressBar from "@/components/ui/VProgressBar.vue";
-import { useCollectionStore } from "@/stores/collections";
-import { useDocumentStore } from "@/stores/documents";
-import { onMounted, ref } from "vue";
+import VButton from '@/components/ui/VButton.vue';
+import VDialog from '@/components/ui/VDialog.vue';
+import VDropZone from '@/components/ui/VDropZone.vue';
+import VProgressBar from '@/components/ui/VProgressBar.vue';
+import { useCollectionStore } from '@/stores/collections';
+import { useDocumentStore } from '@/stores/documents';
+import { onMounted, ref } from 'vue';
 
 const documentStore = useDocumentStore();
 const collectionStore = useCollectionStore();
 
 const isUploading = ref(false);
 const uploadProgress = ref<number | null>(null);
-const uploadingFileName = ref<string>("");
+const uploadingFileName = ref<string>('');
 
 const showDeleteDialog = ref(false);
 const deletingDoc = ref<{ id: string; name: string } | null>(null);
@@ -28,45 +28,43 @@ function loadDocuments() {
 }
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
+  const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString([], {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 function getFileIcon(fileType: string): string {
   const type = fileType.toLowerCase();
-  if (type.includes("pdf")) return "📄";
-  if (type.includes("markdown") || type.endsWith("md")) return "📝";
-  if (type.includes("html")) return "🌐";
-  if (type.includes("json")) return "📋";
-  if (type.includes("text") || type.endsWith("txt")) return "📃";
-  if (type.includes("zip") || type.includes("tar") || type.includes("gz"))
-    return "📦";
-  return "📎";
+  if (type.includes('pdf')) return '📄';
+  if (type.includes('markdown') || type.endsWith('md')) return '📝';
+  if (type.includes('html')) return '🌐';
+  if (type.includes('json')) return '📋';
+  if (type.includes('text') || type.endsWith('txt')) return '📃';
+  if (type.includes('zip') || type.includes('tar') || type.includes('gz')) return '📦';
+  return '📎';
 }
 
 function formatFileType(fileType: string): string {
   const type = fileType.toLowerCase();
-  if (type.includes("pdf")) return "PDF";
-  if (type.includes("markdown") || type.endsWith("md")) return "Markdown";
-  if (type.includes("html")) return "HTML";
-  if (type.includes("json")) return "JSON";
-  if (type.includes("text") || type.endsWith("txt")) return "Text";
-  if (type.includes("zip") || type.includes("tar") || type.includes("gz"))
-    return "Archive";
-  return type.split("/").pop() || type;
+  if (type.includes('pdf')) return 'PDF';
+  if (type.includes('markdown') || type.endsWith('md')) return 'Markdown';
+  if (type.includes('html')) return 'HTML';
+  if (type.includes('json')) return 'JSON';
+  if (type.includes('text') || type.endsWith('txt')) return 'Text';
+  if (type.includes('zip') || type.includes('tar') || type.includes('gz')) return 'Archive';
+  return type.split('/').pop() || type;
 }
 
 const zipResult = ref<{
@@ -83,23 +81,17 @@ async function handleFilesSelected(files: File[]) {
   zipResult.value = null;
 
   // Separate ZIP files from regular files
-  const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
-  const regularFiles = files.filter(
-    (f) => !f.name.toLowerCase().endsWith(".zip"),
-  );
+  const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith('.zip'));
+  const regularFiles = files.filter((f) => !f.name.toLowerCase().endsWith('.zip'));
 
   // Process ZIP files via batch endpoint
   for (const file of zipFiles) {
     uploadingFileName.value = file.name;
     uploadProgress.value = 0;
 
-    const result = await documentStore.uploadZip(
-      file,
-      collectionId,
-      (progress) => {
-        uploadProgress.value = progress;
-      },
-    );
+    const result = await documentStore.uploadZip(file, collectionId, (progress) => {
+      uploadProgress.value = progress;
+    });
 
     if (result) {
       zipResult.value = {
@@ -122,7 +114,7 @@ async function handleFilesSelected(files: File[]) {
 
   isUploading.value = false;
   uploadProgress.value = null;
-  uploadingFileName.value = "";
+  uploadingFileName.value = '';
 }
 
 function clearZipResult() {
@@ -143,7 +135,7 @@ async function handleDeleteConfirm() {
 }
 
 // Watch for collection changes
-import { watch } from "vue";
+import { watch } from 'vue';
 watch(
   () => collectionStore.activeCollectionId,
   () => {
