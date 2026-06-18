@@ -49,7 +49,7 @@ See `.ai-factory/ARCHITECTURE.md` for detailed architecture guidelines.
 
 ## Non-Functional Requirements
 
-- **Security:** Bearer token authentication (`ADMIN_API_KEY`), file validation (MIME + magic bytes), rate limiting, CORS
+- **Security:** KeyCloak JWT token authentication, file validation (MIME + magic bytes), rate limiting, CORS
 - **Logging:** Docker journald driver with structured tags
 - **Reliability:** Graceful shutdown, retry logic for embeddings, health check endpoints
 - **Data:** SQLite for persistent metadata, Chroma for vector storage, automated backup/restore scripts

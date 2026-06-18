@@ -100,7 +100,7 @@ KeyCloak 26 provides authentication via the OAuth 2.0 Authorization Code flow wi
 - **Social Identity Providers:** Yandex, VK ID, Mail.ru (optional, enabled via env vars)
 - **Realm import:** `keycloak/realm-import.json` with env var substitution on startup
 
-In production, KeyCloak is excluded from the stack — authentication falls back to `ADMIN_API_KEY` bearer token.
+All authentication is handled exclusively by KeyCloak JWT tokens — the legacy API key mechanism has been removed.
 
 ### 5. Frontend (Vue 3 + TypeScript)
 

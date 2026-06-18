@@ -2,7 +2,7 @@
 
 # Authentication
 
-VEDO hub uses **KeyCloak 26** as its identity provider (IdP), implementing the OAuth 2.0 Authorization Code flow with **PKCE** (Proof Key for Code Exchange) for the public frontend client. The backend supports **dual authentication**: legacy API key (`ADMIN_API_KEY`) and JWT tokens issued by KeyCloak.
+VEDO hub uses **KeyCloak 26** as its identity provider (IdP), implementing the OAuth 2.0 Authorization Code flow with **PKCE** (Proof Key for Code Exchange) for the public frontend client. All API requests are authenticated via KeyCloak-issued JWT tokens.
 
 ---
 
@@ -204,17 +204,7 @@ Default admin console: `http://localhost:8080/admin/master/console/#/vedo-hub`
 
 ### Production
 
-The production stack (`docker-compose.production.yml`) **does not include KeyCloak**. In production, authentication falls back to the legacy `ADMIN_API_KEY` bearer token. This is by design:
-
-- KeyCloak + PostgreSQL add significant operational complexity
-- Single-developer VPS deployment doesn't need multi-tenant OIDC
-- The `ADMIN_API_KEY` approach is sufficient for the MVP
-
-To add KeyCloak to production, you would need:
-1. A dedicated PostgreSQL instance (or managed service)
-2. HTTPS/Let's Encrypt for the KeyCloak hostname
-3. Configure `KEYCLOAK_URL` to point to the KeyCloak instance
-4. Expose port 8080 (or proxy through Caddy)
+The production stack (`docker-compose.production.yml`) **includes KeyCloak** — it is required for all authentication. The legacy `ADMIN_API_KEY` mechanism has been removed. Every API request must carry a valid KeyCloak-issued JWT.
 
 ---
 

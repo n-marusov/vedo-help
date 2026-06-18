@@ -11,13 +11,15 @@
 
 ## Authentication
 
-All API routes (except `/health`) require a Bearer token:
+All API routes (except `/health`) require a KeyCloak-issued Bearer JWT token:
 
 ```
-Authorization: Bearer <ADMIN_API_KEY>
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
 Requests without a valid token return `401 Unauthorized`.
+
+Obtain an access token via the OAuth 2.0 Authorization Code flow with PKCE (see [Auth](auth.md)).
 
 ## Standard Error Format
 
@@ -33,7 +35,7 @@ Requests without a valid token return `401 Unauthorized`.
 | Status | Error Type | Description |
 |--------|-----------|-------------|
 | 400 | `bad_request` | Invalid input |
-| 401 | `unauthorized` | Missing or invalid API key |
+| 401 | `unauthorized` | Missing or invalid token |
 | 404 | `not_found` | Resource not found |
 | 415 | `file_error` | Unsupported or corrupt file |
 | 413 | `payload_too_large` | ZIP exceeds 10-file limit or body > 50 MB |
@@ -70,7 +72,7 @@ Upload a single document to a collection. For ZIP archives, use `POST /api/docum
 
 ```bash
 curl -X POST http://localhost:3000/api/documents/upload \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -F "file=@docs/spec.pdf" \
   -F "collection_id=550e8400-e29b-41d4-a716-446655440000"
 ```
@@ -93,7 +95,7 @@ List all documents.
 
 ```bash
 curl http://localhost:3000/api/documents \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 #### `DELETE /api/documents/{id}`
@@ -102,7 +104,7 @@ Delete a document and its chunks.
 
 ```bash
 curl -X DELETE http://localhost:3000/api/documents/550e8400-e29b-41d4-a716-446655440000 \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 #### `POST /api/documents/upload-zip`
@@ -118,7 +120,7 @@ Upload a ZIP archive for batch processing (up to 10 files, max 50 MB).
 
 ```bash
 curl -X POST http://localhost:3000/api/documents/upload-zip \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -F "file=@docs.zip" \
   -F "collection_id=550e8400-e29b-41d4-a716-446655440000"
 ```
@@ -251,22 +253,22 @@ Export session messages as JSON.
 
 #### `GET /api/auth/me`
 
-Returns current user info from JWT claims or API key.
+Returns current user info from JWT claims.
 
 ```bash
 curl http://localhost:3000/api/auth/me \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 **Response:**
 
 ```json
 {
-  "sub": "admin",
-  "name": "Admin",
-  "email": "admin@vedo-hub",
-  "roles": ["admin"],
-  "provider": "api_key"
+  "sub": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "preferred_username": "johndoe",
+  "provider": "keycloak"
 }
 ```
 
@@ -276,7 +278,7 @@ Client-side logout acknowledgement. The frontend should discard its stored token
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/logout \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 **Response:**
@@ -342,7 +344,7 @@ Trigger an immediate sync (clone or pull) for a registered repository.
 
 ```bash
 curl -X POST http://localhost:3000/api/git-sync/repos/{id}/sync \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 **Response:**

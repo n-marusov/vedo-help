@@ -8,7 +8,7 @@ Ingest PDF, Markdown, and DOCX documents — index them in a vector database —
 
 ```bash
 # 1. Set up environment
-cp .env.example .env    # edit ADMIN_API_KEY and OPENROUTER_API_KEY
+cp .env.example .env    # edit OPENROUTER_API_KEY
 
 # 2. Start all services
 docker compose up -d
