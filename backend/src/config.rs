@@ -71,7 +71,6 @@ mod tests {
     fn test_config_defaults() {
         let config = AppConfig::from_env();
         // Default values should be set when env vars are absent
-        assert_eq!(config.admin_api_key, "change-me");
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 3000);
         assert!(!config.openrouter_model.is_empty());

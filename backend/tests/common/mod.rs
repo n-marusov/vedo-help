@@ -88,7 +88,6 @@ pub async fn setup_test_db() -> SqlitePool {
 /// Create a test AppConfig with sensible defaults for testing.
 pub fn setup_test_config() -> AppConfig {
     AppConfig {
-        admin_api_key: "test-api-key".to_string(),
         database_url: ":memory:".to_string(),
         embedding_service_url: "http://localhost:18001".to_string(),
         chroma_url: "http://localhost:18000".to_string(),
