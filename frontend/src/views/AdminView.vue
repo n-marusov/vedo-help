@@ -36,16 +36,6 @@ watch(
 <template>
   <div class="admin-view" data-testid="admin-view">
     <div class="admin-panel">
-      <!-- Header -->
-      <header class="admin-header">
-        <div class="admin-header__title-block">
-          <h1 class="admin-header__title">Admin Panel</h1>
-          <p class="admin-header__subtitle">
-            Manage collections, uploads, and indexed knowledge sources
-          </p>
-        </div>
-      </header>
-
       <!-- Tab Navigation -->
       <div class="admin-tabs" data-testid="admin-tabs">
         <button
@@ -105,36 +95,6 @@ watch(
   overflow: hidden;
   padding: 24px;
   gap: 20px;
-}
-
-/* ── Header ── */
-.admin-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-  flex-shrink: 0;
-}
-
-.admin-header__title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.admin-header__title {
-  margin: 0;
-  font-family: var(--font-family);
-  font-size: var(--font-size-2xl, 24px);
-  font-weight: 700;
-  color: var(--color-foreground);
-}
-
-.admin-header__subtitle {
-  margin: 0;
-  font-family: var(--font-family);
-  font-size: var(--font-size-xs, 12px);
-  color: var(--color-muted-foreground);
 }
 
 /* ── Tab Navigation ── */
@@ -212,13 +172,6 @@ watch(
   .admin-panel {
     padding: 16px;
     gap: 16px;
-  }
-
-  .admin-header {
-    height: auto;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
   }
 
   .admin-content {
