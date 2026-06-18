@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { setupAuth } from "./helpers";
+import { mockCollections, setupAuth } from "./helpers";
 
 /**
  * ChatWindow Component Tests (Task 3.2, 3.3)
@@ -11,13 +11,15 @@ test.describe("ChatWindow Layout", () => {
 	test.beforeEach(async ({ page }) => {
 		// DEBUG [e2e] auth setup added to chat-window beforeEach
 		await setupAuth(page);
+		// DEBUG [e2e] chat-window: mocking collections
+		await mockCollections(page);
 	});
 
 	test("TC-CHAT-001: renders chat header with collection selector", async ({
 		page,
 	}) => {
 		await page.goto("/");
-		const header = page.locator('[data-testid="chat-header"]');
+		const header = page.locator('[data-testid="chat-toolbar"]');
 		await expect(header).toBeVisible({ timeout: 5000 });
 
 		// Collection selector should be in the header
@@ -32,10 +34,12 @@ test.describe("ChatWindow Layout", () => {
 		const collectionSelect = page.locator('[data-testid="collection-select"]');
 		await collectionSelect.click();
 
-		// Should show at least the default option
-		const options = collectionSelect.locator("option");
-		const optionCount = await options.count();
-		// At minimum: the disabled placeholder option
+		// VSelect renders a custom dropdown (Teleported to body), not native <option>
+		const dropdown = page.locator('[data-testid="collection-select-dropdown"]');
+		await expect(dropdown).toBeVisible({ timeout: 3000 });
+		const optionItems = dropdown.locator("button");
+		const optionCount = await optionItems.count();
+		// At minimum: one option from mocked collections
 		expect(optionCount).toBeGreaterThanOrEqual(1);
 	});
 
@@ -107,7 +111,11 @@ test.describe("ChatWindow Layout", () => {
 		test("TC-CHAT-009: input has placeholder text", async ({ page }) => {
 			await page.goto("/");
 			const input = page.locator('[data-testid="chat-input"]');
-			await expect(input).toHaveAttribute("placeholder", /Ask a question/i);
+			// Placeholder varies by whether a collection is selected
+			await expect(input).toHaveAttribute(
+				"placeholder",
+				/Ask a question|Select a collection/i,
+			);
 		});
 
 		test("TC-CHAT-010: send button is visible", async ({ page }) => {
@@ -128,6 +136,12 @@ test.describe("ChatWindow Layout", () => {
 			page,
 		}) => {
 			await page.goto("/");
+			// Set active collection
+			await page.evaluate(() => {
+				const app = document.querySelector("#app").__vue_app__;
+				const pinia = app.config.globalProperties.$pinia;
+				pinia.state.value.collections.activeCollectionId = "col-1";
+			});
 			const input = page.locator('[data-testid="chat-input"]');
 			await input.fill("Hello, VEDO!");
 
@@ -138,6 +152,12 @@ test.describe("ChatWindow Layout", () => {
 
 		test("TC-CHAT-013: pressing Enter sends the message", async ({ page }) => {
 			await page.goto("/");
+			// Set active collection to enable input
+			await page.evaluate(() => {
+				const app = document.querySelector("#app").__vue_app__;
+				const pinia = app.config.globalProperties.$pinia;
+				pinia.state.value.collections.activeCollectionId = "col-1";
+			});
 			const input = page.locator('[data-testid="chat-input"]');
 			await input.fill("Test message");
 			await input.press("Enter");
@@ -151,10 +171,17 @@ test.describe("ChatWindow Layout", () => {
 			page,
 		}) => {
 			await page.goto("/");
+			// Set active collection to enable input
+			await page.evaluate(() => {
+				const app = document.querySelector("#app").__vue_app__;
+				const pinia = app.config.globalProperties.$pinia;
+				pinia.state.value.collections.activeCollectionId = "col-1";
+			});
 			const input = page.locator('[data-testid="chat-input"]');
 			await input.fill("Line 1");
 			await input.press("Shift+Enter");
-			await input.fill("Line 2");
+			// Type additional text without clearing (fill() replaces content)
+			await page.keyboard.type("Line 2");
 
 			// The value should contain a newline after Shift+Enter
 			const value = await input.inputValue();
@@ -176,6 +203,22 @@ test.describe("ChatWindow Layout", () => {
 	test.describe("Message Animations (Task 3.3)", () => {
 		test("TC-ANIM-001: new messages fade in smoothly", async ({ page }) => {
 			await page.goto("/");
+			// Set active collection and seed a message for animation assertions
+			await page.evaluate(() => {
+				const app = document.querySelector("#app").__vue_app__;
+				const pinia = app.config.globalProperties.$pinia;
+				pinia.state.value.collections.activeCollectionId = "col-1";
+				pinia.state.value.chat.messages = [
+					{
+						id: "m1",
+						session_id: "sess-1",
+						role: "user",
+						content: "Hello",
+						created_at: new Date().toISOString(),
+					},
+				];
+			});
+			await page.waitForSelector('[data-testid^="message-"]');
 			const message = page.locator('[data-testid^="message-"]').first();
 			// The message should have a fade-in animation
 			const animationName = await message.evaluate(
@@ -188,6 +231,22 @@ test.describe("ChatWindow Layout", () => {
 			page,
 		}) => {
 			await page.goto("/");
+			// Set active collection and seed a message for animation assertions
+			await page.evaluate(() => {
+				const app = document.querySelector("#app").__vue_app__;
+				const pinia = app.config.globalProperties.$pinia;
+				pinia.state.value.collections.activeCollectionId = "col-1";
+				pinia.state.value.chat.messages = [
+					{
+						id: "m1",
+						session_id: "sess-1",
+						role: "user",
+						content: "Hello",
+						created_at: new Date().toISOString(),
+					},
+				];
+			});
+			await page.waitForSelector('[data-testid^="message-"]');
 			const message = page.locator('[data-testid^="message-"]').first();
 			const duration = await message.evaluate((el) =>
 				Number.parseFloat(getComputedStyle(el).animationDuration),

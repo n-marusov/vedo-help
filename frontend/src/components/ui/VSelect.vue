@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
 const props = withDefaults(
   defineProps<{
@@ -8,19 +8,21 @@ const props = withDefaults(
     placeholder?: string;
   }>(),
   {
-    placeholder: 'Select...',
+    placeholder: "Select...",
   },
 );
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | null];
+  "update:modelValue": [value: string | null];
 }>();
 
 const open = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
 
-const isPlaceholder = computed(() => props.modelValue == null || props.modelValue === '');
+const isPlaceholder = computed(
+  () => props.modelValue == null || props.modelValue === "",
+);
 
 const selectedLabel = computed(() => {
   if (isPlaceholder.value) return props.placeholder;
@@ -35,9 +37,9 @@ function toggle() {
 function select(value: string) {
   // If the same option is clicked again, deselect (emit null)
   if (value === props.modelValue) {
-    emit('update:modelValue', null);
+    emit("update:modelValue", null);
   } else {
-    emit('update:modelValue', value);
+    emit("update:modelValue", value);
   }
   open.value = false;
 }
@@ -54,19 +56,19 @@ function handleClickOutside(e: MouseEvent) {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
+  if (e.key === "Escape") {
     open.value = false;
   }
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-  document.addEventListener('keydown', handleKeydown);
+  document.addEventListener("click", handleClickOutside);
+  document.addEventListener("keydown", handleKeydown);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-  document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener("click", handleClickOutside);
+  document.removeEventListener("keydown", handleKeydown);
 });
 </script>
 
@@ -93,6 +95,7 @@ onUnmounted(() => {
         v-if="open"
         ref="dropdownRef"
         class="v-select__dropdown"
+        data-testid="collection-select-dropdown"
         :style="triggerRef ? { minWidth: `${triggerRef.offsetWidth}px` } : {}"
       >
         <button

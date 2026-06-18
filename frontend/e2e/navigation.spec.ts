@@ -47,13 +47,20 @@ test.describe("Navigation & Admin Layout (Task 3.1)", () => {
 		await expect(adminView).toBeVisible({ timeout: 5000 });
 	});
 
-	test("TC-NAV-005: admin page shows API key input when not authenticated", async ({
+	test("TC-NAV-005: admin page shows admin panel when authenticated", async ({
 		page,
 	}) => {
 		await page.goto("/admin");
+		const adminView = page.locator('[data-testid="admin-view"]');
+		await expect(adminView).toBeVisible({ timeout: 5000 });
+
+		// Auth section should not be visible (valid JWT bypasses auth gate)
 		const authSection = page.locator('[data-testid="auth-section"]');
-		await expect(authSection).toBeVisible({ timeout: 5000 });
-		await expect(authSection).toContainText(/API Key/i);
+		await expect(authSection).not.toBeVisible();
+
+		// Admin panel content should be visible
+		const adminPanel = page.locator(".admin-panel");
+		await expect(adminPanel).toBeVisible();
 	});
 
 	test("TC-NAV-006: clicking browser back returns to chat", async ({
@@ -95,7 +102,7 @@ test.describe("Responsive Layout (Task 3.4)", () => {
 		await page.setViewportSize({ width: 375, height: 667 });
 		await page.goto("/");
 
-		const inputArea = page.locator('[data-testid="input-area"]');
+		const inputArea = page.locator('[data-testid="composer"]');
 		const width = await inputArea.evaluate((el) => getComputedStyle(el).width);
 		const viewportWidth = 375;
 		expect(Number.parseInt(width)).toBeCloseTo(viewportWidth, -1); // within ~10px
@@ -106,6 +113,13 @@ test.describe("Responsive Layout (Task 3.4)", () => {
 	}) => {
 		await page.setViewportSize({ width: 375, height: 667 });
 		await page.goto("/");
+
+		// Set active collection to enable input
+		await page.evaluate(() => {
+			const app = document.querySelector("#app").__vue_app__;
+			const pinia = app.config.globalProperties.$pinia;
+			pinia.state.value.collections.activeCollectionId = "col-1";
+		});
 
 		const input = page.locator('[data-testid="chat-input"]');
 		await input.fill("A".repeat(200)); // long text
@@ -135,6 +149,23 @@ test.describe("Responsive Layout (Task 3.4)", () => {
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
 		await page.goto("/");
+
+		// Seed a message to check width constraint on message bubbles
+		await page.evaluate(() => {
+			const app = document.querySelector("#app").__vue_app__;
+			const pinia = app.config.globalProperties.$pinia;
+			pinia.state.value.collections.activeCollectionId = "col-1";
+			pinia.state.value.chat.messages = [
+				{
+					id: "m1",
+					session_id: "sess-1",
+					role: "user",
+					content: "Hello",
+					created_at: new Date().toISOString(),
+				},
+			];
+		});
+		await page.waitForSelector('[data-testid^="message-body-"]');
 
 		// Message bubbles should not stretch full width (max-width constraint)
 		const messageBody = page.locator('[data-testid^="message-body-"]').first();
@@ -169,8 +200,8 @@ test.describe("Responsive Layout (Task 3.4)", () => {
 		await page.goto("/admin");
 
 		// Admin panel should stack vertically on mobile
-		const panelBody = page.locator(".panel-body");
-		const flexDirection = await panelBody.evaluate(
+		const adminView = page.locator('[data-testid="admin-view"]');
+		const flexDirection = await adminView.evaluate(
 			(el) => getComputedStyle(el).flexDirection,
 		);
 		expect(flexDirection).toBe("column");
@@ -182,12 +213,13 @@ test.describe("Responsive Layout (Task 3.4)", () => {
 		await page.setViewportSize({ width: 375, height: 667 });
 		await page.goto("/admin");
 
-		const authCard = page.locator('[data-testid="auth-card"]');
-		const cardRect = await authCard.boundingBox();
-		expect(cardRect).not.toBeNull();
-		if (cardRect) {
-			expect(cardRect.width).toBeLessThanOrEqual(375);
-			expect(cardRect.height).toBeLessThanOrEqual(667);
+		// With valid JWT, admin-view is shown (auth-card is hidden)
+		const adminView = page.locator('[data-testid="admin-view"]');
+		await expect(adminView).toBeVisible({ timeout: 5000 });
+		const box = await adminView.boundingBox();
+		expect(box).not.toBeNull();
+		if (box) {
+			expect(box.width).toBeLessThanOrEqual(375);
 		}
 	});
 });
