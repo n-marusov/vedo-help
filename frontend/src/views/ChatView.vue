@@ -1,16 +1,16 @@
 <script setup>
-import MessageBubble from "@/components/MessageBubble.vue";
-import VButton from "@/components/ui/VButton.vue";
-import VSelect from "@/components/ui/VSelect.vue";
-import { useChatStore } from "@/stores/chat";
-import { useCollectionStore } from "@/stores/collections";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import MessageBubble from '@/components/MessageBubble.vue';
+import VButton from '@/components/ui/VButton.vue';
+import VSelect from '@/components/ui/VSelect.vue';
+import { useChatStore } from '@/stores/chat';
+import { useCollectionStore } from '@/stores/collections';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 const chatStore = useChatStore();
 const collectionStore = useCollectionStore();
 
 const sidebarOpen = ref(false);
-const inputText = ref("");
+const inputText = ref('');
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
 
@@ -45,7 +45,7 @@ function formatRelativeTime(dateStr) {
   }
   if (hours < 24) return `${hours}h ago`;
   if (hours < 168) return `${Math.floor(hours / 24)}d ago`;
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function truncateTitle(title, maxLength = 35) {
@@ -59,7 +59,7 @@ async function handleSelectSession(sessionId) {
 
 async function handleDeleteSession(sessionId, e) {
   e.stopPropagation();
-  if (confirm("Delete this session?")) {
+  if (confirm('Delete this session?')) {
     await chatStore.deleteSession(sessionId);
   }
 }
@@ -105,13 +105,13 @@ async function handleSend() {
     }
   }
 
-  inputText.value = "";
+  inputText.value = '';
   resetTextareaHeight();
   await chatStore.sendMessage(collectionId, text);
 }
 
 function handleKeydown(e) {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     handleSend();
   }
@@ -120,13 +120,13 @@ function handleKeydown(e) {
 function autoResize() {
   const el = textareaRef.value;
   if (!el) return;
-  el.style.height = "auto";
+  el.style.height = 'auto';
   el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
 }
 
 function resetTextareaHeight() {
   const el = textareaRef.value;
-  if (el) el.style.height = "auto";
+  if (el) el.style.height = 'auto';
 }
 
 function handleCancel() {
@@ -201,7 +201,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
       </div>
 
       <div v-else class="session-list">
-        <button
+        <div
           v-for="session in chatStore.sessions"
           :key="session.id"
           class="session-item"
@@ -209,6 +209,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             'session-item--active': session.id === chatStore.activeSessionId,
           }"
           @click="handleSelectSession(session.id)"
+          role="button"
+          tabindex="0"
+          @keydown.enter="handleSelectSession(session.id)"
         >
           <div class="session-item-body">
             <span class="session-item-title">{{
@@ -226,7 +229,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
           >
             🗑
           </button>
-        </button>
+        </div>
       </div>
     </aside>
 

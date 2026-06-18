@@ -97,7 +97,7 @@ function handleSelect(id: string) {
 
     <!-- Collection list -->
     <div v-else class="cm-list">
-      <button
+      <div
         v-for="col in collectionStore.collections"
         :key="col.id"
         class="cm-card"
@@ -105,6 +105,9 @@ function handleSelect(id: string) {
           'cm-card--active': col.id === collectionStore.activeCollectionId,
         }"
         @click="handleSelect(col.id)"
+        role="button"
+        tabindex="0"
+        @keydown.enter="handleSelect(col.id)"
       >
         <div class="cm-card__content">
           <span class="cm-card__name">{{ col.name }}</span>
@@ -124,7 +127,7 @@ function handleSelect(id: string) {
         >
           🗑
         </button>
-      </button>
+      </div>
     </div>
 
     <!-- Create Collection Dialog -->
