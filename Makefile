@@ -39,6 +39,11 @@ docker-logs: ## View container logs (usage: make docker-logs ARGS="backend")
 docker-health: ## Check container health status
 	docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
 
+docker-validate: ## Validate Docker Compose config for common service URL misconfigurations
+	@bash scripts/validate-docker-compose.sh
+
+
+
 docker-shell: ## Open shell in a container (usage: make docker-shell SVC=backend)
 	docker compose exec $(SVC) sh
 

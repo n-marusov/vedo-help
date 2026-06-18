@@ -3,7 +3,7 @@
 Пройтись по всем пунктам после любой реализации прежде чем считать задачу завершённой.
 
 ## Code gates
-- `npm run ai:validate` — exit 0
+- `npm run ai:validate` — exit 0 (known pre-existing: ai:perf workspace missing)
 - `uvx ruff check --fix` — exit 0
 
 ## Contract

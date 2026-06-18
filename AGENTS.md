@@ -160,6 +160,7 @@ vedo-assistant/
 | `.ai-factory/DESCRIPTION.md` | Condensed project description with tech stack and architecture notes |
 | `.ai-factory/ARCHITECTURE.md` | Architecture guidelines including pattern, folder structure, and dependency rules |
 | `.ai-factory/rules/base.md` | Base code conventions (naming, structure, error handling, logging) |
+| `.ai-factory/skill-context/aif-fix/SKILL.md` | Project-specific bug-fix learnings, including Docker service discovery rules |
 | `.ai-factory/ROADMAP.md` | Milestone tracking with task completion status |
 | `.ai-factory/plans/feature-rag-assistant-full.md` | Current implementation plan (19 tasks, 6 phases) |
 
@@ -168,6 +169,8 @@ vedo-assistant/
 - Decompose shell commands into separate steps — never combine `git checkout` and `git pull` with `&&`.
   - Incorrect: `git checkout main && git pull`
   - Correct: First `git checkout main`, then `git pull origin main`
+- For Docker Compose service-to-service communication, use Docker service names and container ports (`http://chroma:8000`, `http://embedding:8001`, `http://backend:3000`, `http://keycloak:8080`). Do not use `localhost` for calls from one container to another; reserve `localhost` for browser/public URLs, host-published ports, and container self-healthchecks.
+- When calling Chroma API from the backend, never pass user-supplied display names directly to `create_collection` or `delete_collection` — Chroma accepts only ASCII alphanumeric, underscores, and hyphens in collection names. Use the collection UUID (`id.to_string()`) instead. The `QueryService` already uses UUID as the collection name; keep this pattern consistent.
 - Before implementing any feature, reference `.ai-factory/DESCRIPTION.md` and `docs/technical-specification-rag-system.md` for requirements and design decisions.
 - For deployment-related tasks, consult Section 7 of the technical specification.
 - Adhere to each service's linter/formatter configuration and run the respective format + lint check before considering any code change complete:
