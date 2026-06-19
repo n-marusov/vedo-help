@@ -100,11 +100,37 @@ curl http://localhost:3000/api/documents \
 
 #### `DELETE /api/documents/{id}`
 
-Delete a document and its chunks.
+Soft delete a document and its chunks. The document row and chunks remain in SQLite with `is_active=0` but are excluded from queries. Chroma entries are also cleaned up.
 
 ```bash
 curl -X DELETE http://localhost:3000/api/documents/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+#### `POST /api/documents/reload/{id}`
+
+Reload/re-index an existing document. Deactivates old chunks, parses the new file content, chunks it, and saves new active chunks. The document identity (UUID) remains the same.
+
+**Request:** `multipart/form-data`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `file` | File | New file content (PDF, Markdown, or DOCX, max 50 MB) |
+
+```bash
+curl -X POST http://localhost:3000/api/documents/reload/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -F "file=@updated-spec.pdf"
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "document_id": "550e8400-e29b-41d4-a716-446655440000",
+  "chunks_indexed": 15,
+  "document_name": "updated-spec.pdf"
+}
 ```
 
 #### `POST /api/documents/upload-zip`

@@ -35,7 +35,15 @@ impl QueryRepository {
             embedding.len()
         );
 
-        let results = self.chroma.query(collection_name, embedding, top_k).await?;
+        let results = self
+            .chroma
+            .query(
+                collection_name,
+                embedding,
+                top_k,
+                Some(serde_json::json!({"is_active": true})),
+            )
+            .await?;
 
         tracing::info!(
             "Chroma returned {} results for collection={collection_name}",
@@ -61,7 +69,7 @@ impl QueryRepository {
             "SELECT c.id, c.index, c.text, d.name AS document_name \
              FROM chunks c \
              JOIN documents d ON c.document_id = d.id \
-             WHERE c.id IN ({})",
+             WHERE c.id IN ({}) AND c.is_active = 1",
             placeholders.join(", ")
         );
 

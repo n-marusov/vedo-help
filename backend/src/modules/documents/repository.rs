@@ -25,8 +25,8 @@ impl DocumentRepository {
         );
 
         sqlx::query(
-            "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(doc.id.to_string())
         .bind(&doc.name)
@@ -34,6 +34,7 @@ impl DocumentRepository {
         .bind(doc.file_size)
         .bind(doc.uploaded_at.to_rfc3339())
         .bind(doc.collection_id.to_string())
+        .bind(doc.is_active)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to save document: {e}")))?;
@@ -52,8 +53,8 @@ impl DocumentRepository {
     pub async fn get_document(&self, id: Uuid) -> Result<Document, AppError> {
         tracing::debug!("Fetching document: {id}");
 
-        let row = sqlx::query_as::<_, (String, String, String, i64, String, String)>(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id FROM documents WHERE id = ?",
+        let row = sqlx::query_as::<_, (String, String, String, i64, String, String, bool)>(
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE id = ?",
         )
         .bind(id.to_string())
         .fetch_optional(&self.db)
@@ -68,6 +69,7 @@ impl DocumentRepository {
             file_size: row.3,
             uploaded_at: row.4.parse().unwrap_or_else(|_| chrono::Utc::now()),
             collection_id: Uuid::parse_str(&row.5).unwrap_or_default(),
+            is_active: row.6,
         })
     }
 
@@ -75,8 +77,8 @@ impl DocumentRepository {
     pub async fn list_documents(&self, collection_id: Uuid) -> Result<Vec<Document>, AppError> {
         tracing::debug!("Listing documents for collection: {collection_id}");
 
-        let rows = sqlx::query_as::<_, (String, String, String, i64, String, String)>(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id FROM documents WHERE collection_id = ?",
+        let rows = sqlx::query_as::<_, (String, String, String, i64, String, String, bool)>(
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE collection_id = ? AND is_active = 1",
         )
         .bind(collection_id.to_string())
         .fetch_all(&self.db)
@@ -92,6 +94,7 @@ impl DocumentRepository {
                 file_size: row.3,
                 uploaded_at: row.4.parse().unwrap_or_else(|_| chrono::Utc::now()),
                 collection_id: Uuid::parse_str(&row.5).unwrap_or(collection_id),
+                is_active: row.6,
             })
             .collect();
 
@@ -132,11 +135,12 @@ impl DocumentRepository {
 
     /// Save a chunk record to SQLite.
     pub async fn save_chunk(&self, chunk: &Chunk) -> Result<(), AppError> {
-        sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
+        sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text, is_active) VALUES (?, ?, ?, ?, ?)"#)
             .bind(chunk.id.to_string())
             .bind(chunk.document_id.to_string())
             .bind(chunk.index as i64)
             .bind(&chunk.text)
+            .bind(chunk.is_active)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to save chunk: {e}")))?;
@@ -146,8 +150,8 @@ impl DocumentRepository {
 
     /// Retrieve chunks by document ID, ordered by index.
     pub async fn get_chunks(&self, document_id: Uuid) -> Result<Vec<Chunk>, AppError> {
-        let rows = sqlx::query_as::<_, (String, String, i64, String)>(
-            r#"SELECT id, document_id, "index", text FROM chunks WHERE document_id = ? ORDER BY "index""#
+        let rows = sqlx::query_as::<_, (String, String, i64, String, bool)>(
+            r#"SELECT id, document_id, "index", text, is_active FROM chunks WHERE document_id = ? ORDER BY "index""#
         )
         .bind(document_id.to_string())
         .fetch_all(&self.db)
@@ -161,8 +165,144 @@ impl DocumentRepository {
                 document_id: Uuid::parse_str(&row.1).unwrap_or(document_id),
                 index: row.2 as usize,
                 text: row.3,
+                is_active: row.4,
             })
             .collect();
+
+        Ok(chunks)
+    }
+
+    /// Deactivate all chunks belonging to a document.
+    /// Sets `is_active = 0` for all matching chunks (soft delete).
+    pub async fn deactivate_chunks(&self, document_id: Uuid) -> Result<(), AppError> {
+        tracing::debug!("Deactivating chunks for document: {document_id}");
+
+        let affected = sqlx::query("UPDATE chunks SET is_active = 0 WHERE document_id = ?")
+            .bind(document_id.to_string())
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to deactivate chunks: {e}")))?;
+
+        let count = affected.rows_affected();
+        tracing::debug!("Deactivated {count} chunks for document {document_id}");
+
+        Ok(())
+    }
+
+    /// Deactivate a document (soft delete) without removing the row.
+    pub async fn deactivate_document(&self, id: Uuid) -> Result<(), AppError> {
+        tracing::debug!("Deactivating document: {id}");
+
+        let affected = sqlx::query("UPDATE documents SET is_active = 0 WHERE id = ?")
+            .bind(id.to_string())
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to deactivate document: {e}")))?;
+
+        if affected.rows_affected() == 0 {
+            tracing::warn!("Deactivation target not found: document {id}");
+            return Err(AppError::NotFound(format!("Document {id} not found")));
+        }
+
+        tracing::info!("Document deactivated: {id}");
+
+        Ok(())
+    }
+
+    /// Deactivate specific chunks by ID.
+    pub async fn deactivate_chunks_by_ids(&self, chunk_ids: &[Uuid]) -> Result<(), AppError> {
+        if chunk_ids.is_empty() {
+            tracing::debug!("No chunk ids supplied for targeted deactivation");
+            return Ok(());
+        }
+
+        tracing::debug!(
+            "Deactivating {count} targeted chunks",
+            count = chunk_ids.len()
+        );
+
+        let mut affected_total = 0u64;
+        for chunk_id in chunk_ids {
+            let affected = sqlx::query("UPDATE chunks SET is_active = 0 WHERE id = ?")
+                .bind(chunk_id.to_string())
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    AppError::InternalError(format!("Failed to deactivate chunk {chunk_id}: {e}"))
+                })?;
+            affected_total += affected.rows_affected();
+        }
+
+        tracing::debug!(
+            "Deactivated {affected_total} targeted chunks out of {requested}",
+            requested = chunk_ids.len()
+        );
+
+        Ok(())
+    }
+
+    /// Update document metadata after a successful reload.
+    pub async fn update_document_metadata(
+        &self,
+        id: Uuid,
+        name: &str,
+        file_type: &str,
+        file_size: i64,
+    ) -> Result<(), AppError> {
+        tracing::debug!(
+            "Updating document metadata: {id}, name={name}, type={file_type}, size={file_size}"
+        );
+
+        let uploaded_at = chrono::Utc::now().to_rfc3339();
+        let affected = sqlx::query(
+            "UPDATE documents SET name = ?, file_type = ?, file_size = ?, uploaded_at = ?, is_active = 1 WHERE id = ?",
+        )
+        .bind(name)
+        .bind(file_type)
+        .bind(file_size)
+        .bind(uploaded_at)
+        .bind(id.to_string())
+        .execute(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Failed to update document metadata: {e}")))?;
+
+        if affected.rows_affected() == 0 {
+            tracing::warn!("Metadata update target not found: document {id}");
+            return Err(AppError::NotFound(format!("Document {id} not found")));
+        }
+
+        tracing::info!("Document metadata updated: {id}");
+        Ok(())
+    }
+    /// Retrieve only active chunks for a document, ordered by index.
+    pub async fn get_active_chunks(&self, document_id: Uuid) -> Result<Vec<Chunk>, AppError> {
+        tracing::debug!("Fetching active chunks for document: {document_id}");
+
+        let rows = sqlx::query_as::<_, (String, String, i64, String, bool)>(
+            r#"SELECT id, document_id, "index", text, is_active FROM chunks
+               WHERE document_id = ? AND is_active = 1
+               ORDER BY "index""#,
+        )
+        .bind(document_id.to_string())
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let chunks: Vec<Chunk> = rows
+            .into_iter()
+            .map(|row| Chunk {
+                id: Uuid::parse_str(&row.0).unwrap_or_default(),
+                document_id: Uuid::parse_str(&row.1).unwrap_or(document_id),
+                index: row.2 as usize,
+                text: row.3,
+                is_active: row.4,
+            })
+            .collect();
+
+        tracing::debug!(
+            "Found {} active chunks for document {document_id}",
+            chunks.len()
+        );
 
         Ok(chunks)
     }
@@ -177,11 +317,14 @@ impl DocumentRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::sqlite::SqlitePoolOptions;
     use uuid::Uuid;
 
     /// Create an in-memory test database with the full schema.
     async fn setup_test_db() -> SqlitePool {
-        let pool = sqlx::SqlitePool::connect("sqlite:file::memory:?cache=shared")
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(":memory:")
             .await
             .expect("Failed to create in-memory SQLite pool");
 
@@ -241,6 +384,7 @@ mod tests {
             file_size: 100,
             uploaded_at: chrono::Utc::now(),
             collection_id: Uuid::parse_str(collection_id).unwrap(),
+            is_active: true,
         }
     }
 
@@ -250,6 +394,7 @@ mod tests {
             document_id: Uuid::parse_str(document_id).unwrap(),
             index,
             text: format!("chunk {id} text"),
+            is_active: true,
         }
     }
 
@@ -278,12 +423,7 @@ mod tests {
             .expect("should deactivate chunks");
 
         // Assert: both chunks are now inactive
-        let active_chunks = repo
-            .get_chunks(Uuid::parse_str(doc_id).unwrap())
-            .await
-            .expect("should fetch chunks");
-        // With the current get_chunks which does not filter by is_active,
-        // all chunks are returned. Check is_active via direct query.
+        // Check is_active via direct query (get_chunks returns all).
         let rows: Vec<(String, i64)> = sqlx::query_as(
             r#"SELECT id, is_active FROM chunks WHERE document_id = ? ORDER BY "index""#,
         )

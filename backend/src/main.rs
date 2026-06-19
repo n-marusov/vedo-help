@@ -106,11 +106,11 @@ async fn main() {
     let embedding_service_url = config.embedding_service_url.clone();
 
     // Chroma client
-    let _chroma_client = vedo_backend::shared::chroma_client::ChromaClient::new(&chroma_url);
+    let chroma_client = vedo_backend::shared::chroma_client::ChromaClient::new(&chroma_url);
     tracing::info!("Chroma client configured: {chroma_url}");
 
     // Embedding client
-    let _embedding_client =
+    let embedding_client =
         vedo_backend::shared::embedding_client::EmbeddingClient::new(&embedding_service_url);
     tracing::info!("Embedding service configured: {embedding_service_url}");
 
@@ -125,7 +125,7 @@ async fn main() {
     let git_repo_repo = GitRepoRepository::new(db.clone());
 
     // Services
-    let doc_service = DocumentService::new(doc_repo);
+    let doc_service = DocumentService::with_clients(doc_repo, chroma_client, embedding_client);
     let collection_service = CollectionService::new(collection_repo, chroma_url.clone());
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service =
@@ -165,6 +165,10 @@ async fn main() {
         )
         .route("/api/documents", get(documents_handlers::list))
         .route("/api/documents/{id}", delete(documents_handlers::delete))
+        .route(
+            "/api/documents/reload/{id}",
+            post(documents_handlers::reload),
+        )
         // Collection routes
         .route("/api/collections", post(collections_handlers::create))
         .route("/api/collections", get(collections_handlers::list))
@@ -365,21 +369,29 @@ async fn run_migrations(db: &sqlx::SqlitePool) {
     .expect("Failed to create collections table");
 
     sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS documents (
+        r#"CREATE TABLE IF NOT EXISTS documents (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             file_type TEXT NOT NULL,
             file_size INTEGER NOT NULL,
             uploaded_at TEXT NOT NULL,
             collection_id TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
             FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-        )
-        "#,
+        )"#,
     )
     .execute(db)
     .await
     .expect("Failed to create documents table");
+
+    // Idempotent migration: add is_active to documents if missing (existing databases)
+    match sqlx::query("ALTER TABLE documents ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+        .execute(db)
+        .await
+    {
+        Ok(_) => tracing::info!("Migration: added is_active column to documents"),
+        Err(e) => tracing::debug!("Migration: is_active already exists in documents ({e})"),
+    }
 
     sqlx::query(
         r#"CREATE TABLE IF NOT EXISTS chunks (
@@ -387,12 +399,22 @@ async fn run_migrations(db: &sqlx::SqlitePool) {
             document_id TEXT NOT NULL,
             "index" INTEGER NOT NULL,
             text TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
             FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
         )"#,
     )
     .execute(db)
     .await
     .expect("Failed to create chunks table");
+
+    // Idempotent migration: add is_active to chunks if missing (existing databases)
+    match sqlx::query("ALTER TABLE chunks ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+        .execute(db)
+        .await
+    {
+        Ok(_) => tracing::info!("Migration: added is_active column to chunks"),
+        Err(e) => tracing::debug!("Migration: is_active already exists in chunks ({e})"),
+    }
 
     sqlx::query(
         r#"

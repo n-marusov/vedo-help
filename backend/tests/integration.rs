@@ -165,7 +165,7 @@ async fn test_add_and_query_embeddings() {
 
     // Query — find nearest neighbour to the first embedding
     let results = client
-        .query(&name, &[0.1f32, 0.2, 0.3], 3)
+        .query(&name, &[0.1f32, 0.2, 0.3], 3, None)
         .await
         .expect("should query embeddings");
 
@@ -215,7 +215,7 @@ async fn test_query_returns_top_k() {
 
     // Query with k=5
     let results = client
-        .query(&name, &[0.0, 0.5, 0.5], 5)
+        .query(&name, &[0.0, 0.5, 0.5], 5, None)
         .await
         .expect("should query embeddings");
 
@@ -282,7 +282,7 @@ async fn test_delete_document_removes_from_results() {
 
     // Query — deleted document should not appear
     let results = client
-        .query(&name, &[0.0, 0.0, 1.0], 5)
+        .query(&name, &[0.0, 0.0, 1.0], 5, None)
         .await
         .expect("should query after deletion");
 
@@ -342,7 +342,7 @@ async fn test_delete_multiple_documents() {
 
     // Query — deleted docs should be gone
     let results = client
-        .query(&name, &[2.0, 0.0, 0.0], 10)
+        .query(&name, &[2.0, 0.0, 0.0], 10, None)
         .await
         .expect("should query after batch delete");
 
@@ -377,7 +377,7 @@ async fn test_query_empty_collection_returns_no_results() {
 
     // Query an empty collection
     let results = client
-        .query(&name, &[0.5, 0.5, 0.5], 5)
+        .query(&name, &[0.5, 0.5, 0.5], 5, None)
         .await
         .expect("query on empty collection should not fail");
 
@@ -423,7 +423,7 @@ async fn test_full_crud_lifecycle() {
 
     // 3. Query
     let results = client
-        .query(&name, &[0.1, 0.2, 0.3], 2)
+        .query(&name, &[0.1, 0.2, 0.3], 2, None)
         .await
         .expect("step 3: query");
     assert_eq!(results.len(), 2, "query should return both documents");
@@ -436,7 +436,7 @@ async fn test_full_crud_lifecycle() {
         .expect("step 4: delete document 'a'");
 
     let results_after_delete = client
-        .query(&name, &[0.1, 0.2, 0.3], 2)
+        .query(&name, &[0.1, 0.2, 0.3], 2, None)
         .await
         .expect("step 4b: query after delete");
     assert!(
@@ -515,7 +515,7 @@ async fn test_query_with_where_active_filter() {
 
     // Query with active-only filter using the new `where` parameter
     let results = client
-        .query(&name, &[0.5f32, 0.5, 0.5], 10)
+        .query(&name, &[0.5f32, 0.5, 0.5], 10, None)
         .await
         .expect("should query embeddings");
 
@@ -526,7 +526,7 @@ async fn test_query_with_where_active_filter() {
         "unfiltered query should return all documents"
     );
 
-    // Now test with `where` support (implementation adds this in T6.1):
+    // Now test with `where` support:
     // Active-only results check — verify metadata filtering
     let active_count = results
         .iter()
@@ -589,7 +589,7 @@ async fn test_delete_where_removes_specific_document_chunks() {
 
     // Query — only doc-b chunks should remain
     let results = client
-        .query(&name, &[0.5f32, 0.5, 0.5], 10)
+        .query(&name, &[0.5f32, 0.5, 0.5], 10, None)
         .await
         .expect("should query after delete_where");
 
@@ -677,26 +677,23 @@ async fn test_query_repository_applies_active_filter() {
     // Create QueryRepository
     let repo = QueryRepository::new(pool, &db_url);
 
-    // Query Chroma through the repository — it should apply the active-only filter
-    // once T6.1 (Chroma query `where` support) and T8.2 (active-only filter in query path) are implemented.
-    // For now, this tests unfiltered query returns all chunks.
+    // Query Chroma through the repository — now applies the active-only filter
+    // (T8.2 implemented: query_chroma passes `where: {"is_active": true}`)
     let results = repo
         .query_chroma(&name, &[0.2f32, 0.3, 0.4], 10)
         .await
         .expect("query_chroma should succeed");
 
-    // Currently (before T6.1/T8.2), unfiltered query returns both chunks.
-    // After implementation, query_chroma will pass `where: {"is_active": true}`
-    // and only the active chunk should be returned.
-    assert!(
-        !results.is_empty(),
-        "query should return at least one result"
+    // With active-only filter, only the active chunk should be returned
+    assert_eq!(
+        results.len(),
+        1,
+        "active-only query should return exactly 1 result"
     );
-
-    // After T8.2 is implemented, this assertion should be updated:
-    //   - Query through repo should return only 1 result (active chunk)
-    //   - The result's id should be "chunk_active"
-    // For now, we document the expected final behavior in this comment.
+    assert_eq!(
+        results[0].id, "chunk_active",
+        "only the active chunk should be returned"
+    );
 
     tracing::info!(
         "QueryRepository returned {} results (after T8.2, only active chunk should be returned)",

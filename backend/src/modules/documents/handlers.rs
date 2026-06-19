@@ -113,6 +113,56 @@ pub async fn delete(
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
 }
 
+/// Reload/re-index a document via multipart file upload.
+///
+/// Endpoint: `POST /api/documents/reload/{id}`
+pub async fn reload(
+    State(svc): State<DocumentService>,
+    Path(id): Path<Uuid>,
+    mut multipart: axum::extract::Multipart,
+) -> Result<Json<UploadResponse>, AppError> {
+    tracing::info!("Document reload request received for document: {id}");
+
+    let mut filename: Option<String> = None;
+    let mut file_data: Option<Vec<u8>> = None;
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Invalid multipart data: {e}")))?
+    {
+        let name = field.name().unwrap_or("").to_string();
+        if name == "file" {
+            filename = Some(field.file_name().unwrap_or("unknown").to_string());
+            let data = field
+                .bytes()
+                .await
+                .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
+            tracing::debug!(
+                "Reload file: {}, size={}",
+                filename.as_deref().unwrap_or("unknown"),
+                data.len()
+            );
+            file_data = Some(data.to_vec());
+        } else {
+            tracing::warn!("Unknown field in multipart: {name}");
+        }
+    }
+
+    let filename = filename.unwrap_or_else(|| "unknown".to_string());
+    let data = file_data.ok_or_else(|| AppError::BadRequest("No file provided".to_string()))?;
+
+    let response = svc.reload_document(&data, &filename, id).await?;
+
+    tracing::info!(
+        "Reload complete: doc_id={}, chunks={}",
+        response.document_id,
+        response.chunks_indexed
+    );
+
+    Ok(Json(response))
+}
+
 /// Upload a ZIP archive for batch processing.
 ///
 /// Endpoint: `POST /api/documents/upload-zip`

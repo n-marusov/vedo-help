@@ -92,19 +92,27 @@ impl ChromaClient {
     }
 
     /// Query a collection by embedding vector, returning the top-k matches.
+    ///
+    /// If `where_filter` is `Some`, it is included as the `"where"` field in
+    /// the request body to filter results by metadata attributes.
     pub async fn query(
         &self,
         collection: &str,
         embedding: &[f32],
         top_k: usize,
+        where_filter: Option<serde_json::Value>,
     ) -> Result<Vec<ChromaResult>, AppError> {
         tracing::debug!("Chroma query: collection={collection}, top_k={top_k}");
 
-        let body = json!({
+        let mut body = json!({
             "query_embeddings": [embedding],
             "n_results": top_k,
             "include": ["metadatas", "distances", "documents"],
         });
+        if let Some(filter) = where_filter {
+            tracing::debug!("Chroma query with where filter: {filter}");
+            body["where"] = filter;
+        }
         let url = format!("{}/api/v1/collections/{}/query", self.base_url, collection);
 
         let mut last_error = None;
@@ -379,11 +387,14 @@ mod tests {
         // This proves the `where` field was correctly omitted or included as None.
         match &result {
             Err(AppError::ChromaError(msg)) => {
-                // Connection refused is expected since no server is running
+                // Network error expected since no Chroma server is running.
+                // Different environments return different errors:
+                // connection refused, 502 Bad Gateway, etc.
                 assert!(
                     msg.contains("Request failed")
                         || msg.contains("Connection refused")
-                        || msg.contains("error trying to connect"),
+                        || msg.contains("error trying to connect")
+                        || msg.contains("Bad Gateway"),
                     "Expected network error but got: {msg}"
                 );
             }
@@ -406,7 +417,8 @@ mod tests {
                 assert!(
                     msg.contains("Request failed")
                         || msg.contains("Connection refused")
-                        || msg.contains("error trying to connect"),
+                        || msg.contains("error trying to connect")
+                        || msg.contains("Bad Gateway"),
                     "Expected network error but got: {msg}"
                 );
             }

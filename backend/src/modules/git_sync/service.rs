@@ -581,6 +581,19 @@ impl GitSyncService {
         let mut all_metadatas = Vec::new();
 
         for (file_path, content) in files {
+            let doc_id = format!("git-{repo_id}-{}", file_path.replace('/', "-"));
+
+            // Delete old chunks for this file from Chroma before re-indexing
+            if let Err(e) = chroma
+                .delete_where(collection_name, &serde_json::json!({"document_id": doc_id}))
+                .await
+            {
+                tracing::warn!(
+                    "[GitSyncService::index_chunks] failed to delete old chunks \
+                     doc_id={doc_id} collection={collection_name} repo_id={repo_id} error={e}"
+                );
+            }
+
             // Chunk the document
             let chunks = chunk_document(content);
             if chunks.is_empty() {
@@ -603,7 +616,6 @@ impl GitSyncService {
                 })?;
 
             // Prepare IDs and metadata
-            let doc_id = format!("git-{repo_id}-{}", file_path.replace('/', "-"));
             for (i, chunk) in chunks.iter().enumerate() {
                 let chunk_id = format!("{doc_id}-{i}");
                 all_ids.push(chunk_id);
@@ -615,6 +627,7 @@ impl GitSyncService {
                     "source": "git",
                     "repo_id": repo_id.to_string(),
                     "file_path": file_path,
+                    "is_active": true,
                 }));
             }
 
@@ -966,7 +979,7 @@ mod tests {
         ];
 
         // Act: index chunks
-        let result = svc.index_chunks(&collection_name, repo_id, &files).await;
+        let result = svc.index_chunks(collection_name, repo_id, &files).await;
 
         // We expect a connection error (Chroma/embedding not available in unit test)
         // But the important behavior to verify: the method should attempt to
@@ -1005,7 +1018,7 @@ mod tests {
         )];
 
         // Act: index chunks (this should call delete_where for each file's doc_id)
-        let result = svc.index_chunks(&collection_name, repo_id, &files).await;
+        let result = svc.index_chunks(collection_name, repo_id, &files).await;
 
         // Once T8.1 is implemented, index_chunks will:
         //   1. Compute doc_id = format!("git-{repo_id}-{}", file_path.replace("/", "-"))

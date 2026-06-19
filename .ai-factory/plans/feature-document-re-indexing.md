@@ -173,7 +173,7 @@ Files:
 - `backend/tests/common/mod.rs` (must be updated to match production schema)
 - `backend/src/modules/documents/service.rs` (the `make_service()` test helper)
 
-- [ ] **T4.1 — Add active-state migrations to SQLite**
+- [x] **T4.1 — Add active-state migrations to SQLite**
   - Add `is_active INTEGER NOT NULL DEFAULT 1` to `documents` and `chunks` creation SQL in `backend/src/main.rs`.
   - Add idempotent `ALTER TABLE` migration path for existing databases.
   - **Ensure `backend/tests/common/mod.rs` and `backend/src/modules/documents/service.rs` (`make_service()`) are both updated** to match the production schema exactly: same column names (`"index"`, not `chunk_index`) and the new `is_active` column.
@@ -181,7 +181,7 @@ Files:
   - Logging requirements: INFO after migration completes; DEBUG when a column already exists.
   - Dependency notes: must preserve existing data with default active state.
 
-- [ ] **T4.2 — Update document and chunk models**
+- [x] **T4.2 — Update document and chunk models**
   - Add `is_active: bool` to `Document` and `Chunk`.
   - Update construction sites to set `true` for new records.
   - Expected behavior: active state is explicit in domain models.
@@ -193,14 +193,14 @@ Files:
 File:
 - `backend/src/modules/documents/repository.rs`
 
-- [ ] **T5.1 — Update save/read methods for `is_active`**
+- [x] **T5.1 — Update save/read methods for `is_active`**
   - Update `save_document`, `save_chunk`, `get_document`, and `list_documents`.
   - Keep list behavior focused on active documents unless a test/spec requires all documents.
   - Expected behavior: repository persists and reads active-state correctly.
   - Logging requirements: DEBUG summary counts for list/get operations.
   - Dependency notes: service reload/delete depends on these operations.
 
-- [ ] **T5.2 — Add repository deactivation and active lookup methods**
+- [x] **T5.2 — Add repository deactivation and active lookup methods**
   - Implement `deactivate_chunks`, `deactivate_document`, `get_active_chunks`, and any helper needed by service tests.
   - Expected behavior: old chunks can be retained for audit but excluded from active paths.
   - Logging requirements: DEBUG affected row counts; WARN if deactivation target does not exist.
@@ -211,7 +211,7 @@ File:
 File:
 - `backend/src/shared/chroma_client.rs`
 
-- [ ] **T6.1 — Add optional `where` filter to Chroma queries**
+- [x] **T6.1 — Add optional `where` filter to Chroma queries**
   - Update `query(collection, embedding, top_k, where_filter)` signature.
   - Include `"where": filter` only when provided.
   - Update all existing call sites and tests.
@@ -226,28 +226,28 @@ Files:
 - `backend/src/modules/documents/handlers.rs`
 - `backend/src/main.rs` or router wiring file
 
-- [ ] **T7.1 — Inject embedding and Chroma dependencies into `DocumentService`**
+- [x] **T7.1 — Inject embedding and Chroma dependencies into `DocumentService`**
   - Add `EmbeddingClient` and `ChromaClient` to the service.
   - Update constructor and all call sites/test helpers.
   - Expected behavior: upload and reload can index into Chroma.
   - Logging requirements: DEBUG when service is initialized with external clients.
   - Dependency notes: may need test fakes or constructor variants for unit tests.
 
-- [ ] **T7.2 — Index uploaded documents into Chroma**
+- [x] **T7.2 — Index uploaded documents into Chroma**
   - Update `process_upload` and `process_zip_upload` to embed chunks and call `add_embeddings`.
   - Metadata must include `document_id`, `document_name`, `chunk_id`, `chunk_index`, `is_active: true`, and `source`.
   - Expected behavior: uploaded documents become queryable.
   - Logging requirements: INFO per successful document indexing; ERROR and rollback strategy on indexing failure.
   - Dependency notes: related roadmap item `Embedding submission in upload pipeline` overlaps; keep scope focused but avoid duplicate future work.
 
-- [ ] **T7.3 — Implement soft delete for documents**
+- [x] **T7.3 — Implement soft delete for documents**
   - Replace hard delete behavior with soft delete unless tests require a separate hard-delete helper.
   - Delete/deactivate Chroma entries by `document_id` and mark SQLite rows inactive.
   - Expected behavior: deleted documents no longer appear in queries but remain in SQLite as inactive rows.
   - Logging requirements: INFO with document id, collection id, affected chunk count.
   - Dependency notes: must fetch document first to know collection id / Chroma collection name.
 
-- [ ] **T7.4 — Implement document reload/re-index service and endpoint**
+- [x] **T7.4 — Implement document reload/re-index service and endpoint**
   - Add `DocumentService::reload_document`.
   - Add handler `POST /api/documents/reload` accepting multipart `file` and `document_id`.
   - Reuse the existing document id for the new version; deactivate old chunks and save new active chunks.
@@ -262,14 +262,14 @@ Files:
 - `backend/src/modules/query/repository.rs`
 - `backend/src/modules/query/service.rs` if needed
 
-- [ ] **T8.1 — Update git sync indexing to replace old file chunks**
+- [x] **T8.1 — Update git sync indexing to replace old file chunks**
   - In `GitSyncService::index_chunks`, call `delete_where` for each file document id before adding new chunks.
   - Include `is_active: true` in all new git sync Chroma metadata.
   - Expected behavior: incremental sync does not leave stale chunks behind.
   - Logging requirements: DEBUG cleanup per file, INFO final indexed counts.
   - Dependency notes: satisfies Phase 3 git sync test.
 
-- [ ] **T8.2 — Apply active-only filtering in query path**
+- [x] **T8.2 — Apply active-only filtering in query path**
   - `QueryRepository::query_chroma` passes `where: {"is_active": true}`.
   - `get_chunks_by_ids` filters `c.is_active = 1` to protect against stale Chroma data.
   - Expected behavior: inactive chunks never reach the LLM context or source refs.
@@ -283,26 +283,26 @@ Files:
 - `docs/technical-specification-rag-system.md` if implementation deviates from current spec
 - `CHECKLIST.md` must be read before final completion
 
-- [ ] **T9.1 — Documentation checkpoint**
+- [x] **T9.1 — Documentation checkpoint**
   - Document `/api/documents/reload` if added.
   - Document soft-delete/re-index semantics.
   - Expected behavior: docs match implemented API and data lifecycle.
   - Logging requirements: none.
   - Dependency notes: required by plan settings and project checklist.
 
-- [ ] **T9.2 — Rust validation**
+- [x] **T9.2 — Rust validation**
   - Run `cargo fmt`.
   - Run `cargo clippy`.
   - Run `cargo test`.
   - Run `cargo test --test integration` when Chroma is available.
   - Expected behavior: all pass or any pre-existing failures are documented with evidence.
 
-- [ ] **T9.3 — Frontend/e2e validation**
+- [x] **T9.3 — Frontend/e2e validation**
   - Run `npx biome format` and `npx biome check` in `frontend/` if frontend test files changed.
   - Run Playwright e2e tests relevant to re-indexing.
   - Expected behavior: all relevant e2e tests pass.
 
-- [ ] **T9.4 — Project checklist validation**
+- [x] **T9.4 — Project checklist validation**
   - Read `CHECKLIST.md`.
   - Run `npm run ai:validate` from project root and verify exit code 0, or document known pre-existing failures.
   - Expected behavior: final implementation satisfies project gates.
