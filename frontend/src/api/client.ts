@@ -8,7 +8,7 @@ const API_BASE = "/api";
 
 let accessToken: string | null = null;
 
-export function setAccessToken(token: string) {
+export function setAccessToken(token: string | null) {
 	accessToken = token;
 }
 

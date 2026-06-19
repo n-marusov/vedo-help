@@ -207,7 +207,14 @@ export function decodeToken(token: string): Record<string, unknown> | null {
 		const parts = token.split(".");
 		if (parts.length !== 3) return null;
 		const payload = parts[1];
-		const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+		// Decode Base64 to UTF-8: atob returns Latin-1 bytes,
+		// so convert via Uint8Array + TextDecoder for proper Cyrillic/special chars.
+		const binaryStr = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+		const bytes = new Uint8Array(binaryStr.length);
+		for (let i = 0; i < binaryStr.length; i++) {
+			bytes[i] = binaryStr.charCodeAt(i);
+		}
+		const decoded = new TextDecoder("utf-8").decode(bytes);
 		return JSON.parse(decoded);
 	} catch {
 		return null;
