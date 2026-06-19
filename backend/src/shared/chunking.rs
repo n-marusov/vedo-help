@@ -33,8 +33,15 @@ pub fn chunk_document(text: &str) -> Vec<ChunkData> {
             index += 1;
 
             // Start new chunk with overlap from previous
+            // Use char_indices to find a safe UTF-8 boundary
             let overlap_start = current.len().saturating_sub(CHUNK_OVERLAP);
-            current = current[overlap_start..].to_string();
+            let safe_start = current
+                .char_indices()
+                .map(|(i, _)| i)
+                .chain(std::iter::once(current.len()))
+                .find(|&i| i >= overlap_start)
+                .unwrap_or(current.len());
+            current = current[safe_start..].to_string();
             current.push('\n');
             current.push_str(trimmed);
         } else {
@@ -91,6 +98,68 @@ mod tests {
             .join("");
         // The reconstructed string should be longer because of overlaps
         assert!(reconstructed.len() >= text.replace("\n\n", "").len());
+    }
+
+    #[test]
+    fn test_chunk_overlap_non_ascii() {
+        // Regression: overlap slicing with Cyrillic multi-byte chars
+        // Build paragraphs where overlap boundary falls inside a Cyrillic char
+        let long_para = "Привет мир".repeat(100); // ~1000 Cyrillic chars = ~2000 bytes
+        let text = format!(
+            "{long_para}\n\nДополнительный параграф с кириллицей для форсирования overlap.\n\nЕщё один параграф."
+        );
+        let chunks = chunk_document(&text);
+        assert!(!chunks.is_empty(), "Expected at least one chunk");
+        // Verify all chunks are valid UTF-8 (no panic on slice)
+        for chunk in &chunks {
+            assert!(
+                std::str::from_utf8(chunk.text.as_bytes()).is_ok(),
+                "Chunk {} contains invalid UTF-8",
+                chunk.index
+            );
+        }
+        // Verify no data is lost (all chars from original appear somewhere)
+        let total_chars: usize = chunks.iter().map(|c| c.text.len()).sum();
+        assert!(total_chars >= text.len(), "Data loss detected");
+    }
+
+    #[test]
+    fn test_chunk_overlap_emoji() {
+        // Regression: 4-byte UTF-8 (emoji) at overlap boundary
+        let emoji_para = "😀🚀🌈🧪🔥".repeat(200); // 4-byte chars
+        let text = format!("{emoji_para}\n\nMore emoji: 🎉🎊🎈🎁\n\nFinal paragraph with text.");
+        let chunks = chunk_document(&text);
+        assert!(!chunks.is_empty(), "Expected at least one chunk");
+        for chunk in &chunks {
+            assert!(
+                std::str::from_utf8(chunk.text.as_bytes()).is_ok(),
+                "Chunk {} contains invalid UTF-8 (emoji)",
+                chunk.index
+            );
+        }
+    }
+
+    #[test]
+    fn test_chunk_overlap_mixed_encoding() {
+        // Regression: mixed ASCII + multi-byte (CJK + Cyrillic + emoji)
+        let mixed = format!(
+            "English text. {cyr} {cjk} {emoji}",
+            cyr = "Привет-мир-".repeat(80),
+            cjk = "你好世界".repeat(60),
+            emoji = "😀".repeat(100),
+        );
+        let text = format!(
+            "{mixed}\n\n{mixed}\n\n{mixed}\n\nFinal paragraph to test overlap with mixed encodings."
+        );
+        let chunks = chunk_document(&text);
+        assert!(!chunks.is_empty(), "Expected at least one chunk");
+        for chunk in &chunks {
+            assert!(
+                std::str::from_utf8(chunk.text.as_bytes()).is_ok(),
+                "Chunk {} contains invalid UTF-8 (mixed)",
+                chunk.index
+            );
+        }
     }
 
     #[test]

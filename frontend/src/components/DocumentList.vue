@@ -16,6 +16,7 @@ const uploadingFileName = ref<string>('');
 
 const showDeleteDialog = ref(false);
 const deletingDoc = ref<{ id: string; name: string } | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
 
 onMounted(() => {
   loadDocuments();
@@ -117,6 +118,18 @@ async function handleFilesSelected(files: File[]) {
   uploadingFileName.value = '';
 }
 
+function triggerFilePick() {
+  fileInputRef.value?.click();
+}
+
+function handleUploadButtonChange(e: Event) {
+  const target = e.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    handleFilesSelected(Array.from(target.files));
+    target.value = '';
+  }
+}
+
 function clearZipResult() {
   zipResult.value = null;
 }
@@ -170,9 +183,18 @@ watch(
       <VButton
         variant="primary"
         :disabled="isUploading || !collectionStore.activeCollectionId"
+        @click="triggerFilePick"
       >
         📤 Upload
       </VButton>
+      <input
+        ref="fileInputRef"
+        type="file"
+        accept=".pdf,.md,.txt,.html,.json,.zip"
+        multiple
+        class="dl-file-input"
+        @change="handleUploadButtonChange"
+      />
     </div>
 
     <!-- No collection selected -->
@@ -463,6 +485,10 @@ watch(
 }
 
 /* ── Delete warning ── */
+.dl-file-input {
+  display: none;
+}
+
 .delete-warning {
   margin: 0;
   font-family: var(--font-family);

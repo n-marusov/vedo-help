@@ -47,7 +47,17 @@ impl DocumentService {
             idx = if chunks.is_empty() { 0 } else { 1 },
             preview = chunks
                 .first()
-                .map(|c| &c.text[..c.text.len().min(80)])
+                .map(|c| {
+                    // Find the last char boundary at or before byte 80
+                    let end = c
+                        .text
+                        .char_indices()
+                        .map(|(i, _)| i)
+                        .chain(std::iter::once(c.text.len()))
+                        .rfind(|&i| i <= 80)
+                        .unwrap_or(0);
+                    &c.text[..end]
+                })
                 .unwrap_or("")
         );
 
@@ -373,6 +383,112 @@ mod tests {
             zip.write_all(content.as_bytes()).unwrap();
         }
         zip.finish().unwrap().into_inner()
+    }
+
+    #[tokio::test]
+    async fn test_process_upload_non_ascii_text() {
+        // Regression: process_upload with Cyrillic text must not panic
+        // on debug preview slicing (service.rs:50)
+        let cyrillic_content = "Привет, мир! Это тестовый документ с кириллицей.
+
+"
+        .repeat(50);
+        let content = format!(
+            "{cyrillic_content}
+
+Дополнительный параграф для проверки корректной обработки многобайтовых символов на границе чанков.
+
+И ещё один параграф с русским текстом для верности."
+        );
+        let data = content.as_bytes();
+        let filename = "test-cyrillic.md";
+        let collection_id = Uuid::new_v4();
+
+        let svc = make_service().await;
+        let result = svc
+            .process_upload(data, filename, collection_id, "text/markdown".to_string())
+            .await;
+
+        assert!(result.is_ok(), "process_upload failed: {:?}", result.err());
+        let response = result.unwrap();
+        assert!(response.chunks_indexed > 0, "Expected at least 1 chunk");
+        assert_eq!(response.document_name, filename);
+
+        // Verify document appears in list
+        let documents = svc.list_documents(collection_id).await.unwrap();
+        assert_eq!(documents.len(), 1);
+        assert_eq!(documents[0].name, filename);
+    }
+
+    #[tokio::test]
+    async fn test_process_upload_emoji_content() {
+        // Regression: process_upload with 4-byte UTF-8 (emoji) must not panic
+        let emoji_line = "😀🚀🌈🧪🔥🎉🎊🎈🎁\n".repeat(30);
+        let content = format!("{emoji_line}\nMore emoji text 🎯🎲🎮🕹️🎰.\n");
+        let data = content.as_bytes();
+        let filename = "test-emoji.md";
+        let collection_id = Uuid::new_v4();
+
+        let svc = make_service().await;
+        let result = svc
+            .process_upload(data, filename, collection_id, "text/markdown".to_string())
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "process_upload with emoji failed: {:?}",
+            result.err()
+        );
+        let response = result.unwrap();
+        assert!(response.chunks_indexed > 0);
+        assert_eq!(response.document_name, filename);
+    }
+
+    #[tokio::test]
+    async fn test_process_upload_mixed_encoding() {
+        // Regression: process_upload with mixed CJK + Cyrillic + emoji must not panic
+        let mixed = "English text. Привет-мир-你好世界😀🚀\n".repeat(40);
+        let content = format!("{mixed}\n\nEND");
+        let data = content.as_bytes();
+        let filename = "test-mixed.md";
+        let collection_id = Uuid::new_v4();
+
+        let svc = make_service().await;
+        let result = svc
+            .process_upload(data, filename, collection_id, "text/markdown".to_string())
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "process_upload with mixed encoding failed: {:?}",
+            result.err()
+        );
+        let response = result.unwrap();
+        assert!(response.chunks_indexed > 0);
+        assert_eq!(response.document_name, filename);
+    }
+
+    #[tokio::test]
+    async fn test_process_upload_ascii_regression() {
+        // Regression: ASCII-only upload must still work after UTF-8 fixes
+        let content =
+            "Hello, world!\n\nThis is a test document with ASCII text only.\n\nParagraph three.\n";
+        let data = content.as_bytes();
+        let filename = "test-ascii.md";
+        let collection_id = Uuid::new_v4();
+
+        let svc = make_service().await;
+        let result = svc
+            .process_upload(data, filename, collection_id, "text/markdown".to_string())
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "process_upload with ASCII failed: {:?}",
+            result.err()
+        );
+        let response = result.unwrap();
+        assert_eq!(response.document_name, filename);
     }
 
     #[tokio::test]
