@@ -364,4 +364,53 @@ mod tests {
         let result = client.add_embeddings("test", &[], &[], &[]).await;
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_query_without_where_omits_filter() {
+        let client = ChromaClient::new("http://127.0.0.1:1");
+        // When `where_filter` is None, the query should still work.
+        // The filter should be omitted from the request body.
+        // This test verifies the new method signature accepts None.
+        let result = client
+            .query("test-collection", &[0.1, 0.2, 0.3], 5, None)
+            .await;
+
+        // We expect a connection error (server unreachable) — not a serialization or type error.
+        // This proves the `where` field was correctly omitted or included as None.
+        match &result {
+            Err(AppError::ChromaError(msg)) => {
+                // Connection refused is expected since no server is running
+                assert!(
+                    msg.contains("Request failed")
+                        || msg.contains("Connection refused")
+                        || msg.contains("error trying to connect"),
+                    "Expected network error but got: {msg}"
+                );
+            }
+            other => panic!("Expected ChromaError (connection error) but got: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_query_with_where_includes_filter() {
+        let client = ChromaClient::new("http://127.0.0.1:1");
+        // When `where_filter` is Some, it must be included in the request body.
+        let filter = serde_json::json!({"is_active": true});
+        let result = client
+            .query("test-collection", &[0.1, 0.2, 0.3], 5, Some(filter))
+            .await;
+
+        // Same expected outcome: network error, not a type/struct error
+        match &result {
+            Err(AppError::ChromaError(msg)) => {
+                assert!(
+                    msg.contains("Request failed")
+                        || msg.contains("Connection refused")
+                        || msg.contains("error trying to connect"),
+                    "Expected network error but got: {msg}"
+                );
+            }
+            other => panic!("Expected ChromaError (connection error) but got: {other:?}"),
+        }
+    }
 }

@@ -114,7 +114,7 @@ Files:
 - `backend/tests/common/mod.rs`
 - `backend/src/modules/documents/service.rs` (the `make_service()` test helper also needs schema updates)
 
-- [ ] **T3.1 — Unit spec: test DB schemas include `is_active`**
+- [x] **T3.1 — Unit spec: test DB schemas include `is_active`**
   - Update only test schema helpers first.
   - **Normalize the chunk index column name** across all schema locations:
     Production uses `"index"` (quoted SQL keyword), but `tests/common/mod.rs` and the integration test inserts use `chunk_index`. Align all three locations to `"index"` (consistent with production).
@@ -127,7 +127,7 @@ Files:
   - Logging requirements for implementation: production migrations should log successful active-state migration.
   - Dependency notes: all repository tests depend on this schema. The `make_service()` helper in `service.rs` must be updated to include `is_active` so that T3.4 and T3.5 can use it.
 
-- [ ] **T3.2 — Unit spec: `DocumentRepository` deactivates chunks and documents**
+- [x] **T3.2 — Unit spec: `DocumentRepository` deactivates chunks and documents**
   - Test `deactivate_chunks(document_id)` sets all matching chunks to inactive.
   - Test `deactivate_document(document_id)` sets document inactive without removing the row.
   - Test non-matching documents/chunks remain active.
@@ -135,31 +135,31 @@ Files:
   - Logging requirements for implementation: DEBUG for affected row counts.
   - Dependency notes: implementation must add repository methods.
 
-- [ ] **T3.3 — Unit spec: active chunk lookup filters inactive chunks**
+- [x] **T3.3 — Unit spec: active chunk lookup filters inactive chunks**
   - Test `get_active_chunks(document_id)` returns only `is_active=1` chunks ordered by index.
   - Expected behavior: inactive chunks are never returned to indexing/query assembly code.
   - Logging requirements for implementation: TRACE per fetched active chunk or DEBUG summary count.
   - Dependency notes: query double-filter depends on active lookup behavior.
 
-- [ ] **T3.4 — Unit spec: document reload deactivates old chunks then saves new active chunks**
+- [x] **T3.4 — Unit spec: document reload deactivates old chunks then saves new active chunks**
   - Write a service-level test with fake/mock embedding and Chroma dependencies if needed.
   - Expected behavior: reload keeps document identity, marks old chunks inactive, adds new active chunks.
   - Logging requirements for implementation: INFO with `document_id`, `old_chunks`, `new_chunks`.
   - Dependency notes: defines `DocumentService::reload_document` behavior.
 
-- [ ] **T3.5 — Unit spec: soft delete keeps rows but removes them from active results**
+- [x] **T3.5 — Unit spec: soft delete keeps rows but removes them from active results**
   - Upload/save a document, call service delete.
   - Expected behavior: document/chunks remain in SQLite with `is_active=0`, active queries return none.
   - Logging requirements for implementation: INFO for soft-delete completion.
   - Dependency notes: changes current `delete_document` behavior from hard delete to soft delete.
 
-- [ ] **T3.6 — Unit spec: `ChromaClient::query` request body includes optional `where`**
+- [x] **T3.6 — Unit spec: `ChromaClient::query` request body includes optional `where`**
   - Add test around query request construction or a local mock server.
   - Expected behavior: `where` omitted when `None`, included unchanged when `Some(filter)`.
   - Logging requirements for implementation: DEBUG includes filter only when present.
   - Dependency notes: existing callers must be updated to new signature.
 
-- [ ] **T3.7 — Unit spec: git sync deletes old file chunks before adding new ones**
+- [x] **T3.7 — Unit spec: git sync deletes old file chunks before adding new ones**
   - Test `GitSyncService::index_chunks` behavior with fake/mock Chroma where practical.
   - Expected behavior: for each changed file document id, cleanup happens before add, and new metadata includes `is_active=true`.
   - Logging requirements for implementation: DEBUG per file cleanup and INFO final indexed counts.

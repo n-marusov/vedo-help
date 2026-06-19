@@ -12,7 +12,7 @@ use crate::shared::types::FileType;
 /// Service for document management operations.
 #[derive(Clone, Debug)]
 pub struct DocumentService {
-    repo: DocumentRepository,
+    pub(crate) repo: DocumentRepository,
 }
 
 impl DocumentService {
@@ -589,6 +589,165 @@ mod tests {
         assert!(response.failed > 0 || response.processed < response.total_files);
     }
 
+    #[tokio::test]
+    async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks() {
+        let svc = make_service().await;
+        let collection_id = Uuid::new_v4();
+
+        // Insert a collection for FK
+        sqlx::query(
+            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(collection_id.to_string())
+        .bind("test-collection")
+        .bind("")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(svc.repo.db_pool())
+        .await
+        .ok();
+
+        // First upload: create document with initial content
+        let initial_content = b"# Initial version\n\nThis is the first version of the document.";
+        let upload_result = svc
+            .process_upload(
+                initial_content,
+                "test.md",
+                collection_id,
+                "text/markdown".into(),
+            )
+            .await
+            .expect("first upload should succeed");
+        let doc_id = upload_result.document_id;
+
+        // Reload with new content
+        let reload_content =
+            b"# Updated version\n\nThis is the reloaded version with different text.";
+        svc.reload_document(reload_content, "test.md", doc_id)
+            .await
+            .expect("reload should succeed");
+
+        // Assert: old chunks are inactive
+        let old_chunks = svc
+            .repo
+            .get_chunks(doc_id)
+            .await
+            .expect("should fetch all chunks");
+        assert!(
+            !old_chunks.is_empty(),
+            "there should be some chunks in the database"
+        );
+
+        // Check is_active via direct SQL for all chunks
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"SELECT id, is_active FROM chunks WHERE document_id = ? ORDER BY "index""#,
+        )
+        .bind(doc_id.to_string())
+        .fetch_all(svc.repo.db_pool())
+        .await
+        .expect("should query chunks");
+
+        // Count active vs inactive
+        let active_count = rows.iter().filter(|(_, active)| *active == 1).count();
+        let inactive_count = rows.iter().filter(|(_, active)| *active == 0).count();
+
+        assert!(
+            inactive_count > 0,
+            "old chunks should be deactivated (found {inactive_count} inactive)"
+        );
+        assert!(
+            active_count > 0,
+            "new chunks should be active (found {active_count} active)"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
+        let svc = make_service().await;
+        let collection_id = Uuid::new_v4();
+
+        // Insert a collection for FK
+        sqlx::query(
+            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(collection_id.to_string())
+        .bind("test-collection-del")
+        .bind("")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(svc.repo.db_pool())
+        .await
+        .ok();
+
+        // Upload a document
+        let content = b"# Test document\n\nThis document will be deleted.";
+        let upload_result = svc
+            .process_upload(
+                content,
+                "delete-me.md",
+                collection_id,
+                "text/markdown".into(),
+            )
+            .await
+            .expect("upload should succeed");
+        let doc_id = upload_result.document_id;
+
+        // Confirm document is visible in active results
+        let docs_before = svc
+            .list_documents(collection_id)
+            .await
+            .expect("should list documents");
+        assert!(
+            docs_before.iter().any(|d| d.id == doc_id),
+            "document should be listed before delete"
+        );
+
+        // Delete the document (soft delete)
+        svc.delete_document(doc_id)
+            .await
+            .expect("soft delete should succeed");
+
+        // Assert: document row still exists in SQLite
+        let doc_row: Option<(String, i64)> =
+            sqlx::query_as("SELECT id, is_active FROM documents WHERE id = ?")
+                .bind(doc_id.to_string())
+                .fetch_optional(svc.repo.db_pool())
+                .await
+                .expect("should query document");
+        assert!(
+            doc_row.is_some(),
+            "document row should still exist after soft delete"
+        );
+        let (_, is_active) = doc_row.unwrap();
+        assert_eq!(is_active, 0, "document should be marked inactive");
+
+        // Assert: chunks remain in SQLite but inactive
+        let chunk_rows: Vec<(String, i64)> =
+            sqlx::query_as(r#"SELECT id, is_active FROM chunks WHERE document_id = ?"#)
+                .bind(doc_id.to_string())
+                .fetch_all(svc.repo.db_pool())
+                .await
+                .expect("should query chunks");
+        assert!(
+            !chunk_rows.is_empty(),
+            "chunks should still exist after soft delete"
+        );
+        for (chunk_id, active) in &chunk_rows {
+            assert_eq!(
+                *active, 0,
+                "chunk {chunk_id} should be inactive after soft delete"
+            );
+        }
+
+        // Assert: document does not appear in active listing
+        let docs_after = svc
+            .list_documents(collection_id)
+            .await
+            .expect("should list documents after delete");
+        assert!(
+            !docs_after.iter().any(|d| d.id == doc_id),
+            "document should not appear in active listing after soft delete"
+        );
+    }
+
     /// Create a DocumentService with an in-memory repository for testing.
     async fn make_service() -> DocumentService {
         // Use shared cache mode so all pool connections see the same in-memory DB
@@ -621,6 +780,7 @@ mod tests {
                 file_size INTEGER NOT NULL,
                 uploaded_at TEXT NOT NULL,
                 collection_id TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
             )",
         )
@@ -633,6 +793,7 @@ mod tests {
                 document_id TEXT NOT NULL,
                 "index" INTEGER NOT NULL,
                 text TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
             )"#,
         )

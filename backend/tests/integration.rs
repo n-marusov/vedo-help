@@ -656,7 +656,7 @@ async fn test_query_repository_applies_active_filter() {
     .await
     .expect("should insert test document");
 
-    sqlx::query("INSERT INTO chunks (id, document_id, chunk_index, text) VALUES (?, ?, ?, ?)")
+    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
         .bind("chunk_active")
         .bind("doc1")
         .bind(0)
@@ -665,7 +665,7 @@ async fn test_query_repository_applies_active_filter() {
         .await
         .expect("should insert active chunk");
 
-    sqlx::query("INSERT INTO chunks (id, document_id, chunk_index, text) VALUES (?, ?, ?, ?)")
+    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
         .bind("chunk_inactive")
         .bind("doc1")
         .bind(1)
