@@ -164,33 +164,30 @@ async fn main() {
                 .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024)),
         )
         .route("/api/documents", get(documents_handlers::list))
-        .route("/api/documents/{id}", delete(documents_handlers::delete))
+        .route("/api/documents/:id", delete(documents_handlers::delete))
         .route(
-            "/api/documents/reload/{id}",
+            "/api/documents/reload/:id",
             post(documents_handlers::reload),
         )
         // Collection routes
         .route("/api/collections", post(collections_handlers::create))
         .route("/api/collections", get(collections_handlers::list))
-        .route("/api/collections/{id}", get(collections_handlers::get))
-        .route(
-            "/api/collections/{id}",
-            delete(collections_handlers::delete),
-        )
+        .route("/api/collections/:id", get(collections_handlers::get))
+        .route("/api/collections/:id", delete(collections_handlers::delete))
         // Git sync routes
         .route("/api/git-sync/repos", post(git_sync_handlers::create_repo))
         .route("/api/git-sync/repos", get(git_sync_handlers::list_repos))
-        .route("/api/git-sync/repos/{id}", get(git_sync_handlers::get_repo))
+        .route("/api/git-sync/repos/:id", get(git_sync_handlers::get_repo))
         .route(
-            "/api/git-sync/repos/{id}/sync",
+            "/api/git-sync/repos/:id/sync",
             post(git_sync_handlers::trigger_sync),
         )
         .route(
-            "/api/git-sync/repos/{id}/status",
+            "/api/git-sync/repos/:id/status",
             get(git_sync_handlers::get_sync_status),
         )
         .route(
-            "/api/git-sync/repos/{id}",
+            "/api/git-sync/repos/:id",
             delete(git_sync_handlers::delete_repo),
         )
         // Query routes
@@ -206,15 +203,15 @@ async fn main() {
             delete(conversations_handlers::delete_all_sessions),
         )
         .route(
-            "/api/sessions/{id}",
+            "/api/sessions/:id",
             get(conversations_handlers::get_session),
         )
         .route(
-            "/api/sessions/{id}",
+            "/api/sessions/:id",
             delete(conversations_handlers::delete_session),
         )
         .route(
-            "/api/sessions/{id}/export",
+            "/api/sessions/:id/export",
             get(conversations_handlers::export_session),
         )
         // Auth middleware for all /api/* routes (applies to routes defined above)
