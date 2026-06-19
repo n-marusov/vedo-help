@@ -58,21 +58,21 @@ Files:
 - `frontend/e2e/rag-flow.spec.ts` or new `frontend/e2e/document-reindexing.spec.ts`
 - `frontend/e2e/helpers.ts` if route helpers need expansion
 
-- [ ] **T1.1 — E2E spec: upload → query uses active indexed chunks**
+- [x] **T1.1 — E2E spec: upload → query uses active indexed chunks**
   - Add an e2e test that uploads a document through the admin UI and then queries it through chat.
   - Mock backend responses so the test asserts the UI consumes sources from the newly indexed active chunks.
   - Expected behavior: uploaded document appears as a source after query.
   - Logging requirements for implementation: backend should emit INFO when upload indexing completes and DEBUG for chunk metadata including `is_active=true`.
   - Dependency notes: this test defines the end-to-end contract; implementation must satisfy it later.
 
-- [ ] **T1.2 — E2E spec: reload replaces old document content**
+- [x] **T1.2 — E2E spec: reload replaces old document content**
   - Add an e2e test for reloading/re-uploading a document version.
   - Flow: first version has source text A; reload with version B; query should show only source text B.
   - Expected behavior: old source text A is not displayed after reload.
   - Logging requirements for implementation: reload should log old chunk deactivation count and new chunk count.
   - Dependency notes: drives `/api/documents/reload` or equivalent UI/API contract.
 
-- [ ] **T1.3 — E2E spec: deleted document disappears from query sources**
+- [x] **T1.3 — E2E spec: deleted document disappears from query sources**
   - Add an e2e test that deletes a document and then queries the collection.
   - Expected behavior: deleted document is absent from sources and no stale chunks are displayed.
   - Logging requirements for implementation: soft delete logs document id and collection id at INFO.
@@ -83,14 +83,14 @@ Files:
 File:
 - `backend/tests/integration.rs`
 
-- [ ] **T2.1 — Integration spec: Chroma query supports `where: {"is_active": true}`**
+- [x] **T2.1 — Integration spec: Chroma query supports `where: {"is_active": true}`**
   - Add embeddings with mixed metadata: active and inactive chunks.
   - Query active-only using the new Chroma client API.
   - Expected behavior: only active chunks are returned.
   - Logging requirements for implementation: `ChromaClient::query` logs collection, top_k, and filter when present.
   - Dependency notes: implementation must add query filter support without breaking existing query callers.
 
-- [ ] **T2.2 — Integration spec: Chroma `delete_where` removes stale document chunks**
+- [x] **T2.2 — Integration spec: Chroma `delete_where` removes stale document chunks**
   - Add embeddings for two `document_id` values.
   - Call `delete_where({"document_id": "test-doc-1"})`.
   - Query after deletion.
@@ -98,7 +98,7 @@ File:
   - Logging requirements for implementation: `delete_where` logs filter at DEBUG and retry failures at WARN.
   - Dependency notes: validates cleanup primitive used by reload, delete, and git sync.
 
-- [ ] **T2.3 — Integration spec: query repository applies active-only filter**
+- [x] **T2.3 — Integration spec: query repository applies active-only filter**
   - Add/adjust an integration test around `QueryRepository::query_chroma` or Chroma request behavior.
   - Expected behavior: query path always passes `where: {"is_active": true}`.
   - Logging requirements for implementation: repository logs that active-only filter is applied.
