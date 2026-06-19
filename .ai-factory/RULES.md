@@ -8,3 +8,4 @@
 - Follow strict TDD ordering for feature work: all e2e, integration, and unit tests/specs must be written in the first plan phases before any production implementation tasks begin
 - Treat tests as executable specification: implementation agents must read and satisfy the new tests before changing production code, and must not reorder implementation ahead of test-writing tasks
 - When planning with checkboxes, group every test-writing task before schema, backend, frontend, docs, or validation implementation tasks
+- Use optimistic UI as a general UX principle: the UI must feel instant — eagerly update local state before the API responds, execute the mutation asynchronously, show a VToast confirmation on success, and roll back the local state with a VToast error on failure
