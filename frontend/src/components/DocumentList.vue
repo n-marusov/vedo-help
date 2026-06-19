@@ -3,9 +3,10 @@ import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VDropZone from '@/components/ui/VDropZone.vue';
 import VProgressBar from '@/components/ui/VProgressBar.vue';
+import VToast from '@/components/ui/VToast.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const documentStore = useDocumentStore();
 const collectionStore = useCollectionStore();
@@ -17,6 +18,73 @@ const uploadingFileName = ref<string>('');
 const showDeleteDialog = ref(false);
 const deletingDoc = ref<{ id: string; name: string } | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// ── Bulk delete state ──
+const selectedIds = ref<Set<string>>(new Set());
+const showBulkDeleteDialog = ref(false);
+
+// ── Toast state ──
+const toastMessage = ref('');
+const toastType = ref<'info' | 'success' | 'error'>('info');
+const showToast = ref(false);
+
+function showToastMessage(message: string, type: 'info' | 'success' | 'error') {
+  toastMessage.value = message;
+  toastType.value = type;
+  showToast.value = true;
+}
+
+const isAllSelected = computed(() => {
+  const docs = documentStore.documents;
+  return docs.length > 0 && docs.every((d) => selectedIds.value.has(d.id));
+});
+
+const isSomeSelected = computed(() => {
+  return selectedIds.value.size > 0 && !isAllSelected.value;
+});
+
+function toggleSelection(id: string) {
+  const next = new Set(selectedIds.value);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  selectedIds.value = next;
+}
+
+function toggleAll() {
+  if (isAllSelected.value) {
+    selectedIds.value = new Set();
+  } else {
+    selectedIds.value = new Set(documentStore.documents.map((d) => d.id));
+  }
+}
+
+function promptBulkDelete() {
+  if (selectedIds.value.size === 0) {
+    showToastMessage('Select documents to delete', 'info');
+    return;
+  }
+  showBulkDeleteDialog.value = true;
+}
+
+async function handleBulkDeleteConfirm() {
+  if (selectedIds.value.size === 0) return;
+
+  const ids = Array.from(selectedIds.value);
+  const count = ids.length;
+  const result = await documentStore.deleteDocumentsBatch(ids);
+
+  showBulkDeleteDialog.value = false;
+
+  if (result) {
+    selectedIds.value = new Set();
+    showToastMessage(`Deleted ${count} document(s)`, 'success');
+  } else {
+    showToastMessage(documentStore.error || 'Failed to delete documents', 'error');
+  }
+}
 
 onMounted(() => {
   loadDocuments();
@@ -81,11 +149,9 @@ async function handleFilesSelected(files: File[]) {
   isUploading.value = true;
   zipResult.value = null;
 
-  // Separate ZIP files from regular files
   const zipFiles = files.filter((f) => f.name.toLowerCase().endsWith('.zip'));
   const regularFiles = files.filter((f) => !f.name.toLowerCase().endsWith('.zip'));
 
-  // Process ZIP files via batch endpoint
   for (const file of zipFiles) {
     uploadingFileName.value = file.name;
     uploadProgress.value = 0;
@@ -103,7 +169,6 @@ async function handleFilesSelected(files: File[]) {
     }
   }
 
-  // Process regular files individually
   for (const file of regularFiles) {
     uploadingFileName.value = file.name;
     uploadProgress.value = 0;
@@ -149,11 +214,10 @@ async function handleDeleteConfirm() {
   }
 }
 
-// Watch for collection changes
-import { watch } from 'vue';
 watch(
   () => collectionStore.activeCollectionId,
   () => {
+    selectedIds.value = new Set();
     loadDocuments();
   },
 );
@@ -181,22 +245,44 @@ watch(
     </div>
     <!-- Header -->
     <div class="dl-header">
-      <span class="dl-label">DOCUMENTS</span>
-      <VButton
-        variant="primary"
-        :disabled="isUploading || !collectionStore.activeCollectionId"
-        @click="triggerFilePick"
-      >
-        📤 Upload
-      </VButton>
-      <input
-        ref="fileInputRef"
-        type="file"
-        accept=".pdf,.md,.txt,.html,.json,.zip"
-        multiple
-        class="dl-file-input"
-        @change="handleUploadButtonChange"
-      />
+      <div class="dl-header__left" v-if="collectionStore.activeCollectionId">
+        <label class="dl-toggle-all">
+          <input
+            type="checkbox"
+            :checked="isAllSelected"
+            :indeterminate="isSomeSelected"
+            :disabled="documentStore.documents.length === 0"
+            @change="toggleAll"
+          />
+        </label>
+        <span class="dl-label">DOCUMENTS</span>
+      </div>
+      <span class="dl-label" v-else>DOCUMENTS</span>
+      <div class="dl-header__actions">
+        <VButton
+          v-if="selectedIds.size > 0"
+          variant="destructive"
+          :disabled="documentStore.isDeleting"
+          @click="promptBulkDelete"
+        >
+          🗑 Delete {{ selectedIds.size }} selected
+        </VButton>
+        <VButton
+          variant="primary"
+          :disabled="isUploading || !collectionStore.activeCollectionId"
+          @click="triggerFilePick"
+        >
+          📤 Upload
+        </VButton>
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept=".pdf,.md,.txt,.html,.json,.zip"
+          multiple
+          class="dl-file-input"
+          @change="handleUploadButtonChange"
+        />
+      </div>
     </div>
 
     <!-- No collection selected -->
@@ -246,7 +332,15 @@ watch(
           v-for="doc in documentStore.documents"
           :key="doc.id"
           class="dl-item"
+          :class="{ 'dl-item--selected': selectedIds.has(doc.id) }"
         >
+          <label class="dl-item__checkbox">
+            <input
+              type="checkbox"
+              :checked="selectedIds.has(doc.id)"
+              @change="toggleSelection(doc.id)"
+            />
+          </label>
           <span class="dl-item__icon">{{ getFileIcon(doc.file_type) }}</span>
           <div class="dl-item__info">
             <span class="dl-item__name">{{ doc.name }}</span>
@@ -267,7 +361,7 @@ watch(
       </div>
     </template>
 
-    <!-- Delete Document Dialog -->
+    <!-- Single Delete Document Dialog -->
     <VDialog
       :open="showDeleteDialog"
       title="Delete document?"
@@ -286,6 +380,31 @@ watch(
         results after deletion.
       </p>
     </VDialog>
+
+    <!-- Bulk Delete Confirmation Dialog -->
+    <VDialog
+      :open="showBulkDeleteDialog"
+      :title="`Delete ${selectedIds.size} documents?`"
+      :description="`Remove ${selectedIds.size} files from the active collection.`"
+      confirmText="Delete"
+      cancelText="Cancel"
+      variant="destructive"
+      @close="showBulkDeleteDialog = false"
+      @confirm="handleBulkDeleteConfirm"
+    >
+      <p class="delete-warning">
+        <strong>{{ selectedIds.size }} document(s)</strong> will be removed from
+        search results after deletion.
+      </p>
+    </VDialog>
+
+    <!-- Toast notification -->
+    <VToast
+      :show="showToast"
+      :message="toastMessage"
+      :type="toastType"
+      @close="showToast = false"
+    />
   </div>
 </template>
 
@@ -304,6 +423,33 @@ watch(
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  gap: 8px;
+}
+
+.dl-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dl-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dl-toggle-all {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.dl-toggle-all input[type="checkbox"],
+.dl-item__checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 .dl-label {
@@ -418,15 +564,41 @@ watch(
 .dl-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-md, 8px);
   transition: background var(--transition-fast, 150ms);
   cursor: default;
 }
 
+.dl-item--selected {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
 .dl-item:hover {
   background: var(--color-secondary);
+}
+
+.dl-item--selected:hover {
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 12%,
+    var(--color-secondary)
+  );
+}
+
+.dl-item__checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dl-item__checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 .dl-item__icon {

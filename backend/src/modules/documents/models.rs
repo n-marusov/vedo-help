@@ -44,6 +44,13 @@ pub struct Chunk {
     pub is_active: bool,
 }
 
+/// Response returned after deleting documents in bulk.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchDeleteResponse {
+    pub deleted_count: usize,
+    pub ids: Vec<Uuid>,
+}
+
 /// Result of processing a single file within a ZIP archive.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZipUploadItem {

@@ -9,6 +9,11 @@ export interface Document {
 	collection_id: string;
 }
 
+export interface BatchDeleteResponse {
+	deleted_count: number;
+	ids: string[];
+}
+
 export interface UploadResponse {
 	document_id: string;
 	chunks_indexed: number;

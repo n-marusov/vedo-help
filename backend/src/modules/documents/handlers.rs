@@ -5,7 +5,9 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::modules::documents::models::{DocumentSummary, UploadResponse, ZipUploadResponse};
+use crate::modules::documents::models::{
+    BatchDeleteResponse, DocumentSummary, UploadResponse, ZipUploadResponse,
+};
 use crate::modules::documents::service::DocumentService;
 use crate::shared::error::AppError;
 
@@ -13,6 +15,12 @@ use crate::shared::error::AppError;
 #[derive(Debug, Deserialize)]
 pub struct ListDocumentsQuery {
     pub collection_id: Option<Uuid>,
+}
+
+/// Request body for bulk document deletion.
+#[derive(Debug, Deserialize)]
+pub struct BatchDeleteRequest {
+    pub ids: Vec<Uuid>,
 }
 
 /// Upload a document via multipart form data.
@@ -111,6 +119,36 @@ pub async fn delete(
 ) -> Result<Json<serde_json::Value>, AppError> {
     svc.delete_document(id).await?;
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
+}
+
+/// Delete documents by IDs.
+///
+/// Endpoint: `DELETE /api/documents/batch`
+pub async fn delete_batch(
+    State(svc): State<DocumentService>,
+    Json(req): Json<BatchDeleteRequest>,
+) -> Result<Json<BatchDeleteResponse>, AppError> {
+    tracing::info!(
+        "[documents.delete_batch] bulk delete request received: count={count}",
+        count = req.ids.len()
+    );
+    tracing::debug!(
+        "[documents.delete_batch] requested document ids: {:?}",
+        req.ids
+    );
+
+    if req.ids.is_empty() {
+        tracing::warn!("[documents.delete_batch] empty document id list rejected");
+        return Err(AppError::BadRequest("No document IDs provided".to_string()));
+    }
+
+    let response = svc.delete_documents_batch(req.ids).await?;
+    tracing::info!(
+        "[documents.delete_batch] bulk delete complete: deleted_count={deleted_count}",
+        deleted_count = response.deleted_count
+    );
+
+    Ok(Json(response))
 }
 
 /// Reload/re-index a document via multipart file upload.

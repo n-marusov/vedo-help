@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use uuid::Uuid;
 
 use crate::modules::documents::models::{
-    Chunk, Document, DocumentSummary, UploadResponse, ZipUploadItem, ZipUploadResponse,
+    BatchDeleteResponse, Chunk, Document, DocumentSummary, UploadResponse, ZipUploadItem,
+    ZipUploadResponse,
 };
 use crate::modules::documents::repository::DocumentRepository;
 use crate::shared::chroma_client::ChromaClient;
@@ -187,6 +190,91 @@ impl DocumentService {
         }
 
         Ok(())
+    }
+
+    /// Soft delete multiple documents and their chunks in SQLite.
+    /// Rows remain in the database but are excluded from active queries.
+    /// Also removes each document's embeddings from Chroma if clients are configured.
+    pub async fn delete_documents_batch(
+        &self,
+        ids: Vec<Uuid>,
+    ) -> Result<BatchDeleteResponse, AppError> {
+        if ids.is_empty() {
+            tracing::warn!("[DocumentService.delete_documents_batch] empty document id list");
+            return Err(AppError::BadRequest("No document IDs provided".to_string()));
+        }
+
+        tracing::info!(
+            "[DocumentService.delete_documents_batch] soft deleting documents: count={count}",
+            count = ids.len()
+        );
+        tracing::debug!("[DocumentService.delete_documents_batch] requested document ids: {ids:?}");
+
+        let documents = self.repo.get_documents_by_ids(&ids).await?;
+        if documents.is_empty() {
+            tracing::warn!(
+                "[DocumentService.delete_documents_batch] no matching documents found: requested={count}",
+                count = ids.len()
+            );
+            return Err(AppError::NotFound(
+                "No matching documents found".to_string(),
+            ));
+        }
+
+        let document_ids: Vec<Uuid> = documents.iter().map(|doc| doc.id).collect();
+        tracing::debug!(
+            "[DocumentService.delete_documents_batch] matched active/inactive documents: requested={requested}, matched={matched}",
+            requested = ids.len(),
+            matched = document_ids.len()
+        );
+
+        self.repo.deactivate_chunks_batch(&document_ids).await?;
+        let deleted_count = self.repo.deactivate_documents_batch(&document_ids).await? as usize;
+
+        if let Some(ref chroma) = self.chroma_client {
+            let mut by_collection: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+            for doc in &documents {
+                by_collection
+                    .entry(doc.collection_id)
+                    .or_default()
+                    .push(doc.id);
+            }
+
+            for (collection_id, collection_doc_ids) in by_collection {
+                let collection_name = collection_id.to_string();
+                tracing::debug!(
+                    "[DocumentService.delete_documents_batch] deleting Chroma embeddings: collection={collection_name}, count={count}",
+                    count = collection_doc_ids.len()
+                );
+
+                for document_id in collection_doc_ids {
+                    let filter = serde_json::json!({ "document_id": document_id.to_string() });
+                    if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
+                        tracing::warn!(
+                            "[DocumentService.delete_documents_batch] failed to delete Chroma embeddings: document={document_id}, collection={collection_name}, error={e}"
+                        );
+                    } else {
+                        tracing::debug!(
+                            "[DocumentService.delete_documents_batch] deleted Chroma embeddings: document={document_id}, collection={collection_name}"
+                        );
+                    }
+                }
+            }
+        } else {
+            tracing::debug!(
+                "[DocumentService.delete_documents_batch] skipping Chroma cleanup: client not configured"
+            );
+        }
+
+        tracing::info!(
+            "[DocumentService.delete_documents_batch] completed soft delete: deleted_count={deleted_count}, requested={requested}",
+            requested = ids.len()
+        );
+
+        Ok(BatchDeleteResponse {
+            deleted_count,
+            ids: document_ids,
+        })
     }
 
     /// Reload/re-index a document: deactivate old chunks, parse new content,
@@ -1034,6 +1122,159 @@ mod tests {
         assert!(
             !docs_after.iter().any(|d| d.id == doc_id),
             "document should not appear in active listing after soft delete"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
+        let svc = make_service().await;
+        let collection_id = Uuid::new_v4();
+
+        // Insert a collection
+        sqlx::query(
+            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(collection_id.to_string())
+        .bind("test-collection-batch")
+        .bind("")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(svc.repo.db_pool())
+        .await
+        .ok();
+
+        // Upload 3 documents
+        let mut doc_ids = Vec::new();
+        for i in 0..3 {
+            let content = format!("# Document {i}\n\nThis is document number {i}.");
+            let result = svc
+                .process_upload(
+                    content.as_bytes(),
+                    &format!("doc-{i}.md"),
+                    collection_id,
+                    "text/markdown".into(),
+                )
+                .await
+                .expect("upload should succeed");
+            doc_ids.push(result.document_id);
+        }
+
+        // Confirm all 3 are visible
+        let docs_before = svc
+            .list_documents(collection_id)
+            .await
+            .expect("should list documents");
+        assert_eq!(docs_before.len(), 3, "all 3 documents should be visible");
+
+        // Delete 2 via batch
+        let to_delete = vec![doc_ids[0], doc_ids[1]];
+        let batch_result = svc
+            .delete_documents_batch(to_delete)
+            .await
+            .expect("batch delete should succeed");
+        assert_eq!(batch_result.deleted_count, 2);
+
+        // Assert: remaining 1 is visible, 2 are invisible
+        let docs_after = svc
+            .list_documents(collection_id)
+            .await
+            .expect("should list documents after batch delete");
+        assert_eq!(docs_after.len(), 1, "only 1 document should remain visible");
+        assert!(
+            docs_after.iter().any(|d| d.id == doc_ids[2]),
+            "the third document should still be visible"
+        );
+
+        // Assert: rows still exist but are inactive
+        for deleted_id in &[doc_ids[0], doc_ids[1]] {
+            let doc_row: Option<(String, i64)> =
+                sqlx::query_as("SELECT id, is_active FROM documents WHERE id = ?")
+                    .bind(deleted_id.to_string())
+                    .fetch_optional(svc.repo.db_pool())
+                    .await
+                    .expect("should query document");
+            assert!(doc_row.is_some(), "deleted document row should still exist");
+            assert_eq!(doc_row.unwrap().1, 0, "document should be marked inactive");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_batch_delete_with_mixed_collections() {
+        let svc = make_service().await;
+        let collection_a = Uuid::new_v4();
+        let collection_b = Uuid::new_v4();
+
+        // Insert both collections
+        for col_id in &[collection_a, collection_b] {
+            sqlx::query(
+                "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+            )
+            .bind(col_id.to_string())
+            .bind(format!("col-{col_id}"))
+            .bind("")
+            .bind(chrono::Utc::now().to_rfc3339())
+            .execute(svc.repo.db_pool())
+            .await
+            .ok();
+        }
+
+        // Upload 2 docs to col A, 2 docs to col B
+        let mut col_a_ids = Vec::new();
+        let mut col_b_ids = Vec::new();
+
+        for i in 0..2 {
+            let content = format!("# Doc A{i}");
+            let result = svc
+                .process_upload(
+                    content.as_bytes(),
+                    &format!("a-{i}.md"),
+                    collection_a,
+                    "text/markdown".into(),
+                )
+                .await
+                .expect("upload to col A should succeed");
+            col_a_ids.push(result.document_id);
+        }
+        for i in 0..2 {
+            let content = format!("# Doc B{i}");
+            let result = svc
+                .process_upload(
+                    content.as_bytes(),
+                    &format!("b-{i}.md"),
+                    collection_b,
+                    "text/markdown".into(),
+                )
+                .await
+                .expect("upload to col B should succeed");
+            col_b_ids.push(result.document_id);
+        }
+
+        // Delete 1 doc from col A + 1 doc from col B in one batch
+        let to_delete = vec![col_a_ids[0], col_b_ids[0]];
+        let result = svc
+            .delete_documents_batch(to_delete)
+            .await
+            .expect("batch delete across collections should succeed");
+        assert_eq!(result.deleted_count, 2);
+
+        // Assert correct per-collection active state
+        let docs_a = svc
+            .list_documents(collection_a)
+            .await
+            .expect("should list col A");
+        assert_eq!(docs_a.len(), 1, "col A should have 1 doc remaining");
+        assert_eq!(
+            docs_a[0].id, col_a_ids[1],
+            "col A should keep the second doc"
+        );
+
+        let docs_b = svc
+            .list_documents(collection_b)
+            .await
+            .expect("should list col B");
+        assert_eq!(docs_b.len(), 1, "col B should have 1 doc remaining");
+        assert_eq!(
+            docs_b[0].id, col_b_ids[1],
+            "col B should keep the second doc"
         );
     }
 

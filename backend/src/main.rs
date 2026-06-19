@@ -164,6 +164,10 @@ async fn main() {
                 .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024)),
         )
         .route("/api/documents", get(documents_handlers::list))
+        .route(
+            "/api/documents/batch",
+            delete(documents_handlers::delete_batch),
+        )
         .route("/api/documents/:id", delete(documents_handlers::delete))
         .route(
             "/api/documents/reload/:id",

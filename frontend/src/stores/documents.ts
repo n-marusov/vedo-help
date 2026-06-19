@@ -1,11 +1,17 @@
 import { ApiError, api, getAccessToken } from "@/api/client";
-import type { Document, UploadResponse, ZipUploadResponse } from "@/api/types";
+import type {
+	BatchDeleteResponse,
+	Document,
+	UploadResponse,
+	ZipUploadResponse,
+} from "@/api/types";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export const useDocumentStore = defineStore("documents", () => {
 	const documents = ref<Document[]>([]);
 	const isLoading = ref(false);
+	const isDeleting = ref(false);
 	const error = ref<string | null>(null);
 
 	async function fetchDocuments(collectionId?: string) {
@@ -114,6 +120,35 @@ export const useDocumentStore = defineStore("documents", () => {
 		}
 	}
 
+	async function deleteDocumentsBatch(
+		ids: string[],
+	): Promise<BatchDeleteResponse | null> {
+		error.value = null;
+		if (isDeleting.value) return null;
+		isDeleting.value = true;
+
+		// Snapshot for rollback
+		const snapshot = [...documents.value];
+
+		// Optimistic removal
+		documents.value = documents.value.filter((d) => !ids.includes(d.id));
+
+		try {
+			return await api.batchDeleteDocuments(ids);
+		} catch (err) {
+			// Rollback: restore documents
+			documents.value = snapshot;
+			if (err instanceof ApiError) {
+				error.value = err.message;
+			} else {
+				error.value = "Failed to delete documents";
+			}
+			return null;
+		} finally {
+			isDeleting.value = false;
+		}
+	}
+
 	async function uploadZip(
 		file: File,
 		collectionId: string,
@@ -178,5 +213,7 @@ export const useDocumentStore = defineStore("documents", () => {
 		uploadDocument,
 		uploadZip,
 		deleteDocument,
+		deleteDocumentsBatch,
+		isDeleting,
 	};
 });
