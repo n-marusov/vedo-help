@@ -166,6 +166,8 @@ vedo-assistant/
 
 ## Agent Rules
 
+- Follow strict TDD ordering for feature work: every plan must put all e2e, integration, and unit test-writing tasks in the first phases, before any production implementation tasks. Treat those tests as executable specification for the implementation.
+- Implementation agents must read the new tests first, satisfy their behavior, and must not reorder schema/backend/frontend implementation ahead of test-writing tasks.
 - Decompose shell commands into separate steps — never combine `git checkout` and `git pull` with `&&`.
   - Incorrect: `git checkout main && git pull`
   - Correct: First `git checkout main`, then `git pull origin main`
