@@ -112,13 +112,20 @@ Files:
 - `backend/src/modules/git_sync/service.rs` test module
 - `backend/src/shared/chroma_client.rs` test module
 - `backend/tests/common/mod.rs`
+- `backend/src/modules/documents/service.rs` (the `make_service()` test helper also needs schema updates)
 
 - [ ] **T3.1 — Unit spec: test DB schemas include `is_active`**
   - Update only test schema helpers first.
+  - **Normalize the chunk index column name** across all schema locations:
+    Production uses `"index"` (quoted SQL keyword), but `tests/common/mod.rs` and the integration test inserts use `chunk_index`. Align all three locations to `"index"` (consistent with production).
+  - The affected files are:
+    - `backend/tests/common/mod.rs` — rename `chunk_index` to `"index"`
+    - `backend/src/modules/documents/service.rs` — the `make_service()` helper (`"index"`)
+    - `backend/tests/integration.rs` — INSERT statements that reference `chunk_index`
   - Add assertions that `documents.is_active` and `chunks.is_active` exist and default to `1`.
   - Expected behavior: new tests describe the required schema before production migrations are changed.
   - Logging requirements for implementation: production migrations should log successful active-state migration.
-  - Dependency notes: all repository tests depend on this schema.
+  - Dependency notes: all repository tests depend on this schema. The `make_service()` helper in `service.rs` must be updated to include `is_active` so that T3.4 and T3.5 can use it.
 
 - [ ] **T3.2 — Unit spec: `DocumentRepository` deactivates chunks and documents**
   - Test `deactivate_chunks(document_id)` sets all matching chunks to inactive.
@@ -163,12 +170,14 @@ Files:
 Files:
 - `backend/src/main.rs`
 - `backend/src/modules/documents/models.rs`
-- `backend/tests/common/mod.rs` if not fully handled by Phase 3
+- `backend/tests/common/mod.rs` (must be updated to match production schema)
+- `backend/src/modules/documents/service.rs` (the `make_service()` test helper)
 
 - [ ] **T4.1 — Add active-state migrations to SQLite**
-  - Add `is_active INTEGER NOT NULL DEFAULT 1` to `documents` and `chunks` creation SQL.
+  - Add `is_active INTEGER NOT NULL DEFAULT 1` to `documents` and `chunks` creation SQL in `backend/src/main.rs`.
   - Add idempotent `ALTER TABLE` migration path for existing databases.
-  - Expected behavior: fresh and existing DBs get active-state columns safely.
+  - **Ensure `backend/tests/common/mod.rs` and `backend/src/modules/documents/service.rs` (`make_service()`) are both updated** to match the production schema exactly: same column names (`"index"`, not `chunk_index`) and the new `is_active` column.
+  - Expected behavior: fresh and existing DBs get active-state columns safely. All schema definitions remain consistent.
   - Logging requirements: INFO after migration completes; DEBUG when a column already exists.
   - Dependency notes: must preserve existing data with default active state.
 
