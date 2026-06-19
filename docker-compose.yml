@@ -121,6 +121,45 @@ services:
       retries: 5
       start_period: 30s
 
+  # Pre-start: validate env vars, substitute into realm-import template.
+  # Produces realm-import.json (gitignored) from the template for Keycloak import.
+  keycloak-init:
+    image: alpine:3.19
+    volumes:
+      - keycloak_import:/import
+      - ./keycloak/realm-import.json.template:/template:ro
+    environment:
+      VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:-changeme-vedo-backend-secret}
+      VEDO_ADMIN_PASSWORD: ${VEDO_ADMIN_PASSWORD:-admin}
+      VEDO_ALICE_PASSWORD: ${VEDO_ALICE_PASSWORD:-password}
+      VEDO_GUEST_PASSWORD: ${VEDO_GUEST_PASSWORD:-guest}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        echo "[keycloak-init] Validating environment variables..."
+        missing=0
+        for var in VEDO_BACKEND_CLIENT_SECRET VEDO_ADMIN_PASSWORD VEDO_ALICE_PASSWORD VEDO_GUEST_PASSWORD; do
+          eval val="\$$var"
+          if [ -z "$$val" ]; then
+            echo "[keycloak-init] FATAL: $$var is not set or empty"
+            missing=1
+          else
+            echo "[keycloak-init]   $$var = OK"
+          fi
+        done
+        if [ $$missing -ne 0 ]; then
+          echo "[keycloak-init] Aborting — set missing variables in .env and restart."
+          exit 1
+        fi
+        echo "[keycloak-init] Substituting template..."
+        apk add --no-cache gettext > /dev/null
+        envsubst < /template > /import/realm-import.json
+        chmod 644 /import/realm-import.json
+        echo "[keycloak-init] Done. realm-import.json generated."
+    restart: "no"
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
     command: start --import-realm
@@ -138,15 +177,17 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:-changeme-vedo-backend-secret}
     volumes:
-      - ./keycloak/realm-import.json:/opt/keycloak/data/import/realm-import.json
+      - keycloak_import:/opt/keycloak/data/import
     depends_on:
+      keycloak-init:
+        condition: service_completed_successfully
       keycloak-db:
         condition: service_healthy
     networks:
       - internal
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/realms/master"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080'"]
       interval: 30s
       timeout: 5s
       retries: 10
@@ -161,3 +202,4 @@ volumes:
   embedding_cache:
   db_data:
   keycloak_db_data:
+  keycloak_import:

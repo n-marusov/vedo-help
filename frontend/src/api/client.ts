@@ -1,4 +1,5 @@
 import type {
+	BatchDeleteResponse,
 	CreateRepoRequest,
 	GitRepoSummary,
 	SyncStatusResponse,
@@ -50,6 +51,11 @@ export const api = {
 			body: body ? JSON.stringify(body) : undefined,
 		}),
 	del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+	batchDeleteDocuments: (ids: string[]) =>
+		request<BatchDeleteResponse>("/documents/batch", {
+			method: "DELETE",
+			body: JSON.stringify({ ids }),
+		}),
 
 	// ── Git Sync ──
 	getGitRepos: () => api.get<GitRepoSummary[]>("/git-sync/repos"),

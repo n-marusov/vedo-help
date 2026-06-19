@@ -378,7 +378,9 @@ export async function handleCallback(): Promise<string> {
 	// Extract user info from the JWT for the auth store
 	const decoded = decodeToken(accessToken);
 	const name = (decoded?.name ?? decoded?.preferred_username ?? "") as string;
-	const provider = (decoded?.identity_provider ?? "") as string;
+	const provider = (decoded?.identity_provider ??
+		decoded?.provider ??
+		"") as string;
 
 	setAuthToken(accessToken, name || undefined, provider || undefined);
 	isAuthenticated.value = true;
@@ -466,7 +468,9 @@ async function refreshAccessToken(): Promise<string | null> {
 		// Extract user info from the refreshed JWT
 		const decoded = decodeToken(newAccessToken);
 		const name = (decoded?.name ?? decoded?.preferred_username ?? "") as string;
-		const provider = (decoded?.identity_provider ?? "") as string;
+		const provider = (decoded?.identity_provider ??
+			decoded?.provider ??
+			"") as string;
 		setAuthToken(newAccessToken, name || undefined, provider || undefined);
 
 		// Schedule the next refresh
@@ -610,7 +614,9 @@ export function restoreSession(): boolean {
 
 	// Token is still valid — use it and schedule proactive refresh
 	const name = (decoded?.name ?? decoded?.preferred_username ?? "") as string;
-	const provider = (decoded?.identity_provider ?? "") as string;
+	const provider = (decoded?.identity_provider ??
+		decoded?.provider ??
+		"") as string;
 	setAuthToken(stored, name || undefined, provider || undefined);
 	scheduleTokenRefresh(stored);
 	console.debug("[OidcAuth] Restored session from localStorage");

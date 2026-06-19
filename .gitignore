@@ -3,6 +3,7 @@ node_modules/
 __pycache__/
 *.pyc
 .env
+keycloak/realm-import.json
 data/
 *.db
 backups/

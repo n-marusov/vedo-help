@@ -109,6 +109,9 @@ services:
     logging: *default-logging
     ports: []
 
+  keycloak-init:
+    logging: *default-logging
+
   keycloak:
     ports: []
 

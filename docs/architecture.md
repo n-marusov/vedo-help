@@ -98,7 +98,7 @@ KeyCloak 26 provides authentication via the OAuth 2.0 Authorization Code flow wi
 - **Realm:** `vedo-hub` with three-tier RBAC (`guest`, `user`, `admin`)
 - **Clients:** `vedo-frontend` (public, PKCE) and `vedo-backend` (confidential, service accounts)
 - **Social Identity Providers:** Yandex, VK ID, Mail.ru (optional, enabled via env vars)
-- **Realm import:** `keycloak/realm-import.json` with env var substitution on startup
+- **Realm import:** `keycloak/realm-import.json.template` with env var substitution on startup (no credentials in repo)
 
 All authentication is handled exclusively by KeyCloak JWT tokens — the legacy API key mechanism has been removed.
 

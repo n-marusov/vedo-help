@@ -107,6 +107,41 @@ curl -X DELETE http://localhost:3000/api/documents/550e8400-e29b-41d4-a716-44665
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
+#### `DELETE /api/documents/batch`
+
+Delete multiple documents by their IDs in a single request. Uses the same soft-delete mechanism as single-document deletion. Chroma embeddings are cleaned up per-document.
+
+**Request:**
+
+```json
+{
+  "ids": ["550e8400-e29b-41d4-a716-446655440000", "660e8400-e29b-41d4-a716-446655440001"]
+}
+```
+
+```bash
+curl -X DELETE http://localhost:3000/api/documents/batch \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ids":["550e8400-e29b-41d4-a716-446655440000","660e8400-e29b-41d4-a716-446655440001"]}'
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "deleted_count": 2,
+  "ids": ["550e8400-e29b-41d4-a716-446655440000", "660e8400-e29b-41d4-a716-446655440001"]
+}
+```
+
+**Error responses:**
+
+| Status | Error Type | Description |
+|--------|-----------|-------------|
+| 400 | `bad_request` | No document IDs provided |
+| 404 | `not_found` | No matching documents found |
+
 #### `POST /api/documents/reload/{id}`
 
 Reload/re-index an existing document. Deactivates old chunks, parses the new file content, chunks it, and saves new active chunks. The document identity (UUID) remains the same.

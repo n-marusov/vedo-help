@@ -20,6 +20,13 @@ services:
     environment:
       RUST_LOG: debug
       CARGO_TARGET_DIR: /app/target
+    # Dev stage (rust:1.96-slim-bookworm) lacks curl — use TCP check instead.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/3000'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
     command: cargo watch -x run
 
   embedding:
@@ -52,6 +59,13 @@ services:
       NODE_ENV: development
       VITE_KEYCLOAK_PROXY_TARGET: http://keycloak:8080
       VITE_API_PROXY_TARGET: http://backend:3000
+    # Dev server (Vite) runs on port 5173, not nginx on 80.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   keycloak-db:
     ports: []

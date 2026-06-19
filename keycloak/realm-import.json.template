@@ -6,7 +6,7 @@
 	"sslRequired": "external",
 	"loginWithEmailAllowed": true,
 	"registrationAllowed": false,
-	"registrationEmailAsUsername": true,
+	"registrationEmailAsUsername": false,
 	"bruteForceProtected": true,
 	"roles": {
 		"realm": [
@@ -102,7 +102,7 @@
 			"serviceAccountsEnabled": true,
 			"authorizationServicesEnabled": false,
 			"protocol": "openid-connect",
-			"secret": "changeme-vedo-backend-secret",
+			"secret": "${VEDO_BACKEND_CLIENT_SECRET}",
 			"redirectUris": [],
 			"webOrigins": [],
 			"protocolMappers": [
@@ -132,7 +132,7 @@
 			"credentials": [
 				{
 					"type": "password",
-					"value": "admin",
+					"value": "${VEDO_ADMIN_PASSWORD}",
 					"temporary": false
 				}
 			],
@@ -151,7 +151,7 @@
 			"credentials": [
 				{
 					"type": "password",
-					"value": "password",
+					"value": "${VEDO_ALICE_PASSWORD}",
 					"temporary": false
 				}
 			],
@@ -170,7 +170,7 @@
 			"credentials": [
 				{
 					"type": "password",
-					"value": "guest",
+					"value": "${VEDO_GUEST_PASSWORD}",
 					"temporary": false
 				}
 			],
@@ -188,6 +188,56 @@
 	],
 	"identityProviders": [],
 	"defaultRoles": ["guest"],
+	"requiredActions": [
+		{
+			"alias": "CONFIGURE_TOTP",
+			"name": "Configure OTP",
+			"providerId": "CONFIGURE_TOTP",
+			"enabled": true,
+			"defaultAction": false,
+			"priority": 10
+		},
+		{
+			"alias": "TERMS_AND_CONDITIONS",
+			"name": "Terms and Conditions",
+			"providerId": "TERMS_AND_CONDITIONS",
+			"enabled": false,
+			"defaultAction": false,
+			"priority": 20
+		},
+		{
+			"alias": "UPDATE_PASSWORD",
+			"name": "Update Password",
+			"providerId": "UPDATE_PASSWORD",
+			"enabled": true,
+			"defaultAction": false,
+			"priority": 30
+		},
+		{
+			"alias": "UPDATE_PROFILE",
+			"name": "Update Profile",
+			"providerId": "UPDATE_PROFILE",
+			"enabled": true,
+			"defaultAction": false,
+			"priority": 40
+		},
+		{
+			"alias": "VERIFY_EMAIL",
+			"name": "Verify Email",
+			"providerId": "VERIFY_EMAIL",
+			"enabled": true,
+			"defaultAction": false,
+			"priority": 50
+		},
+		{
+			"alias": "VERIFY_PROFILE",
+			"name": "Verify Profile",
+			"providerId": "VERIFY_PROFILE",
+			"enabled": false,
+			"defaultAction": false,
+			"priority": 90
+		}
+	],
 	"scopeMappings": [
 		{
 			"client": "vedo-frontend",

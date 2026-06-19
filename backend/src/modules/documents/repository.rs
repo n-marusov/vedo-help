@@ -1,8 +1,45 @@
-use sqlx::SqlitePool;
+use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 use uuid::Uuid;
 
 use crate::modules::documents::models::{Chunk, Document};
 use crate::shared::error::AppError;
+
+#[derive(Debug, sqlx::FromRow)]
+struct DocumentRow {
+    id: String,
+    name: String,
+    file_type: String,
+    file_size: i64,
+    uploaded_at: String,
+    collection_id: String,
+    is_active: bool,
+}
+
+impl TryFrom<DocumentRow> for Document {
+    type Error = AppError;
+
+    fn try_from(row: DocumentRow) -> Result<Self, Self::Error> {
+        let id = Uuid::parse_str(&row.id).map_err(|e| {
+            AppError::InternalError(format!("Invalid document UUID in database: {e}"))
+        })?;
+        let collection_id = Uuid::parse_str(&row.collection_id).map_err(|e| {
+            AppError::InternalError(format!("Invalid collection UUID in database: {e}"))
+        })?;
+        let uploaded_at = row.uploaded_at.parse().map_err(|e| {
+            AppError::InternalError(format!("Invalid uploaded_at timestamp in database: {e}"))
+        })?;
+
+        Ok(Document {
+            id,
+            name: row.name,
+            file_type: row.file_type,
+            file_size: row.file_size,
+            uploaded_at,
+            collection_id,
+            is_active: row.is_active,
+        })
+    }
+}
 
 /// Repository for document and chunk data access.
 #[derive(Clone, Debug)]
@@ -104,6 +141,131 @@ impl DocumentRepository {
         );
 
         Ok(documents)
+    }
+
+    /// Retrieve documents by their IDs.
+    pub async fn get_documents_by_ids(&self, ids: &[Uuid]) -> Result<Vec<Document>, AppError> {
+        if ids.is_empty() {
+            tracing::debug!("[DocumentRepository.get_documents_by_ids] no ids supplied");
+            return Ok(Vec::new());
+        }
+
+        tracing::debug!(
+            "[DocumentRepository.get_documents_by_ids] fetching documents: count={count}",
+            count = ids.len()
+        );
+
+        let mut query_builder: QueryBuilder<Sqlite> = QueryBuilder::new(
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE id IN (",
+        );
+        let mut separated = query_builder.separated(", ");
+        for id in ids {
+            separated.push_bind(id.to_string());
+        }
+        separated.push_unseparated(")");
+
+        let rows = query_builder
+            .build_query_as::<DocumentRow>()
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let documents = rows
+            .into_iter()
+            .map(Document::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        tracing::info!(
+            "[DocumentRepository.get_documents_by_ids] fetched documents: requested={requested}, found={found}",
+            requested = ids.len(),
+            found = documents.len()
+        );
+
+        Ok(documents)
+    }
+
+    /// Soft-deactivate all chunks belonging to any of the supplied documents.
+    pub async fn deactivate_chunks_batch(&self, document_ids: &[Uuid]) -> Result<u64, AppError> {
+        if document_ids.is_empty() {
+            tracing::debug!(
+                "[DocumentRepository.deactivate_chunks_batch] no document ids supplied"
+            );
+            return Ok(0);
+        }
+
+        tracing::debug!(
+            "[DocumentRepository.deactivate_chunks_batch] deactivating chunks: document_count={count}",
+            count = document_ids.len()
+        );
+
+        let mut query_builder: QueryBuilder<Sqlite> =
+            QueryBuilder::new("UPDATE chunks SET is_active = 0 WHERE document_id IN (");
+        let mut separated = query_builder.separated(", ");
+        for id in document_ids {
+            separated.push_bind(id.to_string());
+        }
+        separated.push_unseparated(")");
+
+        let affected =
+            query_builder.build().execute(&self.db).await.map_err(|e| {
+                AppError::InternalError(format!("Failed to deactivate chunks: {e}"))
+            })?;
+        let count = affected.rows_affected();
+
+        if count == 0 {
+            tracing::warn!(
+                "[DocumentRepository.deactivate_chunks_batch] no chunks were deactivated: document_count={requested}",
+                requested = document_ids.len()
+            );
+        } else {
+            tracing::info!(
+                "[DocumentRepository.deactivate_chunks_batch] deactivated chunks: affected={count}, document_count={requested}",
+                requested = document_ids.len()
+            );
+        }
+
+        Ok(count)
+    }
+
+    /// Soft-deactivate all supplied documents.
+    pub async fn deactivate_documents_batch(&self, ids: &[Uuid]) -> Result<u64, AppError> {
+        if ids.is_empty() {
+            tracing::debug!("[DocumentRepository.deactivate_documents_batch] no ids supplied");
+            return Ok(0);
+        }
+
+        tracing::debug!(
+            "[DocumentRepository.deactivate_documents_batch] deactivating documents: count={count}",
+            count = ids.len()
+        );
+
+        let mut query_builder: QueryBuilder<Sqlite> =
+            QueryBuilder::new("UPDATE documents SET is_active = 0 WHERE id IN (");
+        let mut separated = query_builder.separated(", ");
+        for id in ids {
+            separated.push_bind(id.to_string());
+        }
+        separated.push_unseparated(")");
+
+        let affected =
+            query_builder.build().execute(&self.db).await.map_err(|e| {
+                AppError::InternalError(format!("Failed to deactivate documents: {e}"))
+            })?;
+        let count = affected.rows_affected();
+
+        if count == 0 {
+            tracing::warn!(
+                "[DocumentRepository.deactivate_documents_batch] no documents were deactivated: requested={requested}",
+                requested = ids.len()
+            );
+        } else {
+            tracing::info!(
+                "[DocumentRepository.deactivate_documents_batch] deactivated documents: affected={count}, requested={requested}",
+                requested = ids.len()
+            );
+        }
+
+        Ok(count)
     }
 
     /// Delete a document and its associated chunks.
@@ -614,5 +776,120 @@ mod tests {
             active_chunks.is_empty(),
             "should return empty vec when all chunks are inactive"
         );
+    }
+
+    #[tokio::test]
+    async fn test_get_documents_by_ids_round_trips_uuid_text_rows() {
+        let pool = setup_test_db().await;
+        let repo = DocumentRepository::new(pool);
+        let col_id = "00000000-0000-0000-0000-000000000010";
+        let doc_id_1 = "00000000-0000-0000-0000-000000000071";
+        let doc_id_2 = "00000000-0000-0000-0000-000000000072";
+        let missing_id = Uuid::parse_str("00000000-0000-0000-0000-000000000073").unwrap();
+
+        repo.save_document(&test_doc(doc_id_1, col_id))
+            .await
+            .expect("should save first document");
+        repo.save_document(&test_doc(doc_id_2, col_id))
+            .await
+            .expect("should save second document");
+
+        let requested_ids = vec![
+            Uuid::parse_str(doc_id_1).unwrap(),
+            Uuid::parse_str(doc_id_2).unwrap(),
+            missing_id,
+        ];
+        let documents = repo
+            .get_documents_by_ids(&requested_ids)
+            .await
+            .expect("should fetch matching documents");
+
+        assert_eq!(
+            documents.len(),
+            2,
+            "only existing documents should be returned"
+        );
+        assert!(documents.iter().any(|doc| doc.id.to_string() == doc_id_1));
+        assert!(documents.iter().any(|doc| doc.id.to_string() == doc_id_2));
+        assert!(
+            documents
+                .iter()
+                .all(|doc| doc.collection_id.to_string() == col_id),
+            "collection UUID TEXT values should round-trip into Uuid fields"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_deactivate_batch_methods_only_affect_requested_documents() {
+        let pool = setup_test_db().await;
+        let repo = DocumentRepository::new(pool);
+        let col_id = "00000000-0000-0000-0000-000000000010";
+        let doc_id_1 = "00000000-0000-0000-0000-000000000081";
+        let doc_id_2 = "00000000-0000-0000-0000-000000000082";
+        let doc_id_3 = "00000000-0000-0000-0000-000000000083";
+
+        for doc_id in [doc_id_1, doc_id_2, doc_id_3] {
+            repo.save_document(&test_doc(doc_id, col_id))
+                .await
+                .expect("should save document");
+        }
+        repo.save_chunk(&test_chunk(
+            "00000000-0000-0000-0000-000000000091",
+            doc_id_1,
+            0,
+        ))
+        .await
+        .expect("should save first chunk");
+        repo.save_chunk(&test_chunk(
+            "00000000-0000-0000-0000-000000000092",
+            doc_id_2,
+            0,
+        ))
+        .await
+        .expect("should save second chunk");
+        repo.save_chunk(&test_chunk(
+            "00000000-0000-0000-0000-000000000093",
+            doc_id_3,
+            0,
+        ))
+        .await
+        .expect("should save third chunk");
+
+        let target_ids = vec![
+            Uuid::parse_str(doc_id_1).unwrap(),
+            Uuid::parse_str(doc_id_2).unwrap(),
+        ];
+        let chunk_count = repo
+            .deactivate_chunks_batch(&target_ids)
+            .await
+            .expect("should deactivate chunks for requested documents");
+        let doc_count = repo
+            .deactivate_documents_batch(&target_ids)
+            .await
+            .expect("should deactivate requested documents");
+
+        assert_eq!(chunk_count, 2);
+        assert_eq!(doc_count, 2);
+
+        let active_documents: Vec<(String, i64)> =
+            sqlx::query_as("SELECT id, is_active FROM documents ORDER BY id")
+                .fetch_all(repo.db_pool())
+                .await
+                .expect("should query documents");
+        assert_eq!(active_documents[0].1, 0);
+        assert_eq!(active_documents[1].1, 0);
+        assert_eq!(
+            active_documents[2].1, 1,
+            "untargeted document should stay active"
+        );
+
+        let active_chunks: Vec<(String, i64)> =
+            sqlx::query_as("SELECT document_id, is_active FROM chunks ORDER BY document_id")
+                .fetch_all(repo.db_pool())
+                .await
+                .expect("should query chunks");
+        assert_eq!(active_chunks[0].1, 0);
+        assert_eq!(active_chunks[1].1, 0);
+        assert_eq!(active_chunks[2].1, 1, "untargeted chunk should stay active");
     }
 }

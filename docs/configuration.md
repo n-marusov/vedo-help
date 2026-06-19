@@ -47,12 +47,15 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 |----------|-------------|---------|
 | `KEYCLOAK_DB_PASSWORD` | PostgreSQL password for KeyCloak database | `keycloak` |
 | `KEYCLOAK_ADMIN` | KeyCloak admin console username | `admin` |
-| `KEYCLOAK_ADMIN_PASSWORD` | KeyCloak admin console password | `admin` |
+| `KEYCLOAK_ADMIN_PASSWORD` | KeyCloak admin console password (master realm) | `admin` |
 | `KEYCLOAK_HOSTNAME` | KeyCloak hostname | `localhost` |
 | `KEYCLOAK_PUBLIC_URL` | Public issuer URL used for JWT `iss` validation | `http://localhost:8080` |
 | `KEYCLOAK_JWKS_URL` | Internal URL used by backend to fetch JWKS | `http://keycloak:8080` in Docker Compose |
 | `KEYCLOAK_URL` | Backward-compatible fallback for public issuer URL | `http://localhost:8080` |
 | `VEDO_BACKEND_CLIENT_SECRET` | Client secret for `vedo-backend` confidential OIDC client | `changeme-vedo-backend-secret` |
+| `VEDO_ADMIN_PASSWORD` | vedo-hub realm: admin user password | `admin` |
+| `VEDO_ALICE_PASSWORD` | vedo-hub realm: alice user password | `password` |
+| `VEDO_GUEST_PASSWORD` | vedo-hub realm: guest user password | `guest` |
 | `YANDEX_CLIENT_ID` | Yandex OAuth Client ID (social IdP) | _(empty — disabled)_ |
 | `YANDEX_CLIENT_SECRET` | Yandex OAuth Client Secret (social IdP) | _(empty — disabled)_ |
 | `VK_CLIENT_ID` | VK ID Client ID (social IdP) | _(empty — disabled)_ |
@@ -64,9 +67,9 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 
 | Username | Password | Roles |
 |----------|----------|-------|
-| `admin` | `KEYCLOAK_ADMIN_PASSWORD` | `admin`, `user`, `guest` |
-| `alice` | `password` | `user`, `guest` |
-| `guest` | `guest` | `guest` |
+| `admin` | `VEDO_ADMIN_PASSWORD` | `admin`, `user`, `guest` |
+| `alice` | `VEDO_ALICE_PASSWORD` | `user`, `guest` |
+| `guest` | `VEDO_GUEST_PASSWORD` | `guest` |
 
 ## Docker Volumes
 
