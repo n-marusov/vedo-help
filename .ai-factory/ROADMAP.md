@@ -55,7 +55,7 @@
   - ✅ **Фронтенд (Phase 6, Tasks 13–14):** реализовано
   - ✅ **E2E (Phase 7):** E2E-тесты для Git Sync (9 тестов), фикс Vite-ошибки (v-model), замена selectOption на клики VSelect
 - [x] **Remove ADMIN_API_KEY** — выпилить legacy API key аутентификацию, оставить только KeyCloak JWT
-- [ ] **Document re-indexing** — деактивация старых чанков при перезагрузке
+- [x] **Document re-indexing** — деактивация старых чанков при перезагрузке
 - [x] **Confidence indicator** — relevance score в UI (sources)
 - [ ] **Embedding submission in upload pipeline** — `process_upload` и `process_zip_upload` сохраняют чанки только в SQLite, но не отправляют их в `EmbeddingClient`/Chroma. Добавить вызов эмбеддинга и `chroma_client.add()` в оба пути; при ошибке эмбеддинга — откат сохранённых чанков (или флаг `pending_embedding` с retry-джобой)
 - [ ] **Graceful degradation** — fallback-модель + кэширование ответов (есть retry + кэш эмбеддингов, нет fallback LLM)
@@ -131,7 +131,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
-| v0.3 — Admin Panel & Production Polish | ⏳ 9/11 | Collection & document management, confidence indicator, ZIP upload ✅; Git sync backend ✅/frontend ✅/e2e ✅; ADMIN_API_KEY removed ✅; re-indexing, embedding submission, graceful degradation ❌ |
+| v0.3 — Admin Panel & Production Polish | ⏳ 10/11 | Collection & document management, confidence indicator, ZIP upload ✅; Git sync backend ✅/frontend ✅/e2e ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; embedding submission, graceful degradation ❌ |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 2/6 | Streaming, LLM error handling ✅; message editing, context, export, empty state ❌ |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
@@ -141,4 +141,5 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Старт:** 2026-06-14
 **MVP завершён:** 2026-06-15
 **Chat UI overhaul (Phases 0–4):** 2026-06-16
-**Что дальше:** `/aif-implement` — завершение v0.3 (ZIP batch upload, document re-indexing, embedding submission, graceful degradation) и v0.3.1 (message editing, context window, chat export UI, loading skeletons)
+**Document re-indexing:** 2026-06-19
+**Что дальше:** `/aif-implement` — завершение v0.3 (embedding submission, graceful degradation) и v0.3.1 (message editing, context window, chat export UI, loading skeletons)

@@ -141,9 +141,11 @@ function promptDelete(doc: { id: string; name: string }) {
 
 async function handleDeleteConfirm() {
   if (deletingDoc.value) {
-    await documentStore.deleteDocument(deletingDoc.value.id);
-    showDeleteDialog.value = false;
-    deletingDoc.value = null;
+    const success = await documentStore.deleteDocument(deletingDoc.value.id);
+    if (success) {
+      showDeleteDialog.value = false;
+      deletingDoc.value = null;
+    }
   }
 }
 

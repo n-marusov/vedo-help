@@ -11,6 +11,7 @@ pub struct Document {
     pub file_size: i64,
     pub uploaded_at: DateTime<Utc>,
     pub collection_id: Uuid,
+    pub is_active: bool,
 }
 
 /// Response returned after a successful document upload.
@@ -30,6 +31,7 @@ pub struct DocumentSummary {
     pub file_size: i64,
     pub uploaded_at: DateTime<Utc>,
     pub collection_id: Uuid,
+    pub is_active: bool,
 }
 
 /// A chunk of text extracted from a document.
@@ -39,6 +41,7 @@ pub struct Chunk {
     pub document_id: Uuid,
     pub index: usize,
     pub text: String,
+    pub is_active: bool,
 }
 
 /// Result of processing a single file within a ZIP archive.

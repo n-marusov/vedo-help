@@ -241,7 +241,7 @@ async fn test_sync_markdown_repo_from_local_fixture() {
         // 7. Query Chroma for content from the guide file
         let guide_query: Vec<f32> = vec![0.0, 0.5, 0.5, 0.0, 0.1, 0.2, 0.3, 0.4];
         let results = client
-            .query(&collection_name, &guide_query, 3)
+            .query(&collection_name, &guide_query, 3, None)
             .await
             .expect("should query embeddings");
 
@@ -493,7 +493,7 @@ async fn test_sync_empty_repo() {
         .expect("create empty collection");
 
     let results = client
-        .query(&collection_name, &[0.5, 0.5, 0.5], 5)
+        .query(&collection_name, &[0.5, 0.5, 0.5], 5, None)
         .await
         .expect("query on empty collection");
 
@@ -616,7 +616,7 @@ async fn test_sync_repo_with_nested_dirs() {
     // 4. Query for content from the nested API ref file
     let api_query: Vec<f32> = vec![0.1, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
     let results = client
-        .query(&collection_name, &api_query, 3)
+        .query(&collection_name, &api_query, 3, None)
         .await
         .expect("query nested docs");
 
@@ -798,7 +798,7 @@ async fn test_concurrent_sync_on_same_repo_is_safe() {
     // 5. Query — verify all chunks are searchable and no corruption
     let query_vec: Vec<f32> = vec![0.2, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75];
     let results = client
-        .query(&collection_name, &query_vec, 10)
+        .query(&collection_name, &query_vec, 10, None)
         .await
         .expect("query after concurrent syncs");
 

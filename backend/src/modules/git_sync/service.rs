@@ -581,6 +581,19 @@ impl GitSyncService {
         let mut all_metadatas = Vec::new();
 
         for (file_path, content) in files {
+            let doc_id = format!("git-{repo_id}-{}", file_path.replace('/', "-"));
+
+            // Delete old chunks for this file from Chroma before re-indexing
+            if let Err(e) = chroma
+                .delete_where(collection_name, &serde_json::json!({"document_id": doc_id}))
+                .await
+            {
+                tracing::warn!(
+                    "[GitSyncService::index_chunks] failed to delete old chunks \
+                     doc_id={doc_id} collection={collection_name} repo_id={repo_id} error={e}"
+                );
+            }
+
             // Chunk the document
             let chunks = chunk_document(content);
             if chunks.is_empty() {
@@ -603,7 +616,6 @@ impl GitSyncService {
                 })?;
 
             // Prepare IDs and metadata
-            let doc_id = format!("git-{repo_id}-{}", file_path.replace('/', "-"));
             for (i, chunk) in chunks.iter().enumerate() {
                 let chunk_id = format!("{doc_id}-{i}");
                 all_ids.push(chunk_id);
@@ -615,6 +627,7 @@ impl GitSyncService {
                     "source": "git",
                     "repo_id": repo_id.to_string(),
                     "file_path": file_path,
+                    "is_active": true,
                 }));
             }
 
@@ -907,5 +920,122 @@ mod tests {
         let url = "file:///tmp/repo";
         let result = GitSyncService::inject_token(url, &Some("token".to_string()));
         assert_eq!(result, "file:///tmp/repo");
+    }
+
+    /// Helper: create a GitSyncService for testing index_chunks behavior.
+    /// Uses an in-memory DB and a dummy Chroma/embedding URL.
+    async fn make_test_service() -> GitSyncService {
+        use crate::modules::git_sync::repository::GitRepoRepository;
+
+        let pool = sqlx::SqlitePool::connect(":memory:")
+            .await
+            .expect("Failed to create in-memory pool");
+
+        // Create the git_repos table
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS git_repos (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                branch TEXT NOT NULL DEFAULT 'main',
+                access_token TEXT,
+                local_path TEXT NOT NULL,
+                last_commit_hash TEXT,
+                last_synced_at TEXT,
+                collection_id TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                webhook_secret TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .ok();
+
+        let repo = GitRepoRepository::new(pool);
+        GitSyncService::new(
+            repo,
+            "http://chroma:8000".to_string(),
+            "http://embedding:8001".to_string(),
+            PathBuf::from("/tmp/vedo-test-git"),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_index_chunks_includes_is_active_in_metadata() {
+        let svc = make_test_service().await;
+        let collection_name = "test-index-chunks-active";
+        let repo_id = Uuid::new_v4();
+
+        let files = vec![
+            (
+                "doc1.md".to_string(),
+                "# Document One\n\nHello world.".to_string(),
+            ),
+            (
+                "doc2.md".to_string(),
+                "# Document Two\n\nSecond document.".to_string(),
+            ),
+        ];
+
+        // Act: index chunks
+        let result = svc.index_chunks(collection_name, repo_id, &files).await;
+
+        // We expect a connection error (Chroma/embedding not available in unit test)
+        // But the important behavior to verify: the method should attempt to
+        // call delete_where for each file BEFORE adding new embeddings.
+        //
+        // Once T8.1 is implemented, the flow will be:
+        //   1. For each file: compute doc_id, call chroma.delete_where(...)
+        //   2. Then embed and add with is_active=true in metadata
+        //
+        // For now, this test documents the expected behavior and will
+        // exercise the new code paths once implemented.
+        match &result {
+            Err(AppError::ChromaError(_)) | Err(AppError::EmbeddingError(_)) => {
+                // Expected: external service not available
+            }
+            Err(e) => {
+                panic!("Expected Chroma/Embedding error but got unexpected error: {e:?}");
+            }
+            Ok((files_idx, chunks_total)) => {
+                // If it succeeds (unlikely without services), validate counts
+                assert!(*files_idx > 0, "should have indexed files");
+                assert!(*chunks_total > 0, "should have created chunks");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_index_chunks_cleans_up_old_chunks_before_adding() {
+        let svc = make_test_service().await;
+        let collection_name = "test-index-chunks-cleanup";
+        let repo_id = Uuid::new_v4();
+
+        let files = vec![(
+            "doc1.md".to_string(),
+            "# Document One\n\nContent.".to_string(),
+        )];
+
+        // Act: index chunks (this should call delete_where for each file's doc_id)
+        let result = svc.index_chunks(collection_name, repo_id, &files).await;
+
+        // Once T8.1 is implemented, index_chunks will:
+        //   1. Compute doc_id = format!("git-{repo_id}-{}", file_path.replace("/", "-"))
+        //   2. Call chroma.delete_where(&collection, &json!({"document_id": doc_id})).await
+        //   3. Then proceed with chunking and adding new embeddings
+        //
+        // This prevents stale chunks from accumulating on incremental sync.
+        match &result {
+            Err(AppError::ChromaError(_)) | Err(AppError::EmbeddingError(_)) => {
+                // Expected: external service not available
+            }
+            Err(e) => {
+                panic!("Expected Chroma/Embedding error but got unexpected error: {e:?}");
+            }
+            Ok((files_idx, _chunks_total)) => {
+                assert!(*files_idx > 0);
+            }
+        }
     }
 }

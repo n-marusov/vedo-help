@@ -4,7 +4,9 @@ use crate::modules::documents::models::{
     Chunk, Document, DocumentSummary, UploadResponse, ZipUploadItem, ZipUploadResponse,
 };
 use crate::modules::documents::repository::DocumentRepository;
+use crate::shared::chroma_client::ChromaClient;
 use crate::shared::chunking::chunk_document;
+use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 use crate::shared::file_validation::{validate_file, MAX_FILE_SIZE};
 use crate::shared::types::FileType;
@@ -12,13 +14,32 @@ use crate::shared::types::FileType;
 /// Service for document management operations.
 #[derive(Clone, Debug)]
 pub struct DocumentService {
-    repo: DocumentRepository,
+    pub(crate) repo: DocumentRepository,
+    pub(crate) chroma_client: Option<ChromaClient>,
+    pub(crate) embedding_client: Option<EmbeddingClient>,
 }
 
 impl DocumentService {
-    /// Create a new DocumentService.
+    /// Create a new DocumentService with only a repository (no Chroma/embedding).
     pub fn new(repo: DocumentRepository) -> Self {
-        Self { repo }
+        Self {
+            repo,
+            chroma_client: None,
+            embedding_client: None,
+        }
+    }
+
+    /// Create a DocumentService with Chroma and embedding clients.
+    pub fn with_clients(
+        repo: DocumentRepository,
+        chroma_client: ChromaClient,
+        embedding_client: EmbeddingClient,
+    ) -> Self {
+        Self {
+            repo,
+            chroma_client: Some(chroma_client),
+            embedding_client: Some(embedding_client),
+        }
     }
 
     /// Process a document upload: validate, parse, chunk, save.
@@ -70,19 +91,37 @@ impl DocumentService {
             file_size: data.len() as i64,
             uploaded_at: chrono::Utc::now(),
             collection_id,
+            is_active: true,
         };
 
         self.repo.save_document(&doc).await?;
 
         // 5. Save chunks
+        let mut chunk_records = Vec::new();
         for chunk in &chunks {
             let chunk_record = crate::modules::documents::models::Chunk {
                 id: Uuid::new_v4(),
                 document_id: doc_id,
                 index: chunk.index,
                 text: chunk.text.clone(),
+                is_active: true,
             };
             self.repo.save_chunk(&chunk_record).await?;
+            chunk_records.push(chunk_record);
+        }
+
+        // 6. Index into Chroma if clients are available. If indexing fails, roll
+        // back the active SQLite rows so users do not see unsearchable documents.
+        if let Err(e) = self
+            .index_chunks_in_chroma(collection_id, doc_id, filename, &chunk_records)
+            .await
+        {
+            tracing::error!(
+                "Upload indexing failed; deactivating document and chunks: document={doc_id}, error={e}"
+            );
+            self.repo.deactivate_chunks(doc_id).await?;
+            self.repo.deactivate_document(doc_id).await?;
+            return Err(e);
         }
 
         Ok(UploadResponse {
@@ -107,14 +146,141 @@ impl DocumentService {
                 file_size: d.file_size,
                 uploaded_at: d.uploaded_at,
                 collection_id: d.collection_id,
+                is_active: d.is_active,
             })
             .collect();
         Ok(summaries)
     }
 
-    /// Delete a document and its chunks.
+    /// Soft delete a document: deactivate it and its chunks in SQLite.
+    /// Rows remain in the database but are excluded from active queries.
+    /// Also removes the document's embeddings from Chroma if clients are configured.
     pub async fn delete_document(&self, id: Uuid) -> Result<(), AppError> {
-        self.repo.delete_document(id).await
+        tracing::info!("Soft deleting document: {id}");
+
+        // Fetch the document to get collection_id for Chroma cleanup
+        let doc = self.repo.get_document(id).await?;
+
+        // Deactivate chunks first
+        self.repo.deactivate_chunks(id).await?;
+
+        // Deactivate the document itself
+        self.repo.deactivate_document(id).await?;
+
+        // Clean up Chroma embeddings if clients are available
+        if let Some(ref chroma) = self.chroma_client {
+            let collection_name = doc.collection_id.to_string();
+            let filter = serde_json::json!({"document_id": id.to_string()});
+
+            tracing::debug!(
+                "Deleting Chroma embeddings for document {id} in collection {collection_name}"
+            );
+
+            if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
+                // Log but don't fail — SQLite soft delete already succeeded
+                tracing::warn!("Failed to delete Chroma embeddings for document {id}: {e}");
+            } else {
+                tracing::info!(
+                    "Deleted Chroma embeddings for document {id} in collection {collection_name}"
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Reload/re-index a document: deactivate old chunks, parse new content,
+    /// chunk it, and save new active chunks while preserving the document identity.
+    /// Also updates Chroma embeddings if clients are configured.
+    pub async fn reload_document(
+        &self,
+        data: &[u8],
+        filename: &str,
+        document_id: Uuid,
+    ) -> Result<UploadResponse, AppError> {
+        tracing::info!("Reloading document: {document_id}, filename: {filename}");
+
+        // 1. Verify document exists (will error if not found)
+        let doc = self.repo.get_document(document_id).await?;
+
+        // 2. Validate and parse new file before changing active state.
+        let file_type = validate_file(data, filename)?;
+        let content = parse_file_content(data, filename, &file_type)
+            .map_err(|e| AppError::FileError(format!("Failed to parse reloaded file: {e}")))?;
+
+        // 3. Chunk the new content
+        let chunks = crate::shared::chunking::chunk_document(&content);
+
+        tracing::debug!(
+            "Parsed {new_count} new chunks for document {document_id}",
+            new_count = chunks.len()
+        );
+
+        // 4. Save new chunks as active, but keep old chunks active until Chroma indexing succeeds.
+        let old_chunks = self.repo.get_active_chunks(document_id).await?;
+        let old_count = old_chunks.len();
+        let mut chunk_records = Vec::new();
+        for chunk in &chunks {
+            let chunk_record = crate::modules::documents::models::Chunk {
+                id: Uuid::new_v4(),
+                document_id,
+                index: chunk.index,
+                text: chunk.text.clone(),
+                is_active: true,
+            };
+            self.repo.save_chunk(&chunk_record).await?;
+            chunk_records.push(chunk_record);
+        }
+
+        // 5. Index new embeddings first. On failure, deactivate only the newly saved chunks.
+        if let Err(e) = self
+            .index_chunks_in_chroma(doc.collection_id, document_id, filename, &chunk_records)
+            .await
+        {
+            let new_chunk_ids: Vec<Uuid> = chunk_records.iter().map(|c| c.id).collect();
+            tracing::error!(
+                "Reload indexing failed; preserving old active chunks and deactivating new chunks: document={document_id}, error={e}"
+            );
+            self.repo.deactivate_chunks_by_ids(&new_chunk_ids).await?;
+            return Err(e);
+        }
+
+        // 6. Switch active version after new Chroma data is available.
+        let old_chunk_ids: Vec<Uuid> = old_chunks.iter().map(|c| c.id).collect();
+        self.repo.deactivate_chunks_by_ids(&old_chunk_ids).await?;
+        self.repo
+            .update_document_metadata(
+                document_id,
+                filename,
+                &format!("{:?}", file_type),
+                data.len() as i64,
+            )
+            .await?;
+
+        // 7. Delete old Chroma embeddings if clients are available. This happens after
+        // successful re-indexing so temporary Chroma failures do not remove the last searchable version.
+        if let Some(ref chroma) = self.chroma_client {
+            let collection_name = doc.collection_id.to_string();
+            let old_ids: Vec<String> = old_chunk_ids.iter().map(Uuid::to_string).collect();
+            if let Err(e) = chroma.delete_document(&collection_name, &old_ids).await {
+                tracing::warn!(
+                    "Failed to delete old Chroma embeddings for document {document_id}: {e}"
+                );
+            } else {
+                tracing::debug!("Deleted old Chroma embeddings for document {document_id}");
+            }
+        }
+
+        let new_count = chunks.len();
+        tracing::info!(
+            "Reload complete: document={document_id}, old_chunks={old_count}, new_chunks={new_count}"
+        );
+
+        Ok(UploadResponse {
+            document_id,
+            chunks_indexed: new_count,
+            document_name: filename.to_string(),
+        })
     }
 
     /// Process a ZIP batch upload: extract, validate, chunk, and save each file.
@@ -216,6 +382,10 @@ impl DocumentService {
         let mut processed = 0usize;
         let mut failed = 0usize;
         let mut items = Vec::new();
+        // Accumulators for Chroma batch indexing
+        let mut chroma_ids: Vec<String> = Vec::new();
+        let mut chroma_texts: Vec<String> = Vec::new();
+        let mut chroma_metadatas: Vec<serde_json::Value> = Vec::new();
 
         for (name, entry_data) in extracted {
             tracing::debug!("Processing: {name} ({} bytes)", entry_data.len());
@@ -278,6 +448,7 @@ impl DocumentService {
                 file_size: entry_data.len() as i64,
                 uploaded_at: chrono::Utc::now(),
                 collection_id,
+                is_active: true,
             };
 
             // Save document (async, no ZipFile borrow)
@@ -295,18 +466,22 @@ impl DocumentService {
 
             // Save chunks
             let mut save_ok = true;
+            let mut file_chunk_records: Vec<Chunk> = Vec::new();
+            let chunk_doc_name = name.clone();
             for chunk in &chunks {
                 let chunk_record = Chunk {
                     id: Uuid::new_v4(),
                     document_id: doc_id,
                     index: chunk.index,
                     text: chunk.text.clone(),
+                    is_active: true,
                 };
                 if let Err(e) = self.repo.save_chunk(&chunk_record).await {
                     tracing::warn!("Failed to save chunk {} for {name}: {e}", chunk.index);
                     save_ok = false;
                     break;
                 }
+                file_chunk_records.push(chunk_record);
             }
 
             if !save_ok {
@@ -327,6 +502,65 @@ impl DocumentService {
                 document_id: Some(doc_id),
                 error: None,
             });
+
+            // Accumulate chunk data for Chroma batch indexing
+            if self.chroma_client.is_some() && self.embedding_client.is_some() {
+                for chunk_record in &file_chunk_records {
+                    chroma_ids.push(chunk_record.id.to_string());
+                    chroma_texts.push(chunk_record.text.clone());
+                    chroma_metadatas.push(serde_json::json!({
+                        "document_id": doc_id.to_string(),
+                        "document_name": chunk_doc_name.clone(),
+                        "chunk_id": chunk_record.id.to_string(),
+                        "chunk_index": chunk_record.index,
+                        "is_active": true,
+                        "source": "upload",
+                    }));
+                }
+            }
+        }
+
+        // Batch index all accumulated chunks into Chroma. If this fails, deactivate
+        // the documents/chunks that were reported as processed so they are not visible
+        // without searchable embeddings.
+        if !chroma_ids.is_empty() {
+            if let (Some(ref chroma), Some(ref embed)) =
+                (&self.chroma_client, &self.embedding_client)
+            {
+                let collection_name = collection_id.to_string();
+
+                let index_result = async {
+                    let embeddings = embed.embed(chroma_texts).await?;
+                    chroma
+                        .add_embeddings(
+                            &collection_name,
+                            &chroma_ids,
+                            &embeddings,
+                            &chroma_metadatas,
+                        )
+                        .await
+                }
+                .await;
+
+                if let Err(e) = index_result {
+                    tracing::error!(
+                        "ZIP indexing failed; deactivating processed batch rows: collection={collection_id}, error={e}"
+                    );
+                    for item in &items {
+                        if let Some(document_id) = item.document_id {
+                            self.repo.deactivate_chunks(document_id).await?;
+                            self.repo.deactivate_document(document_id).await?;
+                        }
+                    }
+                    return Err(e);
+                }
+
+                tracing::info!(
+                    "Indexed {n} ZIP chunks into Chroma collection {col}",
+                    n = chroma_ids.len(),
+                    col = collection_name
+                );
+            }
         }
 
         tracing::info!("ZIP upload complete: {processed}/{file_count} files processed");
@@ -337,6 +571,61 @@ impl DocumentService {
             failed,
             items,
         })
+    }
+    async fn index_chunks_in_chroma(
+        &self,
+        collection_id: Uuid,
+        document_id: Uuid,
+        document_name: &str,
+        chunks: &[Chunk],
+    ) -> Result<(), AppError> {
+        if chunks.is_empty() {
+            tracing::debug!("No chunks to index for document {document_id}");
+            return Ok(());
+        }
+
+        let (Some(chroma), Some(embed)) = (&self.chroma_client, &self.embedding_client) else {
+            tracing::debug!(
+                "Skipping Chroma indexing for document {document_id}: clients not configured"
+            );
+            return Ok(());
+        };
+
+        let collection_name = collection_id.to_string();
+        let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
+        tracing::debug!(
+            "Embedding {count} chunks before Chroma indexing: document={document_id}, collection={collection_name}",
+            count = chunk_texts.len()
+        );
+        let embeddings = embed.embed(chunk_texts).await?;
+
+        let ids: Vec<String> = chunks.iter().map(|c| c.id.to_string()).collect();
+        let metadatas: Vec<serde_json::Value> = chunks
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "document_id": document_id.to_string(),
+                    "document_name": document_name,
+                    "chunk_id": c.id.to_string(),
+                    "chunk_index": c.index,
+                    "is_active": true,
+                    "source": "upload",
+                })
+            })
+            .collect();
+
+        chroma
+            .add_embeddings(&collection_name, &ids, &embeddings, &metadatas)
+            .await?;
+
+        tracing::info!(
+            "Indexed {n} chunks into Chroma collection {col} for document {doc}",
+            n = chunks.len(),
+            col = collection_name,
+            doc = document_id
+        );
+
+        Ok(())
     }
 }
 
@@ -589,12 +878,174 @@ mod tests {
         assert!(response.failed > 0 || response.processed < response.total_files);
     }
 
-    /// Create a DocumentService with an in-memory repository for testing.
-    async fn make_service() -> DocumentService {
-        // Use shared cache mode so all pool connections see the same in-memory DB
-        let pool = sqlx::SqlitePool::connect("sqlite:file::memory:?cache=shared")
+    #[tokio::test]
+    async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks() {
+        let svc = make_service().await;
+        let collection_id = Uuid::new_v4();
+
+        // Insert a collection for FK
+        sqlx::query(
+            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(collection_id.to_string())
+        .bind("test-collection")
+        .bind("")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(svc.repo.db_pool())
+        .await
+        .ok();
+
+        // First upload: create document with initial content
+        let initial_content = b"# Initial version\n\nThis is the first version of the document.";
+        let upload_result = svc
+            .process_upload(
+                initial_content,
+                "test.md",
+                collection_id,
+                "text/markdown".into(),
+            )
             .await
-            .expect("Failed to create in-memory SQLite pool");
+            .expect("first upload should succeed");
+        let doc_id = upload_result.document_id;
+
+        // Reload with new content
+        let reload_content =
+            b"# Updated version\n\nThis is the reloaded version with different text.";
+        svc.reload_document(reload_content, "test.md", doc_id)
+            .await
+            .expect("reload should succeed");
+
+        // Assert: old chunks are inactive
+        let old_chunks = svc
+            .repo
+            .get_chunks(doc_id)
+            .await
+            .expect("should fetch all chunks");
+        assert!(
+            !old_chunks.is_empty(),
+            "there should be some chunks in the database"
+        );
+
+        // Check is_active via direct SQL for all chunks
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"SELECT id, is_active FROM chunks WHERE document_id = ? ORDER BY "index""#,
+        )
+        .bind(doc_id.to_string())
+        .fetch_all(svc.repo.db_pool())
+        .await
+        .expect("should query chunks");
+
+        // Count active vs inactive
+        let active_count = rows.iter().filter(|(_, active)| *active == 1).count();
+        let inactive_count = rows.iter().filter(|(_, active)| *active == 0).count();
+
+        assert!(
+            inactive_count > 0,
+            "old chunks should be deactivated (found {inactive_count} inactive)"
+        );
+        assert!(
+            active_count > 0,
+            "new chunks should be active (found {active_count} active)"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
+        let svc = make_service().await;
+        let collection_id = Uuid::new_v4();
+
+        // Insert a collection for FK
+        sqlx::query(
+            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .bind(collection_id.to_string())
+        .bind("test-collection-del")
+        .bind("")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(svc.repo.db_pool())
+        .await
+        .ok();
+
+        // Upload a document
+        let content = b"# Test document\n\nThis document will be deleted.";
+        let upload_result = svc
+            .process_upload(
+                content,
+                "delete-me.md",
+                collection_id,
+                "text/markdown".into(),
+            )
+            .await
+            .expect("upload should succeed");
+        let doc_id = upload_result.document_id;
+
+        // Confirm document is visible in active results
+        let docs_before = svc
+            .list_documents(collection_id)
+            .await
+            .expect("should list documents");
+        assert!(
+            docs_before.iter().any(|d| d.id == doc_id),
+            "document should be listed before delete"
+        );
+
+        // Delete the document (soft delete)
+        svc.delete_document(doc_id)
+            .await
+            .expect("soft delete should succeed");
+
+        // Assert: document row still exists in SQLite
+        let doc_row: Option<(String, i64)> =
+            sqlx::query_as("SELECT id, is_active FROM documents WHERE id = ?")
+                .bind(doc_id.to_string())
+                .fetch_optional(svc.repo.db_pool())
+                .await
+                .expect("should query document");
+        assert!(
+            doc_row.is_some(),
+            "document row should still exist after soft delete"
+        );
+        let (_, is_active) = doc_row.unwrap();
+        assert_eq!(is_active, 0, "document should be marked inactive");
+
+        // Assert: chunks remain in SQLite but inactive
+        let chunk_rows: Vec<(String, i64)> =
+            sqlx::query_as(r#"SELECT id, is_active FROM chunks WHERE document_id = ?"#)
+                .bind(doc_id.to_string())
+                .fetch_all(svc.repo.db_pool())
+                .await
+                .expect("should query chunks");
+        assert!(
+            !chunk_rows.is_empty(),
+            "chunks should still exist after soft delete"
+        );
+        for (chunk_id, active) in &chunk_rows {
+            assert_eq!(
+                *active, 0,
+                "chunk {chunk_id} should be inactive after soft delete"
+            );
+        }
+
+        // Assert: document does not appear in active listing
+        let docs_after = svc
+            .list_documents(collection_id)
+            .await
+            .expect("should list documents after delete");
+        assert!(
+            !docs_after.iter().any(|d| d.id == doc_id),
+            "document should not appear in active listing after soft delete"
+        );
+    }
+
+    /// Create a DocumentService with an in-memory repository for testing.
+    /// Uses a unique database name per call to prevent parallel test interference.
+    async fn make_service() -> DocumentService {
+        let db_name = Uuid::new_v4();
+        let pool = sqlx::SqlitePool::connect(&format!(
+            "sqlite:file:test-{db_name}?mode=memory&cache=shared"
+        ))
+        .await
+        .expect("Failed to create in-memory SQLite pool");
 
         // Create schema in the in-memory database
         // Disable FK enforcement for test isolation
@@ -621,6 +1072,7 @@ mod tests {
                 file_size INTEGER NOT NULL,
                 uploaded_at TEXT NOT NULL,
                 collection_id TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
             )",
         )
@@ -633,6 +1085,7 @@ mod tests {
                 document_id TEXT NOT NULL,
                 "index" INTEGER NOT NULL,
                 text TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
             )"#,
         )

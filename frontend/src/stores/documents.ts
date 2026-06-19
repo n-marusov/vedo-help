@@ -92,15 +92,25 @@ export const useDocumentStore = defineStore("documents", () => {
 		}
 	}
 
-	async function deleteDocument(documentId: string) {
+	async function deleteDocument(documentId: string): Promise<boolean> {
 		error.value = null;
 		try {
 			await api.del(`/documents/${documentId}`);
-			documents.value = documents.value.filter((d) => d.id !== documentId);
+			// Refresh the full list from server after successful deletion
+			const collectionId = documents.value.find(
+				(d) => d.id === documentId,
+			)?.collection_id;
+			if (collectionId) {
+				await fetchDocuments(collectionId);
+			} else {
+				documents.value = documents.value.filter((d) => d.id !== documentId);
+			}
+			return true;
 		} catch (err) {
 			if (err instanceof ApiError) {
 				error.value = err.message;
 			}
+			return false;
 		}
 	}
 
