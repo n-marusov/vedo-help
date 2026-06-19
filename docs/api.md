@@ -400,6 +400,10 @@ Delete a registered repository and its local clone.
 |--------|-----------|-------------|
 | 400 | `bad_request` | Invalid URL format (must start with `https://` or `git@`) |
 
+## OpenAPI Specification
+
+A machine-readable [OpenAPI 3.1 specification](openapi.yaml) is also available.
+
 ## See Also
 
 - [Configuration](configuration.md) — environment variables and API keys

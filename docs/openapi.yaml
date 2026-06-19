@@ -1,0 +1,1506 @@
+openapi: 3.1.0
+info:
+  title: VEDO hub RAG Assistant API
+  description: |
+    RESTful API for the VEDO hub RAG Assistant — a personal Q&A system that
+    ingests technical documentation, indexes it in a vector database, and
+    answers questions with grounded citations using an LLM via OpenRouter.
+
+    ## Authentication
+
+    All API routes (except `/health` and `/api/git-sync/webhook`) require a
+    KeyCloak-issued Bearer JWT token obtained via the OAuth 2.0 Authorization
+    Code flow with PKCE.
+
+    ```
+    Authorization: Bearer <ACCESS_TOKEN>
+    ```
+
+    Requests without a valid token return `401 Unauthorized`.
+
+    ## Rate Limiting
+
+    - Standard tier: 1000 requests per minute
+    - Enterprise tier: 10000 requests per minute
+  version: 1.0.0
+  contact:
+    name: VEDO hub Team
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://your-domain.com/api
+    description: Production
+
+tags:
+  - name: Auth
+    description: User authentication and session management
+  - name: Documents
+    description: Document upload, listing, and management
+  - name: Collections
+    description: Collection CRUD operations
+  - name: Git Sync
+    description: Git repository synchronization for document ingestion
+  - name: Query
+    description: RAG query with streaming responses
+  - name: Sessions
+    description: Chat session management
+  - name: Health
+    description: Service health and liveness probes
+
+paths:
+  # ──────────────────────────────────────
+  # Health
+  # ──────────────────────────────────────
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Liveness probe
+      description: Returns a simple OK response. Does not require authentication.
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  # ──────────────────────────────────────
+  # Auth
+  # ──────────────────────────────────────
+  /api/auth/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get current user info
+      description: Returns the authenticated user's profile information extracted from JWT claims.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/logout:
+    post:
+      operationId: logout
+      summary: Client-side logout acknowledgement
+      description: |
+        Acknowledges the logout on the server side. The frontend should
+        discard its stored tokens and redirect to KeyCloak's
+        `end_session_endpoint` for RP-initiated logout.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ──────────────────────────────────────
+  # Documents
+  # ──────────────────────────────────────
+  /api/documents/upload:
+    post:
+      operationId: uploadDocument
+      summary: Upload a single document
+      description: |
+        Upload a single document to a collection. Supported formats: PDF,
+        Markdown, DOCX. Maximum file size is 50 MB.
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - collection_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file (PDF, Markdown, or DOCX, max 50 MB)
+                collection_id:
+                  type: string
+                  format: uuid
+                  description: Target collection UUID
+      responses:
+        "201":
+          description: Document uploaded and indexed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/FileError"
+
+  /api/documents/upload-zip:
+    post:
+      operationId: uploadZip
+      summary: Upload a ZIP archive for batch processing
+      description: |
+        Upload a ZIP archive containing multiple documents for batch
+        processing. Up to 10 files, maximum 50 MB total.
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - collection_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: ZIP archive (max 50 MB, max 10 files)
+                collection_id:
+                  type: string
+                  format: uuid
+                  description: Target collection UUID
+      responses:
+        "200":
+          description: ZIP processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZipUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+
+  /api/documents:
+    get:
+      operationId: listDocuments
+      summary: List documents
+      description: Returns all documents, optionally filtered by collection.
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: collection_id
+          in: query
+          description: Filter by collection UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/documents/{id}:
+    delete:
+      operationId: deleteDocument
+      summary: Soft delete a document
+      description: |
+        Soft deletes a document and its chunks. The document row remains in
+        SQLite with `is_active=false` but is excluded from queries. Chroma
+        entries are also cleaned up.
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/documents/reload/{id}:
+    post:
+      operationId: reloadDocument
+      summary: Reload/re-index an existing document
+      description: |
+        Replaces the content of an existing document. Old chunks are
+        deactivated, the new file is parsed, chunked, and re-indexed. The
+        document identity (UUID) remains the same.
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: New file content (PDF, Markdown, or DOCX, max 50 MB)
+      responses:
+        "200":
+          description: Document reloaded and re-indexed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/FileError"
+
+  # ──────────────────────────────────────
+  # Collections
+  # ──────────────────────────────────────
+  /api/collections:
+    post:
+      operationId: createCollection
+      summary: Create a new collection
+      description: Creates a collection that groups related documents.
+      tags:
+        - Collections
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCollectionRequest"
+      responses:
+        "201":
+          description: Collection created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    get:
+      operationId: listCollections
+      summary: List all collections
+      tags:
+        - Collections
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollectionSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/collections/{id}:
+    get:
+      operationId: getCollection
+      summary: Get a collection by ID
+      tags:
+        - Collections
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CollectionId"
+      responses:
+        "200":
+          description: Collection details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteCollection
+      summary: Delete a collection and all its documents
+      tags:
+        - Collections
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CollectionId"
+      responses:
+        "200":
+          description: Collection deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ──────────────────────────────────────
+  # Git Sync
+  # ──────────────────────────────────────
+  /api/git-sync/repos:
+    post:
+      operationId: createGitRepo
+      summary: Register a new Git repository
+      description: |
+        Register a Git repository for document syncing. The repository will
+        be cloned, parsed, chunked, and indexed into the target collection.
+        Only HTTPS and SSH URLs are supported.
+      tags:
+        - Git Sync
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRepoRequest"
+      responses:
+        "201":
+          description: Repository registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitRepoSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    get:
+      operationId: listGitRepos
+      summary: List all registered Git repositories
+      tags:
+        - Git Sync
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of git repositories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GitRepoSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/git-sync/repos/{id}:
+    get:
+      operationId: getGitRepo
+      summary: Get a Git repository by ID
+      tags:
+        - Git Sync
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GitRepoId"
+      responses:
+        "200":
+          description: Repository details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitRepoSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteGitRepo
+      summary: Delete a Git repository and cleanup
+      description: |
+        Removes the local clone, deletes the Chroma collection, and removes
+        the SQLite record.
+      tags:
+        - Git Sync
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GitRepoId"
+      responses:
+        "200":
+          description: Repository deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/git-sync/repos/{id}/sync:
+    post:
+      operationId: triggerSync
+      summary: Trigger an immediate sync
+      description: |
+        Runs the full clone/pull → parse → embed → index pipeline
+        synchronously. For large repositories this may take significant time.
+      tags:
+        - Git Sync
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GitRepoId"
+      responses:
+        "200":
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/git-sync/repos/{id}/status:
+    get:
+      operationId: getSyncStatus
+      summary: Get sync status of a repository
+      description: |
+        Returns the persisted status from the database. During an active sync
+        the status will be `"syncing"`; only after completion does it become
+        `"idle"`.
+      tags:
+        - Git Sync
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GitRepoId"
+      responses:
+        "200":
+          description: Current sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/git-sync/webhook:
+    post:
+      operationId: handleWebhook
+      summary: Handle incoming Git provider webhook
+      description: |
+        Accepts push event webhooks from GitHub (X-Hub-Signature-256) and
+        GitLab (X-Gitlab-Token). Validates the signature or token against the
+        stored `webhook_secret`, checks for branch match, and spawns an async
+        sync task on success. This endpoint is public — authentication is
+        handled via webhook signatures/tokens.
+
+        Only responds to push events. Non-push events return `202 Accepted`
+        with `"skipped"` status.
+      tags:
+        - Git Sync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookPayload"
+      responses:
+        "202":
+          description: Webhook accepted — sync spawned (or skipped for non-push)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [accepted]
+                      repo_id:
+                        type: string
+                        format: uuid
+                    required:
+                      - status
+                      - repo_id
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [skipped]
+                      reason:
+                        type: string
+                    required:
+                      - status
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ──────────────────────────────────────
+  # Query
+  # ──────────────────────────────────────
+  /api/query:
+    post:
+      operationId: runQuery
+      summary: Ask a question (streaming response)
+      description: |
+        Accepts a question and returns a Server-Sent Events (SSE) stream with
+        the RAG pipeline result.
+
+        ## SSE Event Types
+
+        | Event | Description |
+        |-------|-------------|
+        | `chunk` | A text fragment of the LLM response |
+        | `sources` | Source references with citations |
+        | `error` | An error during processing |
+        | `done` | Completion signal |
+      tags:
+        - Query
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: SSE stream of events
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/SSEEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          $ref: "#/components/responses/EmbeddingError"
+
+  # ──────────────────────────────────────
+  # Sessions
+  # ──────────────────────────────────────
+  /api/sessions:
+    get:
+      operationId: listSessions
+      summary: List all chat sessions
+      description: Returns all sessions ordered by most recently updated first.
+      tags:
+        - Sessions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: createSession
+      summary: Create a new chat session
+      tags:
+        - Sessions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      operationId: deleteAllSessions
+      summary: Delete all sessions
+      description: Permanently removes all chat sessions and their messages.
+      tags:
+        - Sessions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All sessions deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkDeleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/sessions/{id}:
+    get:
+      operationId: getSession
+      summary: Get a session with its messages
+      tags:
+        - Sessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session details and messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteSession
+      summary: Delete a specific session
+      tags:
+        - Sessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/sessions/{id}/export:
+    get:
+      operationId: exportSession
+      summary: Export session messages as JSON
+      tags:
+        - Sessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session export
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Arbitrary JSON export of the session data
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  schemas:
+    # ── Auth ────────────────────────────
+    UserInfo:
+      type: object
+      description: Public user information returned by auth endpoints.
+      properties:
+        sub:
+          type: string
+          description: Unique user identifier (KeyCloak subject claim)
+        name:
+          type: string
+          nullable: true
+          description: User display name
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: User email address
+        preferred_username:
+          type: string
+          nullable: true
+          description: Preferred username
+        provider:
+          type: string
+          nullable: true
+          description: Identity provider (e.g. "keycloak")
+      required:
+        - sub
+
+    LogoutResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        message:
+          type: string
+        logout_url:
+          type: string
+          format: uri
+          nullable: true
+      required:
+        - status
+        - message
+
+    # ── Documents ───────────────────────
+    DocumentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        file_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        uploaded_at:
+          type: string
+          format: date-time
+        collection_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+      required:
+        - id
+        - name
+        - file_type
+        - file_size
+        - uploaded_at
+        - collection_id
+        - is_active
+
+    UploadResponse:
+      type: object
+      properties:
+        document_id:
+          type: string
+          format: uuid
+          readOnly: true
+        chunks_indexed:
+          type: integer
+        document_name:
+          type: string
+      required:
+        - document_id
+        - chunks_indexed
+        - document_name
+
+    ZipUploadItem:
+      type: object
+      properties:
+        filename:
+          type: string
+        status:
+          type: string
+          enum: [success, skipped, failed]
+        document_id:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      required:
+        - filename
+        - status
+
+    ZipUploadResponse:
+      type: object
+      properties:
+        total_files:
+          type: integer
+        processed:
+          type: integer
+        failed:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZipUploadItem"
+      required:
+        - total_files
+        - processed
+        - failed
+        - items
+
+    # ── Collections ─────────────────────
+    CreateCollectionRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Collection display name
+        description:
+          type: string
+          nullable: true
+          description: Optional description
+
+    CollectionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        document_count:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - document_count
+        - created_at
+
+    Collection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        document_count:
+          type: integer
+          format: int64
+      required:
+        - id
+        - name
+        - created_at
+        - document_count
+
+    # ── Sessions ────────────────────────
+    CreateSessionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Session title (auto-generated if omitted)
+        collection_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated collection UUID
+
+    SessionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+        message_count:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - message_count
+        - created_at
+        - updated_at
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+        collection_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        message_count:
+          type: integer
+          format: int64
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - message_count
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        session_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Message author role
+        content:
+          type: string
+        sources:
+          type: string
+          nullable: true
+          description: Source citations stored as JSON string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - session_id
+        - role
+        - content
+        - created_at
+
+    SessionDetail:
+      type: object
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+      required:
+        - session
+        - messages
+
+    # ── Git Sync ────────────────────────
+    CreateRepoRequest:
+      type: object
+      required:
+        - url
+        - collection_id
+      properties:
+        url:
+          type: string
+          description: Repository URL (HTTPS or SSH format)
+          example: "https://github.com/example/docs.git"
+        branch:
+          type: string
+          default: main
+          description: Branch to sync
+        access_token:
+          type: string
+          nullable: true
+          description: Access token for private repositories (never returned in responses)
+        collection_id:
+          type: string
+          format: uuid
+          description: Target collection UUID
+
+    GitRepoSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        url:
+          type: string
+        branch:
+          type: string
+        last_commit_hash:
+          type: string
+          nullable: true
+        last_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        collection_id:
+          type: string
+          format: uuid
+        collection_name:
+          type: string
+        status:
+          type: string
+          enum: [idle, syncing, error]
+          description: Current sync status
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - branch
+        - collection_id
+        - collection_name
+        - status
+        - created_at
+        - updated_at
+
+    SyncStatusResponse:
+      type: object
+      properties:
+        repo_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [idle, syncing, error]
+        files_indexed:
+          type: integer
+        chunks_total:
+          type: integer
+        last_commit:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      required:
+        - repo_id
+        - status
+        - files_indexed
+        - chunks_total
+
+    WebhookPayload:
+      type: object
+      required:
+        - repo_id
+      properties:
+        repo_id:
+          type: string
+          format: uuid
+          description: The repository UUID to sync
+
+    # ── Query ───────────────────────────
+    QueryRequest:
+      type: object
+      required:
+        - query
+        - collection_id
+      properties:
+        query:
+          type: string
+          description: The user's question
+        collection_id:
+          type: string
+          format: uuid
+          description: The collection to search
+        session_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional session for conversation continuity
+
+    SSEEvent:
+      type: object
+      description: |
+        One of four event types in the SSE stream. Each event is a
+        JSON-serialized `StreamEvent` object on its own `data:` line.
+      discriminator:
+        propertyName: type
+      oneOf:
+        - $ref: "#/components/schemas/SSEChunkEvent"
+        - $ref: "#/components/schemas/SSESourcesEvent"
+        - $ref: "#/components/schemas/SSEErrorEvent"
+        - $ref: "#/components/schemas/SSEDoneEvent"
+
+    SSEChunkEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [chunk]
+        data:
+          type: object
+          properties:
+            text:
+              type: string
+          required:
+            - text
+      required:
+        - type
+        - data
+
+    SSESourcesEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [sources]
+        data:
+          type: object
+          properties:
+            sources:
+              type: array
+              items:
+                $ref: "#/components/schemas/SourceRef"
+          required:
+            - sources
+      required:
+        - type
+        - data
+
+    SSEErrorEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [error]
+        data:
+          type: object
+          properties:
+            text:
+              type: string
+          required:
+            - text
+      required:
+        - type
+        - data
+
+    SSEDoneEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [done]
+        data:
+          type: object
+      required:
+        - type
+        - data
+
+    SourceRef:
+      type: object
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        document_name:
+          type: string
+        chunk_index:
+          type: integer
+        text:
+          type: string
+        relevance:
+          type: number
+          format: double
+      required:
+        - document_id
+        - document_name
+        - chunk_index
+        - text
+        - relevance
+
+    # ── Common / Error ──────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          required:
+            - type
+            - message
+          properties:
+            type:
+              type: string
+              description: Machine-readable error code
+            message:
+              type: string
+              description: Human-readable error description
+      required:
+        - error
+
+    DeleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [deleted]
+        id:
+          type: string
+          format: uuid
+      required:
+        - status
+        - id
+
+    BulkDeleteResponse:
+      type: object
+      description: Generic response for bulk delete operations.
+      properties:
+        status:
+          type: string
+        deleted_count:
+          type: integer
+        message:
+          type: string
+
+  parameters:
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      description: Document UUID
+      schema:
+        type: string
+        format: uuid
+
+    CollectionId:
+      name: id
+      in: path
+      required: true
+      description: Collection UUID
+      schema:
+        type: string
+        format: uuid
+
+    SessionId:
+      name: id
+      in: path
+      required: true
+      description: Session UUID
+      schema:
+        type: string
+        format: uuid
+
+    GitRepoId:
+      name: id
+      in: path
+      required: true
+      description: Git repository UUID
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Invalid request (validation error, malformed input)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: bad_request
+              message: "collection_id is required"
+
+    Unauthorized:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: unauthorized
+              message: "Invalid or missing token"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: not_found
+              message: "Document not found"
+
+    FileError:
+      description: Unsupported or corrupt file
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: file_error
+              message: "Unsupported file extension"
+
+    PayloadTooLarge:
+      description: Request body exceeds size limits or ZIP contains too many files
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: payload_too_large
+              message: "ZIP contains more than 10 files"
+
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: rate_limited
+              message: "Rate limit exceeded. Try again later."
+
+    EmbeddingError:
+      description: Embedding service unavailable or returned an error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: embedding_error
+              message: "Embedding service is unavailable"
+
+    LlmError:
+      description: OpenRouter LLM error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: llm_error
+              message: "OpenRouter API returned an error"
+
+    ChromaError:
+      description: Chroma vector database unavailable or returned an error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: chroma_error
+              message: "Chroma connection failed"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              type: internal_error
+              message: "An unexpected error occurred"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        KeyCloak-issued JWT token obtained via OAuth 2.0 Authorization Code
+        flow with PKCE. The token is validated against the KeyCloak JWKS
+        endpoint.
+
+        ```
+        Authorization: Bearer <ACCESS_TOKEN>
+        ```
+
+security:
+  - bearerAuth: []
