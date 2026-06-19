@@ -73,7 +73,18 @@ The frontend calls `POST /api/auth/logout` (client-side acknowledgement), clears
 
 ### Realm Configuration
 
-KeyCloak is configured via a **realm import file** at `keycloak/realm-import.json`. On startup, the custom entrypoint (`keycloak/docker-entrypoint.sh`) substitutes `${VAR}` placeholders from environment variables and imports the realm.
+KeyCloak is configured via a **realm import template** at `keycloak/realm-import.json.template`. On startup, the `keycloak-init` init container validates that all required environment variables are set, then uses `envsubst` to substitute `${VAR}` placeholders and produces the final `realm-import.json`. Keycloak then imports the realm from the generated file.
+
+**No credentials are stored in the repository** — all secrets (user passwords, client secrets) come from `.env`.
+
+> **⚠️ Import strategy is `IGNORE_EXISTING`.** The realm is only created on the first successful import. Subsequent starts skip the import entirely — changes to `realm-import.json.template` or `.env` passwords have **no effect** on a running realm. To re-apply the template, you must delete the `keycloak_db_data` volume and restart:
+>
+> ```bash
+> docker compose down -v  # removes all volumes including keycloak_db_data
+> docker compose up -d    # re-imports the realm from the template
+> ```
+>
+> For incremental changes to a running realm, use the Keycloak Admin Console or Admin REST API.
 
 **Realm: `vedo-hub`**
 
@@ -127,9 +138,9 @@ KeyCloak is configured via a **realm import file** at `keycloak/realm-import.jso
 
 | Username | Password | Roles |
 |----------|----------|-------|
-| `admin` | `KEYCLOAK_ADMIN_PASSWORD` | `admin`, `user`, `guest` |
-| `alice` | `password` | `user`, `guest` |
-| `guest` | `guest` | `guest` |
+| `admin` | `VEDO_ADMIN_PASSWORD` | `admin`, `user`, `guest` |
+| `alice` | `VEDO_ALICE_PASSWORD` | `user`, `guest` |
+| `guest` | `VEDO_GUEST_PASSWORD` | `guest` |
 
 ---
 
@@ -176,8 +187,11 @@ See [Configuration](configuration.md) for the full reference.
 |----------|----------|---------|-------------|
 | `KEYCLOAK_DB_PASSWORD` | Yes | `keycloak` | PostgreSQL password for KeyCloak |
 | `KEYCLOAK_ADMIN` | No | `admin` | KeyCloak admin console username |
-| `KEYCLOAK_ADMIN_PASSWORD` | Yes | `admin` | KeyCloak admin console password |
+| `KEYCLOAK_ADMIN_PASSWORD` | Yes | `admin` | KeyCloak admin console password (master realm) |
 | `KEYCLOAK_HOSTNAME` | No | `localhost` | KeyCloak hostname |
+| `VEDO_ADMIN_PASSWORD` | No | `admin` | vedo-hub realm: admin user password |
+| `VEDO_ALICE_PASSWORD` | No | `password` | vedo-hub realm: alice user password |
+| `VEDO_GUEST_PASSWORD` | No | `guest` | vedo-hub realm: guest user password |
 | `VEDO_BACKEND_CLIENT_SECRET` | Yes | `changeme-vedo-backend-secret` | Client secret for `vedo-backend` |
 | `YANDEX_CLIENT_ID` | No | _(empty)_ | Yandex OAuth Client ID |
 | `YANDEX_CLIENT_SECRET` | No | _(empty)_ | Yandex OAuth Client Secret |
@@ -274,7 +288,7 @@ The backend validates tokens in `backend/src/shared/auth.rs`:
 - [Deployment](deployment.md) — production setup
 - [Getting Started](getting-started.md) — installation and first run
 - [API Reference](api.md) — `/api/auth/me` and `/api/auth/logout` endpoints
-- `keycloak/realm-import.json` — realm configuration source
-- `keycloak/docker-entrypoint.sh` — entrypoint with env var substitution
+- `keycloak/realm-import.json.template` — realm configuration template (no secrets)
+- `keycloak/realm-import.json` — **generated at runtime** by `keycloak-init` container (gitignored, never committed)
 - `frontend/src/composables/useOidcAuth.ts` — PKCE flow implementation
 - `backend/src/shared/auth.rs` — JWT validation logic

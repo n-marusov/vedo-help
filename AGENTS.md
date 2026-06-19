@@ -93,6 +93,8 @@ vedo-assistant/
 │       │   └── markdown.ts      # Markdown renderer with highlight.js & GFM
 │       ├── stores/             # Pinia stores (chat, documents, collections)
 │       └── views/              # ChatView, AdminView, LoginView, CallbackView, AvatarPreviewView
+├── keycloak/                    # Keycloak configuration
+│   └── realm-import.json.template  # Realm template (no secrets, env vars substituted at runtime)
 ├── docs/
 │   ├── technical-specification-rag-system.md  # Full technical specification
 │   ├── getting-started.md      # Installation guide
@@ -114,7 +116,7 @@ vedo-assistant/
 ├── scripts/                    # backup.sh, restore.sh
 ├── AGENTS.md                   # This file — project map for AI agents
 ├── opencode.json               # MCP server configuration
-├── docker-compose.yml          # 6-service Docker Compose (incl. keycloak + keycloak-db)
+├── docker-compose.yml          # 7-service Docker Compose (incl. keycloak-init, keycloak + keycloak-db)
 ├── Caddyfile                   # Reverse proxy config
 ├── Makefile                    # Developer tooling
 ├── rust-toolchain.toml         # Rust toolchain config
@@ -132,7 +134,7 @@ vedo-assistant/
 | `.ai-factory/DESCRIPTION.md` | Condensed project description for AI agents |
 | `.ai-factory/config.yaml` | AI Factory configuration (language, paths, git workflow) |
 | `.ai-factory/ARCHITECTURE.md` | Architecture pattern and folder structure guidelines |
-| `docker-compose.yml` | Core Docker Compose definition (chroma, embedding, backend, frontend, keycloak, keycloak-db) |
+| `docker-compose.yml` | Core Docker Compose definition (chroma, embedding, backend, frontend, keycloak-init, keycloak, keycloak-db) |
 | `docker-compose.override.yml` | Development overrides (hot-reload, debug ports) |
 | `docker-compose.production.yml` | Production hardening (no-exposed ports, resource limits, logging) |
 | `Caddyfile` | Reverse proxy config (API, frontend, KeyCloak auth) |
