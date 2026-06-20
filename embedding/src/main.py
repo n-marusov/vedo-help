@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,21 +9,10 @@ from src.models import EmbedRequest, EmbedResponse
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="VEDO Embedding Service", version="0.1.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 embedder: CachedEmbedder | None = None
 
 
-@app.on_event("startup")
-async def on_startup() -> None:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Initialise the embedder and configure logging on startup."""
     logging.basicConfig(
         level=logging.DEBUG,
@@ -33,6 +23,19 @@ async def on_startup() -> None:
     global embedder  # noqa: PLW0603
     embedder = CachedEmbedder()
     logger.debug("Embedder ready (model=%s)", embedder.model_name)
+
+    yield
+
+
+app = FastAPI(title="VEDO Embedding Service", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
