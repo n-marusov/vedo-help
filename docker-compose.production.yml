@@ -112,6 +112,19 @@ services:
   keycloak-init:
     logging: *default-logging
 
+  db:
+    <<: *default-security
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    logging: *default-logging
+    ports: []
+
   keycloak:
     ports: []
 

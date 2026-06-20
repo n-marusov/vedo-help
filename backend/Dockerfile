@@ -8,11 +8,11 @@ FROM rust:1.96-slim-bookworm AS deps
 
 WORKDIR /app
 
-# Install build dependencies for sqlx (links against libsqlite3)
+# Install build dependencies for sqlx (links against libpq)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         pkg-config \
-        libsqlite3-dev \
+        libpq-dev \
         libssl-dev \
         && rm -rf /var/lib/apt/lists/*
 
@@ -67,17 +67,14 @@ RUN groupadd -r vedo && useradd -r -g vedo -d /home/vedo -m vedo
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        libsqlite3-0 \
-        curl \
-        && rm -rf /var/lib/apt/lists/*
+            libpq5 \
+            curl \
+            && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy the pre-compiled binary from the builder stage
 COPY --from=builder /app/vedo-backend /app/vedo-backend
-
-# Create a directory for SQLite database persistence
-RUN mkdir -p /data && chown vedo:vedo /data
 
 USER vedo
 

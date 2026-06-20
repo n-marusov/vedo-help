@@ -84,8 +84,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 40s
-    volumes:
-      - db_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://vedo:vedo@db:5432/vedo}
 
   frontend:
     build:
@@ -103,19 +106,19 @@ services:
     depends_on:
       - backend
 
-  keycloak-db:
+  db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vedo}
     volumes:
-      - keycloak_db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     networks:
       - internal
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -167,7 +170,7 @@ services:
       - "${KEYCLOAK_PORT:-8080}:8080"
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
@@ -181,7 +184,7 @@ services:
     depends_on:
       keycloak-init:
         condition: service_completed_successfully
-      keycloak-db:
+      db:
         condition: service_healthy
     networks:
       - internal
@@ -201,5 +204,4 @@ volumes:
   chroma_data:
   embedding_cache:
   db_data:
-  keycloak_db_data:
   keycloak_import:
