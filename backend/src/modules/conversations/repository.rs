@@ -23,11 +23,11 @@ impl ConversationRepository {
         sqlx::query(
             "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(session.id.to_string())
+        .bind(session.id)
         .bind(&session.title)
-        .bind(session.collection_id.map(|id| id.to_string()))
-        .bind(session.created_at.to_rfc3339())
-        .bind(session.updated_at.to_rfc3339())
+        .bind(session.collection_id)
+        .bind(session.created_at)
+        .bind(session.updated_at)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to create session: {e}")))?;
@@ -40,7 +40,7 @@ impl ConversationRepository {
     pub async fn list_sessions(&self) -> Result<Vec<Session>, AppError> {
         tracing::debug!("Listing all sessions");
 
-        let rows = sqlx::query_as::<_, (String, String, Option<String>, String, String)>(
+        let rows = sqlx::query_as::<_, (uuid::Uuid, String, Option<uuid::Uuid>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
             "SELECT id, title, collection_id, created_at, updated_at FROM sessions ORDER BY updated_at DESC",
         )
         .fetch_all(&self.db)
@@ -49,15 +49,14 @@ impl ConversationRepository {
 
         let mut sessions = Vec::with_capacity(rows.len());
         for row in rows {
-            let id = Uuid::parse_str(&row.0).unwrap_or_default();
-            let count = self.get_message_count(id).await.unwrap_or(0);
+            let count = self.get_message_count(row.0).await.unwrap_or(0);
 
             sessions.push(Session {
-                id,
+                id: row.0,
                 title: row.1,
-                collection_id: row.2.and_then(|s| Uuid::parse_str(&s).ok()),
-                created_at: row.3.parse().unwrap_or_else(|_| chrono::Utc::now()),
-                updated_at: row.4.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                collection_id: row.2,
+                created_at: row.3,
+                updated_at: row.4,
                 message_count: count,
             });
         }
@@ -70,10 +69,19 @@ impl ConversationRepository {
     pub async fn get_session(&self, id: Uuid) -> Result<Session, AppError> {
         tracing::debug!("Fetching session: {id}");
 
-        let row = sqlx::query_as::<_, (String, String, Option<String>, String, String)>(
+        let row = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                String,
+                Option<uuid::Uuid>,
+                chrono::DateTime<chrono::Utc>,
+                chrono::DateTime<chrono::Utc>,
+            ),
+        >(
             "SELECT id, title, collection_id, created_at, updated_at FROM sessions WHERE id = $1",
         )
-        .bind(id.to_string())
+        .bind(id)
         .fetch_optional(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
@@ -82,11 +90,11 @@ impl ConversationRepository {
         let count = self.get_message_count(id).await.unwrap_or(0);
 
         Ok(Session {
-            id: Uuid::parse_str(&row.0).unwrap_or(id),
+            id: row.0,
             title: row.1,
-            collection_id: row.2.and_then(|s| Uuid::parse_str(&s).ok()),
-            created_at: row.3.parse().unwrap_or_else(|_| chrono::Utc::now()),
-            updated_at: row.4.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            collection_id: row.2,
+            created_at: row.3,
+            updated_at: row.4,
             message_count: count,
         })
     }
@@ -97,14 +105,14 @@ impl ConversationRepository {
 
         // Delete messages first (explicit cascade for clarity)
         sqlx::query("DELETE FROM messages WHERE session_id = $1")
-            .bind(id.to_string())
+            .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete messages: {e}")))?;
 
         // Delete the session
         let affected = sqlx::query("DELETE FROM sessions WHERE id = $1")
-            .bind(id.to_string())
+            .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete session: {e}")))?;
@@ -125,23 +133,31 @@ impl ConversationRepository {
             msg.role
         );
 
+        let sources_json = msg
+            .sources
+            .as_ref()
+            .map(|s| {
+                serde_json::from_str::<serde_json::Value>(s).unwrap_or(serde_json::Value::Null)
+            })
+            .unwrap_or(serde_json::Value::Null);
+
         sqlx::query(
             "INSERT INTO messages (id, session_id, role, content, sources, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
         )
-        .bind(msg.id.to_string())
-        .bind(msg.session_id.to_string())
+        .bind(msg.id)
+        .bind(msg.session_id)
         .bind(&msg.role)
         .bind(&msg.content)
-        .bind(&msg.sources)
-        .bind(msg.created_at.to_rfc3339())
+        .bind(&sources_json)
+        .bind(msg.created_at)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to add message: {e}")))?;
 
         // Update session updated_at timestamp
         sqlx::query("UPDATE sessions SET updated_at = $1 WHERE id = $2")
-            .bind(chrono::Utc::now().to_rfc3339())
-            .bind(msg.session_id.to_string())
+            .bind(chrono::Utc::now())
+            .bind(msg.session_id)
             .execute(&self.db)
             .await
             .map_err(|e| {
@@ -156,10 +172,10 @@ impl ConversationRepository {
     pub async fn get_messages(&self, session_id: Uuid) -> Result<Vec<Message>, AppError> {
         tracing::debug!("Fetching messages for session: {session_id}");
 
-        let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>, String)>(
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>)>(
             "SELECT id, session_id, role, content, sources, created_at FROM messages WHERE session_id = $1 ORDER BY created_at",
         )
-        .bind(session_id.to_string())
+        .bind(session_id)
         .fetch_all(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
@@ -167,12 +183,12 @@ impl ConversationRepository {
         let messages: Vec<Message> = rows
             .into_iter()
             .map(|row| Message {
-                id: Uuid::parse_str(&row.0).unwrap_or_default(),
-                session_id: Uuid::parse_str(&row.1).unwrap_or(session_id),
+                id: row.0,
+                session_id: row.1,
                 role: row.2,
                 content: row.3,
-                sources: row.4,
-                created_at: row.5.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                sources: row.4.map(|v| v.to_string()),
+                created_at: row.5,
             })
             .collect();
 
@@ -206,7 +222,7 @@ impl ConversationRepository {
     async fn get_message_count(&self, session_id: Uuid) -> Result<i64, AppError> {
         let row =
             sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM messages WHERE session_id = $1")
-                .bind(session_id.to_string())
+                .bind(session_id)
                 .fetch_one(&self.db)
                 .await
                 .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;

@@ -7,63 +7,33 @@ use crate::shared::error::AppError;
 
 #[derive(sqlx::FromRow)]
 struct GitRepoRow {
-    id: String,
+    id: Uuid,
     url: String,
     branch: String,
     access_token: Option<String>,
     local_path: String,
     last_commit_hash: Option<String>,
-    last_synced_at: Option<String>,
-    collection_id: String,
+    last_synced_at: Option<DateTime<Utc>>,
+    collection_id: Uuid,
     status: String,
     webhook_secret: Option<String>,
-    created_at: String,
-    updated_at: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 #[derive(sqlx::FromRow)]
 struct GitRepoSummaryRow {
-    id: String,
+    id: Uuid,
     url: String,
     branch: String,
     local_path: String,
     last_commit_hash: Option<String>,
-    last_synced_at: Option<String>,
-    collection_id: String,
+    last_synced_at: Option<DateTime<Utc>>,
+    collection_id: Uuid,
     collection_name: String,
     status: String,
-    created_at: String,
-    updated_at: String,
-}
-
-fn parse_uuid_field(value: &str, field: &str) -> Result<Uuid, AppError> {
-    Uuid::parse_str(value).map_err(|e| {
-        tracing::error!(
-            "[FIX:git-repo-uuid-text] invalid UUID in git_repositories.{field}: value={value} error={e}"
-        );
-        AppError::InternalError(format!("Invalid git repository {field}: {e}"))
-    })
-}
-
-fn parse_datetime_field(value: &str, field: &str) -> Result<DateTime<Utc>, AppError> {
-    DateTime::parse_from_rfc3339(value)
-        .map(|dt| dt.with_timezone(&Utc))
-        .map_err(|e| {
-            tracing::error!(
-                "[FIX:git-repo-uuid-text] invalid timestamp in git_repositories.{field}: value={value} error={e}"
-            );
-            AppError::InternalError(format!("Invalid git repository {field}: {e}"))
-        })
-}
-
-fn parse_optional_datetime_field(
-    value: Option<String>,
-    field: &str,
-) -> Result<Option<DateTime<Utc>>, AppError> {
-    value
-        .as_deref()
-        .map(|value| parse_datetime_field(value, field))
-        .transpose()
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 impl TryFrom<GitRepoRow> for GitRepo {
@@ -71,18 +41,18 @@ impl TryFrom<GitRepoRow> for GitRepo {
 
     fn try_from(row: GitRepoRow) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: parse_uuid_field(&row.id, "id")?,
+            id: row.id,
             url: row.url,
             branch: row.branch,
             access_token: row.access_token,
             local_path: row.local_path,
             last_commit_hash: row.last_commit_hash,
-            last_synced_at: parse_optional_datetime_field(row.last_synced_at, "last_synced_at")?,
-            collection_id: parse_uuid_field(&row.collection_id, "collection_id")?,
+            last_synced_at: row.last_synced_at,
+            collection_id: row.collection_id,
             status: row.status,
             webhook_secret: row.webhook_secret,
-            created_at: parse_datetime_field(&row.created_at, "created_at")?,
-            updated_at: parse_datetime_field(&row.updated_at, "updated_at")?,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
         })
     }
 }
@@ -92,17 +62,17 @@ impl TryFrom<GitRepoSummaryRow> for GitRepoSummary {
 
     fn try_from(row: GitRepoSummaryRow) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: parse_uuid_field(&row.id, "id")?,
+            id: row.id,
             url: row.url,
             branch: row.branch,
             local_path: row.local_path,
             last_commit_hash: row.last_commit_hash,
-            last_synced_at: parse_optional_datetime_field(row.last_synced_at, "last_synced_at")?,
-            collection_id: parse_uuid_field(&row.collection_id, "collection_id")?,
+            last_synced_at: row.last_synced_at,
+            collection_id: row.collection_id,
             collection_name: row.collection_name,
             status: row.status,
-            created_at: parse_datetime_field(&row.created_at, "created_at")?,
-            updated_at: parse_datetime_field(&row.updated_at, "updated_at")?,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
         })
     }
 }
@@ -139,18 +109,18 @@ impl GitRepoRepository {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             "#,
         )
-        .bind(repo.id.to_string())
+        .bind(repo.id)
         .bind(&repo.url)
         .bind(&repo.branch)
         .bind(&repo.access_token)
         .bind(&repo.local_path)
         .bind(&repo.last_commit_hash)
-        .bind(repo.last_synced_at.map(|t| t.to_rfc3339()))
-        .bind(repo.collection_id.to_string())
+        .bind(repo.last_synced_at)
+        .bind(repo.collection_id)
         .bind(&repo.status)
         .bind(&repo.webhook_secret)
-        .bind(repo.created_at.to_rfc3339())
-        .bind(repo.updated_at.to_rfc3339())
+        .bind(repo.created_at)
+        .bind(repo.updated_at)
         .execute(&self.db)
         .await
         .map_err(|e| {
@@ -208,7 +178,7 @@ impl GitRepoRepository {
             WHERE id = $1
             "#,
         )
-        .bind(id.to_string())
+        .bind(id)
         .fetch_optional(&self.db)
         .await
         .map_err(|e| {
@@ -254,7 +224,7 @@ impl GitRepoRepository {
             WHERE g.id = $1
             "#,
         )
-        .bind(id.to_string())
+        .bind(id)
         .fetch_optional(&self.db)
         .await
         .map_err(|e| {
@@ -332,7 +302,7 @@ impl GitRepoRepository {
             "[GitRepoRepository::update_sync_status] entry repo_id={id} status={status}"
         );
 
-        let now = Utc::now().to_rfc3339();
+        let now = Utc::now();
         let affected = sqlx::query(
             r#"
             UPDATE git_repositories
@@ -344,10 +314,10 @@ impl GitRepoRepository {
             "#,
         )
         .bind(commit_hash)
-        .bind(synced_at.to_rfc3339())
+        .bind(synced_at)
         .bind(status)
-        .bind(&now)
-        .bind(id.to_string())
+        .bind(now)
+        .bind(id)
         .execute(&self.db)
         .await
         .map_err(|e| {
@@ -375,7 +345,7 @@ impl GitRepoRepository {
         tracing::debug!("[GitRepoRepository::delete_repo] entry repo_id={id}");
 
         let affected = sqlx::query("DELETE FROM git_repositories WHERE id = $1")
-            .bind(id.to_string())
+            .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| {
@@ -401,7 +371,7 @@ impl GitRepoRepository {
         );
 
         let name: Option<String> = sqlx::query_scalar("SELECT name FROM collections WHERE id = $1")
-            .bind(collection_id.to_string())
+            .bind(collection_id)
             .fetch_optional(&self.db)
             .await
             .map_err(|e| {

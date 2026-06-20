@@ -67,8 +67,12 @@ async fn main() {
 
     tracing::info!("Starting VEDO hub RAG Assistant backend");
 
-    // Connect to PostgreSQL with retry loop (database container may not be ready immediately in Docker)
-    let max_retries = 30;
+    // Connect to PostgreSQL with retry loop (database container may not be ready immediately in Docker).
+    // Override retry count via DB_CONNECT_RETRIES env var (default: 30, 1 second between attempts).
+    let max_retries: u32 = std::env::var("DB_CONNECT_RETRIES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30);
     let mut retries = 0;
     let db = loop {
         retries += 1;

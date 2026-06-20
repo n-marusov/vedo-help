@@ -23,10 +23,10 @@ impl CollectionRepository {
         sqlx::query(
             "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
         )
-        .bind(collection.id.to_string())
+        .bind(collection.id)
         .bind(&collection.name)
         .bind(&collection.description)
-        .bind(collection.created_at.to_rfc3339())
+        .bind(collection.created_at)
         .execute(&self.db)
         .await
         .map_err(|e| {
@@ -50,7 +50,15 @@ impl CollectionRepository {
     pub async fn list_collections(&self) -> Result<Vec<Collection>, AppError> {
         tracing::debug!("Listing all collections");
 
-        let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                String,
+                Option<String>,
+                chrono::DateTime<chrono::Utc>,
+            ),
+        >(
             "SELECT id, name, description, created_at FROM collections ORDER BY created_at DESC",
         )
         .fetch_all(&self.db)
@@ -59,14 +67,13 @@ impl CollectionRepository {
 
         let mut collections = Vec::with_capacity(rows.len());
         for row in rows {
-            let id = Uuid::parse_str(&row.0).unwrap_or_default();
-            let count = self.get_document_count(id).await.unwrap_or(0);
+            let count = self.get_document_count(row.0).await.unwrap_or(0);
 
             collections.push(Collection {
-                id,
+                id: row.0,
                 name: row.1,
                 description: row.2,
-                created_at: row.3.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                created_at: row.3,
                 document_count: count,
             });
         }
@@ -79,22 +86,29 @@ impl CollectionRepository {
     pub async fn get_collection(&self, id: Uuid) -> Result<Collection, AppError> {
         tracing::debug!("Fetching collection: {id}");
 
-        let row = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-            "SELECT id, name, description, created_at FROM collections WHERE id = $1",
-        )
-        .bind(id.to_string())
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-        .ok_or_else(|| AppError::NotFound(format!("Collection {id} not found")))?;
+        let row =
+            sqlx::query_as::<
+                _,
+                (
+                    uuid::Uuid,
+                    String,
+                    Option<String>,
+                    chrono::DateTime<chrono::Utc>,
+                ),
+            >("SELECT id, name, description, created_at FROM collections WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .ok_or_else(|| AppError::NotFound(format!("Collection {id} not found")))?;
 
         let count = self.get_document_count(id).await.unwrap_or(0);
 
         Ok(Collection {
-            id: Uuid::parse_str(&row.0).unwrap_or(id),
+            id: row.0,
             name: row.1,
             description: row.2,
-            created_at: row.3.parse().unwrap_or_else(|_| chrono::Utc::now()),
+            created_at: row.3,
             document_count: count,
         })
     }
@@ -107,28 +121,28 @@ impl CollectionRepository {
         sqlx::query(
             "DELETE FROM chunks WHERE document_id IN (SELECT id FROM documents WHERE collection_id = $1)",
         )
-        .bind(id.to_string())
+        .bind(id)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to delete chunks: {e}")))?;
 
         // Delete documents in this collection
         sqlx::query("DELETE FROM documents WHERE collection_id = $1")
-            .bind(id.to_string())
+            .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete documents: {e}")))?;
 
         // Update sessions referencing this collection to set collection_id to NULL
         sqlx::query("UPDATE sessions SET collection_id = NULL WHERE collection_id = $1")
-            .bind(id.to_string())
+            .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to update sessions: {e}")))?;
 
         // Delete the collection itself
         let affected = sqlx::query("DELETE FROM collections WHERE id = $1")
-            .bind(id.to_string())
+            .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete collection: {e}")))?;
@@ -145,7 +159,7 @@ impl CollectionRepository {
     pub async fn get_document_count(&self, id: Uuid) -> Result<i64, AppError> {
         let row =
             sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM documents WHERE collection_id = $1")
-                .bind(id.to_string())
+                .bind(id)
                 .fetch_one(&self.db)
                 .await
                 .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;

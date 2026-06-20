@@ -15,3 +15,5 @@ coverage/
 nul
 frontend/playwright-report/
 frontend/test-results/
+backend/rust_out.exe
+backend/rust_out.pdb

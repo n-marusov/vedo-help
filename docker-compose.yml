@@ -6,7 +6,7 @@ name: ${COMPOSE_PROJECT_NAME:-vedo}
 
 services:
   chroma:
-    image: chromadb/chroma:0.6.3
+    image: chromadb/chroma:0.6.2
     environment:
       - IS_PERSISTENT=TRUE
     volumes:
@@ -73,6 +73,7 @@ services:
       # Internal service discovery — use Docker service names, not localhost
       CHROMA_URL: "${CHROMA_URL:-http://chroma:8000}"
       EMBEDDING_SERVICE_URL: "${EMBEDDING_SERVICE_URL:-http://embedding:8001}"
+      DATABASE_URL: ${DATABASE_URL:-postgres://vedo:CHANGEME-db-password@db:5432/vedo}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     networks:
@@ -87,8 +88,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://vedo:vedo@db:5432/vedo}
 
   frontend:
     build:
@@ -110,7 +109,9 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vedo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGEME-postgres-password}
+      VEDO_DB_PASSWORD: ${VEDO_DB_PASSWORD:-CHANGEME-vedo-password}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-CHANGEME-keycloak-password}
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
@@ -172,12 +173,12 @@ services:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://db:5432/keycloak
       KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-CHANGEME-keycloak-password}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-CHANGEME-admin-password}
       VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:-changeme-vedo-backend-secret}
     volumes:
       - keycloak_import:/opt/keycloak/data/import

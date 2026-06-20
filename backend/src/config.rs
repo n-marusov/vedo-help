@@ -39,8 +39,9 @@ impl AppConfig {
             .unwrap_or_else(|_| keycloak_url.clone());
 
         Self {
-            database_url: env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://vedo:vedo@localhost:5432/vedo".to_string()),
+            database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
+                "postgres://vedo:CHANGEME-db-password@localhost:5432/vedo".to_string()
+            }),
             embedding_service_url: env::var("EMBEDDING_SERVICE_URL")
                 .unwrap_or_else(|_| "http://localhost:8001".to_string()),
             chroma_url: env::var("CHROMA_URL")
