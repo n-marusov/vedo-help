@@ -34,6 +34,7 @@ ignore = ["E501", "D"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "PLR2004"]
 "typings/**/*.pyi" = ["ANN401"]
+"docker/test/openrouter-mock/*.py" = ["INP001"]
 
 [tool.ruff.format]
 quote-style = "double"
