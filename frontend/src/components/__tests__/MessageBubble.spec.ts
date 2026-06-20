@@ -1,199 +1,199 @@
-import type { Message } from "@/api/types";
-import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
-import MessageBubble from "../MessageBubble.vue";
+import type { Message } from '@/api/types';
+import { mount } from '@vue/test-utils';
+import { describe, expect, it, vi } from 'vitest';
+import MessageBubble from '../MessageBubble.vue';
 
 const createUserMessage = (overrides: Partial<Message> = {}): Message => ({
-	id: "msg-1",
-	session_id: "sess-1",
-	role: "user",
-	content: "Hello!",
-	created_at: "2026-06-15T12:00:00Z",
-	...overrides,
+  id: 'msg-1',
+  session_id: 'sess-1',
+  role: 'user',
+  content: 'Hello!',
+  created_at: '2026-06-15T12:00:00Z',
+  ...overrides,
 });
 
 const createAssistantMessage = (overrides: Partial<Message> = {}): Message => ({
-	id: "msg-2",
-	session_id: "sess-1",
-	role: "assistant",
-	content: "Hi there!",
-	created_at: "2026-06-15T12:00:05Z",
-	...overrides,
+  id: 'msg-2',
+  session_id: 'sess-1',
+  role: 'assistant',
+  content: 'Hi there!',
+  created_at: '2026-06-15T12:00:05Z',
+  ...overrides,
 });
 
-describe("MessageBubble", () => {
-	it("renders user message with correct role class", () => {
-		const wrapper = mount(MessageBubble, {
-			props: { message: createUserMessage() },
-		});
-		expect(wrapper.classes("message-user")).toBe(true);
-	});
+describe('MessageBubble', () => {
+  it('renders user message with correct role class', () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(wrapper.classes('message-user')).toBe(true);
+  });
 
-	it("renders assistant message with correct role class", () => {
-		const wrapper = mount(MessageBubble, {
-			props: { message: createAssistantMessage() },
-		});
-		expect(wrapper.classes("message-assistant")).toBe(true);
-	});
+  it('renders assistant message with correct role class', () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(wrapper.classes('message-assistant')).toBe(true);
+  });
 
-	it("renders markdown content", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({ content: "**bold** text" }),
-			},
-		});
-		expect(wrapper.html()).toContain("<strong>bold</strong>");
-	});
+  it('renders markdown content', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({ content: '**bold** text' }),
+      },
+    });
+    expect(wrapper.html()).toContain('<strong>bold</strong>');
+  });
 
-	it("renders code block with syntax highlighting classes", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({
-					content: '```python\nprint("hello")\n```',
-				}),
-			},
-		});
-		const html = wrapper.html();
-		// Should have highlight.js class on the code element
-		expect(html).toContain("hljs");
-		// Should have code block wrapper
-		expect(html).toContain("code-block-wrapper");
-		// Should have copy button
-		expect(html).toContain("copy-code-btn");
-		// Should have language label
-		expect(html).toContain("code-lang-label");
-	});
+  it('renders code block with syntax highlighting classes', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '```python\nprint("hello")\n```',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    // Should have highlight.js class on the code element
+    expect(html).toContain('hljs');
+    // Should have code block wrapper
+    expect(html).toContain('code-block-wrapper');
+    // Should have copy button
+    expect(html).toContain('copy-code-btn');
+    // Should have language label
+    expect(html).toContain('code-lang-label');
+  });
 
-	it("renders code block without language label for plain code blocks", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({
-					content: "```\nplain code\n```",
-				}),
-			},
-		});
-		const html = wrapper.html();
-		expect(html).toContain("code-block-wrapper");
-		expect(html).toContain("copy-code-btn");
-		// Language label should be empty span
-		expect(html).toContain("code-lang-label");
-	});
+  it('renders code block without language label for plain code blocks', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '```\nplain code\n```',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    expect(html).toContain('code-block-wrapper');
+    expect(html).toContain('copy-code-btn');
+    // Language label should be empty span
+    expect(html).toContain('code-lang-label');
+  });
 
-	it("does not wrap inline code in code-block-wrapper", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({
-					content: "Use `code` inline",
-				}),
-			},
-		});
-		const html = wrapper.html();
-		// Inline code should not have the wrapper
-		// But it should have a <code> tag
-		expect(html).toContain("<code>");
-	});
+  it('does not wrap inline code in code-block-wrapper', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: 'Use `code` inline',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    // Inline code should not have the wrapper
+    // But it should have a <code> tag
+    expect(html).toContain('<code>');
+  });
 
-	it("shows source toggle when sources are present", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({
-					sources: JSON.stringify([
-						{
-							document_id: "doc-1",
-							document_name: "test.pdf",
-							chunk_index: 0,
-							text: "some content",
-							relevance: 0.95,
-						},
-					]),
-				}),
-			},
-		});
-		expect(wrapper.text()).toContain("source");
-	});
+  it('shows source toggle when sources are present', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'some content',
+              relevance: 0.95,
+            },
+          ]),
+        }),
+      },
+    });
+    expect(wrapper.text()).toContain('source');
+  });
 
-	it("does not show source toggle for user messages with sources", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createUserMessage({
-					sources: JSON.stringify([
-						{
-							document_id: "doc-1",
-							document_name: "test.pdf",
-							chunk_index: 0,
-							text: "content",
-							relevance: 0.9,
-						},
-					]),
-				}),
-			},
-		});
-		expect(wrapper.find(".sources-section").exists()).toBe(false);
-	});
+  it('does not show source toggle for user messages with sources', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createUserMessage({
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'content',
+              relevance: 0.9,
+            },
+          ]),
+        }),
+      },
+    });
+    expect(wrapper.find('.sources-section').exists()).toBe(false);
+  });
 
-	it("renders streaming bar when streaming and no content", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({ content: "" }),
-				isStreaming: true,
-			},
-		});
-		expect(wrapper.find(".streaming-bar").exists()).toBe(true);
-	});
+  it('renders streaming bar when streaming and no content', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({ content: '' }),
+        isStreaming: true,
+      },
+    });
+    expect(wrapper.find('.streaming-bar').exists()).toBe(true);
+  });
 
-	it("renders streaming cursor when streaming with content", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage(),
-				isStreaming: true,
-			},
-		});
-		expect(wrapper.find(".streaming-cursor").exists()).toBe(true);
-	});
+  it('renders streaming cursor when streaming with content', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage(),
+        isStreaming: true,
+      },
+    });
+    expect(wrapper.find('.streaming-cursor').exists()).toBe(true);
+  });
 
-	it("renders empty state gracefully for empty content", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({ content: "" }),
-			},
-		});
-		expect(wrapper.find(".markdown-body").exists()).toBe(false);
-	});
+  it('renders empty state gracefully for empty content', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({ content: '' }),
+      },
+    });
+    expect(wrapper.find('.markdown-body').exists()).toBe(false);
+  });
 
-	it("displays formatted timestamp", () => {
-		const wrapper = mount(MessageBubble, {
-			props: { message: createUserMessage() },
-		});
-		expect(wrapper.find(".message-time").exists()).toBe(true);
-	});
+  it('displays formatted timestamp', () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(wrapper.find('.message-time').exists()).toBe(true);
+  });
 
-	it("renders copy button on code blocks", () => {
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({
-					content: '```python\nprint("hello")\n```',
-				}),
-			},
-		});
-		expect(wrapper.find(".copy-code-btn").exists()).toBe(true);
-	});
+  it('renders copy button on code blocks', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '```python\nprint("hello")\n```',
+        }),
+      },
+    });
+    expect(wrapper.find('.copy-code-btn').exists()).toBe(true);
+  });
 
-	it("copy button shows Copied state after click", async () => {
-		// Mock clipboard API
-		const writeText = vi.fn().mockResolvedValue(undefined);
-		Object.assign(navigator, { clipboard: { writeText } });
+  it('copy button shows Copied state after click', async () => {
+    // Mock clipboard API
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
 
-		const wrapper = mount(MessageBubble, {
-			props: {
-				message: createAssistantMessage({
-					content: '```python\nprint("hello")\n```',
-				}),
-			},
-		});
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '```python\nprint("hello")\n```',
+        }),
+      },
+    });
 
-		const btn = wrapper.find(".copy-code-btn");
-		expect(btn.exists()).toBe(true);
-		await btn.trigger("click");
-		expect(btn.text()).toBe("Copied!");
-	});
+    const btn = wrapper.find('.copy-code-btn');
+    expect(btn.exists()).toBe(true);
+    await btn.trigger('click');
+    expect(btn.text()).toBe('Copied!');
+  });
 });

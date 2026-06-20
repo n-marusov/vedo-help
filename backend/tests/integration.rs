@@ -639,12 +639,12 @@ async fn test_query_repository_applies_active_filter() {
         .await
         .expect("should add embeddings");
 
-    // Create an in-memory SQLite pool with documents + chunks
+    // Create a PostgreSQL test pool with documents + chunks
     let pool = common::setup_test_db().await;
 
-    // Insert matching document and chunks into SQLite
+    // Insert matching document and chunks into PostgreSQL
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind("doc1")
     .bind("test-doc.md")
@@ -656,7 +656,7 @@ async fn test_query_repository_applies_active_filter() {
     .await
     .expect("should insert test document");
 
-    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
+    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES ($1, $2, $3, $4)"#)
         .bind("chunk_active")
         .bind("doc1")
         .bind(0)
@@ -665,7 +665,7 @@ async fn test_query_repository_applies_active_filter() {
         .await
         .expect("should insert active chunk");
 
-    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
+    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES ($1, $2, $3, $4)"#)
         .bind("chunk_inactive")
         .bind("doc1")
         .bind(1)

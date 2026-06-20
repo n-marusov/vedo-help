@@ -1,145 +1,40 @@
 #![allow(dead_code)]
 
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::SqlitePool;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 
 use vedo_backend::config::AppConfig;
 
-/// Create an in-memory SQLite pool for tests.
-pub async fn setup_test_db() -> SqlitePool {
-    let pool = SqlitePoolOptions::new()
+/// Create a PostgreSQL test pool and run migrations.
+///
+/// For unit/integration tests that don't use `#[sqlx::test]`, this connects to
+/// a local PostgreSQL instance. Set `DATABASE_URL` env var to override the default.
+pub async fn setup_test_db() -> PgPool {
+    let db_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://vedo:vedo@localhost:5432/vedo_test".to_string());
+
+    tracing::info!(
+        "[test_setup] connecting to PostgreSQL test database: {}",
+        redact_url(&db_url)
+    );
+
+    let pool = PgPoolOptions::new()
         .max_connections(1)
-        .connect(":memory:")
+        .connect(&db_url)
         .await
-        .expect("Failed to create test database");
+        .expect("Failed to connect to test database");
 
-    // Run migrations inline for test purposes
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            file_type TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            uploaded_at TEXT NOT NULL,
-            collection_id TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create documents table");
+    // Run migrations
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
 
-    sqlx::query(
-        r#"CREATE TABLE IF NOT EXISTS chunks (
-            id TEXT PRIMARY KEY,
-            document_id TEXT NOT NULL,
-            "index" INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-        )"#,
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create chunks table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS collections (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            created_at TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create collections table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS sessions (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL DEFAULT 'New Chat',
-            collection_id TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create sessions table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS messages (
-            id TEXT PRIMARY KEY,
-            session_id TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
-            content TEXT NOT NULL,
-            sources TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create messages table");
-
-    // Verify is_active columns exist and default to 1
-    let doc_cols: Vec<String> = sqlx::query_scalar(
-        "SELECT name FROM pragma_table_info('documents') WHERE name = 'is_active'",
-    )
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to query documents table info");
-    assert_eq!(
-        doc_cols.len(),
-        1,
-        "documents table must have is_active column"
-    );
-
-    let chunk_cols: Vec<String> =
-        sqlx::query_scalar("SELECT name FROM pragma_table_info('chunks') WHERE name = 'is_active'")
-            .fetch_all(&pool)
-            .await
-            .expect("Failed to query chunks table info");
-    assert_eq!(
-        chunk_cols.len(),
-        1,
-        "chunks table must have is_active column"
-    );
-
-    // Verify default is 1 by inserting a row without is_active and reading it back
-    sqlx::query("INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) VALUES ('assert_test', 'test.md', 'text/markdown', 100, '2024-01-01T00:00:00Z', 'col-1')")
+    // Clean all tables for a fresh test state
+    sqlx::query("TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE")
         .execute(&pool)
         .await
-        .expect("Failed to insert test document for is_active default check");
-    let is_active_default: i64 =
-        sqlx::query_scalar("SELECT is_active FROM documents WHERE id = 'assert_test'")
-            .fetch_one(&pool)
-            .await
-            .expect("Failed to query is_active default");
-    assert_eq!(is_active_default, 1, "is_active must default to 1");
-
-    sqlx::query("INSERT INTO chunks (id, document_id, \"index\", text) VALUES ('assert_chunk', 'assert_test', 0, 'test')")
-        .execute(&pool)
-        .await
-        .expect("Failed to insert test chunk for is_active default check");
-    let chunk_is_active: i64 =
-        sqlx::query_scalar("SELECT is_active FROM chunks WHERE id = 'assert_chunk'")
-            .fetch_one(&pool)
-            .await
-            .expect("Failed to query chunk is_active default");
-    assert_eq!(chunk_is_active, 1, "chunk is_active must default to 1");
-
-    // Clean up the assert rows
-    sqlx::query("DELETE FROM chunks WHERE id = 'assert_chunk'")
-        .execute(&pool)
-        .await
-        .ok();
-    sqlx::query("DELETE FROM documents WHERE id = 'assert_test'")
-        .execute(&pool)
-        .await
-        .ok();
+        .expect("Failed to truncate test tables");
 
     pool
 }
@@ -147,7 +42,7 @@ pub async fn setup_test_db() -> SqlitePool {
 /// Create a test AppConfig with sensible defaults for testing.
 pub fn setup_test_config() -> AppConfig {
     AppConfig {
-        database_url: ":memory:".to_string(),
+        database_url: "postgres://vedo:vedo@localhost:5432/vedo_test".to_string(),
         embedding_service_url: "http://localhost:18001".to_string(),
         chroma_url: "http://localhost:18000".to_string(),
         openrouter_api_key: "test-openrouter-key".to_string(),
@@ -163,4 +58,19 @@ pub fn setup_test_config() -> AppConfig {
         git_clone_root: "/tmp/test-git-repos".to_string(),
         git_sync_interval_secs: 0,
     }
+}
+
+/// Redact the password from a database URL for safe logging.
+fn redact_url(url: &str) -> String {
+    if let Some(after_scheme) = url.split_once("://") {
+        let scheme = after_scheme.0;
+        let rest = after_scheme.1;
+        if let Some(before_at) = rest.split_once('@') {
+            if let Some((user, _password)) = before_at.split_once(':') {
+                let after_at = &rest[before_at.len()..];
+                return format!("{}://{}:***{}", scheme, user, after_at);
+            }
+        }
+    }
+    url.to_string()
 }
