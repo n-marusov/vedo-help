@@ -11,7 +11,7 @@ This architecture was chosen because the project is a single-developer system wi
 ## Decision Rationale
 
 - **Project type:** Personal RAG Q&A system with multi-service Docker deployment
-- **Tech stack:** Rust (axum), Python (FastAPI), Vue 3 + TypeScript, Chroma, PostgreSQL
+- **Tech stack:** Rust (axum), Python (FastAPI), Vue 3 + TypeScript, Chroma, SQLite
 - **Key factor:** Single developer needs clear organization without over-engineering; soft module boundaries with explicit dependency direction
 
 ## Folder Structure
@@ -29,7 +29,7 @@ backend/
     │   ├── documents/             # Document upload, parsing, chunking
     │   │   ├── handlers.rs        # HTTP handlers (axum)
     │   │   ├── service.rs         # Application service (orchestration)
-    │   │   ├── repository.rs      # Data access (PostgreSQL + Chroma)
+    │   │   ├── repository.rs      # Data access (SQLite + Chroma)
     │   │   └── models.rs          # Domain models, DTOs
     │   │
     │   ├── collections/           # Collection CRUD
@@ -57,7 +57,7 @@ backend/
     │   │
     │   └── git_sync/               # Git repository sync
     │       ├── models.rs           # GitRepo, DTOs
-    │       ├── repository.rs       # PostgreSQL CRUD
+    │       ├── repository.rs       # SQLite CRUD
     │       └── service.rs          # Clone, pull, parse, index pipeline
     │
     └── shared/                    # ── SHARED (cross-cutting) ──
@@ -192,11 +192,11 @@ impl DocumentService {
 ### Repository (Data Access)
 
 ```rust
-use sqlx::PgPool;
+use sqlx::SqlitePool;
 use crate::modules::documents::models::Document;
 
 pub struct DocumentRepository {
-    db: PgPool,
+    db: SqlitePool,
     chroma_client: ChromaClient,
 }
 

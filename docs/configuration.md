@@ -12,13 +12,12 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 |----------|-------------|---------|
 | `ADMIN_API_KEY` | Bearer token for API authentication | `change-me` |
 | `OPENROUTER_API_KEY` | OpenRouter API key for LLM access | _(empty — no LLM without it)_ |
-| `VEDO_DB_PASSWORD` | PostgreSQL password for the VEDO database | `password` |
 
 ### Backend
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://vedo:password@db:5432/vedo` |
+| `DATABASE_URL` | SQLite connection string | `sqlite:/data/vedo.db?mode=rwc` |
 | `BACKEND_PORT` | Backend listen port | `3000` |
 | `RUST_LOG` | Logging filter directive | `info` |
 | `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
@@ -47,7 +46,6 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `KEYCLOAK_DB_PASSWORD` | PostgreSQL password for KeyCloak database | `keycloak` |
-| `POSTGRES_PASSWORD` | PostgreSQL superuser password | `password` |
 | `KEYCLOAK_ADMIN` | KeyCloak admin console username | `admin` |
 | `KEYCLOAK_ADMIN_PASSWORD` | KeyCloak admin console password (master realm) | `admin` |
 | `KEYCLOAK_HOSTNAME` | KeyCloak hostname | `localhost` |
@@ -79,7 +77,8 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 |--------|------------|---------|---------|
 | `chroma_data` | `/chroma/chroma` | chroma | Vector index persistence |
 | `embedding_cache` | `/data/cache` | embedding | Cached embeddings |
-| `db_data` | `/var/lib/postgresql/data` | db | PostgreSQL data (metadata + auth) |
+| `db_data` | `/data` | backend | SQLite database file |
+| `keycloak_db_data` | `/var/lib/postgresql/data` | keycloak-db | KeyCloak PostgreSQL data |
 
 ## File Upload Limits
 

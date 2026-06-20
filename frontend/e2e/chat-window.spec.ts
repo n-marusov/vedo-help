@@ -121,7 +121,8 @@ test.describe('ChatWindow Layout', () => {
       await page.goto('/');
       // Set active collection
       await page.evaluate(() => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         pinia.state.value.collections.activeCollectionId = 'col-1';
       });
@@ -137,7 +138,8 @@ test.describe('ChatWindow Layout', () => {
       await page.goto('/');
       // Set active collection to enable input
       await page.evaluate(() => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         pinia.state.value.collections.activeCollectionId = 'col-1';
       });
@@ -154,7 +156,8 @@ test.describe('ChatWindow Layout', () => {
       await page.goto('/');
       // Set active collection to enable input
       await page.evaluate(() => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         pinia.state.value.collections.activeCollectionId = 'col-1';
       });
@@ -184,7 +187,8 @@ test.describe('ChatWindow Layout', () => {
       await page.goto('/');
       // Set active collection and seed a message for animation assertions
       await page.evaluate(() => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         pinia.state.value.collections.activeCollectionId = 'col-1';
         pinia.state.value.chat.messages = [
@@ -208,7 +212,8 @@ test.describe('ChatWindow Layout', () => {
       await page.goto('/');
       // Set active collection and seed a message for animation assertions
       await page.evaluate(() => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         pinia.state.value.collections.activeCollectionId = 'col-1';
         pinia.state.value.chat.messages = [

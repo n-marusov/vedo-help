@@ -98,7 +98,8 @@ test.describe('Responsive Layout (Task 3.4)', () => {
 
     // Set active collection to enable input
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -130,7 +131,8 @@ test.describe('Responsive Layout (Task 3.4)', () => {
 
     // Seed a message to check width constraint on message bubbles
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
       pinia.state.value.chat.messages = [

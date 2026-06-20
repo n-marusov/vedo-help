@@ -4,49 +4,49 @@
    ========================================================================== */
 
 :root {
-  /* Message spacing */
-  --msg-gap: 0.75rem;
-  --msg-padding-y: 0.5rem;
-  --msg-padding-x: 0.875rem;
+	/* Message spacing */
+	--msg-gap: 0.75rem;
+	--msg-padding-y: 0.5rem;
+	--msg-padding-x: 0.875rem;
 
-  /* Border radius */
-  --msg-radius-user: 18px 6px 18px 18px;
-  --msg-radius-assistant: 6px 18px 18px 18px;
-  --avatar-radius: 999px;
+	/* Border radius */
+	--msg-radius-user: 18px 6px 18px 18px;
+	--msg-radius-assistant: 6px 18px 18px 18px;
+	--avatar-radius: 999px;
 
-  /* Animation */
-  --anim-msg-enter-duration: 180ms;
-  --anim-msg-enter-ease: cubic-bezier(0.2, 0, 0, 1);
-  --anim-stream-duration: 1.4s;
+	/* Animation */
+	--anim-msg-enter-duration: 180ms;
+	--anim-msg-enter-ease: cubic-bezier(0.2, 0, 0, 1);
+	--anim-stream-duration: 1.4s;
 
-  /* Message colors (dark theme defaults) */
-  --msg-user-bg: #1f5f9f;
-  --msg-assistant-bg: transparent;
-  --msg-user-text: #ffffff;
-  --msg-assistant-text: var(--color-foreground);
-  --msg-time-color: var(--color-muted-foreground);
-  --avatar-user-bg: var(--color-primary);
-  --avatar-assistant-bg: var(--color-muted);
+	/* Message colors (dark theme defaults) */
+	--msg-user-bg: #1f5f9f;
+	--msg-assistant-bg: transparent;
+	--msg-user-text: #ffffff;
+	--msg-assistant-text: var(--color-foreground);
+	--msg-time-color: var(--color-muted-foreground);
+	--avatar-user-bg: var(--color-primary);
+	--avatar-assistant-bg: var(--color-muted);
 
-  /* Sizing */
-  --avatar-size: 32px;
-  --max-msg-width: min(75%, 760px);
-  --input-min-height: 44px;
+	/* Sizing */
+	--avatar-size: 32px;
+	--max-msg-width: min(75%, 760px);
+	--input-min-height: 44px;
 }
 
 /* Toolbar and composer background by theme */
 [data-theme="dark"] [data-testid="chat-toolbar"] {
-  background-color: var(--color-card);
+	background-color: var(--color-card);
 }
 
 [data-theme="light"] [data-testid="chat-toolbar"] {
-  background-color: var(--color-card);
+	background-color: var(--color-card);
 }
 
 [data-theme="dark"] [data-testid="composer"] {
-  background-color: var(--color-card);
+	background-color: var(--color-card);
 }
 
 [data-theme="light"] [data-testid="composer"] {
-  background-color: var(--color-card);
+	background-color: var(--color-card);
 }

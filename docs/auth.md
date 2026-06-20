@@ -77,10 +77,10 @@ KeyCloak is configured via a **realm import template** at `keycloak/realm-import
 
 **No credentials are stored in the repository** — all secrets (user passwords, client secrets) come from `.env`.
 
-> **⚠️ Import strategy is `IGNORE_EXISTING`.** The realm is only created on the first successful import. Subsequent starts skip the import entirely — changes to `realm-import.json.template` or `.env` passwords have **no effect** on a running realm. To re-apply the template, you must delete the `db_data` volume and restart:
+> **⚠️ Import strategy is `IGNORE_EXISTING`.** The realm is only created on the first successful import. Subsequent starts skip the import entirely — changes to `realm-import.json.template` or `.env` passwords have **no effect** on a running realm. To re-apply the template, you must delete the `keycloak_db_data` volume and restart:
 >
 > ```bash
-> docker compose down -v  # removes all volumes including db_data
+> docker compose down -v  # removes all volumes including keycloak_db_data
 > docker compose up -d    # re-imports the realm from the template
 > ```
 >

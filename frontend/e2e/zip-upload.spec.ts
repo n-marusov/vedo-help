@@ -185,7 +185,8 @@ test.describe('ZIP batch upload', () => {
 
     // Set active collection to enable DocumentList
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -225,7 +226,8 @@ test.describe('ZIP batch upload', () => {
 
     // Set active collection to enable DocumentList
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -244,7 +246,8 @@ test.describe('ZIP batch upload', () => {
     // Verify error was set in Pinia store
     await page.waitForFunction(
       () => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         const err = pinia.state.value.documents?.error;
         return err && err.length > 0;
@@ -274,7 +277,8 @@ test.describe('ZIP batch upload', () => {
 
     // Set active collection to enable DocumentList
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -293,7 +297,8 @@ test.describe('ZIP batch upload', () => {
     // Verify error was set in Pinia store
     await page.waitForFunction(
       () => {
-        const app = document.querySelector('#app').__vue_app__;
+        // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+        const app = (document.querySelector('#app') as any).__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
         const err = pinia.state.value.documents?.error;
         return err && err.length > 0;
@@ -347,7 +352,8 @@ test.describe('ZIP batch upload', () => {
 
     // Set active collection to enable DocumentList
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });

@@ -192,7 +192,8 @@ test.describe('RAG Flow: Upload → Query → Sources', () => {
     // Set active collection to enable input
     // DEBUG [e2e] rag-flow: setting activeCollectionId
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -284,7 +285,8 @@ test.describe('RAG Flow: Upload → Query → Sources', () => {
     // Set active collection to enable input
     // DEBUG [e2e] rag-flow: setting activeCollectionId
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });

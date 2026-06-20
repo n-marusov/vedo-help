@@ -11,7 +11,7 @@ use vedo_backend::config::AppConfig;
 /// a local PostgreSQL instance. Set `DATABASE_URL` env var to override the default.
 pub async fn setup_test_db() -> PgPool {
     let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://vedo:vedo@localhost:5432/vedo_test".to_string());
+        .unwrap_or_else(|_| "postgres://vedo:devpassword@localhost:5432/vedo_test".to_string());
 
     tracing::info!(
         "[test_setup] connecting to PostgreSQL test database: {}",
@@ -19,7 +19,7 @@ pub async fn setup_test_db() -> PgPool {
     );
 
     let pool = PgPoolOptions::new()
-        .max_connections(1)
+        .max_connections(20)
         .connect(&db_url)
         .await
         .expect("Failed to connect to test database");
@@ -42,7 +42,7 @@ pub async fn setup_test_db() -> PgPool {
 /// Create a test AppConfig with sensible defaults for testing.
 pub fn setup_test_config() -> AppConfig {
     AppConfig {
-        database_url: "postgres://vedo:vedo@localhost:5432/vedo_test".to_string(),
+        database_url: "postgres://vedo:devpassword@localhost:5432/vedo_test".to_string(),
         embedding_service_url: "http://localhost:18001".to_string(),
         chroma_url: "http://localhost:18000".to_string(),
         openrouter_api_key: "test-openrouter-key".to_string(),
@@ -65,10 +65,9 @@ fn redact_url(url: &str) -> String {
     if let Some(after_scheme) = url.split_once("://") {
         let scheme = after_scheme.0;
         let rest = after_scheme.1;
-        if let Some(before_at) = rest.split_once('@') {
+        if let Some((before_at, after_at)) = rest.split_once('@') {
             if let Some((user, _password)) = before_at.split_once(':') {
-                let after_at = &rest[before_at.len()..];
-                return format!("{}://{}:***{}", scheme, user, after_at);
+                return format!("{}://{}:***@{}", scheme, user, after_at);
             }
         }
     }

@@ -116,7 +116,7 @@ describe('documents store — deleteDocumentsBatch', () => {
 
     apiMock.batchDeleteDocuments.mockReturnValue(new Promise<never>(() => {}));
 
-    const promise = store.deleteDocumentsBatch(['doc-1']);
+    store.deleteDocumentsBatch(['doc-1']);
 
     expect(store.isDeleting).toBe(true);
   });

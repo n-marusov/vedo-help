@@ -15,20 +15,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: vedo
-          POSTGRES_PASSWORD: vedo_test
-          POSTGRES_DB: vedo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U vedo"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
       chroma:
         image: chromadb/chroma:0.6.3
         env:
@@ -36,7 +22,7 @@ jobs:
         ports:
           - 8000:8000
         options: >-
-          --health-cmd "python -c 'import urllib.request; urllib.request.urlopen("http://localhost:8000/api/v1/heartbeat")'"
+          --health-cmd "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/v1/heartbeat\")'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -71,15 +57,11 @@ jobs:
       - name: Unit tests
         run: cargo test --lib
         working-directory: backend
-        env:
-          DATABASE_URL: postgres://vedo:vedo_test@localhost:5432/vedo
 
-      - name: Integration tests (requires Chroma + PostgreSQL services)
+      - name: Integration tests (requires Chroma service)
         run: cargo test --test integration
-        working-directory: backend
         env:
           CHROMA_URL: http://localhost:8000
-          DATABASE_URL: postgres://vedo:vedo_test@localhost:5432/vedo
 
   embedding:
     runs-on: ubuntu-latest

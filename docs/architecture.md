@@ -18,7 +18,8 @@ graph TB
         BE[Backend<br/>Rust / axum]
         ES[Embedding Service<br/>Python / FastAPI]
         CDB[(Chroma<br/>Vector DB)]
-        PDB[(PostgreSQL<br/>Metadata & Auth)]
+        SQL[(SQLite<br/>Metadata)]
+        PDB[(PostgreSQL<br/>KeyCloak DB)]
     end
 
     B -- "HTTP 80" --> F
@@ -28,14 +29,14 @@ graph TB
     BE -- "JWT validation" --> K
     BE -- "POST /embed" --> ES
     BE -- "Chroma API" --> CDB
-    BE -- "sqlx" --> PDB
+    BE -- "sqlx" --> SQL
     K --> PDB
 
     classDef svc fill:#e3f2fd,stroke:#1565c0
     classDef db fill:#fff3e0,stroke:#e65100
     classDef auth fill:#f3e5f5,stroke:#7b1fa2
     class F,BE,ES svc
-    class CDB,PDB db
+    class CDB,SQL,PDB db
     class K auth
 ```
 
@@ -92,7 +93,7 @@ Persistent ChromaDB instance storing document chunk vectors. Data persists in a 
 
 ### 4. KeyCloak (OIDC/OAuth2 Identity Provider)
 
-KeyCloak 26 provides authentication via the OAuth 2.0 Authorization Code flow with PKCE. It runs with a shared PostgreSQL 16 database (`db`).
+KeyCloak 26 provides authentication via the OAuth 2.0 Authorization Code flow with PKCE. It runs with a dedicated PostgreSQL 16 database (`keycloak-db`).
 
 - **Realm:** `vedo-hub` with three-tier RBAC (`guest`, `user`, `admin`)
 - **Clients:** `vedo-frontend` (public, PKCE) and `vedo-backend` (confidential, service accounts)
@@ -163,7 +164,7 @@ frontend/src/
 
 ## Document Ingestion Flow
 
-When an administrator uploads a document, the backend orchestrates validation, parsing, chunking, embedding, and indexing. All chunks are embedded in parallel batches and stored in Chroma alongside PostgreSQL metadata.
+When an administrator uploads a document, the backend orchestrates validation, parsing, chunking, embedding, and indexing. All chunks are embedded in parallel batches and stored in Chroma alongside SQLite metadata.
 
 ```mermaid
 sequenceDiagram
@@ -172,15 +173,15 @@ sequenceDiagram
     participant B as Backend
     participant E as Embedding
     participant C as Chroma
-    participant P as PostgreSQL
+    participant S as SQLite
 
     U->>F: Uploads file (Admin view)
     F->>B: POST /api/documents/upload<br/>(multipart: file + collection_id)
     B->>B: Validate file<br/>(size, extension, magic bytes)
     B->>B: Parse file content<br/>(PDF / DOCX / Markdown)
     B->>B: Chunk text with overlap<br/>(1000 chars, 200 overlap)
-    B->>P: Save document metadata
-    B->>P: Save chunk records
+    B->>S: Save document metadata
+    B->>S: Save chunk records
     loop For each batch of chunks (max 32)
         B->>E: POST /embed (chunk texts)
         E-->>B: Embedding vectors
@@ -195,7 +196,7 @@ sequenceDiagram
 3. Backend validates the file — checks extension whitelist (PDF, MD, DOCX), size limit (50 MB), and magic bytes to confirm file type
 4. Backend parses the raw text from the file using format-specific extractors
 5. Backend splits the text into overlapping chunks (1000 chars, 200 char overlap) for granular retrieval
-6. Backend persists document metadata and chunk records to PostgreSQL
+6. Backend persists document metadata and chunk records to SQLite
 7. Backend sends chunk texts in batches to the embedding service, then stores the resulting vectors in Chroma with document metadata for filtered search
 8. Frontend updates the document list with the uploaded file's details
 

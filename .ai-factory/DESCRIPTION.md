@@ -23,7 +23,7 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 - **Frontend:** Vue 3 + TypeScript (streaming responses via SSE, DeepSeek-style chat UI)
 - **Testing:** Vitest + @vue/test-utils + jsdom
 - **Design Tokens:** CSS custom properties (chat-tokens.css) for spacing, colors, animations
-- **Database:** PostgreSQL 16 (via sqlx) for metadata, conversation history, and auth
+- **Database:** SQLite (via sqlx) for metadata and conversation history
 - **Deployment:** Docker Compose with Caddy reverse proxy (VPS)
 - **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests)
 - **LLM Gateway:** OpenRouter API (configurable model)
@@ -52,5 +52,5 @@ See `.ai-factory/ARCHITECTURE.md` for detailed architecture guidelines.
 - **Security:** KeyCloak JWT token authentication, file validation (MIME + magic bytes), rate limiting, CORS
 - **Logging:** Docker journald driver with structured tags
 - **Reliability:** Graceful shutdown, retry logic for embeddings, health check endpoints
-- **Data:** PostgreSQL 16 for persistent metadata and auth, Chroma for vector storage, automated backup/restore scripts
+- **Data:** SQLite for persistent metadata, Chroma for vector storage, automated backup/restore scripts
 - **Constraints:** Single-developer scope, no Kubernetes, no performance budgets, no coverage thresholds

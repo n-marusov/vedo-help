@@ -28,7 +28,6 @@ Edit `.env` and set at least these two:
 ```env
 ADMIN_API_KEY=your-secret-api-key
 OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
-VEDO_DB_PASSWORD=your-db-password
 ```
 
 Other variables have sensible defaults — see [Configuration](configuration.md).
@@ -48,7 +47,7 @@ This starts six services:
 | `backend` | `3000` | Rust REST API |
 | `frontend` | `5173` (dev) | Vue 3 web interface |
 | `keycloak` | `8080` | OIDC/OAuth2 identity provider |
-| `db` | — | PostgreSQL for metadata + auth |
+| `keycloak-db` | — | PostgreSQL for KeyCloak data |
 
 ### 4. Verify it works
 

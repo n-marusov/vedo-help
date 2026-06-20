@@ -1,5 +1,5 @@
-import { getAccessToken, setAccessToken } from '@/api/client';
-import { ref } from 'vue';
+import { getAccessToken, setAccessToken } from "@/api/client";
+import { ref } from "vue";
 
 /**
  * Pinia-style auth store (lightweight, no Pinia dependency needed).
@@ -23,16 +23,20 @@ export const userProvider = ref<string | null>(null);
 
 // ── Actions ──
 
-export function setAuthToken(token: string, name?: string, provider?: string): void {
-  setAccessToken(token);
-  isAuthenticated.value = true;
-  if (name !== undefined) userName.value = name;
-  if (provider !== undefined) userProvider.value = provider;
+export function setAuthToken(
+	token: string,
+	name?: string,
+	provider?: string,
+): void {
+	setAccessToken(token);
+	isAuthenticated.value = true;
+	if (name !== undefined) userName.value = name;
+	if (provider !== undefined) userProvider.value = provider;
 }
 
 export function clearAuth(): void {
-  setAccessToken('');
-  isAuthenticated.value = false;
-  userName.value = null;
-  userProvider.value = null;
+	setAccessToken("");
+	isAuthenticated.value = false;
+	userName.value = null;
+	userProvider.value = null;
 }
