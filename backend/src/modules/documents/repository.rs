@@ -290,7 +290,7 @@ impl DocumentRepository {
         sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text, is_active) VALUES ($1, $2, $3, $4, $5)"#)
             .bind(chunk.id)
             .bind(chunk.document_id)
-            .bind(chunk.index as i64)
+            .bind(chunk.index as i32)
             .bind(&chunk.text)
             .bind(chunk.is_active)
             .execute(&self.db)
@@ -302,7 +302,7 @@ impl DocumentRepository {
 
     /// Retrieve chunks by document ID, ordered by index.
     pub async fn get_chunks(&self, document_id: Uuid) -> Result<Vec<Chunk>, AppError> {
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, i64, String, bool)>(
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, i32, String, bool)>(
             r#"SELECT id, document_id, "index", text, is_active FROM chunks WHERE document_id = $1 ORDER BY "index""#
         )
         .bind(document_id)
@@ -429,7 +429,7 @@ impl DocumentRepository {
     pub async fn get_active_chunks(&self, document_id: Uuid) -> Result<Vec<Chunk>, AppError> {
         tracing::debug!("Fetching active chunks for document: {document_id}");
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, i64, String, bool)>(
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, i32, String, bool)>(
             r#"SELECT id, document_id, "index", text, is_active FROM chunks
                WHERE document_id = $1 AND is_active = TRUE
                ORDER BY "index""#,

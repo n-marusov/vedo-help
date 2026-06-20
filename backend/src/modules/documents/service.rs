@@ -747,6 +747,7 @@ fn parse_file_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::io::Write;
 
     /// Helper: create an in-memory ZIP with given (filename, content) pairs.
@@ -763,6 +764,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_non_ascii_text() {
         // Regression: process_upload with Cyrillic text must not panic
         // on debug preview slicing (service.rs:50)
@@ -782,6 +784,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-non-ascii-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -798,6 +810,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_emoji_content() {
         // Regression: process_upload with 4-byte UTF-8 (emoji) must not panic
         let emoji_line = "😀🚀🌈🧪🔥🎉🎊🎈🎁\n".repeat(30);
@@ -807,6 +820,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-emoji-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -822,6 +845,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_mixed_encoding() {
         // Regression: process_upload with mixed CJK + Cyrillic + emoji must not panic
         let mixed = "English text. Привет-мир-你好世界😀🚀\n".repeat(40);
@@ -831,6 +855,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-mixed-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -846,6 +880,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_ascii_regression() {
         // Regression: ASCII-only upload must still work after UTF-8 fixes
         let content =
@@ -855,6 +890,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-ascii-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -869,6 +914,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_with_5_md_files() {
         let data = make_zip(&[
             ("file1.md", "# File 1"),
@@ -877,10 +923,19 @@ mod tests {
             ("file4.md", "# File 4"),
             ("file5.md", "# File 5"),
         ]);
-        let result = make_service()
+        let collection_id = Uuid::new_v4();
+        let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-zip-5-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
             .await
-            .process_zip_upload(&data, Uuid::new_v4())
-            .await;
+            .expect("Failed to insert collection");
+
+        let result = svc.process_zip_upload(&data, collection_id).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert_eq!(response.processed, 5);
@@ -889,6 +944,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_with_11_files_returns_413() {
         let names: Vec<String> = (0..11).map(|i| format!("doc-{i}.md")).collect();
         let refs: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "# content")).collect();
@@ -905,16 +961,26 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_mixed_valid_invalid() {
         let data = make_zip(&[
             ("valid.md", "# Valid"),
             ("script.exe", "fake exe"),
             ("notes.txt", "Plain text"),
         ]);
-        let result = make_service()
+        let collection_id = Uuid::new_v4();
+        let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-zip-mixed-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
             .await
-            .process_zip_upload(&data, Uuid::new_v4())
-            .await;
+            .expect("Failed to insert collection");
+
+        let result = svc.process_zip_upload(&data, collection_id).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert!(response.processed > 0);
@@ -922,6 +988,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_empty() {
         let data = make_zip(&[]);
         let result = make_service()
@@ -935,6 +1002,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_corrupted() {
         let data = vec![0x00, 0x01, 0x02, 0x03];
         let result = make_service()
@@ -949,16 +1017,26 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_unsupported_types_skipped() {
         let data = make_zip(&[
             ("valid.md", "# Valid"),
             ("readme.txt", "Plain text"),
             ("app.exe", "binary"),
         ]);
-        let result = make_service()
+        let collection_id = Uuid::new_v4();
+        let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-zip-unsupported-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
             .await
-            .process_zip_upload(&data, Uuid::new_v4())
-            .await;
+            .expect("Failed to insert collection");
+
+        let result = svc.process_zip_upload(&data, collection_id).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert!(response.processed >= 1);
@@ -967,6 +1045,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks() {
         let svc = make_service().await;
         let collection_id = Uuid::new_v4();
@@ -974,11 +1053,11 @@ mod tests {
         // Insert a collection for FK
         sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
             .bind(collection_id)
-            .bind("test-collection")
+            .bind(format!("test-collection-{collection_id}"))
             .bind("")
             .execute(svc.repo.db_pool())
             .await
-            .ok();
+            .expect("Failed to insert collection");
 
         // First upload: create document with initial content
         let initial_content = b"# Initial version\n\nThis is the first version of the document.";
@@ -1013,7 +1092,7 @@ mod tests {
 
         // Check is_active via direct SQL for all chunks
         let rows: Vec<(Uuid, bool)> = sqlx::query_as(
-            r#"SELECT id, is_active FROM chunks WHERE document_id = $1 ORDER BY \"index\""#,
+            r#"SELECT id, is_active FROM chunks WHERE document_id = $1 ORDER BY "index""#,
         )
         .bind(doc_id)
         .fetch_all(svc.repo.db_pool())
@@ -1035,6 +1114,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
         let svc = make_service().await;
         let collection_id = Uuid::new_v4();
@@ -1042,11 +1122,11 @@ mod tests {
         // Insert a collection for FK
         sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
             .bind(collection_id)
-            .bind("test-collection-del")
+            .bind(format!("test-collection-del-{collection_id}"))
             .bind("")
             .execute(svc.repo.db_pool())
             .await
-            .ok();
+            .expect("Failed to insert collection");
 
         // Upload a document
         let content = b"# Test document\n\nThis document will be deleted.";
@@ -1120,6 +1200,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
         let svc = make_service().await;
         let collection_id = Uuid::new_v4();
@@ -1127,11 +1208,11 @@ mod tests {
         // Insert a collection
         sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
             .bind(collection_id)
-            .bind("test-collection-batch")
+            .bind(format!("test-collection-batch-{collection_id}"))
             .bind("")
             .execute(svc.repo.db_pool())
             .await
-            .ok();
+            .expect("Failed to insert collection");
 
         // Upload 3 documents
         let mut doc_ids = Vec::new();
@@ -1189,6 +1270,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_batch_delete_with_mixed_collections() {
         let svc = make_service().await;
         let collection_a = Uuid::new_v4();
@@ -1202,7 +1284,7 @@ mod tests {
                 .bind("")
                 .execute(svc.repo.db_pool())
                 .await
-                .ok();
+                .expect("Failed to insert collection");
         }
 
         // Upload 2 docs to col A, 2 docs to col B
@@ -1281,6 +1363,10 @@ mod tests {
             .run(&pool)
             .await
             .expect("Failed to run migrations");
+
+        // Clean up test data to ensure a fresh state for each test.
+        // Tests must run with --test-threads=1 to avoid race conditions
+        // between parallel TRUNCATE and INSERT operations.
         sqlx::query(
             "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
         )

@@ -61,6 +61,7 @@ hex = "0.4"
 [dev-dependencies]
 mockall = "0.12"
 rstest = "0.18"
+serial_test = "3"
 tempfile = "3"
 uuid = { version = "1", features = ["v4"] }
 
