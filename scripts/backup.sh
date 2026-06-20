@@ -2,7 +2,13 @@
 set -e
 
 # VEDO hub backup script
-# Backs up SQLite database and Chroma data directory
+# Backs up PostgreSQL databases (vedo + keycloak) and Chroma data directory
+#
+# Usage:
+#   ./scripts/backup.sh
+#
+# Environment variables:
+#   BACKUP_DIR     Directory for backup files (default: ./backups)
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP=$(date +%F_%H-%M-%S)
@@ -11,18 +17,17 @@ mkdir -p "$BACKUP_DIR"
 
 echo "[INFO] Starting VEDO hub backup: $TIMESTAMP"
 
-# Stop containers to ensure data consistency
-echo "[INFO] Stopping containers..."
-docker compose stop backend chroma || echo "[WARN] Failed to stop containers, continuing..."
+# Backup vedo database (PostgreSQL pg_dump)
+VEDO_BACKUP="$BACKUP_DIR/vedo-$TIMESTAMP.sql.gz"
+echo "[INFO] Backing up vedo database..."
+docker compose exec -T db pg_dump -U postgres vedo | gzip > "$VEDO_BACKUP"
+echo "[INFO] vedo database backup created: $VEDO_BACKUP ($(du -h "$VEDO_BACKUP" | cut -f1))"
 
-# Backup SQLite database
-if [ -f ./data/vedo.db ]; then
-    DB_BACKUP="$BACKUP_DIR/vedo-$TIMESTAMP.db"
-    cp ./data/vedo.db "$DB_BACKUP"
-    echo "[INFO] SQLite backup created: $DB_BACKUP ($(du -h "$DB_BACKUP" | cut -f1))"
-else
-    echo "[WARN] SQLite database not found at ./data/vedo.db"
-fi
+# Backup keycloak database (PostgreSQL pg_dump)
+KC_BACKUP="$BACKUP_DIR/keycloak-$TIMESTAMP.sql.gz"
+echo "[INFO] Backing up keycloak database..."
+docker compose exec -T db pg_dump -U postgres keycloak | gzip > "$KC_BACKUP"
+echo "[INFO] keycloak database backup created: $KC_BACKUP ($(du -h "$KC_BACKUP" | cut -f1))"
 
 # Backup Chroma data directory
 if [ -d ./data/chroma ]; then
@@ -33,14 +38,8 @@ else
     echo "[WARN] Chroma data directory not found at ./data/chroma"
 fi
 
-# Restart containers
-echo "[INFO] Restarting containers..."
-docker compose start chroma backend || echo "[WARN] Failed to restart containers"
-docker compose up -d chroma backend 2>/dev/null || true
-
 # Prune backups older than 30 days
 echo "[INFO] Pruning backups older than 30 days..."
-find "$BACKUP_DIR" -name "vedo-*.db" -mtime +30 -delete 2>/dev/null || true
-find "$BACKUP_DIR" -name "chroma-*.tar.gz" -mtime +30 -delete 2>/dev/null || true
+find "$BACKUP_DIR" \( -name "vedo-*.sql.gz" -o -name "keycloak-*.sql.gz" -o -name "chroma-*.tar.gz" \) -mtime +30 -delete 2>/dev/null || true
 
 echo "[INFO] Backup complete: $TIMESTAMP"

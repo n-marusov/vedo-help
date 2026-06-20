@@ -100,7 +100,7 @@ curl http://localhost:3000/api/documents \
 
 #### `DELETE /api/documents/{id}`
 
-Soft delete a document and its chunks. The document row and chunks remain in SQLite with `is_active=0` but are excluded from queries. Chroma entries are also cleaned up.
+Soft delete a document and its chunks. The document row and chunks remain in the database with `is_active=false` but are excluded from queries. Chroma entries are also cleaned up.
 
 ```bash
 curl -X DELETE http://localhost:3000/api/documents/550e8400-e29b-41d4-a716-446655440000 \

@@ -11,14 +11,14 @@ graph TB
     Caddy -- reverse proxy / --> Frontend
     Backend --> Chroma
     Backend --> Embedding
-    Backend --> SQLite
+    Backend --> PostgreSQL
 
     classDef svc fill:#e3f2fd,stroke:#1565c0
     classDef proxy fill:#f3e5f5,stroke:#7b1fa2
     classDef db fill:#fff3e0,stroke:#e65100
     class Caddy proxy
     class Backend,Frontend,Embedding svc
-    class Chroma,SQLite db
+    class Chroma,PostgreSQL db
 ```
 
 ## VPS Setup
@@ -117,7 +117,7 @@ Production operation scripts are available in `scripts/`:
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/backup.sh` | Backup SQLite database and Chroma vector store |
+| `scripts/backup.sh` | Backup PostgreSQL database and Chroma vector store |
 | `scripts/restore.sh` | Restore from a previous backup |
 | `scripts/smoke-test.sh` | Smoke test — start services and verify health endpoints |
 | `scripts/smoke-test-dns.sh` | DNS resolution test for embedding service (VPN-independent) |
@@ -135,11 +135,11 @@ Creates timestamped, compressed backups in `backups/` with retention policy (7 d
 ### Manual backup
 
 ```bash
-# SQLite database
-docker compose -f docker-compose.yml -f docker-compose.production.yml exec backend \
-  sh -c "cp /data/vedo.db /tmp/vedo-$(date +%Y%m%d).db"
+# PostgreSQL database
+docker compose -f docker-compose.yml -f docker-compose.production.yml exec db \
+  sh -c "pg_dump -U vedo vedo > /tmp/vedo-$(date +%Y%m%d).sql"
 docker compose -f docker-compose.yml -f docker-compose.production.yml cp \
-  backend:/tmp/vedo-*.db ./backups/
+  db:/tmp/vedo-*.sql ./backups/
 
 # Chroma vectors
 docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T chroma \

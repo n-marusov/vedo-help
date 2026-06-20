@@ -240,7 +240,7 @@ paths:
       summary: Soft delete a document
       description: |
         Soft deletes a document and its chunks. The document row remains in
-        SQLite with `is_active=false` but is excluded from queries. Chroma
+        the database with `is_active=false` but is excluded from queries. Chroma
         entries are also cleaned up.
       tags:
         - Documents
@@ -474,7 +474,7 @@ paths:
       summary: Delete a Git repository and cleanup
       description: |
         Removes the local clone, deletes the Chroma collection, and removes
-        the SQLite record.
+        the database record.
       tags:
         - Git Sync
       security:
