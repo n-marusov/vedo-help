@@ -57,22 +57,22 @@ help: ## Show this help
 # === Testing ===
 
 test-env: ## Start test environment (docker-compose.test.yml)
-	docker compose -f docker-compose.test.yml up -d
+	docker compose --env-file .env.test -f docker-compose.test.yml up -d
 	@echo "Waiting for all services to be healthy..."
 	@sleep 10
-	@docker compose -f docker-compose.test.yml ps
+	@docker compose --env-file .env.test -f docker-compose.test.yml ps
 
 test-env-down: ## Stop and clean test environment
-	docker compose -f docker-compose.test.yml down -v
+	docker compose --env-file .env.test -f docker-compose.test.yml down -v
 
 test: ## Run all tests (backend + frontend + embedding)
 	cd backend && cargo test --lib
 	cd frontend && npm test
 	cd embedding && pytest tests/ -v
 
-test:e2e: ## Run Playwright e2e tests (requires test-env)
-	export VITE_API_PROXY_TARGET=http://localhost:13000 VITE_KEYCLOAK_PROXY_TARGET=http://localhost:18080 \
-	&& cd frontend && npm run test:e2e
+test:e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
+	docker compose --env-file .env.test -f docker-compose.test.yml \
+		--profile test-runner run --rm frontend-tests
 
 lint: ## Run all linters
 	cd backend && cargo clippy -- -D warnings
