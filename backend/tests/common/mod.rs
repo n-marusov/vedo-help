@@ -11,7 +11,7 @@ use vedo_backend::config::AppConfig;
 /// a local PostgreSQL instance. Set `DATABASE_URL` env var to override the default.
 pub async fn setup_test_db() -> PgPool {
     let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://vedo:devpassword@localhost:5432/vedo_test".to_string());
+        .unwrap_or_else(|_| "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string());
 
     tracing::info!(
         "[test_setup] connecting to PostgreSQL test database: {}",
@@ -42,10 +42,11 @@ pub async fn setup_test_db() -> PgPool {
 /// Create a test AppConfig with sensible defaults for testing.
 pub fn setup_test_config() -> AppConfig {
     AppConfig {
-        database_url: "postgres://vedo:devpassword@localhost:5432/vedo_test".to_string(),
+        database_url: "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string(),
         embedding_service_url: "http://localhost:18001".to_string(),
         chroma_url: "http://localhost:18000".to_string(),
         openrouter_api_key: "test-openrouter-key".to_string(),
+        openrouter_base_url: "http://openrouter-mock:18002".to_string(),
         openrouter_model: "test-model".to_string(),
         host: "127.0.0.1".to_string(),
         port: 0,

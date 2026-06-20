@@ -32,8 +32,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # ====================================================================
 FROM deps AS builder
 
-# Copy the actual source code
+# Copy the actual source code and compile-time SQL migrations
 COPY src/ ./src/
+COPY migrations/ ./migrations/
 
 # Full release build (reuses cached dependencies from /app/target)
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

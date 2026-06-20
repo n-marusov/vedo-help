@@ -2,7 +2,10 @@ target/
 node_modules/
 __pycache__/
 *.pyc
+*.env
 .env
+.env.*
+!.env.example
 keycloak/realm-import.json
 data/
 *.db
@@ -17,3 +20,4 @@ frontend/playwright-report/
 frontend/test-results/
 backend/rust_out.exe
 backend/rust_out.pdb
+**/.venv/

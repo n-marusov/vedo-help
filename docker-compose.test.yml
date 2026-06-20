@@ -1,0 +1,296 @@
+# docker-compose.test.yml — test environment for integration and e2e tests
+#
+# Mirrors docker-compose.yml where possible, but uses .env.test values and
+# Docker service names for service-to-service communication.
+#
+# Usage:
+#   docker compose --env-file .env.test -f docker-compose.test.yml up -d
+#   docker compose --env-file .env.test -f docker-compose.test.yml --profile test-runner run --rm frontend-tests
+#   docker compose --env-file .env.test -f docker-compose.test.yml down -v
+
+name: ${COMPOSE_PROJECT_NAME:-vedo-test}
+
+services:
+  chroma:
+    image: chromadb/chroma:0.6.2
+    environment:
+      - IS_PERSISTENT=TRUE
+    volumes:
+      - test_chroma_data:/chroma/chroma
+    ports:
+      - "${TEST_CHROMA_PORT:-18000}:8000"
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  embedding:
+    build:
+      context: ./embedding
+      target: production
+    dns:
+      # Same as the main compose: avoid host/VPN DNS issues for model downloads.
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+      - CACHE_DIR=/data/cache
+    volumes:
+      - test_embedding_cache:/data/cache
+    ports:
+      - "${TEST_EMBEDDING_PORT:-18001}:8001"
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      chroma:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    env_file: .env.test
+    environment:
+      # Browser-issued tokens in the test runner use the internal KeyCloak URL.
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://keycloak:8080}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-http://keycloak:8080}
+      # Internal service discovery — use Docker service names, not localhost.
+      CHROMA_URL: ${CHROMA_URL:-http://chroma:8000}
+      EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://embedding:8001}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-http://openrouter-mock:18002}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-test/mock-model}
+      DATABASE_URL: ${DATABASE_URL:-postgres://vedo:${VEDO_DB_PASSWORD:?VEDO_DB_PASSWORD is required}@db:5432/vedo}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-vedo-hub}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_BACKEND_CLIENT_ID:-vedo-backend}
+      FRONTEND_URL: ${FRONTEND_URL:-http://frontend:5173}
+      GIT_CLONE_ROOT: ${GIT_CLONE_ROOT:-/tmp/git-repos}
+      RUST_LOG: ${RUST_LOG:-vedo_backend=debug,tower_http=debug}
+    ports:
+      - "${TEST_BACKEND_PORT:-13000}:3000"
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      openrouter-mock:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    environment:
+      NODE_ENV: test
+      VITE_API_PROXY_TARGET: http://backend:3000
+      VITE_KEYCLOAK_PROXY_TARGET: http://keycloak:8080
+    ports:
+      - "${TEST_FRONTEND_PORT:-15173}:5173"
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      VEDO_DB_PASSWORD: ${VEDO_DB_PASSWORD:?VEDO_DB_PASSWORD is required}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
+    volumes:
+      - test_db_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "${TEST_DB_PORT:-15432}:5432"
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  keycloak-init:
+    image: alpine:3.19
+    volumes:
+      - test_keycloak_import:/import
+      - ./keycloak/realm-import.json.template:/template:ro
+    environment:
+      VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:?VEDO_BACKEND_CLIENT_SECRET is required}
+      VEDO_ADMIN_PASSWORD: ${VEDO_ADMIN_PASSWORD:?VEDO_ADMIN_PASSWORD is required}
+      VEDO_ALICE_PASSWORD: ${VEDO_ALICE_PASSWORD:?VEDO_ALICE_PASSWORD is required}
+      VEDO_GUEST_PASSWORD: ${VEDO_GUEST_PASSWORD:?VEDO_GUEST_PASSWORD is required}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        echo "[keycloak-init] Validating environment variables..."
+        missing=0
+        for var in VEDO_BACKEND_CLIENT_SECRET VEDO_ADMIN_PASSWORD VEDO_ALICE_PASSWORD VEDO_GUEST_PASSWORD; do
+          eval val="\$$var"
+          if [ -z "$$val" ]; then
+            echo "[keycloak-init] FATAL: $$var is not set or empty"
+            missing=1
+          else
+            echo "[keycloak-init]   $$var = OK"
+          fi
+        done
+        if [ $$missing -ne 0 ]; then
+          echo "[keycloak-init] Aborting — set missing variables in .env.test and restart."
+          exit 1
+        fi
+        cp /template /import/realm-import.json
+        sed -i 's|[$][{]VEDO_BACKEND_CLIENT_SECRET[}]|'"$$VEDO_BACKEND_CLIENT_SECRET"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_ADMIN_PASSWORD[}]|'"$$VEDO_ADMIN_PASSWORD"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_ALICE_PASSWORD[}]|'"$$VEDO_ALICE_PASSWORD"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_GUEST_PASSWORD[}]|'"$$VEDO_GUEST_PASSWORD"'|g' /import/realm-import.json
+        # Test runs use parallel token requests; disable lockouts in disposable test realm.
+        sed -i 's|"bruteForceProtected": true|"bruteForceProtected": false|g' /import/realm-import.json
+        chmod 644 /import/realm-import.json
+        echo "[keycloak-init] Done. realm-import.json generated."
+    restart: "no"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: start-dev --import-realm
+    ports:
+      - "${TEST_KEYCLOAK_PORT:-18080}:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-keycloak}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+      VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:?VEDO_BACKEND_CLIENT_SECRET is required}
+    volumes:
+      - test_keycloak_import:/opt/keycloak/data/import
+    depends_on:
+      keycloak-init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080'"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  openrouter-mock:
+    build:
+      context: ./docker/test/openrouter-mock
+    networks:
+      - test_internal
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:18002/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend-tests:
+    image: mcr.microsoft.com/playwright:v1.61.0-noble
+    working_dir: /work/frontend
+    environment:
+      HOME: /tmp
+      VITE_API_PROXY_TARGET: http://backend:3000
+      VITE_KEYCLOAK_PROXY_TARGET: http://keycloak:8080
+      E2E_API_URL: http://backend:3000
+      E2E_KEYCLOAK_URL: http://keycloak:8080
+      E2E_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-vedo-hub}
+      E2E_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_FRONTEND_CLIENT_ID:-vedo-frontend}
+      E2E_USERNAME: ${E2E_USERNAME:-admin}
+      E2E_PASSWORD: ${VEDO_ADMIN_PASSWORD:?VEDO_ADMIN_PASSWORD is required}
+      VEDO_ADMIN_PASSWORD: ${VEDO_ADMIN_PASSWORD:?VEDO_ADMIN_PASSWORD is required}
+    volumes:
+      - ./frontend:/work/frontend
+      - frontend_test_node_modules:/work/frontend/node_modules
+    networks:
+      - test_internal
+    profiles:
+      - test-runner
+    depends_on:
+      backend:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - |
+        npm ci
+        npm run test:e2e
+
+networks:
+  test_internal:
+    driver: bridge
+
+volumes:
+  test_chroma_data:
+  test_embedding_cache:
+  test_db_data:
+  test_keycloak_import:
+  frontend_test_node_modules:
