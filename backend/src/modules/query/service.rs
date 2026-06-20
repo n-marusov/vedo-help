@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use futures::stream::{self, Stream};
 use futures::StreamExt;
 use serde_json::json;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::modules::query::models::{QueryRequest, SourceRef, StreamEvent};
@@ -23,7 +23,7 @@ pub struct QueryService {
 impl QueryService {
     /// Create a new QueryService.
     pub fn new(
-        db: SqlitePool,
+        db: PgPool,
         chroma_url: &str,
         llm_client: OpenRouterClient,
         embedding_service_url: &str,
@@ -43,7 +43,7 @@ impl QueryService {
     /// Steps:
     /// 1. Embed the query via the embedding service
     /// 2. Search Chroma for the top-5 most similar chunks
-    /// 3. Fetch full chunk data from SQLite
+    /// 3. Fetch full chunk data from PostgreSQL
     /// 4. Load conversation history (if session_id is provided)
     /// 5. Stream the LLM response, yielding events: "chunk", "sources", "done"
     pub async fn process_query(
@@ -95,7 +95,7 @@ impl QueryService {
             );
         }
 
-        // 3. Fetch chunk text + document names from SQLite
+        // 3. Fetch chunk text + document names from PostgreSQL
         let chunk_ids: Vec<String> = chroma_results.iter().map(|r| r.id.clone()).collect();
         let chunks = self.repo.get_chunks_by_ids(&chunk_ids).await?;
 
@@ -186,7 +186,7 @@ impl QueryService {
 
         let rows = sqlx::query_as::<_, MessageRow>(
             "SELECT role, content FROM messages \
-             WHERE session_id = ? ORDER BY created_at ASC",
+             WHERE session_id = $1 ORDER BY created_at ASC",
         )
         .bind(session_id.to_string())
         .fetch_all(self.repo.db())

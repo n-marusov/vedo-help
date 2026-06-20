@@ -701,7 +701,7 @@ impl GitSyncService {
         })?
     }
 
-    /// Full cleanup: delete Chroma documents → delete local clone → delete SQLite row.
+    /// Full cleanup: delete Chroma documents → delete local clone → delete PostgreSQL row.
     ///
     /// Uses Chroma's `where` filter to remove only git-sourced chunks from the
     /// collection, preserving any manually uploaded documents in the same collection.
@@ -732,7 +732,7 @@ impl GitSyncService {
         // 2. Delete local clone
         self.delete_repo_local(repo_id).await?;
 
-        // 3. Delete SQLite row
+        // 3. Delete PostgreSQL row
         self.repo.delete_repo(repo_id).await?;
 
         tracing::info!("[GitSyncService::delete_repo_and_cleanup] completed repo_id={repo_id}");
@@ -923,34 +923,30 @@ mod tests {
     }
 
     /// Helper: create a GitSyncService for testing index_chunks behavior.
-    /// Uses an in-memory DB and a dummy Chroma/embedding URL.
+    /// Uses a PostgreSQL test database and a dummy Chroma/embedding URL.
     async fn make_test_service() -> GitSyncService {
         use crate::modules::git_sync::repository::GitRepoRepository;
+        use sqlx::postgres::PgPoolOptions;
 
-        let pool = sqlx::SqlitePool::connect(":memory:")
+        let db_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://vedo:vedo@localhost:5432/vedo_test".to_string());
+
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&db_url)
             .await
-            .expect("Failed to create in-memory pool");
+            .expect("Failed to connect to test database");
 
-        // Create the git_repos table
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to run migrations");
         sqlx::query(
-            "CREATE TABLE IF NOT EXISTS git_repos (
-                id TEXT PRIMARY KEY,
-                url TEXT NOT NULL,
-                branch TEXT NOT NULL DEFAULT 'main',
-                access_token TEXT,
-                local_path TEXT NOT NULL,
-                last_commit_hash TEXT,
-                last_synced_at TEXT,
-                collection_id TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                webhook_secret TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )",
+            "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
         )
         .execute(&pool)
         .await
-        .ok();
+        .expect("Failed to truncate tables");
 
         let repo = GitRepoRepository::new(pool);
         GitSyncService::new(

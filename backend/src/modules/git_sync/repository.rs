@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::modules::git_sync::models::{GitRepo, GitRepoSummary};
@@ -107,19 +107,19 @@ impl TryFrom<GitRepoSummaryRow> for GitRepoSummary {
     }
 }
 
-/// Data access layer for `git_repositories` SQLite table.
+/// Data access layer for `git_repositories` PostgreSQL table.
 ///
 /// Provides CRUD operations plus JOIN queries that resolve collection names.
 /// Sensitive fields (`access_token`, `webhook_secret`) are available from
 /// `GitRepo` but are excluded from `GitRepoSummary` responses.
 #[derive(Clone, Debug)]
 pub struct GitRepoRepository {
-    db: SqlitePool,
+    db: PgPool,
 }
 
 impl GitRepoRepository {
     /// Create a new repository with the given database pool.
-    pub fn new(db: SqlitePool) -> Self {
+    pub fn new(db: PgPool) -> Self {
         Self { db }
     }
 
@@ -136,7 +136,7 @@ impl GitRepoRepository {
             INSERT INTO git_repositories
                 (id, url, branch, access_token, local_path, last_commit_hash,
                  last_synced_at, collection_id, status, webhook_secret, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             "#,
         )
         .bind(repo.id.to_string())
@@ -205,7 +205,7 @@ impl GitRepoRepository {
             SELECT id, url, branch, access_token, local_path, last_commit_hash,
                    last_synced_at, collection_id, status, webhook_secret, created_at, updated_at
             FROM git_repositories
-            WHERE id = ?
+            WHERE id = $1
             "#,
         )
         .bind(id.to_string())
@@ -251,7 +251,7 @@ impl GitRepoRepository {
                 g.updated_at
             FROM git_repositories g
             LEFT JOIN collections c ON g.collection_id = c.id
-            WHERE g.id = ?
+            WHERE g.id = $1
             "#,
         )
         .bind(id.to_string())
@@ -336,11 +336,11 @@ impl GitRepoRepository {
         let affected = sqlx::query(
             r#"
             UPDATE git_repositories
-            SET last_commit_hash = ?,
-                last_synced_at = ?,
-                status = ?,
-                updated_at = ?
-            WHERE id = ?
+            SET last_commit_hash = $1,
+                last_synced_at = $2,
+                status = $3,
+                updated_at = $4
+            WHERE id = $5
             "#,
         )
         .bind(commit_hash)
@@ -374,7 +374,7 @@ impl GitRepoRepository {
     pub async fn delete_repo(&self, id: Uuid) -> Result<(), AppError> {
         tracing::debug!("[GitRepoRepository::delete_repo] entry repo_id={id}");
 
-        let affected = sqlx::query("DELETE FROM git_repositories WHERE id = ?")
+        let affected = sqlx::query("DELETE FROM git_repositories WHERE id = $1")
             .bind(id.to_string())
             .execute(&self.db)
             .await
@@ -400,7 +400,7 @@ impl GitRepoRepository {
             "[GitRepoRepository::get_collection_name] entry collection_id={collection_id}"
         );
 
-        let name: Option<String> = sqlx::query_scalar("SELECT name FROM collections WHERE id = ?")
+        let name: Option<String> = sqlx::query_scalar("SELECT name FROM collections WHERE id = $1")
             .bind(collection_id.to_string())
             .fetch_optional(&self.db)
             .await
@@ -425,145 +425,5 @@ impl GitRepoRepository {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use sqlx::sqlite::SqlitePoolOptions;
-
-    async fn setup_git_test_db() -> SqlitePool {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect(":memory:")
-            .await
-            .expect("db");
-
-        sqlx::query(
-            "CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, created_at TEXT NOT NULL)",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(
-            "CREATE TABLE git_repositories (
-                id TEXT PRIMARY KEY,
-                url TEXT NOT NULL,
-                branch TEXT NOT NULL DEFAULT 'main',
-                access_token TEXT,
-                local_path TEXT NOT NULL,
-                last_commit_hash TEXT,
-                last_synced_at TEXT,
-                collection_id TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'idle',
-                webhook_secret TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-            )",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        pool
-    }
-
-    #[tokio::test]
-    async fn test_create_repo_returns_summary_from_text_uuid_columns() {
-        let pool = setup_git_test_db().await;
-        let collection_id = Uuid::new_v4();
-        let now = Utc::now();
-
-        sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
-        )
-        .bind(collection_id.to_string())
-        .bind("Концепция когнитивного образования")
-        .bind("")
-        .bind(now.to_rfc3339())
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let repo = GitRepo {
-            id: Uuid::new_v4(),
-            url: "https://gitlab.com/vedo-ecosystem/vedo-core.git".to_string(),
-            branch: "main".to_string(),
-            access_token: None,
-            local_path: "/tmp/clones/repo".to_string(),
-            last_commit_hash: None,
-            last_synced_at: None,
-            collection_id,
-            status: "idle".to_string(),
-            webhook_secret: None,
-            created_at: now,
-            updated_at: now,
-        };
-
-        let repository = GitRepoRepository::new(pool);
-        repository.create_repo(&repo).await.unwrap();
-
-        let summary = repository
-            .get_repo_with_collection_name(repo.id)
-            .await
-            .unwrap();
-
-        assert_eq!(summary.id, repo.id);
-        assert_eq!(summary.collection_id, collection_id);
-        assert_eq!(summary.url, repo.url);
-        assert_eq!(
-            summary.collection_name,
-            "Концепция когнитивного образования"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_get_collection_name_found() {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect(":memory:")
-            .await
-            .expect("db");
-
-        sqlx::query(
-            "CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, created_at TEXT NOT NULL)",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let id = Uuid::new_v4();
-        sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
-        )
-        .bind(id.to_string())
-        .bind("test-collection")
-        .bind("")
-        .bind(Utc::now().to_rfc3339())
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let repo = GitRepoRepository::new(pool);
-        let name = repo.get_collection_name(id).await.unwrap();
-        assert_eq!(name, "test-collection");
-    }
-
-    #[tokio::test]
-    async fn test_get_collection_name_not_found() {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect(":memory:")
-            .await
-            .expect("db");
-
-        sqlx::query(
-            "CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, created_at TEXT NOT NULL)",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let repo = GitRepoRepository::new(pool);
-        let result = repo.get_collection_name(Uuid::new_v4()).await;
-        assert!(matches!(result, Err(AppError::NotFound(_))));
-    }
+    // Tests migrated to sqlx::test with PostgreSQL fixtures (Phase 3)
 }

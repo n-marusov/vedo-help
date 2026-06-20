@@ -7,7 +7,7 @@ use axum::{
     routing::{delete, get, post},
     Extension, Router,
 };
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::postgres::PgPoolOptions;
 use tokio::signal;
 use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
@@ -35,6 +35,23 @@ use vedo_backend::shared::{
     llm::OpenRouterClient,
 };
 
+/// Redact the password from a PostgreSQL URL for safe logging.
+/// `postgres://vedo:s3cret@db:5432/vedo` → `postgres://vedo:***@db:5432/vedo`
+fn redacted_db_url(url: &str) -> String {
+    // Simple redaction: replace password between :// and @
+    if let Some(after_scheme) = url.split_once("://") {
+        let scheme = after_scheme.0;
+        let rest = after_scheme.1;
+        if let Some((before_at, after_at)) = rest.split_once('@') {
+            // before_at could be "user" or "user:password"
+            if let Some((user, _password)) = before_at.split_once(':') {
+                return format!("{}://{}:***@{}", scheme, user, after_at);
+            }
+        }
+    }
+    url.to_string()
+}
+
 #[tokio::main]
 async fn main() {
     // Load .env file for local development (silently ignore if not found)
@@ -50,43 +67,42 @@ async fn main() {
 
     tracing::info!("Starting VEDO hub RAG Assistant backend");
 
-    // Ensure the database parent directory exists (for SQLite file-based URLs)
-    // Strip URL scheme prefix to get the filesystem path
-    // Handles:
-    //   - sqlite:data/vedo.db?mode=rwc  (relative with query params)
-    //   - sqlite:///data/vedo.db        (absolute path)
-    //   - sqlite://data/vedo.db         (relative, legacy format — for backward compat)
-    let db_path = config
-        .database_url
-        .strip_prefix("sqlite:///")
-        .or_else(|| config.database_url.strip_prefix("sqlite://"))
-        .or_else(|| config.database_url.strip_prefix("sqlite:"))
-        .unwrap_or(&config.database_url);
-    // Strip any query parameters (e.g., `?mode=rwc`) for directory creation
-    let db_path = db_path.split('?').next().unwrap_or(db_path);
-    if let Some(dir) = std::path::Path::new(db_path).parent() {
-        if !dir.as_os_str().is_empty() {
-            tracing::debug!("Ensuring database directory exists: {}", dir.display());
-            std::fs::create_dir_all(dir).unwrap_or_else(|e| {
-                tracing::error!("Failed to create database directory {}: {e}", dir.display());
+    // Connect to PostgreSQL with retry loop (database container may not be ready immediately in Docker)
+    let max_retries = 30;
+    let mut retries = 0;
+    let db = loop {
+        retries += 1;
+        tracing::info!(
+            "[main] connecting to PostgreSQL (attempt {}/{max_retries})",
+            retries
+        );
+        match PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&config.database_url)
+            .await
+        {
+            Ok(pool) => {
+                tracing::info!(
+                    "[main] database connected: postgresql://{}",
+                    redacted_db_url(&config.database_url)
+                );
+                break pool;
+            }
+            Err(e) if retries < max_retries => {
+                tracing::warn!(
+                    "[main] PostgreSQL not ready (attempt {}/{max_retries}): {e}",
+                    retries
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            Err(e) => {
+                tracing::error!(
+                    "[main] Failed to connect to database after {max_retries} retries: {e}"
+                );
                 std::process::exit(1);
-            });
+            }
         }
-    }
-
-    // Initialize SQLite pool
-    let db = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect(&config.database_url)
-        .await
-        .unwrap_or_else(|e| {
-            tracing::error!(
-                "Failed to connect to database at {}: {e}",
-                config.database_url
-            );
-            std::process::exit(1);
-        });
-    tracing::info!("Database connected: {}", config.database_url);
+    };
 
     // Ensure git clone root directory exists
     tracing::info!("Git clone root: {}", config.git_clone_root);
@@ -353,136 +369,12 @@ async fn shutdown_signal_with_tx(tx: broadcast::Sender<()>) {
     }
 }
 
-/// Run SQLite schema migrations.
-async fn run_migrations(db: &sqlx::SqlitePool) {
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS collections (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            created_at TEXT NOT NULL
-        )
-        "#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create collections table");
-
-    sqlx::query(
-        r#"CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            file_type TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            uploaded_at TEXT NOT NULL,
-            collection_id TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-        )"#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create documents table");
-
-    // Idempotent migration: add is_active to documents if missing (existing databases)
-    match sqlx::query("ALTER TABLE documents ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
-        .execute(db)
-        .await
-    {
-        Ok(_) => tracing::info!("Migration: added is_active column to documents"),
-        Err(e) => tracing::debug!("Migration: is_active already exists in documents ({e})"),
-    }
-
-    sqlx::query(
-        r#"CREATE TABLE IF NOT EXISTS chunks (
-            id TEXT PRIMARY KEY,
-            document_id TEXT NOT NULL,
-            "index" INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-        )"#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create chunks table");
-
-    // Idempotent migration: add is_active to chunks if missing (existing databases)
-    match sqlx::query("ALTER TABLE chunks ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
-        .execute(db)
-        .await
-    {
-        Ok(_) => tracing::info!("Migration: added is_active column to chunks"),
-        Err(e) => tracing::debug!("Migration: is_active already exists in chunks ({e})"),
-    }
-
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS sessions (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL DEFAULT 'New Chat',
-            collection_id TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE SET NULL
-        )
-        "#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create sessions table");
-
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS messages (
-            id TEXT PRIMARY KEY,
-            session_id TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
-            content TEXT NOT NULL,
-            sources TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create messages table");
-
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS git_repositories (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            branch TEXT NOT NULL DEFAULT 'main',
-            access_token TEXT,
-            local_path TEXT NOT NULL,
-            last_commit_hash TEXT,
-            last_synced_at TEXT,
-            collection_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'idle' CHECK(status IN ('idle','syncing','error')),
-            webhook_secret TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create git_repositories table");
-
-    sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_git_repos_collection
-            ON git_repositories(collection_id)
-        "#,
-    )
-    .execute(db)
-    .await
-    .expect("Failed to create git_repositories index");
-
-    tracing::info!("Git repositories table migration applied");
-    tracing::info!("Database migrations completed");
+/// Run PostgreSQL schema migrations using sqlx::migrate!().
+async fn run_migrations(db: &sqlx::PgPool) {
+    tracing::info!("[main] running database migrations...");
+    sqlx::migrate!().run(db).await.unwrap_or_else(|e| {
+        tracing::error!("[main] Failed to run migrations: {e}");
+        std::process::exit(1);
+    });
+    tracing::info!("[main] database migrations completed successfully");
 }

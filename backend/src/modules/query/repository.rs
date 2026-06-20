@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use crate::shared::error::AppError;
 use crate::shared::llm::CrateChunkData;
@@ -6,16 +6,16 @@ use crate::shared::types::ChromaResult;
 use crate::shared::ChromaClient;
 
 /// Repository for query-related data access: Chroma vector search and
-/// SQLite chunk / document lookups.
+/// PostgreSQL chunk / document lookups.
 #[derive(Clone, Debug)]
 pub struct QueryRepository {
-    db: SqlitePool,
+    db: PgPool,
     chroma: ChromaClient,
 }
 
 impl QueryRepository {
     /// Create a new QueryRepository with the given database pool and Chroma URL.
-    pub fn new(db: SqlitePool, chroma_url: &str) -> Self {
+    pub fn new(db: PgPool, chroma_url: &str) -> Self {
         let chroma = ChromaClient::new(chroma_url);
         tracing::debug!("QueryRepository initialized");
         Self { db, chroma }
@@ -52,7 +52,7 @@ impl QueryRepository {
         Ok(results)
     }
 
-    /// Fetch chunks from SQLite by their IDs, joined with document names.
+    /// Fetch chunks from PostgreSQL by their IDs, joined with document names.
     ///
     /// Returns `CrateChunkData` with text, index, and document_name populated.
     /// Maintains the order of the input `ids` slice.
@@ -61,15 +61,15 @@ impl QueryRepository {
             return Ok(Vec::new());
         }
 
-        tracing::debug!("Fetching {} chunks from SQLite", ids.len());
+        tracing::debug!("Fetching {} chunks from PostgreSQL", ids.len());
 
-        // Build placeholders for the IN clause
-        let placeholders: Vec<String> = (0..ids.len()).map(|_| "?".to_string()).collect();
+        // Build placeholders for the IN clause (PostgreSQL numbered params)
+        let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("${i}")).collect();
         let query_str = format!(
             "SELECT c.id, c.index, c.text, d.name AS document_name \
              FROM chunks c \
              JOIN documents d ON c.document_id = d.id \
-             WHERE c.id IN ({}) AND c.is_active = 1",
+             WHERE c.id IN ({}) AND c.is_active = TRUE",
             placeholders.join(", ")
         );
 
@@ -106,16 +106,16 @@ impl QueryRepository {
             if let Some(chunk) = by_id.remove(id) {
                 chunks.push(chunk);
             } else {
-                tracing::warn!("Chunk {id} not found in SQLite — Chroma result may be stale");
+                tracing::warn!("Chunk {id} not found in PostgreSQL — Chroma result may be stale");
             }
         }
 
-        tracing::debug!("Found {} chunks in SQLite", chunks.len());
+        tracing::debug!("Found {} chunks in PostgreSQL", chunks.len());
         Ok(chunks)
     }
 
-    /// Access the underlying SQLite pool (for conversation history, etc.).
-    pub fn db(&self) -> &SqlitePool {
+    /// Access the underlying PostgreSQL pool (for conversation history, etc.).
+    pub fn db(&self) -> &PgPool {
         &self.db
     }
 }

@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::modules::conversations::models::{Message, Session};
@@ -7,21 +7,21 @@ use crate::shared::error::AppError;
 /// Repository for session and message data access.
 #[derive(Clone, Debug)]
 pub struct ConversationRepository {
-    db: SqlitePool,
+    db: PgPool,
 }
 
 impl ConversationRepository {
     /// Create a new ConversationRepository with the given database pool.
-    pub fn new(db: SqlitePool) -> Self {
+    pub fn new(db: PgPool) -> Self {
         Self { db }
     }
 
-    /// Insert a new session into SQLite.
+    /// Insert a new session into PostgreSQL.
     pub async fn create_session(&self, session: &Session) -> Result<Uuid, AppError> {
         tracing::debug!("Creating session: {}", session.title);
 
         sqlx::query(
-            "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(session.id.to_string())
         .bind(&session.title)
@@ -71,7 +71,7 @@ impl ConversationRepository {
         tracing::debug!("Fetching session: {id}");
 
         let row = sqlx::query_as::<_, (String, String, Option<String>, String, String)>(
-            "SELECT id, title, collection_id, created_at, updated_at FROM sessions WHERE id = ?",
+            "SELECT id, title, collection_id, created_at, updated_at FROM sessions WHERE id = $1",
         )
         .bind(id.to_string())
         .fetch_optional(&self.db)
@@ -96,14 +96,14 @@ impl ConversationRepository {
         tracing::debug!("Deleting session: {id}");
 
         // Delete messages first (explicit cascade for clarity)
-        sqlx::query("DELETE FROM messages WHERE session_id = ?")
+        sqlx::query("DELETE FROM messages WHERE session_id = $1")
             .bind(id.to_string())
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete messages: {e}")))?;
 
         // Delete the session
-        let affected = sqlx::query("DELETE FROM sessions WHERE id = ?")
+        let affected = sqlx::query("DELETE FROM sessions WHERE id = $1")
             .bind(id.to_string())
             .execute(&self.db)
             .await
@@ -117,7 +117,7 @@ impl ConversationRepository {
         Ok(())
     }
 
-    /// Insert a message into SQLite.
+    /// Insert a message into PostgreSQL.
     pub async fn add_message(&self, msg: &Message) -> Result<(), AppError> {
         tracing::debug!(
             "Adding message to session {}: role={}",
@@ -126,7 +126,7 @@ impl ConversationRepository {
         );
 
         sqlx::query(
-            "INSERT INTO messages (id, session_id, role, content, sources, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO messages (id, session_id, role, content, sources, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(msg.id.to_string())
         .bind(msg.session_id.to_string())
@@ -139,7 +139,7 @@ impl ConversationRepository {
         .map_err(|e| AppError::InternalError(format!("Failed to add message: {e}")))?;
 
         // Update session updated_at timestamp
-        sqlx::query("UPDATE sessions SET updated_at = ? WHERE id = ?")
+        sqlx::query("UPDATE sessions SET updated_at = $1 WHERE id = $2")
             .bind(chrono::Utc::now().to_rfc3339())
             .bind(msg.session_id.to_string())
             .execute(&self.db)
@@ -157,7 +157,7 @@ impl ConversationRepository {
         tracing::debug!("Fetching messages for session: {session_id}");
 
         let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>, String)>(
-            "SELECT id, session_id, role, content, sources, created_at FROM messages WHERE session_id = ? ORDER BY created_at",
+            "SELECT id, session_id, role, content, sources, created_at FROM messages WHERE session_id = $1 ORDER BY created_at",
         )
         .bind(session_id.to_string())
         .fetch_all(&self.db)
@@ -204,12 +204,18 @@ impl ConversationRepository {
 
     /// Count messages belonging to a session.
     async fn get_message_count(&self, session_id: Uuid) -> Result<i64, AppError> {
-        let row = sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM messages WHERE session_id = ?")
-            .bind(session_id.to_string())
-            .fetch_one(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+        let row =
+            sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM messages WHERE session_id = $1")
+                .bind(session_id.to_string())
+                .fetch_one(&self.db)
+                .await
+                .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
         Ok(row.0)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // Tests migrated to sqlx::test with PostgreSQL fixtures (Phase 3)
 }
