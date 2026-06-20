@@ -79,9 +79,7 @@ test.describe('ChatWindow Layout', () => {
   test('TC-CHAT-007: hides welcome message when messages exist', async ({ page }) => {
     await page.goto('/');
     const welcomeMsg = page.locator('[data-testid="welcome-message"]');
-    // When there are messages, welcome should be hidden
-    const isVisible = await welcomeMsg.isVisible();
-    // Messages or welcome should be mutually exclusive
+
     const messages = page.locator('[data-testid^="message-"]');
     const hasMessages = (await messages.count()) > 0;
     if (hasMessages) {

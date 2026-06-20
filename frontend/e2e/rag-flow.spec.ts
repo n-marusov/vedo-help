@@ -1,12 +1,5 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
-import { VALID_TOKEN, mockCollections, mockSessions, setupAuth } from './helpers';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const TEST_FILE_PATH = path.resolve(__dirname, '..', 'src', 'assets', 'chat-tokens.css');
+import { VALID_TOKEN } from './helpers';
 
 /**
  * RAG Flow E2E Tests (upload → query → sources)

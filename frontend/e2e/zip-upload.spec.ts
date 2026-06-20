@@ -2,7 +2,7 @@ import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { VALID_TOKEN, mockCollections, setupAuth } from './helpers';
+import { VALID_TOKEN, mockCollections } from './helpers';
 
 /**
  * Build a minimal valid ZIP file buffer containing the given files.

@@ -82,7 +82,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
 
     // Set active collection to enable DocumentList
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -113,7 +114,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
 
     // Set active collection
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -199,7 +201,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
     await expect(adminView).toBeVisible({ timeout: 5000 });
 
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -226,7 +229,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
     await expect(input).toBeVisible();
 
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -254,7 +258,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
     // In the actual UI, a "Reload" action on a document would call POST /api/documents/reload.
     // We simulate by triggering a second upload that the mock intercepts.
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -282,7 +287,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
     const input2 = page.locator('[data-testid="chat-input"]');
     await expect(input2).toBeVisible();
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -370,7 +376,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
     await expect(adminView).toBeVisible({ timeout: 5000 });
 
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });
@@ -414,7 +421,8 @@ test.describe('Document Re-indexing: Upload → Reload → Delete', () => {
     await expect(input).toBeVisible();
 
     await page.evaluate(() => {
-      const app = document.querySelector('#app').__vue_app__;
+      // biome-ignore lint/suspicious/noExplicitAny: Vue internal property
+      const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = 'col-1';
     });

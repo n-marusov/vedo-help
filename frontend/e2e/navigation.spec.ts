@@ -30,7 +30,6 @@ test.describe('Navigation & Admin Layout (Task 3.1)', () => {
   test('TC-NAV-003: chat navigation exists in sidebar', async ({ page }) => {
     await page.goto('/');
     // Chat nav link should still be present (or the layout itself is the chat)
-    const chatNavLink = page.locator('[data-testid="nav-chat"]');
     // Either the nav link exists, or the entire layout is chat-focused
     // We just verify there's no admin nav distracting
   });
@@ -162,8 +161,8 @@ test.describe('Responsive Layout (Task 3.4)', () => {
 
     // On mobile, session sidebar (if exists) should be hidden or collapsible
     const sessionSidebar = page.locator('[data-testid="session-sidebar"]');
-    const isVisible = await sessionSidebar.isVisible();
-    if (isVisible) {
+    const _isVisible = await sessionSidebar.isVisible();
+    if (_isVisible) {
       // If visible on mobile, it should be at top (not taking full height sidebar)
       const sidebarWidth = await sessionSidebar.evaluate((el) => getComputedStyle(el).width);
       const viewportWidth = 375;

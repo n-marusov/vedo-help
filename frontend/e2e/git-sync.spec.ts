@@ -467,14 +467,12 @@ test.describe('Git Sync: Repository Management', () => {
     await page.goto('/admin');
 
     // Intercept API calls and assert 401 response
-    let responseStatus = 0;
     await page.route('**/api/git-sync/repos', async (route) => {
       await route.fulfill({
         status: 401,
         contentType: 'application/json',
         body: JSON.stringify({ error: 'Unauthorized' }),
       });
-      responseStatus = 401;
     });
 
     // Navigate again so the route mock is active

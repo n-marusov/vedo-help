@@ -29,18 +29,8 @@ test.describe('Theme Switching (all pages)', () => {
     });
   });
 
-  // ─── Helper: get current theme mode ───
-  async function getThemeMode(page) {
-    return page.evaluate(() => {
-      const html = document.documentElement;
-      if (html.getAttribute('data-theme') === 'light') return 'light';
-      if (!html.hasAttribute('data-theme')) return 'dark';
-      return html.getAttribute('data-theme'); // fallback
-    });
-  }
-
   // ─── Helper: check token values ───
-  async function getCssToken(page, token) {
+  async function getCssToken(page: import('@playwright/test').Page, token: string) {
     return page.evaluate((t) => {
       const el = document.body;
       return getComputedStyle(el).getPropertyValue(t).trim();
@@ -48,13 +38,13 @@ test.describe('Theme Switching (all pages)', () => {
   }
 
   // ─── Helper: verify theme visuals ───
-  async function expectDarkTheme(page) {
+  async function expectDarkTheme(page: import('@playwright/test').Page) {
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'light');
     const bg = await getCssToken(page, '--color-background');
     expect(bg).toBe('#0f0f23'); // dark background token
   }
 
-  async function expectLightTheme(page) {
+  async function expectLightTheme(page: import('@playwright/test').Page) {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     const bg = await getCssToken(page, '--color-background');
     expect(bg).toBe('#f5f5fa'); // light background token
@@ -576,12 +566,7 @@ test.describe('Theme Switching (all pages)', () => {
     }) => {
       await page.goto('/login');
       // The toggle should be hidden via @media print CSS
-      const toggle = page.locator('[data-testid="theme-toggle"]');
-      const display = await toggle.evaluate((el) => {
-        // Simulate print media query via computed style
-        // This is a contract check: the toggle should have a print-hidden class or media query
-        return true; // Placeholder — actual print test needs CDP emulation
-      });
+      // This is a contract check: the toggle should have a print-hidden class or media query
     });
 
     test('TC-THEME-EDGE-002: invalid localStorage value defaults to dark theme', async ({
