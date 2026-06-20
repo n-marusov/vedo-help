@@ -3,7 +3,7 @@
 Пройтись по всем пунктам после любой реализации прежде чем считать задачу завершённой.
 
 ## Code gates
-- `npm run ai:validate` — exit 0 (known pre-existing: ai:perf workspace missing)
+- `npm run ai:validate` — exit 0 (known pre-existing: `ai:perf` workspace missing — only `ai:perf` fails, all other gates pass)
 - `uvx ruff check --fix` — exit 0
 
 ## Contract
@@ -156,4 +156,4 @@ make test-env-down  # остановка и очистка
 ## Docs / rules
 - `AGENTS.md` актуален (структура, ключевые файлы)
 - Нет shell-команд через `&&`/`||`/`;` в инструкциях и коммитах
-- `npm run format:check` может падать на pre-existing biome-форматировании, не связанном с фичей
+- `npm run format:check` должен проходить (biome-форматирование поддерживается через `npx biome format --write .`)

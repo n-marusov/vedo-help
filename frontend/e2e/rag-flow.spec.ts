@@ -97,7 +97,9 @@ test.describe("RAG Flow: real backend upload → query → sources", () => {
 
 		await expect(
 			page.locator('[data-testid="message-user"]').first(),
-		).toBeVisible({ timeout: 5000 });
+		).toBeVisible({
+			timeout: 5000,
+		});
 		const assistant = page.locator('[data-testid="message-assistant"]').first();
 		await expect(assistant).toBeVisible({ timeout: 30000 });
 		await expect(

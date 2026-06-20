@@ -145,7 +145,9 @@ test.describe("ZIP batch upload with real backend", () => {
 
 		await expect(page.locator(".dl-item__name").first()).toContainText(
 			"README.md",
-			{ timeout: 30000 },
+			{
+				timeout: 30000,
+			},
 		);
 	});
 
