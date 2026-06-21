@@ -37,7 +37,7 @@ open http://localhost:5173
 | Metadata Storage | SQLite |
 | Reverse Proxy | Caddy (auto TLS) |
 | CI/CD | GitHub Actions |
-| LLM Gateway | OpenRouter API |
+| LLM Gateway | RouterAI API |
 
 ---
 

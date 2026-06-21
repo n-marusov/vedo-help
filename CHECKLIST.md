@@ -34,7 +34,7 @@ Chroma, embedding и БД.
 docker compose --env-file .env.test -f docker-compose.test.yml up -d
 
 # Дождаться, пока все сервисы станут healthy
-# (7 сервисов: chroma, embedding, backend, frontend, db, keycloak, openrouter-mock)
+# (7 сервисов: chroma, embedding, backend, frontend, db, keycloak, llm-mock)
 docker compose --env-file .env.test -f docker-compose.test.yml ps
 ```
 

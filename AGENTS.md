@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-VEDO hub RAG Assistant is a personal Q&A system that ingests technical documentation, indexes it in a vector database (Chroma), and answers questions with grounded citations using an LLM via OpenRouter. The stack: Rust (axum) backend, Python (FastAPI) embedding service, Vue 3 + TypeScript frontend, Docker Compose deployment.
+VEDO hub RAG Assistant is a personal Q&A system that ingests technical documentation, indexes it in a vector database (Chroma), and answers questions with grounded citations using an LLM via RouterAI. The stack: Rust (axum) backend, Python (FastAPI) embedding service, Vue 3 + TypeScript frontend, Docker Compose deployment.
 
 ## Tech Stack
 
@@ -45,7 +45,7 @@ vedo-assistant/
 │   │   └── shared/
 │   │       ├── auth.rs         # Bearer token middleware
 │   │       ├── error.rs        # Unified AppError enum
-│   │       ├── llm.rs          # OpenRouter client
+│   │       ├── llm.rs          # LLM client (RouterAI)
 │   │       ├── chroma_client.rs  # Chroma HTTP client
 │   │       ├── chunking.rs     # Text splitting
 │   │       ├── embedding_client.rs  # Embedding service client

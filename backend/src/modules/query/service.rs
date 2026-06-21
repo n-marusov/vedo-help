@@ -14,13 +14,13 @@ use crate::modules::query::models::{QueryRequest, SourceRef, StreamEvent};
 use crate::modules::query::repository::QueryRepository;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
-use crate::shared::llm::{Message as LlmMessage, OpenRouterClient};
+use crate::shared::llm::{LlmClient, Message as LlmMessage};
 
 /// Service for processing RAG queries with streaming responses.
 #[derive(Clone, Debug)]
 pub struct QueryService {
     repo: QueryRepository,
-    llm_client: OpenRouterClient,
+    llm_client: LlmClient,
     embedding_client: EmbeddingClient,
     conversation_repo: ConversationRepository,
     max_history_messages: usize,
@@ -32,7 +32,7 @@ impl QueryService {
     pub fn new(
         db: PgPool,
         chroma_url: &str,
-        llm_client: OpenRouterClient,
+        llm_client: LlmClient,
         embedding_service_url: &str,
         max_history_messages: usize,
         context_token_budget: usize,

@@ -16,7 +16,7 @@
 //!   - A PostgreSQL test database is required. `common::setup_test_db` connects to
 //!     `DATABASE_URL` (default `postgres://vedo:test-vedo-password@localhost:15432/vedo`)
 //!     and runs all migrations, then truncates tables for a fresh state per test.
-//!   - No Chroma / embedding / OpenRouter dependency is needed for these endpoints.
+//!   - No Chroma / embedding / LLM dependency is needed for these endpoints.
 //!   - Auth middleware is intentionally NOT mounted in `TestApp` so tests can hit
 //!     the conversation routes directly without a real JWT, matching the existing
 //!     `git_sync_integration` precedent (handler-level integration, not edge auth).

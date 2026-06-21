@@ -4,7 +4,7 @@ info:
   description: |
     RESTful API for the VEDO hub RAG Assistant — a personal Q&A system that
     ingests technical documentation, indexes it in a vector database, and
-    answers questions with grounded citations using an LLM via OpenRouter.
+    answers questions with grounded citations using an LLM via RouterAI.
 
     ## Authentication
 
@@ -1456,7 +1456,7 @@ components:
               message: "Embedding service is unavailable"
 
     LlmError:
-      description: OpenRouter LLM error
+      description: LLM API error
       content:
         application/json:
           schema:
@@ -1464,7 +1464,7 @@ components:
           example:
             error:
               type: llm_error
-              message: "OpenRouter API returned an error"
+              message: "LLM API returned an error"
 
     ChromaError:
       description: Chroma vector database unavailable or returned an error

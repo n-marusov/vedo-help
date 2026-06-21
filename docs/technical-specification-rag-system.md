@@ -11,7 +11,7 @@
 
 ### 1.1 Purpose
 
-VEDO hub RAG Assistant is a personal Q&A system that answers user questions about technical documentation. It ingests documents (PDF, Markdown, DOCX), indexes them in a vector database, and generates grounded answers using an LLM via OpenRouter. Every answer includes citations.
+VEDO hub RAG Assistant is a personal Q&A system that answers user questions about technical documentation. It ingests documents (PDF, Markdown, DOCX), indexes them in a vector database, and generates grounded answers using an LLM via RouterAI. Every answer includes citations.
 
 ### 1.2 Primary Use Scenarios
 
@@ -85,7 +85,7 @@ Steps executed in order:
   2. Queries Chroma (`top_k=5`, `where: {"is_active": true}`).
   3. Builds context from retrieved chunks (limited to 80% of model's context window).
   4. Prepends last 10 messages from dialog history (if session exists in SQLite).
-  5. Sends to OpenRouter (streaming).
+  5. Sends to LLM (streaming).
   6. Streams response to frontend via SSE.
   7. After stream completes, sends `sources` event, then `done`.
   8. Persists user message + assistant response to SQLite (or marks `incomplete=1` if interrupted).
@@ -176,12 +176,12 @@ CREATE TABLE messages (
 
 ### 3.3 Reliability (Simplified)
 
-- **OpenRouter retry:** 2 attempts with 1-second delay. Retry on HTTP 429, 5xx.
+- **LLM retry:** 2 attempts with 1-second delay. Retry on HTTP 429, 5xx.
 - **Fallback model:** Not required (use only primary model).
 - **Graceful degradation:**
   - Embedding service down → return HTTP 503.
   - Chroma down → return HTTP 503.
-  - OpenRouter down → return HTTP 503.
+  - LLM down → return HTTP 503.
 - **No RTO/RPO requirements.**
 - **Chroma backup:** Manual via `docker cp` or volume backup. Recommended cron script:
 
@@ -318,7 +318,7 @@ flowchart TB
     
     Backend -->|embed| Embedding[Python Embedding :8000]
     Backend -->|search| Chroma[Chroma :8001]
-    Backend -->|completions| OpenRouter[OpenRouter API]
+    Backend -->|completions| RouterAI[RouterAI API]
     Backend -->|read/write| SQLite[(SQLite)]
     
     subgraph Docker Compose on VPS
@@ -330,7 +330,7 @@ flowchart TB
     end
     
     subgraph External
-        OpenRouter
+        RouterAI
     end
 ```
 
@@ -415,7 +415,7 @@ pub fn chunk_document(text: &str, document_id: &str, doc_name: &str) -> ChunkRes
 }
 ```
 
-**OpenRouter client:**
+**LLM client (RouterAI):**
 
 ```rust
 const MAX_RETRIES: u32 = 2;
@@ -429,10 +429,10 @@ const SYSTEM_PROMPT: &str = "\
 ";
 ```
 
-**Mock OpenRouter for CI:**
+**Mock LLM for CI:**
 
 ```rust
-if env::var("OPENROUTER_MOCK").is_ok() {
+if env::var("LLM_MOCK").is_ok() {
     return stream_dummy_response("Test answer based on context");
 }
 ```
@@ -879,7 +879,7 @@ cargo test --lib
 - Chunking logic (token count, overlap, CJK handling).
 - Parsing with fixture files.
 - Embedding client (mock HTTP).
-- OpenRouter prompt assembly.
+- LLM prompt assembly.
 
 ### 8.2 Integration Tests
 
@@ -1003,7 +1003,7 @@ sudo ufw enable
 
 2. **VPS with 2 vCPU and 4 GB RAM** is sufficient for all services (Chroma, embedding model, backend, frontend, Caddy).
 
-3. **Mixtral 8x7B Instruct is available on OpenRouter** with sufficient quota.
+3. **Mixtral 8x7B Instruct is available via RouterAI** with sufficient quota.
 
 4. **Chroma default HNSW index** works well for up to 100K vectors.
 
@@ -1013,7 +1013,7 @@ sudo ufw enable
 
 7. **All documents contain extractable text.** Scanned PDFs (image-only) return error.
 
-8. **OpenRouter API base URL** is `https://openrouter.ai/api/v1`.
+8. **RouterAI API base URL** is `https://routerai.ru/api/v1`.
 
 9. **No streaming aggregation buffer** — each SSE event flushed immediately.
 
@@ -1021,7 +1021,7 @@ sudo ufw enable
 
 11. **GitHub Actions runner** has enough resources to run Chroma in a container (~7 GB RAM, 2 cores).
 
-12. **OpenRouter is NOT called in CI** — mock client replaces real API calls.
+12. **RouterAI is NOT called in CI** — mock client replaces real API calls.
 
 13. **Caddy (or nginx) handles TLS termination** — backend runs plain HTTP internally.
 
@@ -1036,7 +1036,7 @@ sudo ufw enable
 
 | Этап | Статус | Состав | Признак готовности |
 |------|--------|--------|--------------------|
-| **MVP** — базовый RAG pipeline | ✅ **Завершён** | Загрузка PDF/MD/DOCX, чанкинг, embedding (bge-small-en-v1.5), Chroma indexing, LLM стриминг (OpenRouter), SSE, авторизация, коллекции, история сессий, экспорт/удаление, CI (GitHub Actions), Docker Compose (5 сервисов), Caddy reverse proxy, dev/override/production конфиги, скрипты деплоя/бэкапа/восстановления, smoke-тесты, production hardening (non-root, tmpfs, resource limits) | Все 6 фаз из `.ai-factory/plans/feature-rag-assistant-full.md` выполнены (20/20 задач) |
+| **MVP** — базовый RAG pipeline | ✅ **Завершён** | Загрузка PDF/MD/DOCX, чанкинг, embedding (bge-small-en-v1.5), Chroma indexing, LLM стриминг (RouterAI), SSE, авторизация, коллекции, история сессий, экспорт/удаление, CI (GitHub Actions), Docker Compose (5 сервисов), Caddy reverse proxy, dev/override/production конфиги, скрипты деплоя/бэкапа/восстановления, smoke-тесты, production hardening (non-root, tmpfs, resource limits) | Все 6 фаз из `.ai-factory/plans/feature-rag-assistant-full.md` выполнены (20/20 задач) |
 | **v0.2 — Production Polish** | 🔜 **В плане** | **1. E2E-тесты (Playwright):** полный сценарий upload → query → sources — запуск в CI (headless Chrome). **2. Интеграционные тесты:** развернуть Chroma в CI, убрать `--ignored`. **3. ZIP-загрузка:** batch upload до 10 файлов (HTTP 413 при превышении), рекурсивная распаковка. **4. Re-indexing:** обновление документа с деактивацией старых чанков. **5. Индикатор уверенности (confidence):** отображение relevance score в UI (источники). **6. Graceful degradation:** fallback-модель при отказе primary, кэширование ответов на частые вопросы | CI: все тесты проходят; ручное тестирование upload ZIP и re-index; score в UI |
 | **v0.3 — Observability & Reliability** | 🔜 **В плане** | **1. Structured logging:** агрегация логов (json-file driver c ротацией). **2. Метрики:** healthcheck с глубокой проверкой зависимостей (Chroma, embedding). **3. Rate limiting:** настройка per-route, защита /api/query от abuse. **4. Автоматический бэкап:** cron/builtin scheduler для SQLite + Chroma по расписанию. **5. Уведомления о сбоях:** webhook/integration с Telegram или email при падении сервиса. **6. Graceful shutdown:** корректное завершение всех контейнеров (уже частично реализовано) | docker compose ps — все healthy; бэкапы создаются автономно; уведомление при Failure |
 | **v0.4 — Advanced RAG** | 🔜 **В плане** | **1. Hybrid search:** векторный поиск + keyword (BM25/Full-text SQLite) с fusion. **2. Reranker:** кросс-энкодер для переранжирования top-k результатов. **3. Query expansion:** генерация альтернативных формулировок вопроса через LLM. **4. Multi-turn context:** улучшенное использование истории диалога (smarter sliding window). **5. Document Q&A:** ответ строго по одному документу (collection-level scoping уже работает, но нужен точный retrieval). **6. Поддержка большего числа форматов:** CSV, JSON, HTML-to-text | Метрики качества ответов (precision/recall@k); A/B тестирование с текущим pipeline |

@@ -6,9 +6,9 @@ pub struct AppConfig {
     pub database_url: String,
     pub embedding_service_url: String,
     pub chroma_url: String,
-    pub openrouter_api_key: String,
-    pub openrouter_base_url: String,
-    pub openrouter_model: String,
+    pub llm_api_key: String,
+    pub llm_base_url: String,
+    pub llm_model: String,
     pub host: String,
     pub port: u16,
     pub rust_log: String,
@@ -51,11 +51,11 @@ impl AppConfig {
                 .unwrap_or_else(|_| "http://localhost:8001".to_string()),
             chroma_url: env::var("CHROMA_URL")
                 .unwrap_or_else(|_| "http://localhost:8000".to_string()),
-            openrouter_api_key: env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| String::new()),
-            openrouter_base_url: env::var("OPENROUTER_BASE_URL")
-                .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string()),
-            openrouter_model: env::var("OPENROUTER_MODEL")
-                .unwrap_or_else(|_| "anthropic/claude-sonnet-20241022".to_string()),
+            llm_api_key: env::var("LLM_API_KEY").unwrap_or_else(|_| String::new()),
+            llm_base_url: env::var("LLM_BASE_URL")
+                .unwrap_or_else(|_| "https://routerai.ru/api/v1".to_string()),
+            llm_model: env::var("LLM_MODEL")
+                .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string()),
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             port: env::var("PORT")
                 .unwrap_or_else(|_| "3000".to_string())
@@ -98,6 +98,6 @@ mod tests {
         // Default values should be set when env vars are absent
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 3000);
-        assert!(!config.openrouter_model.is_empty());
+        assert!(!config.llm_model.is_empty());
     }
 }
