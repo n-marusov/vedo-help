@@ -91,12 +91,19 @@ test.describe('loading skeletons', () => {
 
     await page.goto('/admin');
 
-    // Set active collection to trigger document fetch
+    // Set active collection to trigger document fetch via watcher on activeCollectionId.
+    // Use the store action directly to ensure the watcher fires correctly.
     await page.evaluate(
       ({ collectionId }) => {
         const app = document.querySelector('#app').__vue_app__;
         const pinia = app.config.globalProperties.$pinia;
-        pinia.state.value.collections.activeCollectionId = collectionId;
+        const collections = pinia._s.get('collections');
+        if (collections.setActiveCollection) {
+          collections.setActiveCollection(collectionId);
+        } else {
+          // Fallback: set raw state if action not available
+          pinia.state.value.collections.activeCollectionId = collectionId;
+        }
       },
       { collectionId: collection.id },
     );

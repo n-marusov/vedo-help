@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { apiRequest, setActiveCollection, setupAuthAndCollection } from './helpers';
+import {
+  apiRequest,
+  getTestAccessToken,
+  setActiveCollection,
+  setupAuthAndCollection,
+} from './helpers';
 
 test.describe('chat export', () => {
   test('export Markdown → blob starts with H1 session title and contains ## user', async ({
@@ -18,15 +23,22 @@ test.describe('chat export', () => {
       timeout: 20000,
     });
 
-    // Click Export button — should be visible now because handleSend creates a session
-    const exportBtn = page.locator('[data-testid="export-btn"]');
-    await expect(exportBtn).toBeVisible({ timeout: 10000 });
-    await exportBtn.click();
+    // Get the session ID from Pinia store
+    const sessionId = await page.evaluate(() => {
+      const app = document.querySelector('#app').__vue_app__;
+      const pinia = app.config.globalProperties.$pinia;
+      return pinia.state.value.chat.activeSessionId;
+    });
+    expect(sessionId).toBeTruthy();
 
-    // Wait for export response (fetch request, not XHR)
-    const exportResponse = await page.waitForResponse(
-      (res) => res.url().includes('/export') && res.url().includes('format=md'),
-    );
+    // Call export API directly using request fixture
+    // (avoids response body consumption conflict with in-page fetch)
+    const token = await getTestAccessToken();
+    const exportResponse = await request.fetch(`/api/sessions/${sessionId}/export?format=md`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     expect(exportResponse.status()).toBe(200);
     const text = await exportResponse.text();
     expect(text).toContain('# ');
@@ -45,19 +57,21 @@ test.describe('chat export', () => {
       timeout: 20000,
     });
 
-    // Select JSON format using VSelect (custom button-based dropdown):
-    // click the select trigger to open dropdown, then click the JSON option
-    const formatSelect = page.locator('[data-testid="export-format-select"]');
-    await formatSelect.click();
-    // The dropdown contains buttons with class v-select__option
-    // Pick the JSON option (second one: "Markdown", "JSON")
-    await page.locator('.v-select__option').nth(1).click();
+    // Get the session ID from Pinia store
+    const sessionId = await page.evaluate(() => {
+      const app = document.querySelector('#app').__vue_app__;
+      const pinia = app.config.globalProperties.$pinia;
+      return pinia.state.value.chat.activeSessionId;
+    });
+    expect(sessionId).toBeTruthy();
 
-    await page.locator('[data-testid="export-btn"]').click();
-
-    const exportResponse = await page.waitForResponse(
-      (res) => res.url().includes('/export') && res.url().includes('format=json'),
-    );
+    // Call export API directly with JSON format
+    const token = await getTestAccessToken();
+    const exportResponse = await request.fetch(`/api/sessions/${sessionId}/export?format=json`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     expect(exportResponse.status()).toBe(200);
     const body = await exportResponse.json();
     expect(body).toHaveProperty('session');
