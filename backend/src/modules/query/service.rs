@@ -94,7 +94,7 @@ impl QueryService {
 
         // 2. Search Chroma for similar chunks
         let collection_name = request.collection_id.to_string();
-        let chroma_results = self
+        let mut chroma_results = self
             .repo
             .query_chroma(&collection_name, &embedding, 5)
             .await
@@ -105,9 +105,31 @@ impl QueryService {
 
         if chroma_results.is_empty() {
             tracing::warn!(
-                "No results found for query in collection {}",
+                "No results found for query in collection {} — retrying up to 3 times",
                 request.collection_id
             );
+            for attempt in 1..=3 {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                chroma_results = self
+                    .repo
+                    .query_chroma(&collection_name, &embedding, 5)
+                    .await
+                    .map_err(|e| {
+                        tracing::error!("Chroma search failed on retry {attempt}: {e}");
+                        e
+                    })?;
+                if !chroma_results.is_empty() {
+                    tracing::info!(
+                        "Chroma results found after retry {attempt} for collection {}",
+                        request.collection_id
+                    );
+                    break;
+                }
+                tracing::warn!(
+                    "Chroma still empty after retry {attempt} for collection {}",
+                    request.collection_id
+                );
+            }
         }
 
         // 3. Fetch chunk text + document names from PostgreSQL
