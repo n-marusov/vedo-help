@@ -394,6 +394,19 @@ impl DocumentService {
 
             tracing::debug!("ZIP opened: {} entries found", archive.len());
 
+            // Enforce 10-file limit BEFORE extraction to avoid validating
+            // malformed entries when Playwright or other clients send oversized ZIPs.
+            if archive.len() > 10 {
+                tracing::info!(
+                    "ZIP has {} entries — exceeds limit of 10, rejecting early",
+                    archive.len()
+                );
+                return Err(AppError::PayloadTooLarge(format!(
+                    "ZIP contains more than 10 files (found {})",
+                    archive.len()
+                )));
+            }
+
             let total_count = archive.len();
             let mut extracted: Vec<(String, Vec<u8>)> = Vec::new();
 
@@ -455,16 +468,6 @@ impl DocumentService {
 
             extracted
         };
-
-        let file_count = extracted.len();
-
-        // Enforce 10-file limit
-        if file_count > 10 {
-            tracing::warn!("ZIP contains {file_count} files, exceeds limit of 10");
-            return Err(AppError::PayloadTooLarge(format!(
-                "ZIP contains more than 10 files (found {file_count})",
-            )));
-        }
 
         // Process each extracted file asynchronously
         let mut processed = 0usize;
@@ -651,10 +654,13 @@ impl DocumentService {
             }
         }
 
-        tracing::info!("ZIP upload complete: {processed}/{file_count} files processed");
+        tracing::info!(
+            "ZIP upload complete: {processed}/{total} files processed",
+            total = processed + failed
+        );
 
         Ok(ZipUploadResponse {
-            total_files: file_count,
+            total_files: processed + failed,
             processed,
             failed,
             items,
