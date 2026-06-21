@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use futures::stream::Stream;
+use futures::stream::{self, Stream};
 use futures::StreamExt;
 use reqwest::Client;
 use serde_json::json;
@@ -94,14 +94,61 @@ impl OpenRouterClient {
 
         let response = self.send_request_with_retry(&messages).await?;
 
-        let stream = response.bytes_stream().map(|result| {
-            result
-                .map_err(|e| AppError::LlmError(format!("Stream error: {e}")))
-                .and_then(|bytes| {
-                    String::from_utf8(bytes.to_vec())
-                        .map_err(|e| AppError::LlmError(format!("UTF-8 error: {e}")))
-                })
-        });
+        let stream = response
+            .bytes_stream()
+            .map(|result| {
+                result
+                    .map_err(|e| AppError::LlmError(format!("Stream error: {e}")))
+                    .and_then(|bytes| {
+                        String::from_utf8(bytes.to_vec())
+                            .map_err(|e| AppError::LlmError(format!("UTF-8 error: {e}")))
+                    })
+            })
+            .flat_map(|result| {
+                // Parse SSE events from the chunk
+                // OpenAI SSE format:
+                //   data: {"choices":[{"delta":{"content":"..."}}]}
+                //   data: [DONE]
+                match result {
+                    Ok(text) => {
+                        let events: Vec<Result<String, AppError>> = text
+                            .lines()
+                            .filter_map(|line| {
+                                let trimmed = line.trim();
+                                if trimmed.is_empty() || trimmed.starts_with(':') {
+                                    return None;
+                                }
+                                if !trimmed.starts_with("data:") {
+                                    return None;
+                                }
+                                let json_str = trimmed[5..].trim();
+                                if json_str == "[DONE]" {
+                                    return None;
+                                }
+                                match serde_json::from_str::<serde_json::Value>(json_str) {
+                                    Ok(val) => {
+                                        // Extract content from choices[0].delta.content
+                                        let content = val["choices"]
+                                            .get(0)
+                                            .and_then(|c| c["delta"]["content"].as_str())
+                                            .unwrap_or("");
+                                        if content.is_empty() {
+                                            None
+                                        } else {
+                                            Some(Ok(content.to_string()))
+                                        }
+                                    }
+                                    Err(e) => Some(Err(AppError::LlmError(format!(
+                                        "SSE parse error: {e}"
+                                    )))),
+                                }
+                            })
+                            .collect();
+                        stream::iter(events)
+                    }
+                    Err(e) => stream::iter(vec![Err(e)]),
+                }
+            });
 
         Ok(stream)
     }

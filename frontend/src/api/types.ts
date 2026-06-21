@@ -77,6 +77,13 @@ export interface SourceRef {
 
 export interface StreamEvent {
   type: 'chunk' | 'sources' | 'error' | 'done';
+  data?: {
+    text?: string;
+    sources?: SourceRef[];
+    user_message_id?: string;
+    assistant_message_id?: string;
+  };
+  // Legacy fallback — some events may have fields at top level
   text?: string;
   sources?: SourceRef[];
   user_message_id?: string;

@@ -142,7 +142,8 @@ export const useChatStore = defineStore('chat', () => {
 
         switch (value.type) {
           case 'chunk': {
-            fullContent += value.text || '';
+            const chunkText = value.data?.text || value.text || '';
+            fullContent += chunkText;
             // Update the last assistant message content
             const lastMsg = messages.value[messages.value.length - 1];
             if (lastMsg?.role === 'assistant') {
@@ -153,10 +154,10 @@ export const useChatStore = defineStore('chat', () => {
             break;
           }
           case 'sources':
-            sources = JSON.stringify(value.sources);
+            sources = JSON.stringify(value.data?.sources || value.sources);
             break;
           case 'error':
-            error.value = value.text || 'An error occurred';
+            error.value = value.data?.text || value.text || 'An error occurred';
             // Remove the placeholder assistant message
             messages.value.pop();
             break;
@@ -169,31 +170,35 @@ export const useChatStore = defineStore('chat', () => {
               messages.value = [...messages.value];
             }
 
-            // Temp-ID reconciliation: replace temp IDs with server-assigned IDs
-            if (value.user_message_id || value.assistant_message_id) {
+            // Temp-ID reconciliation: fields are inside `data` (Rust SSE format)
+            const doneData = value.data || value;
+            if (doneData.user_message_id || doneData.assistant_message_id) {
               for (let i = 0; i < messages.value.length; i++) {
                 const msg = messages.value[i];
-                if (msg.role === 'user' && msg.id.startsWith('temp-') && value.user_message_id) {
+                if (msg.role === 'user' && msg.id.startsWith('temp-') && doneData.user_message_id) {
                   console.debug(
                     '[chat.sendMessage] reconciled temp IDs user=%s->%s',
                     msg.id,
-                    value.user_message_id,
+                    doneData.user_message_id,
                   );
-                  messages.value[i] = { ...msg, id: value.user_message_id };
+                  messages.value[i] = {
+                    ...msg,
+                    id: doneData.user_message_id,
+                  };
                 }
                 if (
                   msg.role === 'assistant' &&
                   msg.id.startsWith('temp-assist-') &&
-                  value.assistant_message_id
+                  doneData.assistant_message_id
                 ) {
                   console.debug(
                     '[chat.sendMessage] reconciled temp IDs assist=%s->%s',
                     msg.id,
-                    value.assistant_message_id,
+                    doneData.assistant_message_id,
                   );
                   messages.value[i] = {
                     ...msg,
-                    id: value.assistant_message_id,
+                    id: doneData.assistant_message_id,
                   };
                 }
               }

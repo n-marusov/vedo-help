@@ -112,6 +112,15 @@ async function handleSend() {
     }
   }
 
+  // Ensure a session exists before sending
+  if (!chatStore.activeSessionId) {
+    const session = await chatStore.createSession(collectionId);
+    if (!session) {
+      console.warn('[ChatView] failed to create session, sending without one');
+      // Continue anyway — backend will handle session-less queries
+    }
+  }
+
   inputText.value = '';
   resetTextareaHeight();
   await chatStore.sendMessage(collectionId, text);
