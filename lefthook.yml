@@ -2,7 +2,7 @@ pre-commit:
   commands:
     biome-check:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc,css}"
-      run: frontend/node_modules/.bin/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+      run: frontend/node_modules/.bin/biome check --config-path=frontend/biome.json --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
       stage_fixed: true
     rust-fmt:
       glob: "*.rs"
@@ -21,7 +21,7 @@ pre-push:
   commands:
     biome-ci:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc,css}"
-      run: frontend/node_modules/.bin/biome ci --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {push_files}
+      run: frontend/node_modules/.bin/biome ci --config-path=frontend/biome.json --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {push_files}
     rust-clippy:
       glob: "*.rs"
       run: cd backend && cargo clippy -- -D warnings
