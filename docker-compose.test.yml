@@ -92,6 +92,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://frontend:5173}
       GIT_CLONE_ROOT: ${GIT_CLONE_ROOT:-/tmp/git-repos}
       RUST_LOG: ${RUST_LOG:-vedo_backend=debug,tower_http=debug}
+      LLM_MAX_HISTORY_MESSAGES: ${LLM_MAX_HISTORY_MESSAGES:-20}
+      LLM_CONTEXT_TOKEN_BUDGET: ${LLM_CONTEXT_TOKEN_BUDGET:-6000}
     ports:
       - "${TEST_BACKEND_PORT:-13000}:3000"
     networks:
