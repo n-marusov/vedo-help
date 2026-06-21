@@ -15,6 +15,20 @@ function normalizeStreamLine(line: string): string {
   return trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
 }
 
+function isPendingMessageId(messageId: string): boolean {
+  return messageId.startsWith('temp-');
+}
+
+function isUuid(messageId: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    messageId,
+  );
+}
+
+function canPersistMessageAction(messageId: string): boolean {
+  return !isPendingMessageId(messageId) && isUuid(messageId);
+}
+
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<Message[]>([]);
   const isLoading = ref(false);
@@ -304,6 +318,15 @@ export const useChatStore = defineStore('chat', () => {
 
   async function editMessage(sessionId: string, messageId: string, content: string) {
     console.debug('[chat.editMessage] session=%s msg=%s', sessionId, messageId);
+    if (!canPersistMessageAction(messageId)) {
+      console.warn(
+        '[FIX:chat-temp-id] skipped edit for pending/non-UUID message id=%s session=%s',
+        messageId,
+        sessionId,
+      );
+      return;
+    }
+
     try {
       const req: EditMessageRequest = { content };
       const updated = await api.editMessage(sessionId, messageId, req);
@@ -319,6 +342,15 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function deleteMessage(sessionId: string, messageId: string) {
+    if (!canPersistMessageAction(messageId)) {
+      console.warn(
+        '[FIX:chat-temp-id] skipped delete for pending/non-UUID message id=%s session=%s',
+        messageId,
+        sessionId,
+      );
+      return;
+    }
+
     const idx = messages.value.findIndex((m) => m.id === messageId);
     if (idx === -1) return;
 
@@ -385,5 +417,6 @@ export const useChatStore = defineStore('chat', () => {
     deleteMessage,
     exportSession,
     clearMessages,
+    canPersistMessageAction,
   };
 });

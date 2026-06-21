@@ -47,6 +47,57 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     vi.clearAllMocks();
   });
 
+  it('editMessage skips pending temp IDs before calling API', async () => {
+    const store = useChatStore();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    store.messages = [
+      {
+        id: 'temp-1782052621000',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'draft',
+        created_at: '2026-06-21T00:00:00Z',
+      },
+    ];
+
+    await store.editMessage('sess-1', 'temp-1782052621000', 'updated');
+
+    expect(apiMock.editMessage).not.toHaveBeenCalled();
+    expect(store.messages[0].content).toBe('draft');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[FIX:chat-temp-id] skipped edit for pending/non-UUID message id=%s session=%s',
+      'temp-1782052621000',
+      'sess-1',
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('deleteMessage skips pending temp IDs before optimistic removal or API call', async () => {
+    const store = useChatStore();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    store.messages = [
+      {
+        id: 'temp-1782052621000',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'draft',
+        created_at: '2026-06-21T00:00:00Z',
+      },
+    ];
+
+    await store.deleteMessage('sess-1', 'temp-1782052621000');
+
+    expect(apiMock.deleteMessage).not.toHaveBeenCalled();
+    expect(store.messages).toHaveLength(1);
+    expect(store.messages[0].id).toBe('temp-1782052621000');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[FIX:chat-temp-id] skipped delete for pending/non-UUID message id=%s session=%s',
+      'temp-1782052621000',
+      'sess-1',
+    );
+    warnSpy.mockRestore();
+  });
+
   // --------------------------------------------------------------------------
   // editMessage
   // --------------------------------------------------------------------------

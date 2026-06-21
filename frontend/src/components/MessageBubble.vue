@@ -67,7 +67,17 @@ const formattedTime = computed(() => {
   });
 });
 
+const isPersistedMessage = computed(() => {
+  return !props.message.id.startsWith('temp-');
+});
+
 function startEdit() {
+  if (!isPersistedMessage.value) {
+    console.warn('[FIX:chat-temp-id] edit disabled for pending message', {
+      messageId: props.message.id,
+    });
+    return;
+  }
   console.debug('[MessageBubble] enter edit mid=%s', props.message.id);
   draftContent.value = props.message.content;
   editing.value = true;
@@ -86,6 +96,12 @@ function cancelEdit() {
 }
 
 function handleDelete() {
+  if (!isPersistedMessage.value) {
+    console.warn('[FIX:chat-temp-id] delete disabled for pending message', {
+      messageId: props.message.id,
+    });
+    return;
+  }
   emit('delete', { id: props.message.id });
 }
 
@@ -195,7 +211,7 @@ watch(
       <!-- Hover action row (edit/delete) -->
       <div class="message-actions">
         <button
-          v-if="message.role === 'user'"
+          v-if="message.role === 'user' && isPersistedMessage"
           class="message-action-btn"
           data-testid="message-edit-btn"
           title="Edit"
@@ -218,6 +234,7 @@ watch(
           </svg>
         </button>
         <button
+          v-if="isPersistedMessage"
           class="message-action-btn"
           data-testid="message-delete-btn"
           title="Delete"
