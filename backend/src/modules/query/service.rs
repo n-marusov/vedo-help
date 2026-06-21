@@ -303,29 +303,7 @@ impl QueryService {
         &self,
         session_id: Uuid,
     ) -> Result<Vec<LlmMessage>, AppError> {
-        #[derive(sqlx::FromRow)]
-        struct MessageRow {
-            role: String,
-            content: String,
-        }
-
-        let rows = sqlx::query_as::<_, MessageRow>(
-            "SELECT role, content FROM messages \
-             WHERE session_id = $1 AND deleted_at IS NULL \
-             ORDER BY created_at ASC",
-        )
-        .bind(session_id.to_string())
-        .fetch_all(self.repo.db())
-        .await
-        .map_err(|e| AppError::InternalError(format!("Failed to load history: {e}")))?;
-
-        let history: Vec<LlmMessage> = rows
-            .into_iter()
-            .map(|r| LlmMessage {
-                role: r.role,
-                content: r.content,
-            })
-            .collect();
+        let history = load_conversation_history_rows(self.repo.db(), session_id).await?;
 
         let count = history.len();
 
@@ -349,5 +327,98 @@ impl QueryService {
         );
 
         Ok(trimmed)
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MessageRow {
+    role: String,
+    content: String,
+}
+
+pub(crate) async fn load_conversation_history_rows(
+    db: &PgPool,
+    session_id: Uuid,
+) -> Result<Vec<LlmMessage>, AppError> {
+    tracing::debug!("[FIX] Loading conversation history with UUID bind: session={session_id}");
+
+    let rows = sqlx::query_as::<_, MessageRow>(
+        "SELECT role, content FROM messages \
+         WHERE session_id = $1 AND deleted_at IS NULL \
+         ORDER BY created_at ASC",
+    )
+    .bind(session_id)
+    .fetch_all(db)
+    .await
+    .map_err(|e| {
+        tracing::error!(
+            "[FIX] Failed to load conversation history: session={session_id}, error={e}"
+        );
+        AppError::InternalError(format!("Failed to load history: {e}"))
+    })?;
+
+    tracing::debug!(
+        "[FIX] Loaded conversation history: session={session_id}, rows={}",
+        rows.len()
+    );
+
+    Ok(rows
+        .into_iter()
+        .map(|r| LlmMessage {
+            role: r.role,
+            content: r.content,
+        })
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::load_conversation_history_rows;
+    use uuid::Uuid;
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn load_conversation_history_binds_session_id_as_uuid(pool: sqlx::PgPool) {
+        let session_id = Uuid::new_v4();
+        let message_id = Uuid::new_v4();
+        let now = chrono::Utc::now();
+
+        sqlx::query(
+            "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(session_id)
+        .bind("UUID bind regression")
+        .bind(Option::<Uuid>::None)
+        .bind(now)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .expect("insert session");
+
+        sqlx::query(
+            "INSERT INTO messages \
+             (id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        )
+        .bind(message_id)
+        .bind(session_id)
+        .bind("user")
+        .bind("hello")
+        .bind(serde_json::Value::Null)
+        .bind(now)
+        .bind(Option::<chrono::DateTime<chrono::Utc>>::None)
+        .bind(Option::<String>::None)
+        .bind(Option::<chrono::DateTime<chrono::Utc>>::None)
+        .execute(&pool)
+        .await
+        .expect("insert message");
+
+        let history = load_conversation_history_rows(&pool, session_id)
+            .await
+            .expect("history loads with uuid bind");
+
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].role, "user");
+        assert_eq!(history[0].content, "hello");
     }
 }

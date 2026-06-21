@@ -792,6 +792,7 @@ async fn test_collection_repo_native_uuid_bind() {
 
 /// Verify ConversationRepository handles native UUID/timestamp bindings.
 #[tokio::test]
+#[serial_test::serial]
 async fn test_conversation_repo_native_uuid_bind() {
     let pool = common::setup_test_db().await;
     let repo =
@@ -913,6 +914,7 @@ async fn test_document_repo_native_uuid_bind() {
 
 /// Verify GitRepoRepository handles native UUID/timestamp bindings.
 #[tokio::test]
+#[serial_test::serial]
 async fn test_git_repo_native_uuid_bind() {
     let pool = common::setup_test_db().await;
     let repo = vedo_backend::modules::git_sync::repository::GitRepoRepository::new(pool.clone());
@@ -967,6 +969,183 @@ async fn test_git_repo_native_uuid_bind() {
     repo.delete_repo(id)
         .await
         .expect("delete_repo should succeed");
+
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn test_get_chunks_by_ids_with_string_uuids() {
+    // Regression test for: operator does not exist: uuid = text
+    //
+    // When Chroma returns chunk IDs as String, get_chunks_by_ids must parse them
+    // to Uuid before binding to the PostgreSQL IN clause. Before this fix, sqlx
+    // passed the strings as text directly, causing:
+    //   ERROR: operator does not exist: uuid = text
+    let pool = common::setup_test_db().await;
+    let repo = QueryRepository::new(pool.clone(), &chroma_url());
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    // Create a collection (FK constraint)
+    let col_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
+    sqlx::query(
+        "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(col_id)
+    .bind("get-chunks-test")
+    .bind(None::<String>)
+    .bind(Utc::now())
+    .execute(&pool)
+    .await
+    .expect("should insert test collection");
+
+    // Create a document
+    let doc_id = Uuid::parse_str("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").unwrap();
+    sqlx::query(
+        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) \
+         VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(doc_id)
+    .bind("regression-test.md")
+    .bind("text/markdown")
+    .bind(2048)
+    .bind(Utc::now())
+    .bind(col_id)
+    .execute(&pool)
+    .await
+    .expect("should insert test document");
+
+    // Create chunks with known UUIDs
+    let chunk1_uuid = Uuid::parse_str("cccccccc-cccc-cccc-cccc-cccccccccccc").unwrap();
+    let chunk2_uuid = Uuid::parse_str("dddddddd-dddd-dddd-dddd-dddddddddddd").unwrap();
+
+    sqlx::query(
+        r#"INSERT INTO chunks (id, document_id, "index", text, is_active) VALUES ($1, $2, $3, $4, $5)"#,
+    )
+    .bind(chunk1_uuid)
+    .bind(doc_id)
+    .bind(0)
+    .bind("First chunk content")
+    .bind(true)
+    .execute(&pool)
+    .await
+    .expect("should insert chunk 1");
+
+    sqlx::query(
+        r#"INSERT INTO chunks (id, document_id, "index", text, is_active) VALUES ($1, $2, $3, $4, $5)"#,
+    )
+    .bind(chunk2_uuid)
+    .bind(doc_id)
+    .bind(1)
+    .bind("Second chunk content")
+    .bind(true)
+    .execute(&pool)
+    .await
+    .expect("should insert chunk 2");
+
+    // Call get_chunks_by_ids with String UUIDs (as Chroma would return them)
+    let ids: Vec<String> = vec![
+        "cccccccc-cccc-cccc-cccc-cccccccccccc".to_string(),
+        "dddddddd-dddd-dddd-dddd-dddddddddddd".to_string(),
+    ];
+    let chunks = repo
+        .get_chunks_by_ids(&ids)
+        .await
+        .expect("get_chunks_by_ids should succeed with string UUIDs");
+
+    // Verify both chunks are returned in the correct order
+    assert_eq!(chunks.len(), 2, "should return both chunks");
+    assert_eq!(chunks[0].text, "First chunk content");
+    assert_eq!(chunks[0].index, 0);
+    assert_eq!(chunks[1].text, "Second chunk content");
+    assert_eq!(chunks[1].index, 1);
+
+    tracing::info!(
+        "[regression] get_chunks_by_ids returned {} chunks with string UUIDs",
+        chunks.len()
+    );
+
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn test_get_chunks_by_ids_empty_ids_list() {
+    let pool = common::setup_test_db().await;
+    let repo = QueryRepository::new(pool.clone(), &chroma_url());
+
+    let chunks = repo
+        .get_chunks_by_ids(&[])
+        .await
+        .expect("get_chunks_by_ids with empty ids should return empty list");
+
+    assert!(chunks.is_empty(), "should return empty list for no ids");
+
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn test_get_chunks_by_ids_unknown_uuid() {
+    // Verify get_chunks_by_ids handles a valid UUID string that doesn't exist in DB
+    let pool = common::setup_test_db().await;
+    let repo = QueryRepository::new(pool.clone(), &chroma_url());
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    let col_id = Uuid::parse_str("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee").unwrap();
+    sqlx::query(
+        "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(col_id)
+    .bind("get-chunks-unknown-test")
+    .bind(None::<String>)
+    .bind(Utc::now())
+    .execute(&pool)
+    .await
+    .expect("should insert test collection");
+
+    let doc_id = Uuid::parse_str("ffffffff-ffff-ffff-ffff-ffffffffffff").unwrap();
+    sqlx::query(
+        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) \
+         VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(doc_id)
+    .bind("unknown-test.md")
+    .bind("text/markdown")
+    .bind(1024)
+    .bind(Utc::now())
+    .bind(col_id)
+    .execute(&pool)
+    .await
+    .expect("should insert test document");
+
+    let known_chunk = Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap();
+    sqlx::query(
+        r#"INSERT INTO chunks (id, document_id, "index", text, is_active) VALUES ($1, $2, $3, $4, $5)"#,
+    )
+    .bind(known_chunk)
+    .bind(doc_id)
+    .bind(0)
+    .bind("Known chunk")
+    .bind(true)
+    .execute(&pool)
+    .await
+    .expect("should insert known chunk");
+
+    // Query for a chunk that exists and one that doesn't
+    let ids: Vec<String> = vec![
+        "11111111-1111-1111-1111-111111111111".to_string(),
+        "00000000-0000-0000-0000-000000000000".to_string(),
+    ];
+    let chunks = repo
+        .get_chunks_by_ids(&ids)
+        .await
+        .expect("get_chunks_by_ids should handle missing chunks gracefully");
+
+    // Only the known chunk should be returned
+    assert_eq!(chunks.len(), 1, "should return only the known chunk");
+    assert_eq!(chunks[0].text, "Known chunk");
 
     pool.close().await;
 }

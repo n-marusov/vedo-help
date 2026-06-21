@@ -1,4 +1,5 @@
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::shared::error::AppError;
 use crate::shared::llm::CrateChunkData;
@@ -73,9 +74,12 @@ impl QueryRepository {
             placeholders.join(", ")
         );
 
-        let mut query = sqlx::query_as::<_, (String, i64, String, String)>(&query_str);
+        let mut query = sqlx::query_as::<_, (uuid::Uuid, i32, String, String)>(&query_str);
         for id in ids {
-            query = query.bind(id);
+            let uuid = Uuid::parse_str(id).map_err(|e| {
+                AppError::InternalError(format!("Invalid chunk UUID from Chroma: {e}"))
+            })?;
+            query = query.bind(uuid);
         }
 
         let rows = query
@@ -84,7 +88,7 @@ impl QueryRepository {
             .map_err(|e| AppError::InternalError(format!("Failed to fetch chunks: {e}")))?;
 
         // Build a lookup map keyed by chunk UUID for ordering
-        let mut by_id: std::collections::HashMap<String, CrateChunkData> =
+        let mut by_id: std::collections::HashMap<Uuid, CrateChunkData> =
             std::collections::HashMap::new();
         for (chunk_id, index, text, document_name) in rows {
             tracing::trace!(
@@ -102,8 +106,11 @@ impl QueryRepository {
 
         // Return in the order of the input ids
         let mut chunks = Vec::with_capacity(ids.len());
-        for id in ids {
-            if let Some(chunk) = by_id.remove(id) {
+        for id_str in ids {
+            let id = Uuid::parse_str(id_str).map_err(|e| {
+                AppError::InternalError(format!("Invalid chunk UUID from Chroma: {e}"))
+            })?;
+            if let Some(chunk) = by_id.remove(&id) {
                 chunks.push(chunk);
             } else {
                 tracing::warn!("Chunk {id} not found in PostgreSQL — Chroma result may be stale");
