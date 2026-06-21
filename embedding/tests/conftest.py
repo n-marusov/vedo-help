@@ -1,16 +1,23 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
-
+import src.main as main_mod
+from src.cache import CachedEmbedder
 from src.main import app
 
 
 @pytest.fixture
-def test_client() -> Generator[TestClient, None, None]:
-    """Yield a FastAPI TestClient instance."""
-    with TestClient(app) as client:
-        yield client
+async def test_client() -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Yield an httpx AsyncClient with lifespan startup run."""
+    # Manually trigger lifespan startup (set up embedder)
+    main_mod.embedder = CachedEmbedder()
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client
+    finally:
+        main_mod.embedder = None
 
 
 @pytest.fixture

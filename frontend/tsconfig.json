@@ -19,5 +19,6 @@
     }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts"],
+  "exclude": ["e2e"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

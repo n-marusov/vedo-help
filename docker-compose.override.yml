@@ -17,6 +17,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/Cargo.toml:/app/Cargo.toml
       - ./backend/Cargo.lock:/app/Cargo.lock
+      - ./backend/migrations:/app/migrations
     environment:
       RUST_LOG: debug
       CARGO_TARGET_DIR: /app/target
@@ -67,8 +68,9 @@ services:
       retries: 3
       start_period: 10s
 
-  keycloak-db:
-    ports: []
+  db:
+    ports:
+      - "5432:5432"
 
   keycloak:
     ports:

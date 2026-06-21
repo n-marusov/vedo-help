@@ -1,7 +1,7 @@
 /// Integration tests for Git Repository Sync backend.
 ///
 /// Tests the full Git sync pipeline against real Chroma and application backend.
-/// Tests connect to a real Chroma instance and use in-memory SQLite.
+/// Tests connect to a real Chroma instance and use a PostgreSQL test database.
 ///
 /// ```bash
 /// cargo test --test git_sync_integration
@@ -105,7 +105,7 @@ fn create_fixture_repo() -> (tempfile::TempDir, String) {
         &path,
         &[
             ("readme.md", "# Sample Documentation\n\nThis is the main readme file for testing.\n\n## Section 1\nContent of section 1 about rate limiting.\n"),
-            ("guide.md", "# User Guide\n\nThis guide covers the VEDO platform configuration.\n\n## Getting Started\nFirst, download the latest version.\n\n## Configuration\nSet environment variables:\n- `DATABASE_URL` for SQLite\n- `CHROMA_URL` for vector database\n"),
+            ("guide.md", "# User Guide\n\nThis guide covers the VEDO platform configuration.\n\n## Getting Started\nFirst, download the latest version.\n\n## Configuration\nSet environment variables:\n- `DATABASE_URL` for PostgreSQL\n- `CHROMA_URL` for vector database\n")
         ],
     );
 
@@ -118,7 +118,7 @@ fn create_fixture_repo() -> (tempfile::TempDir, String) {
 // ---------------------------------------------------------------------------
 
 /// POST create repo via handler → GET list → verify response.
-/// Uses mocked Chroma and in-memory SQLite.
+/// Uses mocked Chroma and a PostgreSQL test database.
 /// Since handlers aren't built yet (TDD Red phase), this test validates
 /// the expected API contract shapes.
 #[tokio::test]

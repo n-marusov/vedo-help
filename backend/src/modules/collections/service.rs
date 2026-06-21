@@ -19,7 +19,7 @@ impl CollectionService {
     }
 
     /// Create a new collection. Validates name uniqueness and creates in both
-    /// SQLite and Chroma.
+    /// PostgreSQL and Chroma.
     pub async fn create(
         &self,
         req: CreateCollectionRequest,
@@ -44,17 +44,17 @@ impl CollectionService {
             document_count: 0,
         };
 
-        // Create in SQLite first
+        // Create in PostgreSQL first
         self.repo.create_collection(&collection).await?;
 
         // Create in Chroma — use UUID as Chroma collection name (Chroma only
         // accepts ASCII alphanumeric, underscores and hyphens). The display name
-        // is stored in SQLite and shown in the UI.
+        // is stored in PostgreSQL and shown in the UI.
         let chroma = ChromaClient::new(&self.chroma_url);
         if let Err(e) = chroma.create_collection(&id.to_string()).await {
-            // Rollback SQLite creation if Chroma fails
+            // Rollback PostgreSQL creation if Chroma fails
             tracing::error!(
-                "Failed to create Chroma collection '{name}', rolling back SQLite: {e}"
+                "Failed to create Chroma collection '{name}', rolling back PostgreSQL: {e}"
             );
             let _ = self.repo.delete_collection(id).await;
             return Err(e);
@@ -95,22 +95,22 @@ impl CollectionService {
         self.repo.get_collection(id).await
     }
 
-    /// Delete a collection. Removes from SQLite and drops the Chroma collection.
+    /// Delete a collection. Removes from PostgreSQL and drops the Chroma collection.
     pub async fn delete(&self, id: Uuid) -> Result<(), AppError> {
         tracing::info!("Deleting collection: {id}");
 
         // Get the collection first to know the name (for Chroma deletion)
         let collection = self.repo.get_collection(id).await?;
 
-        // Delete from SQLite first (includes cascade to documents/chunks)
+        // Delete from PostgreSQL first (includes cascade to documents/chunks)
         self.repo.delete_collection(id).await?;
 
         // Delete from Chroma — use UUID as collection name (re-derived from id)
         let chroma = ChromaClient::new(&self.chroma_url);
         if let Err(e) = chroma.delete_collection(&id.to_string()).await {
-            // Log but don't fail — the SQLite data is already cleaned up
+            // Log but don't fail — the PostgreSQL data is already cleaned up
             tracing::warn!(
-                "Chroma collection '{name}' may still exist after SQLite delete: {e}",
+                "Chroma collection '{name}' may still exist after PostgreSQL delete: {e}",
                 name = collection.name
             );
         }

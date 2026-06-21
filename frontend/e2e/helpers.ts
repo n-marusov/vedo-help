@@ -1,74 +1,122 @@
-/**
- * Shared test helpers for E2E tests.
- *
- * Reusable utilities: mock JWT creation, auth setup, API mocking.
- */
+import type { APIRequestContext, Page } from "@playwright/test";
 
-/**
- * Build a mock JWT with the given payload claims.
- */
-export function makeMockJwt(claims: Record<string, unknown>): string {
-	const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-	const payload = btoa(JSON.stringify(claims));
-	return `${header}.${payload}.mocksignature`;
+export const API_URL = process.env.E2E_API_URL ?? "http://localhost:13000";
+const KEYCLOAK_URL = process.env.E2E_KEYCLOAK_URL ?? "http://localhost:18080";
+const KEYCLOAK_REALM = process.env.E2E_KEYCLOAK_REALM ?? "vedo-hub";
+const KEYCLOAK_CLIENT_ID =
+	process.env.E2E_KEYCLOAK_CLIENT_ID ?? "vedo-frontend";
+const E2E_USERNAME = process.env.E2E_USERNAME ?? "admin";
+const E2E_PASSWORD =
+	process.env.E2E_PASSWORD ?? process.env.VEDO_ADMIN_PASSWORD ?? "admin";
+
+let cachedToken: string | null = null;
+
+export interface TestCollection {
+	id: string;
+	name: string;
+	description?: string;
+	created_at: string;
+	document_count: number;
 }
 
-export const VALID_TOKEN = makeMockJwt({
-	sub: "user-123",
-	name: "Test User",
-	preferred_username: "testuser",
-	exp: Math.floor(Date.now() / 1000) + 7200,
-	iat: Math.floor(Date.now() / 1000),
-});
+export async function getTestAccessToken(): Promise<string> {
+	if (cachedToken) return cachedToken;
 
-/**
- * Inject a valid JWT into localStorage via addInitScript.
- * Call before any page navigation to bypass the auth redirect.
- */
-export async function setupAuth(page: import("@playwright/test").Page) {
-	await page.addInitScript((token: string) => {
-		localStorage.setItem("vedo_auth_token", token);
-	}, VALID_TOKEN);
+	const params = new URLSearchParams({
+		grant_type: "password",
+		client_id: KEYCLOAK_CLIENT_ID,
+		username: E2E_USERNAME,
+		password: E2E_PASSWORD,
+	});
+
+	const response = await fetch(
+		`${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: params,
+		},
+	);
+
+	if (!response.ok) {
+		throw new Error(
+			`Failed to get KeyCloak test token: ${response.status} ${await response.text()}`,
+		);
+	}
+
+	const body = (await response.json()) as { access_token?: string };
+	if (!body.access_token) {
+		throw new Error("KeyCloak token response did not include access_token");
+	}
+
+	cachedToken = body.access_token;
+	return cachedToken;
 }
 
-/**
- * Mock GET /api/collections to return a single test collection.
- */
-export async function mockCollections(page: import("@playwright/test").Page) {
-	await page.route("**/api/collections", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify([
-				{
-					id: "col-1",
-					name: "Test Collection",
-					description: "A test collection",
-					created_at: new Date().toISOString(),
-					document_count: 2,
-				},
-			]),
-		});
+export async function setupAuth(page: Page): Promise<string> {
+	const token = await getTestAccessToken();
+	await page.addInitScript((accessToken: string) => {
+		localStorage.setItem("vedo_auth_token", accessToken);
+	}, token);
+	return token;
+}
+
+export async function apiRequest<T>(
+	request: APIRequestContext,
+	method: "GET" | "POST" | "DELETE",
+	path: string,
+	body?: unknown,
+): Promise<T> {
+	const token = await getTestAccessToken();
+	const response = await request.fetch(`${API_URL}${path}`, {
+		method,
+		headers: {
+			Authorization: `Bearer ${token}`,
+			"Content-Type": "application/json",
+		},
+		data: body,
+	});
+
+	if (!response.ok()) {
+		throw new Error(
+			`${method} ${path} failed: ${response.status()} ${await response.text()}`,
+		);
+	}
+
+	return (await response.json()) as T;
+}
+
+export async function createTestCollection(
+	request: APIRequestContext,
+	name = `E2E Collection ${Date.now()}`,
+): Promise<TestCollection> {
+	return apiRequest<TestCollection>(request, "POST", "/api/collections", {
+		name,
+		description: "Created by Playwright E2E tests",
 	});
 }
 
-/**
- * Mock GET /api/sessions to return a single test session.
- */
-export async function mockSessions(page: import("@playwright/test").Page) {
-	await page.route("**/api/sessions", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify([
-				{
-					id: "sess-1",
-					title: "Test Session",
-					message_count: 0,
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			]),
-		});
-	});
+export async function setupAuthAndCollection(
+	page: Page,
+	request: APIRequestContext,
+	name?: string,
+): Promise<TestCollection> {
+	await setupAuth(page);
+	return createTestCollection(request, name);
+}
+
+export async function setActiveCollection(
+	page: Page,
+	collectionId: string,
+): Promise<void> {
+	await page.evaluate((id) => {
+		// biome-ignore lint/suspicious/noExplicitAny: E2E helper needs access to Vue internals
+		const app = (document.querySelector("#app") as any).__vue_app__;
+		const pinia = app.config.globalProperties.$pinia;
+		pinia.state.value.collections.activeCollectionId = id;
+	}, collectionId);
+}
+
+export function fileInput(page: Page) {
+	return page.locator('input[type="file"]').first();
 }

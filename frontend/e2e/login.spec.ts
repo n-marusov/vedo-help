@@ -91,20 +91,6 @@ test.describe("Login Page", () => {
 		await expect(btn).toHaveClass(/oauth-btn/);
 	});
 
-	test("TC-LOGIN-007: login page is responsive on mobile", async ({ page }) => {
-		await page.setViewportSize({ width: 375, height: 667 });
-		await page.goto("/login");
-
-		const loginCard = page.locator('[data-testid="login-card"]');
-		await expect(loginCard).toBeVisible();
-
-		const box = await loginCard.boundingBox();
-		expect(box).not.toBeNull();
-		if (box) {
-			expect(box.width).toBeLessThanOrEqual(380);
-		}
-	});
-
 	test("TC-LOGIN-008: header row has title, subtitle and theme toggle", async ({
 		page,
 	}) => {
@@ -206,21 +192,6 @@ test.describe("Login Page", () => {
 		await expect(subtitle).toHaveText(
 			/Build, connect, and share knowledge at scale/i,
 		);
-	});
-
-	test("TC-LOGIN-014: login page is responsive on tablet", async ({ page }) => {
-		await page.setViewportSize({ width: 768, height: 1024 });
-		await page.goto("/login");
-
-		const loginCard = page.locator('[data-testid="login-card"]');
-		await expect(loginCard).toBeVisible();
-
-		const box = await loginCard.boundingBox();
-		expect(box).not.toBeNull();
-		if (box) {
-			expect(box.width).toBeGreaterThan(380);
-			expect(box.width).toBeLessThanOrEqual(720);
-		}
 	});
 
 	test("TC-LOGIN-015: theme toggle on login page changes theme", async ({

@@ -8,6 +8,12 @@ import type {
 import { defineStore } from "pinia";
 import { ref } from "vue";
 
+function normalizeStreamLine(line: string): string {
+	const trimmed = line.trim();
+	if (!trimmed || trimmed.startsWith(":")) return "";
+	return trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed;
+}
+
 export const useChatStore = defineStore("chat", () => {
 	const messages = ref<Message[]>([]);
 	const isLoading = ref(false);
@@ -35,7 +41,7 @@ export const useChatStore = defineStore("chat", () => {
 						buffer = lines.pop() || "";
 
 						for (const line of lines) {
-							const trimmed = line.trim();
+							const trimmed = normalizeStreamLine(line);
 							if (!trimmed) continue;
 							try {
 								const event: StreamEvent = JSON.parse(trimmed);
@@ -47,7 +53,7 @@ export const useChatStore = defineStore("chat", () => {
 					}
 
 					// Process remaining buffer
-					const trimmed = buffer.trim();
+					const trimmed = normalizeStreamLine(buffer);
 					if (trimmed) {
 						try {
 							const event: StreamEvent = JSON.parse(trimmed);

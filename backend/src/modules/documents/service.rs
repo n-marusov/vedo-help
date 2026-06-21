@@ -114,7 +114,7 @@ impl DocumentService {
         }
 
         // 6. Index into Chroma if clients are available. If indexing fails, roll
-        // back the active SQLite rows so users do not see unsearchable documents.
+        // back the active database rows so users do not see unsearchable documents.
         if let Err(e) = self
             .index_chunks_in_chroma(collection_id, doc_id, filename, &chunk_records)
             .await
@@ -155,7 +155,7 @@ impl DocumentService {
         Ok(summaries)
     }
 
-    /// Soft delete a document: deactivate it and its chunks in SQLite.
+    /// Soft delete a document: deactivate it and its chunks in the database.
     /// Rows remain in the database but are excluded from active queries.
     /// Also removes the document's embeddings from Chroma if clients are configured.
     pub async fn delete_document(&self, id: Uuid) -> Result<(), AppError> {
@@ -180,7 +180,7 @@ impl DocumentService {
             );
 
             if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
-                // Log but don't fail — SQLite soft delete already succeeded
+                // Log but don't fail — database soft delete already succeeded
                 tracing::warn!("Failed to delete Chroma embeddings for document {id}: {e}");
             } else {
                 tracing::info!(
@@ -192,7 +192,7 @@ impl DocumentService {
         Ok(())
     }
 
-    /// Soft delete multiple documents and their chunks in SQLite.
+    /// Soft delete multiple documents and their chunks in the database.
     /// Rows remain in the database but are excluded from active queries.
     /// Also removes each document's embeddings from Chroma if clients are configured.
     pub async fn delete_documents_batch(
@@ -747,6 +747,7 @@ fn parse_file_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::io::Write;
 
     /// Helper: create an in-memory ZIP with given (filename, content) pairs.
@@ -763,6 +764,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_non_ascii_text() {
         // Regression: process_upload with Cyrillic text must not panic
         // on debug preview slicing (service.rs:50)
@@ -782,6 +784,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-non-ascii-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -798,6 +810,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_emoji_content() {
         // Regression: process_upload with 4-byte UTF-8 (emoji) must not panic
         let emoji_line = "😀🚀🌈🧪🔥🎉🎊🎈🎁\n".repeat(30);
@@ -807,6 +820,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-emoji-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -822,6 +845,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_mixed_encoding() {
         // Regression: process_upload with mixed CJK + Cyrillic + emoji must not panic
         let mixed = "English text. Привет-мир-你好世界😀🚀\n".repeat(40);
@@ -831,6 +855,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-mixed-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -846,6 +880,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_upload_ascii_regression() {
         // Regression: ASCII-only upload must still work after UTF-8 fixes
         let content =
@@ -855,6 +890,16 @@ mod tests {
         let collection_id = Uuid::new_v4();
 
         let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-ascii-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
+
         let result = svc
             .process_upload(data, filename, collection_id, "text/markdown".to_string())
             .await;
@@ -869,6 +914,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_with_5_md_files() {
         let data = make_zip(&[
             ("file1.md", "# File 1"),
@@ -877,10 +923,19 @@ mod tests {
             ("file4.md", "# File 4"),
             ("file5.md", "# File 5"),
         ]);
-        let result = make_service()
+        let collection_id = Uuid::new_v4();
+        let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-zip-5-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
             .await
-            .process_zip_upload(&data, Uuid::new_v4())
-            .await;
+            .expect("Failed to insert collection");
+
+        let result = svc.process_zip_upload(&data, collection_id).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert_eq!(response.processed, 5);
@@ -889,6 +944,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_with_11_files_returns_413() {
         let names: Vec<String> = (0..11).map(|i| format!("doc-{i}.md")).collect();
         let refs: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "# content")).collect();
@@ -905,16 +961,26 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_mixed_valid_invalid() {
         let data = make_zip(&[
             ("valid.md", "# Valid"),
             ("script.exe", "fake exe"),
             ("notes.txt", "Plain text"),
         ]);
-        let result = make_service()
+        let collection_id = Uuid::new_v4();
+        let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-zip-mixed-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
             .await
-            .process_zip_upload(&data, Uuid::new_v4())
-            .await;
+            .expect("Failed to insert collection");
+
+        let result = svc.process_zip_upload(&data, collection_id).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert!(response.processed > 0);
@@ -922,6 +988,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_empty() {
         let data = make_zip(&[]);
         let result = make_service()
@@ -935,6 +1002,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_corrupted() {
         let data = vec![0x00, 0x01, 0x02, 0x03];
         let result = make_service()
@@ -949,16 +1017,26 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_process_zip_unsupported_types_skipped() {
         let data = make_zip(&[
             ("valid.md", "# Valid"),
             ("readme.txt", "Plain text"),
             ("app.exe", "binary"),
         ]);
-        let result = make_service()
+        let collection_id = Uuid::new_v4();
+        let svc = make_service().await;
+
+        // Insert parent collection to satisfy FK constraint
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-zip-unsupported-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
             .await
-            .process_zip_upload(&data, Uuid::new_v4())
-            .await;
+            .expect("Failed to insert collection");
+
+        let result = svc.process_zip_upload(&data, collection_id).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert!(response.processed >= 1);
@@ -967,21 +1045,19 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks() {
         let svc = make_service().await;
         let collection_id = Uuid::new_v4();
 
         // Insert a collection for FK
-        sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
-        )
-        .bind(collection_id.to_string())
-        .bind("test-collection")
-        .bind("")
-        .bind(chrono::Utc::now().to_rfc3339())
-        .execute(svc.repo.db_pool())
-        .await
-        .ok();
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
 
         // First upload: create document with initial content
         let initial_content = b"# Initial version\n\nThis is the first version of the document.";
@@ -1015,17 +1091,17 @@ mod tests {
         );
 
         // Check is_active via direct SQL for all chunks
-        let rows: Vec<(String, i64)> = sqlx::query_as(
-            r#"SELECT id, is_active FROM chunks WHERE document_id = ? ORDER BY "index""#,
+        let rows: Vec<(Uuid, bool)> = sqlx::query_as(
+            r#"SELECT id, is_active FROM chunks WHERE document_id = $1 ORDER BY "index""#,
         )
-        .bind(doc_id.to_string())
+        .bind(doc_id)
         .fetch_all(svc.repo.db_pool())
         .await
         .expect("should query chunks");
 
         // Count active vs inactive
-        let active_count = rows.iter().filter(|(_, active)| *active == 1).count();
-        let inactive_count = rows.iter().filter(|(_, active)| *active == 0).count();
+        let active_count = rows.iter().filter(|(_, active)| *active).count();
+        let inactive_count = rows.iter().filter(|(_, active)| !*active).count();
 
         assert!(
             inactive_count > 0,
@@ -1038,21 +1114,19 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
         let svc = make_service().await;
         let collection_id = Uuid::new_v4();
 
         // Insert a collection for FK
-        sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
-        )
-        .bind(collection_id.to_string())
-        .bind("test-collection-del")
-        .bind("")
-        .bind(chrono::Utc::now().to_rfc3339())
-        .execute(svc.repo.db_pool())
-        .await
-        .ok();
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-del-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
 
         // Upload a document
         let content = b"# Test document\n\nThis document will be deleted.";
@@ -1082,10 +1156,10 @@ mod tests {
             .await
             .expect("soft delete should succeed");
 
-        // Assert: document row still exists in SQLite
-        let doc_row: Option<(String, i64)> =
-            sqlx::query_as("SELECT id, is_active FROM documents WHERE id = ?")
-                .bind(doc_id.to_string())
+        // Assert: document row still exists in the database
+        let doc_row: Option<(Uuid, bool)> =
+            sqlx::query_as("SELECT id, is_active FROM documents WHERE id = $1")
+                .bind(doc_id)
                 .fetch_optional(svc.repo.db_pool())
                 .await
                 .expect("should query document");
@@ -1094,12 +1168,12 @@ mod tests {
             "document row should still exist after soft delete"
         );
         let (_, is_active) = doc_row.unwrap();
-        assert_eq!(is_active, 0, "document should be marked inactive");
+        assert!(!is_active, "document should be marked inactive");
 
-        // Assert: chunks remain in SQLite but inactive
-        let chunk_rows: Vec<(String, i64)> =
-            sqlx::query_as(r#"SELECT id, is_active FROM chunks WHERE document_id = ?"#)
-                .bind(doc_id.to_string())
+        // Assert: chunks remain but inactive
+        let chunk_rows: Vec<(Uuid, bool)> =
+            sqlx::query_as(r#"SELECT id, is_active FROM chunks WHERE document_id = $1"#)
+                .bind(doc_id)
                 .fetch_all(svc.repo.db_pool())
                 .await
                 .expect("should query chunks");
@@ -1108,8 +1182,8 @@ mod tests {
             "chunks should still exist after soft delete"
         );
         for (chunk_id, active) in &chunk_rows {
-            assert_eq!(
-                *active, 0,
+            assert!(
+                !*active,
                 "chunk {chunk_id} should be inactive after soft delete"
             );
         }
@@ -1126,21 +1200,19 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
         let svc = make_service().await;
         let collection_id = Uuid::new_v4();
 
         // Insert a collection
-        sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
-        )
-        .bind(collection_id.to_string())
-        .bind("test-collection-batch")
-        .bind("")
-        .bind(chrono::Utc::now().to_rfc3339())
-        .execute(svc.repo.db_pool())
-        .await
-        .ok();
+        sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+            .bind(collection_id)
+            .bind(format!("test-collection-batch-{collection_id}"))
+            .bind("")
+            .execute(svc.repo.db_pool())
+            .await
+            .expect("Failed to insert collection");
 
         // Upload 3 documents
         let mut doc_ids = Vec::new();
@@ -1186,18 +1258,19 @@ mod tests {
 
         // Assert: rows still exist but are inactive
         for deleted_id in &[doc_ids[0], doc_ids[1]] {
-            let doc_row: Option<(String, i64)> =
-                sqlx::query_as("SELECT id, is_active FROM documents WHERE id = ?")
-                    .bind(deleted_id.to_string())
+            let doc_row: Option<(Uuid, bool)> =
+                sqlx::query_as("SELECT id, is_active FROM documents WHERE id = $1")
+                    .bind(*deleted_id)
                     .fetch_optional(svc.repo.db_pool())
                     .await
                     .expect("should query document");
             assert!(doc_row.is_some(), "deleted document row should still exist");
-            assert_eq!(doc_row.unwrap().1, 0, "document should be marked inactive");
+            assert!(!doc_row.unwrap().1, "document should be marked inactive");
         }
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_batch_delete_with_mixed_collections() {
         let svc = make_service().await;
         let collection_a = Uuid::new_v4();
@@ -1205,16 +1278,13 @@ mod tests {
 
         // Insert both collections
         for col_id in &[collection_a, collection_b] {
-            sqlx::query(
-                "INSERT INTO collections (id, name, description, created_at) VALUES (?, ?, ?, ?)",
-            )
-            .bind(col_id.to_string())
-            .bind(format!("col-{col_id}"))
-            .bind("")
-            .bind(chrono::Utc::now().to_rfc3339())
-            .execute(svc.repo.db_pool())
-            .await
-            .ok();
+            sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+                .bind(*col_id)
+                .bind(format!("col-{col_id}"))
+                .bind("")
+                .execute(svc.repo.db_pool())
+                .await
+                .expect("Failed to insert collection");
         }
 
         // Upload 2 docs to col A, 2 docs to col B
@@ -1278,61 +1348,31 @@ mod tests {
         );
     }
 
-    /// Create a DocumentService with an in-memory repository for testing.
-    /// Uses a unique database name per call to prevent parallel test interference.
+    /// Create a DocumentService with a PostgreSQL pool for testing.
+    /// Uses the DATABASE_URL env var (default: postgres://vedo:vedo@localhost:5432/vedo_test).
     async fn make_service() -> DocumentService {
-        let db_name = Uuid::new_v4();
-        let pool = sqlx::SqlitePool::connect(&format!(
-            "sqlite:file:test-{db_name}?mode=memory&cache=shared"
-        ))
-        .await
-        .expect("Failed to create in-memory SQLite pool");
-
-        // Create schema in the in-memory database
-        // Disable FK enforcement for test isolation
-        sqlx::query("PRAGMA foreign_keys = OFF")
-            .execute(&pool)
+        let db_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://vedo:vedo@localhost:5432/vedo_test".to_string());
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&db_url)
             .await
-            .ok();
+            .expect("Failed to connect to test database");
+
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to run migrations");
+
+        // Clean up test data to ensure a fresh state for each test.
+        // Tests must run with --test-threads=1 to avoid race conditions
+        // between parallel TRUNCATE and INSERT operations.
         sqlx::query(
-            "CREATE TABLE IF NOT EXISTS collections (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                description TEXT,
-                created_at TEXT NOT NULL
-            )",
+            "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
         )
         .execute(&pool)
         .await
-        .ok();
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS documents (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                file_type TEXT NOT NULL,
-                file_size INTEGER NOT NULL,
-                uploaded_at TEXT NOT NULL,
-                collection_id TEXT NOT NULL,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-            )",
-        )
-        .execute(&pool)
-        .await
-        .ok();
-        sqlx::query(
-            r#"CREATE TABLE IF NOT EXISTS chunks (
-                id TEXT PRIMARY KEY,
-                document_id TEXT NOT NULL,
-                "index" INTEGER NOT NULL,
-                text TEXT NOT NULL,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-            )"#,
-        )
-        .execute(&pool)
-        .await
-        .ok();
+        .expect("Failed to truncate tables");
 
         let repo = DocumentRepository::new(pool);
         DocumentService::new(repo)

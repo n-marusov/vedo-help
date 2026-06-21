@@ -28,6 +28,7 @@ pub struct Message {
 pub struct OpenRouterClient {
     client: Client,
     api_key: String,
+    base_url: String,
     model: String,
 }
 
@@ -57,6 +58,7 @@ impl OpenRouterClient {
         Self {
             client,
             api_key: config.openrouter_api_key.clone(),
+            base_url: config.openrouter_base_url.trim_end_matches('/').to_string(),
             model: config.openrouter_model.clone(),
         }
     }
@@ -205,7 +207,7 @@ impl OpenRouterClient {
         });
 
         self.client
-            .post("https://openrouter.ai/api/v1/chat/completions")
+            .post(format!("{}/chat/completions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .json(&body)

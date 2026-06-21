@@ -45,10 +45,10 @@ function navigateToAdmin() {
   router.push('/admin');
 }
 
-function closeMenuOnOutside(e) {
+function closeMenuOnOutside(e: MouseEvent) {
   // Close the dropdown when clicking outside
   if (userMenuOpen.value) {
-    const target = e.target;
+    const target = e.target as HTMLElement;
     if (!target.closest('.app-header__user-menu') && !target.closest('.app-header__user')) {
       userMenuOpen.value = false;
     }

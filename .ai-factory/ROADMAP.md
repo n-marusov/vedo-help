@@ -1,7 +1,7 @@
 # Roadmap: VEDO hub RAG Assistant
 
 > Карта развития продукта от MVP к промышленной эксплуатации.
-> `[x]` — завершено / `[ ]` — не начато
+> `[x]` — завершено / `[~]` — частично / `[ ]` — не начато
 
 ---
 
@@ -18,7 +18,7 @@
 
 ---
 
-## Milestone: v0.2 — GUI Redesign (DeepSeek-стиль) 🔜
+## Milestone: v0.2 — GUI Redesign (DeepSeek-стиль) ✅
 
 Полный редизайн интерфейса в стиле https://chat.deepseek.com/ — минималистичный чат, тёмная/светлая тема, сайдбар сессий, качественный рендеринг Markdown и кода.
 
@@ -32,7 +32,7 @@
 
 ---
 
-## Milestone: v0.2.1 — Markdown & Code Rendering
+## Milestone: v0.2.1 — Markdown & Code Rendering ✅
 
 Полноценный рендеринг Markdown и подсветка синтаксиса в сообщениях чата.
 
@@ -40,7 +40,7 @@
 
 ---
 
-## Milestone: v0.3 — Admin Panel & Production Polish
+## Milestone: v0.3 — Admin Panel & Production Polish ⏳
 
 Закрытие пробелов MVP: управление коллекциями и загрузка документов через админ-панель, E2E-тесты, ZIP-загрузка, re-indexing, confidence score, graceful degradation.
 
@@ -57,15 +57,15 @@
 - [x] **Remove ADMIN_API_KEY** — выпилить legacy API key аутентификацию, оставить только KeyCloak JWT
 - [x] **Document re-indexing** — деактивация старых чанков при перезагрузке
 - [x] **Confidence indicator** — relevance score в UI (sources)
-- [ ] **Bulk document deletion from collection** — чекбокс у каждого документа, чекбокс «toggle all», кнопка удалить выбранные; optimistic UI: мгновенное исчезновение из списка, операция выполняется асинхронно, toast-уведомление об успехе или ошибке
-- [ ] **Delete result feedback via VToast** — обратная связь через существующий компонент `VToast` (info/success/error): сообщение о количестве удалённых документов или об ошибке; дизайн toast из `ui-kit.lib.pen` (тост с иконкой статуса, border-left по типу)
-- [ ] **Optimistic deletion UX** — мгновенное подтверждение операции (remove из массива + show toast success), асинхронный `DELETE /api/documents/batch` на бэкенде, при провале — откат (вернуть документы в список + toast error), блокировка повторного нажатия на время выполнения
-- [ ] **Embedding submission in upload pipeline** — `process_upload` и `process_zip_upload` сохраняют чанки только в SQLite, но не отправляют их в `EmbeddingClient`/Chroma. Добавить вызов эмбеддинга и `chroma_client.add()` в оба пути; при ошибке эмбеддинга — откат сохранённых чанков (или флаг `pending_embedding` с retry-джобой)
-- [ ] **Graceful degradation** — fallback-модель + кэширование ответов (есть retry + кэш эмбеддингов, нет fallback LLM)
+- [x] **Bulk document deletion from collection** — чекбокс у каждого документа, чекбокс «toggle all», кнопка удалить выбранные; optimistic UI с rollback; VToast-уведомления. Бэкенд: `DELETE /api/documents/batch` с мягким удалением и очисткой Chroma. Unit-тесты (4) + тесты бэкенда (2)
+- [x] **Delete result feedback via VToast** — компонент `VToast` с типами info/success/error/warning, border-left по типу, auto-dismiss. Интегрирован в DocumentList для результатов массового удаления
+- [x] **Optimistic deletion UX** — мгновенное подтверждение (remove из массива + show toast success), асинхронный `DELETE /api/documents/batch` на бэкенде, при провале — откат (вернуть документы в список + toast error), блокировка повторного нажатия через `isDeleting`
+- [x] **Embedding submission in upload pipeline** — `process_upload` и `process_zip_upload` вызывают `index_chunks_in_chroma` (embed + add_embeddings). При ошибке эмбеддинга — откат: деактивация документа и чанков (soft delete)
+- [~] **Graceful degradation** — retry-логика (3 попытки, 1s delay) для LLM ✅; кэширование эмбеддингов ✅; fallback LLM намеренно убран из spec (Retry primary; fail if down) — не планируется; кэширование ответов на частые вопросы — не реализовано
 
 ---
 
-## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework
+## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework ⏳
 
 Реализация базовой логики ответов и доработка чата: улучшение потокового вывода, обработка ошибок LLM, сохранение контекста, UI для редактирования/удаления сообщений.
 
@@ -78,19 +78,19 @@
 
 ---
 
-## Milestone: v0.4 — Observability & Reliability
+## Milestone: v0.4 — Observability & Reliability ⏳
 
 Мониторинг, алёртинг, автоматический бэкап, per-route rate limiting.
 
 - [ ] **Deep healthcheck** — проверка зависимостей (Chroma, embedding)
 - [ ] **Per-route rate limiting** — защита `/api/query`
-- [ ] **Automated backup** — cron-контейнер или host cron для SQLite + Chroma
+- [ ] **Automated backup** — cron-контейнер или host cron для SQLite + Chroma (скрипты backup.sh/restore.sh есть, автоматизации нет)
 - [ ] **Failure notifications** — Telegram / email webhook
-- [ ] **Graceful shutdown** — корректное завершение всех контейнеров
+- [ ] **Graceful shutdown** — корректное завершение всех контейнеров (бэкенд частично: SIGINT/SIGTERM через broadcast, контейнерная координация не реализована)
 
 ---
 
-## Milestone: v0.5 — Advanced RAG
+## Milestone: v0.5 — Advanced RAG ⏳
 
 Улучшение качества ответов: hybrid search, reranker, query expansion.
 
@@ -102,7 +102,7 @@
 
 ---
 
-## Milestone: v0.6 — Multi-user & Security
+## Milestone: v0.6 — Multi-user & Security ⏳
 
 Аутентификация, multi-tenancy, audit log, security hardening.
 
@@ -115,7 +115,7 @@
 
 ---
 
-## Milestone: v1.0 — Production Ready
+## Milestone: v1.0 — Production Ready ⏳
 
 CI/CD, performance testing, SLA, документация, мониторинг.
 
@@ -134,9 +134,9 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.1 — MVP | ✅ 20/20 | Full RAG pipeline |
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
-| v0.3 — Admin Panel & Production Polish | ⏳ 10/14 | Collection & document management, confidence indicator, ZIP upload ✅; Git sync backend ✅/frontend ✅/e2e ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion, toast feedback, optimistic UX, embedding submission, graceful degradation ❌ |
-| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 2/6 | Streaming, LLM error handling ✅; message editing, context, export, empty state ❌ |
-| v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup, alerts, shutdown |
+| v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
+| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 2/6 | Streaming ✅; LLM error handling ✅; message editing, context, export, empty state ❌ |
+| v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
@@ -145,4 +145,5 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **MVP завершён:** 2026-06-15
 **Chat UI overhaul (Phases 0–4):** 2026-06-16
 **Document re-indexing:** 2026-06-19
-**Что дальше:** `/aif-implement` — завершение v0.3 (embedding submission, graceful degradation) и v0.3.1 (message editing, context window, chat export UI, loading skeletons)
+**Bulk deletion + VToast + optimistic UX + embedding pipeline:** 2026-06-21
+**Что дальше:** `/aif-implement` — завершение v0.3.1 (message editing, context window, chat export UI, loading skeletons) и v0.4 (deep healthcheck, rate limiting, backup automation)

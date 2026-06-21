@@ -1,4 +1,5 @@
-use sqlx::SqlitePool;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use vedo_backend::modules::documents::models::{Chunk, Document};
@@ -9,78 +10,57 @@ use vedo_backend::shared::ChromaClient;
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Create an in-memory SQLite pool with the current schema (without `is_active`).
-async fn setup_db_no_is_active() -> SqlitePool {
-    let pool = SqlitePool::connect(":memory:")
+/// Database URL for tests. Defaults to a local PostgreSQL test database.
+fn db_url() -> String {
+    std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://vedo:vedo@localhost:5432/vedo_test".to_string())
+}
+
+/// Create a PostgreSQL pool and run migrations, then truncate all tables for a clean state.
+async fn pool_and_clean() -> PgPool {
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&db_url())
         .await
-        .expect("Failed to create test database");
+        .expect("Failed to connect to test database");
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            file_type TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            uploaded_at TEXT NOT NULL,
-            collection_id TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create documents table");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS chunks (
-            id TEXT PRIMARY KEY,
-            document_id TEXT NOT NULL,
-            chunk_index INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create chunks table");
+    sqlx::query("TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE")
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate tables");
 
     pool
 }
 
-/// Create an in-memory SQLite pool with `is_active` columns (expected final schema after T4.1).
-async fn setup_db_with_is_active() -> SqlitePool {
-    let pool = SqlitePool::connect(":memory:")
+/// Create a PostgreSQL pool with the current schema (without `is_active`).
+/// After running migrations, we drop the `is_active` columns and re-add them
+/// to simulate the migration scenario where the column needs to be added.
+async fn setup_db_no_is_active() -> PgPool {
+    let pool = pool_and_clean().await;
+
+    // Drop is_active from documents
+    sqlx::query("ALTER TABLE documents DROP COLUMN IF EXISTS is_active")
+        .execute(&pool)
         .await
-        .expect("Failed to create test database");
+        .expect("Failed to drop is_active from documents");
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            file_type TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            uploaded_at TEXT NOT NULL,
-            collection_id TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create documents table with is_active");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS chunks (
-            id TEXT PRIMARY KEY,
-            document_id TEXT NOT NULL,
-            chunk_index INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create chunks table with is_active");
+    // Drop is_active from chunks
+    sqlx::query("ALTER TABLE chunks DROP COLUMN IF EXISTS is_active")
+        .execute(&pool)
+        .await
+        .expect("Failed to drop is_active from chunks");
 
     pool
+}
+
+/// Create a PostgreSQL pool with `is_active` columns (expected final schema after T4.1).
+async fn setup_db_with_is_active() -> PgPool {
+    pool_and_clean().await
 }
 
 fn make_doc(id: Uuid, collection_id: Uuid, name: &str) -> Document {
@@ -107,7 +87,7 @@ fn make_chunk(id: Uuid, document_id: Uuid, index: usize, text: &str) -> Chunk {
 // T3.1 — Unit spec: test DB schemas include `is_active`
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_schema_includes_is_active_columns() {
     // Create a pool WITHOUT is_active to verify the schema migration need
     let pool = setup_db_no_is_active().await;
@@ -127,67 +107,78 @@ async fn test_schema_includes_is_active_columns() {
     // Use the schema with is_active (this is what the final state should look like)
     let pool_with = setup_db_with_is_active().await;
 
-    // Insert a document and verify is_active defaults to 1
-    let doc_id = Uuid::new_v4();
+    // Insert a collection first (FK requirement)
     let col_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool_with)
+        .await
+        .expect("should insert collection");
+
+    // Insert a document and verify is_active defaults to TRUE
+    let doc_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents (id, name, file_type, file_size, collection_id)
+         VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .bind("test.md")
     .bind("text/markdown")
-    .bind(1024)
-    .bind(chrono::Utc::now().to_rfc3339())
-    .bind(col_id.to_string())
+    .bind(1024i64)
+    .bind(col_id)
     .execute(&pool_with)
     .await
     .expect("should insert document");
 
-    let doc_active: (i64,) = sqlx::query_as("SELECT is_active FROM documents WHERE id = ?")
-        .bind(doc_id.to_string())
+    let doc_active: (bool,) = sqlx::query_as("SELECT is_active FROM documents WHERE id = $1")
+        .bind(doc_id)
         .fetch_one(&pool_with)
         .await
         .expect("should query is_active from documents");
-    assert_eq!(
-        doc_active.0, 1,
-        "documents.is_active should default to 1 (true)"
-    );
+    assert!(doc_active.0, "documents.is_active should default to TRUE");
 
-    // Insert a chunk and verify is_active defaults to 1
+    // Insert a chunk and verify is_active defaults to TRUE
     let chunk_id = Uuid::new_v4();
-    sqlx::query("INSERT INTO chunks (id, document_id, chunk_index, text) VALUES (?, ?, ?, ?)")
-        .bind(chunk_id.to_string())
-        .bind(doc_id.to_string())
-        .bind(0i64)
+    sqlx::query("INSERT INTO chunks (id, document_id, \"index\", text) VALUES ($1, $2, $3, $4)")
+        .bind(chunk_id)
+        .bind(doc_id)
+        .bind(0i32)
         .bind("test chunk text")
         .execute(&pool_with)
         .await
         .expect("should insert chunk");
 
-    let chunk_active: (i64,) = sqlx::query_as("SELECT is_active FROM chunks WHERE id = ?")
-        .bind(chunk_id.to_string())
+    let chunk_active: (bool,) = sqlx::query_as("SELECT is_active FROM chunks WHERE id = $1")
+        .bind(chunk_id)
         .fetch_one(&pool_with)
         .await
         .expect("should query is_active from chunks");
-    assert_eq!(
-        chunk_active.0, 1,
-        "chunks.is_active should default to 1 (true)"
-    );
+    assert!(chunk_active.0, "chunks.is_active should default to TRUE");
 }
 
 // ---------------------------------------------------------------------------
 // T3.2 — Unit spec: `DocumentRepository` deactivates chunks and documents
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_deactivate_chunks_sets_inactive_by_document_id() {
     let pool = setup_db_with_is_active().await;
     let repo = DocumentRepository::new(pool.clone());
 
+    // Insert a collection first (FK requirement)
+    let col_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool)
+        .await
+        .expect("should insert collection");
+
     // Insert test document
     let doc_id = Uuid::new_v4();
-    let col_id = Uuid::new_v4();
     repo.save_document(&make_doc(doc_id, col_id, "test-doc.md"))
         .await
         .expect("should save document");
@@ -196,33 +187,33 @@ async fn test_deactivate_chunks_sets_inactive_by_document_id() {
     let chunk_a = Uuid::new_v4();
     let chunk_b = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(chunk_a.to_string())
-    .bind(doc_id.to_string())
-    .bind(0i64)
+    .bind(chunk_a)
+    .bind(doc_id)
+    .bind(0i32)
     .bind("chunk a")
-    .bind(1i64)
+    .bind(true)
     .execute(&pool)
     .await
     .expect("should insert chunk a");
 
     sqlx::query(
-        "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(chunk_b.to_string())
-    .bind(doc_id.to_string())
-    .bind(1i64)
+    .bind(chunk_b)
+    .bind(doc_id)
+    .bind(1i32)
     .bind("chunk b")
-    .bind(1i64)
+    .bind(true)
     .execute(&pool)
     .await
     .expect("should insert chunk b");
 
     // Verify both are active before deactivation
     let active_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count active chunks");
@@ -233,8 +224,8 @@ async fn test_deactivate_chunks_sets_inactive_by_document_id() {
 
     // Deactivate chunks — this simulates the `deactivate_chunks` repository method
     // that will be implemented in T5.2.
-    let affected = sqlx::query("UPDATE chunks SET is_active = 0 WHERE document_id = ?")
-        .bind(doc_id.to_string())
+    let affected = sqlx::query("UPDATE chunks SET is_active = FALSE WHERE document_id = $1")
+        .bind(doc_id)
         .execute(&pool)
         .await
         .expect("should deactivate chunks");
@@ -246,8 +237,8 @@ async fn test_deactivate_chunks_sets_inactive_by_document_id() {
 
     // Verify both are now inactive
     let inactive_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 0")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = FALSE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count inactive chunks");
@@ -263,20 +254,20 @@ async fn test_deactivate_chunks_sets_inactive_by_document_id() {
         .expect("should save other document");
 
     sqlx::query(
-        "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(Uuid::new_v4().to_string())
-    .bind(other_doc.to_string())
-    .bind(0i64)
+    .bind(Uuid::new_v4())
+    .bind(other_doc)
+    .bind(0i32)
     .bind("other chunk")
-    .bind(1i64)
+    .bind(true)
     .execute(&pool)
     .await
     .expect("should insert other chunk");
 
     let other_active: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1")
-            .bind(other_doc.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE")
+            .bind(other_doc)
             .fetch_one(&pool)
             .await
             .expect("should count other active chunks");
@@ -286,29 +277,38 @@ async fn test_deactivate_chunks_sets_inactive_by_document_id() {
     );
 }
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_deactivate_document_sets_document_inactive() {
     let pool = setup_db_with_is_active().await;
     let repo = DocumentRepository::new(pool.clone());
 
+    // Insert a collection first (FK requirement)
+    let col_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool)
+        .await
+        .expect("should insert collection");
+
     // Insert test document
     let doc_id = Uuid::new_v4();
-    let col_id = Uuid::new_v4();
     repo.save_document(&make_doc(doc_id, col_id, "test-doc.md"))
         .await
         .expect("should save document");
 
     // Verify document is active by default
-    let active: (i64,) = sqlx::query_as("SELECT is_active FROM documents WHERE id = ?")
-        .bind(doc_id.to_string())
+    let active: (bool,) = sqlx::query_as("SELECT is_active FROM documents WHERE id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should query is_active");
-    assert_eq!(active.0, 1, "document should be active by default");
+    assert!(active.0, "document should be active by default");
 
     // Deactivate document — simulates the `deactivate_document` repository method (T5.2)
-    let affected = sqlx::query("UPDATE documents SET is_active = 0 WHERE id = ?")
-        .bind(doc_id.to_string())
+    let affected = sqlx::query("UPDATE documents SET is_active = FALSE WHERE id = $1")
+        .bind(doc_id)
         .execute(&pool)
         .await
         .expect("should deactivate document");
@@ -319,19 +319,19 @@ async fn test_deactivate_document_sets_document_inactive() {
     );
 
     // Verify document is now inactive
-    let inactive: (i64,) = sqlx::query_as("SELECT is_active FROM documents WHERE id = ?")
-        .bind(doc_id.to_string())
+    let inactive: (bool,) = sqlx::query_as("SELECT is_active FROM documents WHERE id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should query is_active");
-    assert_eq!(
-        inactive.0, 0,
+    assert!(
+        !inactive.0,
         "document should be inactive after deactivation"
     );
 
     // Document row still exists (soft delete, not hard delete)
-    let exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = ?")
-        .bind(doc_id.to_string())
+    let exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should count documents");
@@ -345,44 +345,52 @@ async fn test_deactivate_document_sets_document_inactive() {
 // T3.3 — Unit spec: active chunk lookup filters inactive chunks
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_get_active_chunks_filters_inactive_chunks() {
     let pool = setup_db_with_is_active().await;
 
     let doc_id = Uuid::new_v4();
     let col_id = Uuid::new_v4();
 
+    // Insert a collection first (FK requirement)
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool)
+        .await
+        .expect("should insert collection");
+
     // Insert document
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents (id, name, file_type, file_size, collection_id)
+         VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .bind("test-doc.md")
     .bind("text/markdown")
-    .bind(1024)
-    .bind(chrono::Utc::now().to_rfc3339())
-    .bind(col_id.to_string())
+    .bind(1024i64)
+    .bind(col_id)
     .execute(&pool)
     .await
     .expect("should insert document");
 
     // Insert 4 chunks: indices 0,1 active; index 2 inactive; index 3 active
     let chunks_data = vec![
-        (Uuid::new_v4(), 0, "active chunk 0", 1),
-        (Uuid::new_v4(), 1, "active chunk 1", 1),
-        (Uuid::new_v4(), 2, "inactive chunk 2", 0),
-        (Uuid::new_v4(), 3, "active chunk 3", 1),
+        (Uuid::new_v4(), 0, "active chunk 0", true),
+        (Uuid::new_v4(), 1, "active chunk 1", true),
+        (Uuid::new_v4(), 2, "inactive chunk 2", false),
+        (Uuid::new_v4(), 3, "active chunk 3", true),
     ];
 
     for (chunk_id, idx, text, active) in &chunks_data {
         sqlx::query(
-            "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(chunk_id.to_string())
-        .bind(doc_id.to_string())
-        .bind(*idx as i64)
-        .bind(text)
+        .bind(chunk_id)
+        .bind(doc_id)
+        .bind(*idx as i32)
+        .bind(*text)
         .bind(*active)
         .execute(&pool)
         .await
@@ -390,10 +398,10 @@ async fn test_get_active_chunks_filters_inactive_chunks() {
     }
 
     // Simulate `get_active_chunks` query that will be implemented in T5.2
-    let rows: Vec<(String, i64, String)> = sqlx::query_as(
-        r#"SELECT id, "index", text FROM chunks WHERE document_id = ? AND is_active = 1 ORDER BY "index""#,
+    let rows: Vec<(Uuid, i32, String)> = sqlx::query_as(
+        r#"SELECT id, "index", text FROM chunks WHERE document_id = $1 AND is_active = TRUE ORDER BY "index""#,
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .fetch_all(&pool)
     .await
     .expect("should fetch active chunks");
@@ -412,9 +420,9 @@ async fn test_get_active_chunks_filters_inactive_chunks() {
 
     // Verify inactive chunk still exists in database
     let inactive_exists: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM chunks WHERE document_id = ? AND chunk_index = 2 AND is_active = 0",
+        "SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND \"index\" = 2 AND is_active = FALSE",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .fetch_one(&pool)
     .await
     .expect("should check inactive chunk");
@@ -428,24 +436,32 @@ async fn test_get_active_chunks_filters_inactive_chunks() {
 // T3.4 — Unit spec: document reload deactivates old chunks then saves new active chunks
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
     let pool = setup_db_with_is_active().await;
 
     let doc_id = Uuid::new_v4();
     let col_id = Uuid::new_v4();
 
+    // Insert a collection first (FK requirement)
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool)
+        .await
+        .expect("should insert collection");
+
     // Insert document
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents (id, name, file_type, file_size, collection_id)
+         VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .bind("reload-test.md")
     .bind("text/markdown")
-    .bind(1024)
-    .bind(chrono::Utc::now().to_rfc3339())
-    .bind(col_id.to_string())
+    .bind(1024i64)
+    .bind(col_id)
     .execute(&pool)
     .await
     .expect("should insert document");
@@ -457,13 +473,13 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
     ];
     for (chunk_id, idx, text) in &old_chunks {
         sqlx::query(
-            "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(chunk_id.to_string())
-        .bind(doc_id.to_string())
-        .bind(*idx as i64)
-        .bind(text)
-        .bind(1i64)
+        .bind(chunk_id)
+        .bind(doc_id)
+        .bind(*idx as i32)
+        .bind(*text)
+        .bind(true)
         .execute(&pool)
         .await
         .expect("should insert old chunk");
@@ -471,16 +487,16 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
 
     // Verify old chunks are active
     let old_active: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count active chunks");
     assert_eq!(old_active.0, 2, "old chunks should be active before reload");
 
     // Simulate reload: deactivate old chunks
-    sqlx::query("UPDATE chunks SET is_active = 0 WHERE document_id = ?")
-        .bind(doc_id.to_string())
+    sqlx::query("UPDATE chunks SET is_active = FALSE WHERE document_id = $1")
+        .bind(doc_id)
         .execute(&pool)
         .await
         .expect("should deactivate old chunks");
@@ -493,13 +509,13 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
     ];
     for (chunk_id, idx, text) in &new_chunks {
         sqlx::query(
-            "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(chunk_id.to_string())
-        .bind(doc_id.to_string())
-        .bind(*idx as i64)
-        .bind(text)
-        .bind(1i64)
+        .bind(chunk_id)
+        .bind(doc_id)
+        .bind(*idx as i32)
+        .bind(*text)
+        .bind(true)
         .execute(&pool)
         .await
         .expect("should insert new chunk");
@@ -507,8 +523,8 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
 
     // Verify final state: 0 old active, 3 new active
     let total_active: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count active chunks");
@@ -518,9 +534,9 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
     );
 
     let total_old_active: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1 AND text LIKE 'old%'",
+        "SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE AND text LIKE 'old%'",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .fetch_one(&pool)
     .await
     .expect("should count old active chunks");
@@ -531,8 +547,8 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
 
     // Verify old chunks still exist in DB (as inactive)
     let old_exist: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND text LIKE 'old%'")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND text LIKE 'old%'")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count old chunks");
@@ -546,43 +562,51 @@ async fn test_reload_document_deactivates_old_and_adds_new_active_chunks() {
 // T3.5 — Unit spec: soft delete keeps rows but removes them from active results
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_soft_delete_keeps_rows_but_hides_from_active_queries() {
     let pool = setup_db_with_is_active().await;
 
     let doc_id = Uuid::new_v4();
     let col_id = Uuid::new_v4();
 
-    // Insert document with chunks
+    // Insert a collection first (FK requirement)
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool)
+        .await
+        .expect("should insert collection");
+
+    // Insert document
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents (id, name, file_type, file_size, collection_id)
+         VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .bind("soft-delete-test.md")
     .bind("text/markdown")
-    .bind(2048)
-    .bind(chrono::Utc::now().to_rfc3339())
-    .bind(col_id.to_string())
+    .bind(2048i64)
+    .bind(col_id)
     .execute(&pool)
     .await
     .expect("should insert document");
 
     sqlx::query(
-        "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(Uuid::new_v4().to_string())
-    .bind(doc_id.to_string())
-    .bind(0i64)
+    .bind(Uuid::new_v4())
+    .bind(doc_id)
+    .bind(0i32)
     .bind("soft-delete chunk")
-    .bind(1i64)
+    .bind(true)
     .execute(&pool)
     .await
     .expect("should insert chunk");
 
     // Simulate soft delete: mark document + chunks as inactive
-    let doc_affected = sqlx::query("UPDATE documents SET is_active = 0 WHERE id = ?")
-        .bind(doc_id.to_string())
+    let doc_affected = sqlx::query("UPDATE documents SET is_active = FALSE WHERE id = $1")
+        .bind(doc_id)
         .execute(&pool)
         .await
         .expect("should soft-delete document");
@@ -592,8 +616,8 @@ async fn test_soft_delete_keeps_rows_but_hides_from_active_queries() {
         "soft delete should affect 1 document row"
     );
 
-    let chunk_affected = sqlx::query("UPDATE chunks SET is_active = 0 WHERE document_id = ?")
-        .bind(doc_id.to_string())
+    let chunk_affected = sqlx::query("UPDATE chunks SET is_active = FALSE WHERE document_id = $1")
+        .bind(doc_id)
         .execute(&pool)
         .await
         .expect("should soft-delete chunks");
@@ -604,8 +628,8 @@ async fn test_soft_delete_keeps_rows_but_hides_from_active_queries() {
     );
 
     // Document row should still exist (soft delete)
-    let doc_exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = ?")
-        .bind(doc_id.to_string())
+    let doc_exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should count documents");
@@ -615,8 +639,8 @@ async fn test_soft_delete_keeps_rows_but_hides_from_active_queries() {
     );
 
     // Chunk row should still exist (soft delete)
-    let chunk_exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ?")
-        .bind(doc_id.to_string())
+    let chunk_exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should count chunks");
@@ -627,8 +651,8 @@ async fn test_soft_delete_keeps_rows_but_hides_from_active_queries() {
 
     // Active queries should not return the soft-deleted entities
     let active_docs: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = ? AND is_active = 1")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = $1 AND is_active = TRUE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count active documents");
@@ -638,8 +662,8 @@ async fn test_soft_delete_keeps_rows_but_hides_from_active_queries() {
     );
 
     let active_chunks: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count active chunks");
@@ -728,7 +752,7 @@ async fn test_chroma_query_includes_optional_where_filter() {
 // T3.7 — Unit spec: git sync deletes old file chunks before adding new ones
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
+#[tokio::test]
 async fn test_git_sync_deletes_old_chunks_before_adding_new() {
     let pool = setup_db_with_is_active().await;
 
@@ -736,17 +760,25 @@ async fn test_git_sync_deletes_old_chunks_before_adding_new() {
     let doc_id = Uuid::new_v4();
     let col_id = Uuid::new_v4();
 
+    // Insert a collection first (FK requirement)
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(col_id)
+        .bind("test-collection")
+        .bind("test description")
+        .execute(&pool)
+        .await
+        .expect("should insert collection");
+
     // Insert document (simulating existing git-synced file)
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents (id, name, file_type, file_size, collection_id)
+         VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(doc_id.to_string())
+    .bind(doc_id)
     .bind("README.md")
     .bind("text/markdown")
-    .bind(512)
-    .bind(chrono::Utc::now().to_rfc3339())
-    .bind(col_id.to_string())
+    .bind(512i64)
+    .bind(col_id)
     .execute(&pool)
     .await
     .expect("should insert document");
@@ -758,13 +790,13 @@ async fn test_git_sync_deletes_old_chunks_before_adding_new() {
     ];
     for (chunk_id, idx, text) in &old_chunks {
         sqlx::query(
-            "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(chunk_id.to_string())
-        .bind(doc_id.to_string())
-        .bind(*idx as i64)
-        .bind(text)
-        .bind(1i64)
+        .bind(chunk_id)
+        .bind(doc_id)
+        .bind(*idx as i32)
+        .bind(*text)
+        .bind(true)
         .execute(&pool)
         .await
         .expect("should insert old chunk");
@@ -772,15 +804,15 @@ async fn test_git_sync_deletes_old_chunks_before_adding_new() {
 
     // Simulate git sync cleanup step: delete old chunks by document_id
     // (This mirrors what `GitSyncService::index_chunks` should do in T8.1)
-    sqlx::query("DELETE FROM chunks WHERE document_id = ?")
-        .bind(doc_id.to_string())
+    sqlx::query("DELETE FROM chunks WHERE document_id = $1")
+        .bind(doc_id)
         .execute(&pool)
         .await
         .expect("should delete old chunks before re-indexing");
 
     // Verify old chunks are removed
-    let old_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ?")
-        .bind(doc_id.to_string())
+    let old_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should count chunks");
@@ -797,13 +829,13 @@ async fn test_git_sync_deletes_old_chunks_before_adding_new() {
     ];
     for (chunk_id, idx, text) in &new_chunks {
         sqlx::query(
-            "INSERT INTO chunks (id, document_id, chunk_index, text, is_active) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO chunks (id, document_id, \"index\", text, is_active) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(chunk_id.to_string())
-        .bind(doc_id.to_string())
-        .bind(*idx as i64)
-        .bind(text)
-        .bind(1i64)
+        .bind(chunk_id)
+        .bind(doc_id)
+        .bind(*idx as i32)
+        .bind(*text)
+        .bind(true)
         .execute(&pool)
         .await
         .expect("should insert new chunk");
@@ -811,8 +843,8 @@ async fn test_git_sync_deletes_old_chunks_before_adding_new() {
 
     // Verify new chunks are present and active
     let new_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = ? AND is_active = 1")
-            .bind(doc_id.to_string())
+        sqlx::query_as("SELECT COUNT(*) FROM chunks WHERE document_id = $1 AND is_active = TRUE")
+            .bind(doc_id)
             .fetch_one(&pool)
             .await
             .expect("should count active chunks");
@@ -822,8 +854,8 @@ async fn test_git_sync_deletes_old_chunks_before_adding_new() {
     );
 
     // Verify document row still exists
-    let doc_exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = ?")
-        .bind(doc_id.to_string())
+    let doc_exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM documents WHERE id = $1")
+        .bind(doc_id)
         .fetch_one(&pool)
         .await
         .expect("should count documents");

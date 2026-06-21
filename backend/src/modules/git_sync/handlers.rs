@@ -193,7 +193,7 @@ pub async fn get_sync_status(
 /// Endpoint: `DELETE /api/git-sync/repos/{id}`
 ///
 /// Removes the local clone, deletes the Chroma collection, and removes the
-/// SQLite record.
+/// PostgreSQL record.
 pub async fn delete_repo(
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,

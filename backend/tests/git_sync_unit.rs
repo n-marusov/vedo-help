@@ -1,7 +1,7 @@
 /// Unit tests for GitSyncService and GitRepoRepository.
 ///
 /// These tests verify the service and repository contracts in isolation
-/// using in-memory SQLite and mocked external dependencies (ChromaClient,
+/// using a PostgreSQL test database and mocked external dependencies (ChromaClient,
 /// EmbeddingClient) via mockall.
 ///
 /// Run:
@@ -15,7 +15,7 @@ use serde_json::json;
 mod common;
 
 // ---------------------------------------------------------------------------
-// Repository contract tests (in-memory SQLite)
+// Repository contract tests (PostgreSQL)
 // ---------------------------------------------------------------------------
 
 /// Test: create_repo persists all fields.

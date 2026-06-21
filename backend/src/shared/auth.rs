@@ -324,6 +324,7 @@ mod tests {
             embedding_service_url: "http://localhost:18001".to_string(),
             chroma_url: "http://localhost:18000".to_string(),
             openrouter_api_key: "test".to_string(),
+            openrouter_base_url: "http://openrouter-mock:18002".to_string(),
             openrouter_model: "test-model".to_string(),
             host: "127.0.0.1".to_string(),
             port: 0,

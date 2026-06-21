@@ -1,29 +1,15 @@
-import { expect, test } from "@playwright/test";
-
-/**
- * Make a mock JWT with the given payload claims.
- */
-function makeMockJwt(claims: Record<string, unknown>): string {
-	const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-	const payload = btoa(JSON.stringify(claims));
-	return `${header}.${payload}.mocksignature`;
-}
-
-const VALID_TOKEN = makeMockJwt({
-	sub: "user-123",
-	name: "Test User",
-	preferred_username: "testuser",
-	exp: Math.floor(Date.now() / 1000) + 7200,
-	iat: Math.floor(Date.now() / 1000),
-});
+import {
+	type APIRequestContext,
+	type Page,
+	expect,
+	test,
+} from "@playwright/test";
+import { setupAuthAndCollection } from "./helpers";
 
 /**
  * Helper: seed chat store with messages via Pinia.
  */
-async function seedMessages(
-	page: import("@playwright/test").Page,
-	msgs: Record<string, unknown>[],
-) {
+async function seedMessages(page: Page, msgs: Record<string, unknown>[]) {
 	await page.evaluate((messages) => {
 		// biome-ignore lint/suspicious/noExplicitAny: E2E test helper needs access to Vue internals
 		const app = (document.querySelector("#app") as any).__vue_app__;
@@ -35,47 +21,10 @@ async function seedMessages(
 }
 
 /**
- * Helper: set up JWT and API mocks, navigate to /.
+ * Helper: set up real auth/backend collection and navigate to /.
  */
-async function setupChatPage(page: import("@playwright/test").Page) {
-	// Mock collections API
-	await page.route("**/api/collections", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify([
-				{
-					id: "col-1",
-					name: "Test Collection",
-					description: "",
-					created_at: new Date().toISOString(),
-					document_count: 0,
-				},
-			]),
-		});
-	});
-
-	// Mock sessions API
-	await page.route("**/api/sessions", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify([
-				{
-					id: "sess-1",
-					title: "Test Session",
-					message_count: 1,
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				},
-			]),
-		});
-	});
-
-	// Inject JWT before navigation
-	await page.addInitScript((token) => {
-		localStorage.setItem("vedo_auth_token", token);
-	}, VALID_TOKEN);
+async function setupChatPage(page: Page, request: APIRequestContext) {
+	await setupAuthAndCollection(page, request, `MessageBubble ${Date.now()}`);
 
 	await page.goto("/");
 	await expect(page.locator('[data-testid="chat-view"]')).toBeVisible({
@@ -90,8 +39,9 @@ test.describe("MessageBubble Component", () => {
 	test.describe("Message Rendering", () => {
 		test("TC-MSG-001: renders user messages right-aligned", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			// Inject messages into Pinia store so we can observe them
 			await seedMessages(page, [
 				{
@@ -122,8 +72,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-002: renders assistant messages left-aligned", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "u1",
@@ -150,8 +101,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-003: identifies user message by data-testid role", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "u1",
@@ -167,8 +119,11 @@ test.describe("MessageBubble Component", () => {
 			await expect(userMsg).toBeVisible({ timeout: 5000 });
 		});
 
-		test("TC-MSG-004: displays message timestamp", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-MSG-004: displays message timestamp", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "u1",
@@ -183,8 +138,11 @@ test.describe("MessageBubble Component", () => {
 			await expect(timestamp).not.toBeEmpty();
 		});
 
-		test("TC-MSG-005: renders markdown content correctly", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-MSG-005: renders markdown content correctly", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -207,8 +165,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-006: renders inline code with distinct background", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -227,8 +186,11 @@ test.describe("MessageBubble Component", () => {
 			await expect(inlineCode).toHaveCSS("padding-left", /px/i);
 		});
 
-		test("TC-MSG-007: renders links with correct styling", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-MSG-007: renders links with correct styling", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -247,8 +209,9 @@ test.describe("MessageBubble Component", () => {
 	test.describe("Source Citations", () => {
 		test("TC-MSG-008: displays source citation toggle for assistant messages", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -276,8 +239,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-009: expands source list on toggle click", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -307,8 +271,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-010: collapses source list on second toggle click", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -339,8 +304,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-011: shows document name and relevance in source item", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -377,8 +343,9 @@ test.describe("MessageBubble Component", () => {
 	test.describe("Visual Styling", () => {
 		test("TC-MSG-012: user message has right-corner-rounded bubble style", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "u1",
@@ -398,8 +365,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-013: assistant message has left-corner-rounded bubble style", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -421,8 +389,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MSG-014: message background colors use design tokens", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "u1",
@@ -447,8 +416,9 @@ test.describe("MessageBubble Component", () => {
 	test.describe("Code Block Rendering", () => {
 		test("TC-CODE-001: code block renders with syntax highlighting classes (hljs)", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -473,8 +443,11 @@ test.describe("MessageBubble Component", () => {
 			await expect(wrapper).toBeVisible();
 		});
 
-		test("TC-CODE-002: code block has language label", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-CODE-002: code block has language label", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -498,8 +471,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-CODE-003: copy button is visible on code blocks", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -522,8 +496,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-CODE-004: copy button copies content to clipboard", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -557,8 +532,9 @@ test.describe("MessageBubble Component", () => {
 
 		test('TC-CODE-005: copy button shows "Copied!" state after click', async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -592,8 +568,9 @@ test.describe("MessageBubble Component", () => {
 	test.describe("Markdown Features", () => {
 		test("TC-MD-001: table renders with correct HTML structure", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -626,8 +603,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MD-002: blockquote renders with correct styling", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -648,8 +626,11 @@ test.describe("MessageBubble Component", () => {
 			await expect(blockquote).toContainText("blockquote");
 		});
 
-		test("TC-MD-003: inline code has distinct background", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-MD-003: inline code has distinct background", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -678,8 +659,11 @@ test.describe("MessageBubble Component", () => {
 			expect(bgColor).not.toBe("transparent");
 		});
 
-		test("TC-MD-004: list items render correctly", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-MD-004: list items render correctly", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -700,8 +684,11 @@ test.describe("MessageBubble Component", () => {
 			await expect(list.locator("li")).toHaveCount(3);
 		});
 
-		test("TC-MD-005: ordered list renders correctly", async ({ page }) => {
-			await setupChatPage(page);
+		test("TC-MD-005: ordered list renders correctly", async ({
+			page,
+			request,
+		}) => {
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -724,8 +711,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MD-006: headings render with correct hierarchy", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",
@@ -748,8 +736,9 @@ test.describe("MessageBubble Component", () => {
 
 		test("TC-MD-007: horizontal rule renders as styled element", async ({
 			page,
+			request,
 		}) => {
-			await setupChatPage(page);
+			await setupChatPage(page, request);
 			await seedMessages(page, [
 				{
 					id: "a1",

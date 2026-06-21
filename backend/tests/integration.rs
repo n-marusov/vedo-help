@@ -16,32 +16,23 @@
 /// In CI, Chroma is started as a service container automatically
 /// (see `.github/workflows/ci.yml`).
 use std::env;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::shared::ChromaClient;
 
 mod common;
 
-/// Atomic counter to ensure unique collection names even within the same millisecond.
-static COUNTER: AtomicU64 = AtomicU64::new(0);
-
 /// URL of the Chroma instance under test.
 fn chroma_url() -> String {
     env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:8000".to_string())
 }
 
-/// Generate a unique collection name for test isolation.
+/// Generate a unique collection name for testing using a UUID.
 ///
-/// Format: `test_<prefix>_<timestamp_ms>_<counter>` — guaranteed unique per invocation.
-fn unique_collection(prefix: &str) -> String {
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-    let seq = COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("test_{prefix}_{ts}_{seq}")
+/// Chroma 0.6.3+ validates collection names as UUIDs.
+/// Each test calls this once and stores the result.
+fn unique_collection(_prefix: &str) -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +70,7 @@ async fn test_create_and_delete_collection() {
 }
 
 #[tokio::test]
-async fn test_double_create_same_collection_fails() {
+async fn test_double_create_same_collection_succeeds() {
     let client = ChromaClient::new(&chroma_url());
     let name = unique_collection("double_create");
 
@@ -89,12 +80,11 @@ async fn test_double_create_same_collection_fails() {
         .await
         .expect("should create collection");
 
-    // Second creation with the same name should fail
-    let result = client.create_collection(&name).await;
-    assert!(
-        result.is_err(),
-        "creating a duplicate collection should fail"
-    );
+    // Second creation with the same name should also succeed (get-or-create is idempotent)
+    client
+        .create_collection(&name)
+        .await
+        .expect("duplicate create should succeed (Chroma get-or-create is idempotent)");
 
     // Cleanup
     client
@@ -639,35 +629,54 @@ async fn test_query_repository_applies_active_filter() {
         .await
         .expect("should add embeddings");
 
-    // Create an in-memory SQLite pool with documents + chunks
+    // Create a PostgreSQL test pool with documents + chunks
     let pool = common::setup_test_db().await;
 
-    // Insert matching document and chunks into SQLite
+    // Insert matching document and chunks into PostgreSQL
+    let col1_uuid = uuid::Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap();
+
+    // Create the collection in PostgreSQL first (required by FK constraint)
     sqlx::query(
-        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
     )
-    .bind("doc1")
+    .bind(col1_uuid)
+    .bind("test-collection")
+    .bind(None::<String>)
+    .bind(chrono::Utc::now())
+    .execute(&pool)
+    .await
+    .expect("should insert test collection");
+
+    let doc1_uuid = uuid::Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap();
+    let chunk_active_uuid = uuid::Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap();
+    let chunk_inactive_uuid =
+        uuid::Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap();
+
+    sqlx::query(
+        "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(doc1_uuid)
     .bind("test-doc.md")
     .bind("text/markdown")
     .bind(1024)
-    .bind(chrono::Utc::now().to_rfc3339())
-    .bind("col-1")
+    .bind(chrono::Utc::now())
+    .bind(col1_uuid)
     .execute(&pool)
     .await
     .expect("should insert test document");
 
-    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
-        .bind("chunk_active")
-        .bind("doc1")
+    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES ($1, $2, $3, $4)"#)
+        .bind(chunk_active_uuid)
+        .bind(doc1_uuid)
         .bind(0)
         .bind("active chunk")
         .execute(&pool)
         .await
         .expect("should insert active chunk");
 
-    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES (?, ?, ?, ?)"#)
-        .bind("chunk_inactive")
-        .bind("doc1")
+    sqlx::query(r#"INSERT INTO chunks (id, document_id, "index", text) VALUES ($1, $2, $3, $4)"#)
+        .bind(chunk_inactive_uuid)
+        .bind(doc1_uuid)
         .bind(1)
         .bind("inactive chunk")
         .execute(&pool)
@@ -723,7 +732,238 @@ async fn test_create_collection_with_cyrillic_name_fails() {
 
     let err = format!("{}", result.unwrap_err());
     assert!(
-        err.contains("InvalidArgumentError") || err.contains("400"),
-        "Error should mention invalid argument or HTTP 400: {err}"
+        err.contains("InvalidUUID") || err.contains("InvalidArgumentError") || err.contains("400"),
+        "Error should mention InvalidUUID, invalid argument or HTTP 400: {err}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Regression: PostgreSQL native UUID/timestamp type compatibility
+// ---------------------------------------------------------------------------
+
+/// Verify the CollectionRepository can create a collection with Cyrillic name
+/// (display name in PG) and list it back. Uses native UUID bindings.
+#[tokio::test]
+async fn test_collection_repo_native_uuid_bind() {
+    let pool = common::setup_test_db().await;
+    let repo =
+        vedo_backend::modules::collections::repository::CollectionRepository::new(pool.clone());
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    let collection = vedo_backend::modules::collections::models::Collection {
+        id: Uuid::new_v4(),
+        name: "Техническая документация".to_string(),
+        description: Some("Описание коллекции".to_string()),
+        created_at: Utc::now(),
+        document_count: 0,
+    };
+
+    let id = repo
+        .create_collection(&collection)
+        .await
+        .expect("create_collection should work with native UUID/timestamp binds");
+    assert_eq!(id, collection.id);
+
+    let fetched = repo
+        .get_collection(id)
+        .await
+        .expect("get_collection should find the collection");
+    assert_eq!(fetched.name, "Техническая документация");
+    assert_eq!(fetched.description.as_deref(), Some("Описание коллекции"));
+
+    let all = repo
+        .list_collections()
+        .await
+        .expect("list_collections should return collections");
+    assert!(all.iter().any(|c| c.id == id));
+
+    // Cleanup: delete the collection via repo
+    repo.delete_collection(id)
+        .await
+        .expect("delete_collection should succeed");
+
+    let missing = repo.get_collection(id).await;
+    assert!(missing.is_err(), "deleted collection should not be found");
+
+    pool.close().await;
+}
+
+/// Verify ConversationRepository handles native UUID/timestamp bindings.
+#[tokio::test]
+async fn test_conversation_repo_native_uuid_bind() {
+    let pool = common::setup_test_db().await;
+    let repo =
+        vedo_backend::modules::conversations::repository::ConversationRepository::new(pool.clone());
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    let now = Utc::now();
+    let session = vedo_backend::modules::conversations::models::Session {
+        id: Uuid::new_v4(),
+        title: "Test Chat".to_string(),
+        collection_id: None,
+        created_at: now,
+        updated_at: now,
+        message_count: 0,
+    };
+
+    let id = repo
+        .create_session(&session)
+        .await
+        .expect("create_session should work with native types");
+    assert_eq!(id, session.id);
+
+    let msg = vedo_backend::modules::conversations::models::Message {
+        id: Uuid::new_v4(),
+        session_id: session.id,
+        role: "user".to_string(),
+        content: "Hello, мир!".to_string(),
+        sources: None,
+        created_at: now,
+    };
+
+    repo.add_message(&msg)
+        .await
+        .expect("save_message should work with native types");
+
+    let messages = repo
+        .get_messages(session.id)
+        .await
+        .expect("get_messages should work");
+    assert!(!messages.is_empty(), "should have at least 1 message");
+    assert_eq!(messages[0].content, "Hello, мир!");
+
+    repo.delete_session(session.id)
+        .await
+        .expect("delete_session should succeed");
+
+    pool.close().await;
+}
+
+/// Verify DocumentRepository handles native UUID/timestamp bindings.
+#[tokio::test]
+async fn test_document_repo_native_uuid_bind() {
+    let pool = common::setup_test_db().await;
+    let doc_repo =
+        vedo_backend::modules::documents::repository::DocumentRepository::new(pool.clone());
+    let col_repo =
+        vedo_backend::modules::collections::repository::CollectionRepository::new(pool.clone());
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    // Create a collection first
+    let collection = vedo_backend::modules::collections::models::Collection {
+        id: Uuid::new_v4(),
+        name: "Regression Test Collection".to_string(),
+        description: None,
+        created_at: Utc::now(),
+        document_count: 0,
+    };
+    col_repo
+        .create_collection(&collection)
+        .await
+        .expect("create collection");
+
+    // Create a document with native UUID bindings
+    let doc = vedo_backend::modules::documents::models::Document {
+        id: Uuid::new_v4(),
+        name: "test-doc.md".to_string(),
+        file_type: "text/markdown".to_string(),
+        file_size: 1024,
+        uploaded_at: Utc::now(),
+        collection_id: collection.id,
+        is_active: true,
+    };
+
+    doc_repo
+        .save_document(&doc)
+        .await
+        .expect("save_document should work with native UUID");
+
+    // Fetch back
+    let fetched = doc_repo
+        .get_document(doc.id)
+        .await
+        .expect("get_document should work");
+    assert_eq!(fetched.name, "test-doc.md");
+    assert!(fetched.is_active);
+
+    // List by collection
+    let docs = doc_repo
+        .list_documents(collection.id)
+        .await
+        .expect("list_documents should work");
+    assert!(!docs.is_empty());
+
+    // Cleanup
+    doc_repo
+        .delete_document(doc.id)
+        .await
+        .expect("delete_document should work");
+
+    pool.close().await;
+}
+
+/// Verify GitRepoRepository handles native UUID/timestamp bindings.
+#[tokio::test]
+async fn test_git_repo_native_uuid_bind() {
+    let pool = common::setup_test_db().await;
+    let repo = vedo_backend::modules::git_sync::repository::GitRepoRepository::new(pool.clone());
+
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    // Create a collection first (required by FK constraint)
+    let col_repo =
+        vedo_backend::modules::collections::repository::CollectionRepository::new(pool.clone());
+    let collection_id = Uuid::new_v4();
+    let col = vedo_backend::modules::collections::models::Collection {
+        id: collection_id,
+        name: "Git Repo Test Collection".to_string(),
+        description: None,
+        created_at: Utc::now(),
+        document_count: 0,
+    };
+    col_repo
+        .create_collection(&col)
+        .await
+        .expect("create collection for git repo test");
+
+    let now = Utc::now();
+    let git_repo = vedo_backend::modules::git_sync::models::GitRepo {
+        id: Uuid::new_v4(),
+        url: "https://github.com/user/repo.git".to_string(),
+        branch: "main".to_string(),
+        access_token: Some("ghp_test".to_string()),
+        local_path: "/tmp/test-repo".to_string(),
+        last_commit_hash: None,
+        last_synced_at: None,
+        collection_id,
+        status: "idle".to_string(),
+        webhook_secret: None,
+        created_at: now,
+        updated_at: now,
+    };
+
+    let id = repo
+        .create_repo(&git_repo)
+        .await
+        .expect("create_repo should work with native types");
+    assert_eq!(id, git_repo.id);
+
+    let fetched = repo
+        .get_repo(id)
+        .await
+        .expect("get_repo should find the repo");
+    assert_eq!(fetched.url, "https://github.com/user/repo.git");
+
+    repo.delete_repo(id)
+        .await
+        .expect("delete_repo should succeed");
+
+    pool.close().await;
 }

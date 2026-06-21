@@ -7,6 +7,7 @@ pub struct AppConfig {
     pub embedding_service_url: String,
     pub chroma_url: String,
     pub openrouter_api_key: String,
+    pub openrouter_base_url: String,
     pub openrouter_model: String,
     pub host: String,
     pub port: u16,
@@ -39,13 +40,16 @@ impl AppConfig {
             .unwrap_or_else(|_| keycloak_url.clone());
 
         Self {
-            database_url: env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "sqlite:data/vedo.db?mode=rwc".to_string()),
+            database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
+                "postgres://vedo:CHANGEME-db-password@localhost:5432/vedo".to_string()
+            }),
             embedding_service_url: env::var("EMBEDDING_SERVICE_URL")
                 .unwrap_or_else(|_| "http://localhost:8001".to_string()),
             chroma_url: env::var("CHROMA_URL")
                 .unwrap_or_else(|_| "http://localhost:8000".to_string()),
             openrouter_api_key: env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| String::new()),
+            openrouter_base_url: env::var("OPENROUTER_BASE_URL")
+                .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string()),
             openrouter_model: env::var("OPENROUTER_MODEL")
                 .unwrap_or_else(|_| "anthropic/claude-sonnet-20241022".to_string()),
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),

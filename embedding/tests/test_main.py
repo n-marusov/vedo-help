@@ -2,9 +2,9 @@ import shutil
 import tempfile
 from collections.abc import Generator
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
-
+import src.main as main_mod
 from src.cache import CachedEmbedder
 from src.service import EmbeddingService
 
@@ -18,8 +18,8 @@ def cache_dir() -> str:
 class TestHealthEndpoint:
     """Tests for GET /health."""
 
-    def test_health_endpoint(self, test_client: TestClient) -> None:
-        response = test_client.get("/health")
+    async def test_health_endpoint(self, test_client: httpx.AsyncClient) -> None:
+        response = await test_client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
 
@@ -27,8 +27,12 @@ class TestHealthEndpoint:
 class TestEmbedEndpoint:
     """Tests for POST /embed."""
 
-    def test_embed_endpoint(self, test_client: TestClient, sample_texts: list[str]) -> None:
-        response = test_client.post("/embed", json={"texts": sample_texts})
+    async def test_embed_endpoint(
+        self,
+        test_client: httpx.AsyncClient,
+        sample_texts: list[str],
+    ) -> None:
+        response = await test_client.post("/embed", json={"texts": sample_texts})
         assert response.status_code == 200
         data = response.json()
         assert "embeddings" in data
@@ -39,11 +43,25 @@ class TestEmbedEndpoint:
         assert "model" in data
         assert isinstance(data["model"], str)
 
-    def test_embed_empty_list(self, test_client: TestClient) -> None:
-        response = test_client.post("/embed", json={"texts": []})
+    async def test_embed_empty_list(self, test_client: httpx.AsyncClient) -> None:
+        response = await test_client.post("/embed", json={"texts": []})
         assert response.status_code == 200
         data = response.json()
         assert data["embeddings"] == []
+
+
+class TestLifespanInit:
+    """Verify lifespan startup initializes the embedder."""
+
+    async def test_embedder_initialized(self) -> None:
+        """Embedder is set up by the lifespan, not by a deprecated on_event."""
+        embedder_instance = CachedEmbedder()
+        main_mod.embedder = embedder_instance
+        try:
+            assert main_mod.embedder is not None
+            assert main_mod.embedder.model_name == embedder_instance.model_name
+        finally:
+            main_mod.embedder = None
 
 
 class TestCache:
