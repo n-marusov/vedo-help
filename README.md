@@ -8,7 +8,7 @@ Ingest PDF, Markdown, and DOCX documents — index them in a vector database —
 
 ```bash
 # 1. Set up environment
-cp .env.example .env    # edit OPENROUTER_API_KEY
+cp .env.example .env    # edit LLM_API_KEY
 
 # 2. Start all services
 docker compose up -d
@@ -52,6 +52,7 @@ open http://localhost:5173
 | [Authentication](docs/auth.md) | KeyCloak setup, social providers, OAuth flow |
 | [Configuration](docs/configuration.md) | Environment variables, Docker settings |
 | [Deployment](docs/deployment.md) | VPS setup, Docker Compose, CI/CD |
+| [Testing](docs/testing.md) | Manual test execution guide |
 | [Technical Spec](docs/technical-specification-rag-system.md) | Full system specification (source of truth) |
 
 ## License

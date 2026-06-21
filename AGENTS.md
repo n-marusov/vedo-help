@@ -152,6 +152,7 @@ vedo-assistant/
 | Authentication | `docs/auth.md` | KeyCloak setup, social providers, OAuth flow |
 | Configuration | `docs/configuration.md` | Environment variables, Docker settings |
 | Deployment | `docs/deployment.md` | VPS setup, Docker Compose, CI/CD |
+| Testing | `docs/testing.md` | Manual test execution guide |
 | Technical Spec | `docs/technical-specification-rag-system.md` | Full technical specification (source of truth) |
 
 ## AI Context Files
