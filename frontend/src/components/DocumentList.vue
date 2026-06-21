@@ -221,6 +221,7 @@ watch(
     selectedIds.value = new Set();
     loadDocuments();
   },
+  { immediate: true },
 );
 </script>
 

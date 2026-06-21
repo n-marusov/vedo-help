@@ -325,9 +325,19 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         class="messages-area"
         data-testid="messages-area"
       >
-        <!-- Welcome block (no session selected) -->
+        <!-- Loading skeleton (check BEFORE welcome screen so skeleton
+             is visible while loadSession is in flight and
+             activeSessionId is still null) -->
         <div
-          v-if="!chatStore.activeSessionId"
+          v-if="chatStore.isSessionLoading"
+          data-testid="messages-loading-skeleton"
+        >
+          <VSkeleton variant="text" :rows="6" />
+        </div>
+
+        <!-- Welcome block (no session selected, not loading) -->
+        <div
+          v-else-if="!chatStore.activeSessionId"
           class="welcome-screen"
           data-testid="welcome-message"
         >
@@ -338,14 +348,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               Select a collection and ask a question.
             </p>
           </div>
-        </div>
-
-        <!-- Loading skeleton -->
-        <div
-          v-else-if="chatStore.isSessionLoading"
-          data-testid="messages-loading-skeleton"
-        >
-          <VSkeleton variant="text" :rows="6" />
         </div>
 
         <!-- Empty active session -->

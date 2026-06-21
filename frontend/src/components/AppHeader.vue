@@ -8,10 +8,13 @@ import { getAccessToken } from '@/api/client';
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
 import { logout } from '@/composables/useOidcAuth';
 import { userName, userProvider } from '@/stores/auth';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const userMenuOpen = ref(false);
+const userButtonRef = ref<HTMLElement | null>(null);
+const userDropdownRef = ref<HTMLElement | null>(null);
+const userDropdownStyle = ref<Record<string, string>>({});
 
 const userInfo = computed(() => {
   const token = getAccessToken();
@@ -28,10 +31,39 @@ const userInfo = computed(() => {
 onMounted(() => {
   console.debug('[AppHeader] mounted: global header with theme toggle is visible');
   document.addEventListener('click', closeMenuOnOutside);
+  window.addEventListener('resize', handleViewportChange);
+  window.addEventListener('scroll', handleViewportChange, true);
 });
 
-function toggleUserMenu() {
+async function toggleUserMenu() {
   userMenuOpen.value = !userMenuOpen.value;
+  if (userMenuOpen.value) {
+    await nextTick();
+    updateUserDropdownPosition();
+  }
+}
+
+function updateUserDropdownPosition() {
+  if (!userButtonRef.value) return;
+
+  const rect = userButtonRef.value.getBoundingClientRect();
+  userDropdownStyle.value = {
+    minWidth: '180px',
+    position: 'fixed',
+    right: `${Math.max(window.innerWidth - rect.right, 8)}px`,
+    top: `${rect.bottom + 6}px`,
+  };
+  console.debug('[FIX:app-header-user-menu] positioned dropdown', {
+    right: Math.max(window.innerWidth - rect.right, 8),
+    top: rect.bottom + 6,
+    userMenuOpen: userMenuOpen.value,
+  });
+}
+
+function handleViewportChange() {
+  if (userMenuOpen.value) {
+    updateUserDropdownPosition();
+  }
 }
 
 function handleLogout() {
@@ -46,17 +78,19 @@ function navigateToAdmin() {
 }
 
 function closeMenuOnOutside(e: MouseEvent) {
-  // Close the dropdown when clicking outside
   if (userMenuOpen.value) {
-    const target = e.target as HTMLElement;
-    if (!target.closest('.app-header__user-menu') && !target.closest('.app-header__user')) {
+    const target = e.target as Node;
+    if (!userButtonRef.value?.contains(target) && !userDropdownRef.value?.contains(target)) {
       userMenuOpen.value = false;
+      console.debug('[FIX:app-header-user-menu] closed dropdown from outside click');
     }
   }
 }
 
 onUnmounted(() => {
   document.removeEventListener('click', closeMenuOnOutside);
+  window.removeEventListener('resize', handleViewportChange);
+  window.removeEventListener('scroll', handleViewportChange, true);
 });
 </script>
 
@@ -76,40 +110,45 @@ onUnmounted(() => {
         data-testid="user-menu"
       >
         <button
+          ref="userButtonRef"
           class="app-header__user-btn"
           aria-label="Open user menu"
           @click="toggleUserMenu"
         >
           <span class="app-header__user-avatar">👤</span>
         </button>
-        <div
-          v-if="userMenuOpen"
-          class="app-header__dropdown"
-          data-testid="user-dropdown"
-        >
-          <div class="app-header__dropdown-header">
-            <span class="app-header__dropdown-name">{{ userInfo.name }}</span>
-            <span
-              v-if="userInfo.provider"
-              class="app-header__dropdown-provider"
-              >{{ userInfo.provider }}</span
+        <Teleport to="body">
+          <div
+            v-if="userMenuOpen"
+            ref="userDropdownRef"
+            class="app-header__dropdown"
+            data-testid="user-dropdown"
+            :style="userDropdownStyle"
+          >
+            <div class="app-header__dropdown-header">
+              <span class="app-header__dropdown-name">{{ userInfo.name }}</span>
+              <span
+                v-if="userInfo.provider"
+                class="app-header__dropdown-provider"
+                >{{ userInfo.provider }}</span
+              >
+            </div>
+            <div class="app-header__dropdown-divider" />
+            <button
+              v-if="userInfo.isAdmin"
+              class="app-header__dropdown-item"
+              @click="navigateToAdmin"
             >
+              Admin Panel
+            </button>
+            <button
+              class="app-header__dropdown-item app-header__dropdown-item--danger"
+              @click="handleLogout"
+            >
+              Sign Out
+            </button>
           </div>
-          <div class="app-header__dropdown-divider" />
-          <button
-            v-if="userInfo.isAdmin"
-            class="app-header__dropdown-item"
-            @click="navigateToAdmin"
-          >
-            Admin Panel
-          </button>
-          <button
-            class="app-header__dropdown-item app-header__dropdown-item--danger"
-            @click="handleLogout"
-          >
-            Sign Out
-          </button>
-        </div>
+        </Teleport>
       </div>
       <span v-else class="app-header__user" aria-label="User menu" role="img"
         >👤</span
@@ -221,9 +260,7 @@ onUnmounted(() => {
 /* ── Dropdown ── */
 
 .app-header__dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
   min-width: 180px;
   background: var(--color-popover);
   border: 1px solid var(--color-border);

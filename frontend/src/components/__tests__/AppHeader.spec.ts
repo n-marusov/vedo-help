@@ -1,7 +1,8 @@
 import { setAccessToken } from '@/api/client';
 import { setAuthToken } from '@/stores/auth';
+import type { VueWrapper } from '@vue/test-utils';
 import { mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { h } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import AppHeader from '../AppHeader.vue';
@@ -39,6 +40,8 @@ function createTestRouter() {
   return router;
 }
 
+let activeWrapper: VueWrapper | null = null;
+
 async function mountHeader(token?: string | null, displayName?: string) {
   if (token) {
     setAccessToken(token);
@@ -55,8 +58,28 @@ async function mountHeader(token?: string | null, displayName?: string) {
       plugins: [router],
     },
   });
+  activeWrapper = wrapper;
   return { wrapper, router };
 }
+
+function getUserDropdown(): HTMLElement {
+  const dropdown = document.body.querySelector<HTMLElement>('[data-testid="user-dropdown"]');
+  if (!dropdown) {
+    throw new Error('Expected user dropdown to be rendered');
+  }
+  return dropdown;
+}
+
+function getDropdownItems(): HTMLElement[] {
+  return Array.from(document.body.querySelectorAll<HTMLElement>('.app-header__dropdown-item'));
+}
+
+afterEach(() => {
+  activeWrapper?.unmount();
+  activeWrapper = null;
+  document.body.innerHTML = '';
+  vi.restoreAllMocks();
+});
 
 describe('AppHeader', () => {
   describe('branding and layout', () => {
@@ -101,9 +124,9 @@ describe('AppHeader', () => {
       // Open the user menu
       await wrapper.find('.app-header__user-btn').trigger('click');
 
-      const adminBtn = wrapper.find('.app-header__dropdown-item');
-      expect(adminBtn.exists()).toBe(true);
-      expect(adminBtn.text()).toBe('Admin Panel');
+      const adminBtn = getDropdownItems()[0];
+      expect(adminBtn).toBeTruthy();
+      expect(adminBtn.textContent?.trim()).toBe('Admin Panel');
     });
 
     it('does not show Admin Panel button when JWT lacks admin role', async () => {
@@ -117,9 +140,9 @@ describe('AppHeader', () => {
       // Open the user menu
       await wrapper.find('.app-header__user-btn').trigger('click');
 
-      const adminBtn = wrapper.findAll('.app-header__dropdown-item');
+      const adminBtn = getDropdownItems();
       // Only "Sign Out" should be visible
-      const adminPanelBtns = adminBtn.filter((b) => b.text() === 'Admin Panel');
+      const adminPanelBtns = adminBtn.filter((b) => b.textContent?.trim() === 'Admin Panel');
       expect(adminPanelBtns).toHaveLength(0);
     });
 
@@ -132,8 +155,8 @@ describe('AppHeader', () => {
 
       await wrapper.find('.app-header__user-btn').trigger('click');
 
-      const adminBtn = wrapper.findAll('.app-header__dropdown-item');
-      const adminPanelBtns = adminBtn.filter((b) => b.text() === 'Admin Panel');
+      const adminBtn = getDropdownItems();
+      const adminPanelBtns = adminBtn.filter((b) => b.textContent?.trim() === 'Admin Panel');
       expect(adminPanelBtns).toHaveLength(0);
     });
 
@@ -150,7 +173,7 @@ describe('AppHeader', () => {
 
       // Open user menu and click Admin Panel
       await wrapper.find('.app-header__user-btn').trigger('click');
-      await wrapper.find('.app-header__dropdown-item').trigger('click');
+      getDropdownItems()[0].click();
 
       expect(pushSpy).toHaveBeenCalledWith('/admin');
     });
@@ -165,8 +188,8 @@ describe('AppHeader', () => {
 
       await wrapper.find('.app-header__user-btn').trigger('click');
 
-      const items = wrapper.findAll('.app-header__dropdown-item');
-      const texts = items.map((b) => b.text());
+      const items = getDropdownItems();
+      const texts = items.map((b) => b.textContent?.trim());
       expect(texts).toContain('Admin Panel');
       expect(texts).toContain('Sign Out');
     });
@@ -184,7 +207,39 @@ describe('AppHeader', () => {
 
       await wrapper.find('.app-header__user-btn').trigger('click');
 
-      expect(wrapper.find('.app-header__dropdown-name').text()).toBe(name);
+      expect(getUserDropdown().querySelector('.app-header__dropdown-name')?.textContent).toBe(name);
+    });
+  });
+
+  describe('user menu positioning', () => {
+    it('teleports the dropdown to body and positions it from the user button', async () => {
+      const token = makeMockJwt({
+        sub: 'user-position-1',
+        name: 'Positioned User',
+        realm_access: { roles: ['user'] },
+      });
+      const { wrapper } = await mountHeader(token);
+      const button = wrapper.find('.app-header__user-btn').element as HTMLElement;
+      vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({
+        bottom: 42,
+        height: 30,
+        left: 900,
+        right: 930,
+        top: 12,
+        width: 30,
+        x: 900,
+        y: 12,
+        toJSON: () => ({}),
+      });
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1000);
+
+      await wrapper.find('.app-header__user-btn').trigger('click');
+
+      const dropdown = getUserDropdown();
+      expect(wrapper.find('[data-testid="user-dropdown"]').exists()).toBe(false);
+      expect(dropdown.style.top).toBe('48px');
+      expect(dropdown.style.right).toBe('70px');
+      expect(getComputedStyle(dropdown).position).toBe('fixed');
     });
   });
 });
