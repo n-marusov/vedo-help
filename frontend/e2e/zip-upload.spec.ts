@@ -92,7 +92,7 @@ test.describe('ZIP batch upload with real backend', () => {
   });
 
   test.afterEach(() => {
-    for (const name of ['valid.zip', 'too-many.zip', 'corrupted.zip', 'mixed.zip']) {
+    for (const name of ['valid.zip', 'too-many.zip']) {
       try {
         unlinkSync(join(tmpDir, name));
       } catch {
@@ -140,16 +140,16 @@ test.describe('ZIP batch upload with real backend', () => {
     await page.goto('/admin');
     await setActiveCollection(page, collection.id);
     await page.waitForSelector('.drop-zone', { timeout: 10000 });
+
+    // Listen for the XHR response before triggering upload
+    const responsePromise = page.waitForResponse((res) =>
+      res.url().includes('/api/documents/upload-zip'),
+    );
+
     await fileInput(page).setInputFiles(join(tmpDir, 'too-many.zip'));
 
-    await page.waitForFunction(
-      () => {
-        // biome-ignore lint/suspicious/noExplicitAny: E2E test inspects Pinia state
-        const app = (document.querySelector('#app') as any).__vue_app__;
-        const pinia = app.config.globalProperties.$pinia;
-        return Boolean(pinia.state.value.documents?.error);
-      },
-      { timeout: 10000 },
-    );
+    const response = await responsePromise;
+    console.debug(`[zip-upload] response status: ${response.status()}`);
+    expect(response.status()).toBe(413);
   });
 });

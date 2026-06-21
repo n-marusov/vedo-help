@@ -9,17 +9,27 @@ use vedo_backend::config::AppConfig;
 ///
 /// For unit/integration tests that don't use `#[sqlx::test]`, this connects to
 /// a local PostgreSQL instance. Set `DATABASE_URL` env var to override the default.
+///
+/// # Race condition mitigation
+///
+/// Integration tests that share a database must NOT run in parallel because
+/// `TRUNCATE ... CASCADE` wipes all tables, destroying data created by
+/// concurrently running tests. Always run integration tests sequentially:
+///
+/// ```bash
+/// cargo test --test integration -- --test-threads=1
+/// ```
 pub async fn setup_test_db() -> PgPool {
     let db_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string());
 
     tracing::info!(
-        "[test_setup] connecting to PostgreSQL test database: {}",
+        "[integration] setting up test database: {}",
         redact_url(&db_url)
     );
 
     let pool = PgPoolOptions::new()
-        .max_connections(20)
+        .max_connections(5)
         .connect(&db_url)
         .await
         .expect("Failed to connect to test database");
@@ -30,12 +40,17 @@ pub async fn setup_test_db() -> PgPool {
         .await
         .expect("Failed to run migrations");
 
-    // Clean all tables for a fresh test state
+    // Clean all tables for a fresh test state.
+    // IMPORTANT: tests using this function MUST run with --test-threads=1
+    // to prevent race conditions where parallel TRUNCATE wipes data from
+    // other tests mid-execution.
+    tracing::info!("[integration] truncating test tables for fresh state");
     sqlx::query("TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE")
         .execute(&pool)
         .await
         .expect("Failed to truncate test tables");
 
+    tracing::info!("[integration] test database ready");
     pool
 }
 

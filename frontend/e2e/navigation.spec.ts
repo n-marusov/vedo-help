@@ -82,6 +82,7 @@ test.describe('Responsive Layout (Task 3.4)', () => {
       const app = (document.querySelector('#app') as any).__vue_app__;
       const pinia = app.config.globalProperties.$pinia;
       pinia.state.value.collections.activeCollectionId = collectionId;
+      pinia.state.value.chat.activeSessionId = 'sess-1';
       pinia.state.value.chat.messages = [
         {
           id: 'm1',
@@ -92,6 +93,7 @@ test.describe('Responsive Layout (Task 3.4)', () => {
         },
       ];
     }, collection.id);
+    console.debug('[navigation] waiting for message content');
     await page.waitForSelector('[data-testid^="message-body-"]');
 
     // Message bubbles should not stretch full width (max-width constraint)

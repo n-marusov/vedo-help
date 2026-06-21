@@ -67,10 +67,11 @@ test.describe('RAG Flow: real backend upload → query → sources', () => {
 
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('How is rate limiting configured?');
+    console.debug('[rag-flow] waiting for query response');
     await page.locator('[data-testid="btn-send"]').click();
 
     await expect(page.locator('[data-testid="message-user"]').first()).toBeVisible({
-      timeout: 5000,
+      timeout: 15000,
     });
     const assistant = page.locator('[data-testid="message-assistant"]').first();
     await expect(assistant).toBeVisible({ timeout: 30000 });

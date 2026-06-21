@@ -67,6 +67,7 @@ test-env-down: ## Stop and clean test environment
 
 test: ## Run all tests (backend + frontend + embedding)
 	cd backend && cargo test --lib
+	cd backend && cargo test --test integration -- --test-threads=1
 	cd frontend && npm test
 	cd embedding && pytest tests/ -v
 
@@ -100,7 +101,7 @@ coverage: ## Generate coverage reports
 # === CI targets ===
 
 ci-backend: ## Backend CI (format + lint + test)
-	cd backend && cargo fmt --check && cargo clippy -- -D warnings && cargo test --lib
+	cd backend && cargo fmt --check && cargo clippy -- -D warnings && cargo test --lib && cargo test --test integration -- --test-threads=1
 
 ci-embedding: ## Embedding CI (format + lint + test)
 	cd embedding && ruff format src/ --check && ruff check src/ && pytest tests/ -v --cov=src --cov-report=term

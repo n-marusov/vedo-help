@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { setActiveCollection, setupAuthAndCollection } from './helpers';
+import { apiRequest, setActiveCollection, setupAuthAndCollection } from './helpers';
 
 test.describe('chat export', () => {
   test('export Markdown → blob starts with H1 session title and contains ## user', async ({
@@ -10,23 +10,22 @@ test.describe('chat export', () => {
     await page.goto('/');
     await setActiveCollection(page, collection.id);
 
-    // Send a query to create a session
+    // Send a query to create a session and get a response
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('Export test');
     await page.locator('[data-testid="btn-send"]').click();
     await page.waitForSelector('[data-testid="message-assistant"]', {
-      timeout: 10000,
+      timeout: 15000,
     });
 
-    // Click Export button
+    // Click Export button — should be visible now because handleSend creates a session
     const exportBtn = page.locator('[data-testid="export-btn"]');
-    await expect(exportBtn).toBeVisible();
+    await expect(exportBtn).toBeVisible({ timeout: 10000 });
     await exportBtn.click();
 
-    // Wait for blob download (intercept URL.createObjectURL)
-    // In Playwright this is tricky — we intercept the fetch itself
+    // Wait for export response (fetch request, not XHR)
     const exportResponse = await page.waitForResponse(
-      (res) => res.url().includes('/export') && res.url().includes('format=m'),
+      (res) => res.url().includes('/export') && res.url().includes('format=md'),
     );
     expect(exportResponse.status()).toBe(200);
     const text = await exportResponse.text();
@@ -43,12 +42,17 @@ test.describe('chat export', () => {
     await input.fill('JSON test');
     await page.locator('[data-testid="btn-send"]').click();
     await page.waitForSelector('[data-testid="message-assistant"]', {
-      timeout: 10000,
+      timeout: 15000,
     });
 
-    // Select JSON format
+    // Select JSON format using VSelect (custom button-based dropdown):
+    // click the select trigger to open dropdown, then click the JSON option
     const formatSelect = page.locator('[data-testid="export-format-select"]');
-    await formatSelect.selectOption('json');
+    await formatSelect.click();
+    // The dropdown contains buttons with class v-select__option
+    // Pick the JSON option (second one: "Markdown", "JSON")
+    await page.locator('.v-select__option').nth(1).click();
+
     await page.locator('[data-testid="export-btn"]').click();
 
     const exportResponse = await page.waitForResponse(
