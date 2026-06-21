@@ -142,7 +142,7 @@ impl ConversationRepository {
             .unwrap_or(serde_json::Value::Null);
 
         sqlx::query(
-            "INSERT INTO messages (id, session_id, role, content, sources, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO messages (id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(msg.id)
         .bind(msg.session_id)
@@ -150,6 +150,9 @@ impl ConversationRepository {
         .bind(&msg.content)
         .bind(&sources_json)
         .bind(msg.created_at)
+        .bind(msg.edited_at)
+        .bind(&msg.original_content)
+        .bind(msg.deleted_at)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to add message: {e}")))?;
@@ -168,12 +171,13 @@ impl ConversationRepository {
         Ok(())
     }
 
-    /// Retrieve messages for a session, ordered by creation time.
+    /// Retrieve live (non-deleted) messages for a session, ordered by creation time.
     pub async fn get_messages(&self, session_id: Uuid) -> Result<Vec<Message>, AppError> {
         tracing::debug!("Fetching messages for session: {session_id}");
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>)>(
-            "SELECT id, session_id, role, content, sources, created_at FROM messages WHERE session_id = $1 ORDER BY created_at",
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
+            "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at \
+             FROM messages WHERE session_id = $1 AND deleted_at IS NULL ORDER BY created_at",
         )
         .bind(session_id)
         .fetch_all(&self.db)
@@ -189,11 +193,100 @@ impl ConversationRepository {
                 content: row.3,
                 sources: row.4.map(|v| v.to_string()),
                 created_at: row.5,
+                edited_at: row.6,
+                original_content: row.7,
+                deleted_at: row.8,
             })
             .collect();
 
         tracing::debug!("Found {} messages for session {session_id}", messages.len());
         Ok(messages)
+    }
+
+    /// Retrieve a single message by ID.
+    /// Returns NotFound if the message does not exist or is soft-deleted.
+    pub async fn get_message(&self, id: Uuid) -> Result<Message, AppError> {
+        tracing::debug!("Fetching message: {id}");
+
+        let row = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
+            "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at \
+             FROM messages WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        .ok_or_else(|| AppError::NotFound(format!("Message {id} not found")))?;
+
+        // Treat soft-deleted messages as not found
+        if row.8.is_some() {
+            return Err(AppError::NotFound(format!("Message {id} not found")));
+        }
+
+        Ok(Message {
+            id: row.0,
+            session_id: row.1,
+            role: row.2,
+            content: row.3,
+            sources: row.4.map(|v| v.to_string()),
+            created_at: row.5,
+            edited_at: row.6,
+            original_content: row.7,
+            deleted_at: row.8,
+        })
+    }
+
+    /// Update the content of a message. On the first edit, preserves the
+    /// original content for audit trail. Sets `edited_at` on every edit.
+    pub async fn update_message(&self, id: Uuid, new_content: String) -> Result<Message, AppError> {
+        tracing::debug!("Updating message: {id}");
+
+        // Fetch current message to get original content if not yet set
+        let current = self.get_message(id).await?;
+
+        // If this is the first edit, preserve the original content
+        let original = current
+            .original_content
+            .clone()
+            .unwrap_or(current.content.clone());
+
+        sqlx::query(
+            "UPDATE messages SET content = $1, edited_at = $2, original_content = $3 WHERE id = $4 AND deleted_at IS NULL",
+        )
+        .bind(&new_content)
+        .bind(chrono::Utc::now())
+        .bind(&original)
+        .bind(id)
+        .execute(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Failed to update message: {e}")))?;
+
+        // Fetch the updated message
+        self.get_message(id).await
+    }
+
+    /// Soft-delete a message by setting `deleted_at` to now.
+    pub async fn soft_delete_message(&self, id: Uuid) -> Result<(), AppError> {
+        tracing::info!("Soft-deleting message: {id}");
+
+        let affected =
+            sqlx::query("UPDATE messages SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL")
+                .bind(chrono::Utc::now())
+                .bind(id)
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    AppError::InternalError(format!("Failed to soft-delete message: {e}"))
+                })?;
+
+        if affected.rows_affected() == 0 {
+            return Err(AppError::NotFound(format!(
+                "Message {id} not found or already deleted"
+            )));
+        }
+
+        tracing::info!("Message soft-deleted: {id}");
+        Ok(())
     }
 
     /// Delete all sessions and their messages.
@@ -218,14 +311,15 @@ impl ConversationRepository {
         Ok(count)
     }
 
-    /// Count messages belonging to a session.
-    async fn get_message_count(&self, session_id: Uuid) -> Result<i64, AppError> {
-        let row =
-            sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM messages WHERE session_id = $1")
-                .bind(session_id)
-                .fetch_one(&self.db)
-                .await
-                .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+    /// Count live (non-deleted) messages belonging to a session.
+    pub async fn get_message_count(&self, session_id: Uuid) -> Result<i64, AppError> {
+        let row = sqlx::query_as::<_, (i64,)>(
+            "SELECT COUNT(*) FROM messages WHERE session_id = $1 AND deleted_at IS NULL",
+        )
+        .bind(session_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
         Ok(row.0)
     }

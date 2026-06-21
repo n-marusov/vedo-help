@@ -29,3 +29,12 @@ pub struct StreamEvent {
     pub event_type: String,
     pub data: serde_json::Value,
 }
+
+/// Data included in the `done` SSE event payload.
+#[derive(Debug, Clone, Serialize)]
+pub struct DonePayload {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub user_message_id: Option<Uuid>,
+    pub assistant_message_id: Option<Uuid>,
+}

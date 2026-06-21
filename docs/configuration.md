@@ -24,6 +24,8 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `OPENROUTER_MODEL` | LLM model identifier | `openai/gpt-4o-mini` |
 | `GIT_CLONE_ROOT` | Root directory for cloned git repositories | `data/git-repos` |
 | `GIT_SYNC_INTERVAL_SECS` | Git sync polling interval in seconds (0 = disabled) | `0` |
+| `LLM_MAX_HISTORY_MESSAGES` | Max conversation history messages to include in LLM context | `20` |
+| `LLM_CONTEXT_TOKEN_BUDGET` | Token budget for LLM context window (word-count heuristic) | `6000` |
 | `OPENROUTER_API_KEY` | OpenRouter API key | _(required)_ |
 
 ### Embedding Service
@@ -99,6 +101,16 @@ OPENROUTER_MODEL=openai/gpt-4o
 OPENROUTER_MODEL=google/gemini-pro-1.5
 OPENROUTER_MODEL=anthropic/claude-3-haiku
 ```
+
+## Context Window
+
+The backend uses a lightweight word-count heuristic for token estimation (no `tiktoken-rs` dependency). The sliding window policy:
+
+1. Drops oldest user+assistant message pairs until both `max_messages` and `token_budget` are satisfied
+2. Always preserves at least the 2 most recent messages (1 turn)
+3. Configurable via `LLM_MAX_HISTORY_MESSAGES` and `LLM_CONTEXT_TOKEN_BUDGET`
+
+This is a v0.3.1 limitation — revisit with accurate tokenization in v0.5 Advanced RAG.
 
 ## See Also
 

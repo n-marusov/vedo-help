@@ -27,6 +27,10 @@ pub struct AppConfig {
     pub git_clone_root: String,
     /// Git sync polling interval in seconds (0 = disabled)
     pub git_sync_interval_secs: u64,
+    /// Max history messages to include in LLM context
+    pub llm_max_history_messages: usize,
+    /// Token budget for LLM context window
+    pub llm_context_token_budget: usize,
 }
 
 impl AppConfig {
@@ -72,6 +76,14 @@ impl AppConfig {
                 .unwrap_or_else(|_| "0".to_string())
                 .parse()
                 .expect("GIT_SYNC_INTERVAL_SECS must be a valid number"),
+            llm_max_history_messages: env::var("LLM_MAX_HISTORY_MESSAGES")
+                .unwrap_or_else(|_| "20".to_string())
+                .parse()
+                .expect("LLM_MAX_HISTORY_MESSAGES must be a valid number"),
+            llm_context_token_budget: env::var("LLM_CONTEXT_TOKEN_BUDGET")
+                .unwrap_or_else(|_| "6000".to_string())
+                .parse()
+                .expect("LLM_CONTEXT_TOKEN_BUDGET must be a valid number"),
         }
     }
 }

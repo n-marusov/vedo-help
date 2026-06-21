@@ -5,6 +5,7 @@ import VBadge from '@/components/ui/VBadge.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VInput from '@/components/ui/VInput.vue';
+import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { computed, onMounted, ref } from 'vue';
 const repos = ref<GitRepoSummary[]>([]);
@@ -204,8 +205,12 @@ function formatDate(iso?: string): string {
     </div>
 
     <!-- Loading -->
-    <div v-else-if="isLoadingRepos" class="grm-empty">
-      <p>Loading repositories...</p>
+    <div
+      v-else-if="isLoadingRepos"
+      class="grm-loading"
+      data-testid="repos-loading-skeleton"
+    >
+      <VSkeleton variant="card" :rows="3" />
     </div>
 
     <!-- Empty state -->

@@ -1,5 +1,11 @@
 import { ApiError, api, getAccessToken } from '@/api/client';
-import type { Message, Session, SessionSummary, StreamEvent } from '@/api/types';
+import type {
+  EditMessageRequest,
+  Message,
+  Session,
+  SessionSummary,
+  StreamEvent,
+} from '@/api/types';
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
@@ -15,6 +21,9 @@ export const useChatStore = defineStore('chat', () => {
   const activeSessionId = ref<string | null>(null);
   const sessions = ref<SessionSummary[]>([]);
   const error = ref<string | null>(null);
+  const isSessionLoading = ref(false);
+  const isExporting = ref(false);
+  const isLoadingSessions = ref(false);
 
   let abortController: AbortController | null = null;
 
@@ -159,6 +168,36 @@ export const useChatStore = defineStore('chat', () => {
               finalMsg.sources = sources;
               messages.value = [...messages.value];
             }
+
+            // Temp-ID reconciliation: replace temp IDs with server-assigned IDs
+            if (value.user_message_id || value.assistant_message_id) {
+              for (let i = 0; i < messages.value.length; i++) {
+                const msg = messages.value[i];
+                if (msg.role === 'user' && msg.id.startsWith('temp-') && value.user_message_id) {
+                  console.debug(
+                    '[chat.sendMessage] reconciled temp IDs user=%s->%s',
+                    msg.id,
+                    value.user_message_id,
+                  );
+                  messages.value[i] = { ...msg, id: value.user_message_id };
+                }
+                if (
+                  msg.role === 'assistant' &&
+                  msg.id.startsWith('temp-assist-') &&
+                  value.assistant_message_id
+                ) {
+                  console.debug(
+                    '[chat.sendMessage] reconciled temp IDs assist=%s->%s',
+                    msg.id,
+                    value.assistant_message_id,
+                  );
+                  messages.value[i] = {
+                    ...msg,
+                    id: value.assistant_message_id,
+                  };
+                }
+              }
+            }
             break;
           }
         }
@@ -195,13 +234,17 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function fetchSessions() {
+    isLoadingSessions.value = true;
     try {
       const result = await api.get<SessionSummary[]>('/sessions');
       sessions.value = result;
+      console.debug('[chat.fetchSessions] loaded %d sessions', result.length);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
       }
+    } finally {
+      isLoadingSessions.value = false;
     }
   }
 
@@ -238,14 +281,77 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function loadSession(sessionId: string) {
+    isSessionLoading.value = true;
     try {
-      const msgs = await api.get<Message[]>(`/sessions/${sessionId}/messages`);
-      messages.value = msgs;
+      const result = await api.get<{ session: Session; messages: Message[] }>(
+        `/sessions/${sessionId}`,
+      );
+      messages.value = result.messages;
       activeSessionId.value = sessionId;
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
       }
+    } finally {
+      isSessionLoading.value = false;
+    }
+  }
+
+  async function editMessage(sessionId: string, messageId: string, content: string) {
+    console.debug('[chat.editMessage] session=%s msg=%s', sessionId, messageId);
+    try {
+      const req: EditMessageRequest = { content };
+      const updated = await api.editMessage(sessionId, messageId, req);
+      const idx = messages.value.findIndex((m) => m.id === messageId);
+      if (idx !== -1) {
+        messages.value[idx] = { ...messages.value[idx], ...updated };
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.message;
+      }
+    }
+  }
+
+  async function deleteMessage(sessionId: string, messageId: string) {
+    const idx = messages.value.findIndex((m) => m.id === messageId);
+    if (idx === -1) return;
+
+    // Optimistic remove
+    const prev = messages.value[idx];
+    messages.value.splice(idx, 1);
+    console.debug('[chat.deleteMessage] optimistic remove idx=%d', idx);
+
+    try {
+      await api.deleteMessage(sessionId, messageId);
+    } catch (err) {
+      // Revert on failure
+      messages.value.splice(idx, 0, prev);
+      if (err instanceof ApiError) {
+        error.value = err.message;
+      }
+    }
+  }
+
+  async function exportSession(sessionId: string, format: 'md' | 'json') {
+    isExporting.value = true;
+    console.debug('[chat.exportSession] format=%s', format);
+    try {
+      const blob = await api.exportSession(sessionId, format);
+      const url = URL.createObjectURL(blob);
+      const extension = format === 'md' ? 'md' : 'json';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session-${sessionId}.${extension}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      console.debug('[chat.exportSession] format=%s bytes=%d', format, blob.size);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.message;
+      }
+    } finally {
+      isExporting.value = false;
     }
   }
 
@@ -261,12 +367,18 @@ export const useChatStore = defineStore('chat', () => {
     activeSessionId,
     sessions,
     error,
+    isSessionLoading,
+    isExporting,
+    isLoadingSessions,
     sendMessage,
     cancelStream,
     fetchSessions,
     createSession,
     deleteSession,
     loadSession,
+    editMessage,
+    deleteMessage,
+    exportSession,
     clearMessages,
   };
 });

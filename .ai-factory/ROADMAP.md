@@ -65,16 +65,16 @@
 
 ---
 
-## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework ⏳
+## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework ✅
 
 Реализация базовой логики ответов и доработка чата: улучшение потокового вывода, обработка ошибок LLM, сохранение контекста, UI для редактирования/удаления сообщений.
 
 - [x] **Streaming response improvements** — SSE с chunk/sources/done событиями, NDJSON-парсинг на фронтенде
 - [x] **LLM error handling** — retry (3 попытки), 60s timeout, error-события SSE, отображение ошибок в UI
-- [ ] **Message editing & deletion** — UI для редактирования и удаления сообщений в чате
-- [ ] **Context management** — sliding window + token budget (сейчас передаётся вся история)
-- [ ] **Chat export** — экспорт истории чата (JSON/Markdown, backend API готов, нет кнопки в UI)
-- [ ] **Empty state & loading skeletons** — базовые empty state есть, нет анимированных скелетонов
+- [x] **Message editing & deletion** — UI для редактирования и удаления сообщений в чате
+- [x] **Context management** — sliding window + token budget (сейчас передаётся вся история)
+- [x] **Chat export** — экспорт истории чата (JSON/Markdown, backend API готов, нет кнопки в UI)
+- [x] **Empty state & loading skeletons** — базовые empty state есть, нет анимированных скелетонов
 
 ---
 
@@ -135,7 +135,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
-| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ 2/6 | Streaming ✅; LLM error handling ✅; message editing, context, export, empty state ❌ |
+| v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **6/6** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅ |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
@@ -146,4 +146,5 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Chat UI overhaul (Phases 0–4):** 2026-06-16
 **Document re-indexing:** 2026-06-19
 **Bulk deletion + VToast + optimistic UX + embedding pipeline:** 2026-06-21
-**Что дальше:** `/aif-implement` — завершение v0.3.1 (message editing, context window, chat export UI, loading skeletons) и v0.4 (deep healthcheck, rate limiting, backup automation)
+**v0.3.1 chat rework complete (message edit/delete, context window, chat export, skeletons):** 2026-06-21
+**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation)

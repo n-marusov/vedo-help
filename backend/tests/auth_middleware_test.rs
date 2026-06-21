@@ -60,7 +60,14 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     let doc_service = DocumentService::new(doc_repo);
     let collection_service = CollectionService::new(collection_repo, chroma_url.clone());
     let conversation_service = ConversationService::new(conversation_repo);
-    let query_service = QueryService::new(db, &chroma_url, llm_client, &embedding_service_url);
+    let query_service = QueryService::new(
+        db,
+        &chroma_url,
+        llm_client,
+        &embedding_service_url,
+        20,
+        6000,
+    );
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
         chroma_url,

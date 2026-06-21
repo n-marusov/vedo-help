@@ -23,6 +23,19 @@ pub struct Message {
     /// Sources stored as a JSON string (e.g. chunk citations).
     pub sources: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// Timestamp of the last edit (NULL = never edited).
+    pub edited_at: Option<DateTime<Utc>>,
+    /// Original content before the first edit (audit trail).
+    pub original_content: Option<String>,
+    /// Soft-delete timestamp (NULL = live).
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// Request payload for updating a message.
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateMessageRequest {
+    /// Updated content (1..8000 chars).
+    pub content: String,
 }
 
 /// Lightweight summary of a session for list views.

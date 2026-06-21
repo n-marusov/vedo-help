@@ -2,6 +2,7 @@
 import MessageBubble from '@/components/MessageBubble.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VSelect from '@/components/ui/VSelect.vue';
+import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
@@ -13,6 +14,12 @@ const sidebarOpen = ref(false);
 const inputText = ref('');
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
+const exportFormat = ref('md');
+
+const exportFormatOptions = [
+  { label: 'Markdown', value: 'md' },
+  { label: 'JSON', value: 'json' },
+];
 
 onMounted(() => {
   chatStore.fetchSessions();
@@ -129,6 +136,29 @@ function resetTextareaHeight() {
   if (el) el.style.height = 'auto';
 }
 
+function handleEditMessage({ id }) {
+  // Edit is handled inline in MessageBubble (startEdit/saveEdit)
+}
+
+function handleSaveEdit({ id, content }) {
+  if (chatStore.activeSessionId) {
+    chatStore.editMessage(chatStore.activeSessionId, id, content);
+  }
+}
+
+function handleDeleteMessage({ id }) {
+  if (chatStore.activeSessionId) {
+    chatStore.deleteMessage(chatStore.activeSessionId, id);
+  }
+}
+
+async function handleExport() {
+  if (chatStore.activeSessionId) {
+    console.debug('[ChatView] export format=%s', exportFormat.value);
+    await chatStore.exportSession(chatStore.activeSessionId, exportFormat.value);
+  }
+}
+
 function handleCancel() {
   chatStore.cancelStream();
 }
@@ -196,7 +226,14 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         >
       </div>
 
-      <div v-if="chatStore.sessions.length === 0" class="session-empty">
+      <div
+        v-if="chatStore.isLoadingSessions"
+        data-testid="sessions-loading-skeleton"
+      >
+        <VSkeleton variant="card" :rows="5" />
+      </div>
+
+      <div v-else-if="chatStore.sessions.length === 0" class="session-empty">
         No sessions yet. Start a new chat!
       </div>
 
@@ -254,6 +291,23 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             @update:model-value="collectionStore.setActiveCollection"
           />
         </div>
+        <div class="toolbar-right">
+          <VSelect
+            v-if="chatStore.activeSessionId"
+            v-model="exportFormat"
+            data-testid="export-format-select"
+            :options="exportFormatOptions"
+            class="toolbar-format-select"
+          />
+          <VButton
+            v-if="chatStore.activeSessionId"
+            variant="ghost"
+            data-testid="export-btn"
+            :disabled="chatStore.isExporting"
+            @click="handleExport"
+            >Export</VButton
+          >
+        </div>
       </div>
 
       <!-- Messages area -->
@@ -262,13 +316,40 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         class="messages-area"
         data-testid="messages-area"
       >
-        <!-- Welcome block -->
-        <div v-if="chatStore.messages.length === 0" class="welcome-screen">
-          <div class="welcome-content" data-testid="welcome-message">
+        <!-- Welcome block (no session selected) -->
+        <div
+          v-if="!chatStore.activeSessionId"
+          class="welcome-screen"
+          data-testid="welcome-message"
+        >
+          <div class="welcome-content">
             <span class="welcome-icon">💬</span>
             <h2 class="welcome-title">VEDO RAG Assistant</h2>
             <p class="welcome-subtitle">
               Select a collection and ask a question.
+            </p>
+          </div>
+        </div>
+
+        <!-- Loading skeleton -->
+        <div
+          v-else-if="chatStore.isSessionLoading"
+          data-testid="messages-loading-skeleton"
+        >
+          <VSkeleton variant="text" :rows="6" />
+        </div>
+
+        <!-- Empty active session -->
+        <div
+          v-else-if="chatStore.messages.length === 0"
+          data-testid="session-empty-messages"
+          class="welcome-screen"
+        >
+          <div class="welcome-content">
+            <span class="welcome-icon">💬</span>
+            <h2 class="welcome-title">No messages yet</h2>
+            <p class="welcome-subtitle">
+              Ask a question to start the conversation.
             </p>
           </div>
         </div>
@@ -285,6 +366,10 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               idx === chatStore.messages.length - 1 &&
               msg.role === 'assistant'
             "
+            @edit="handleEditMessage"
+            @delete="handleDeleteMessage"
+            @save-edit="handleSaveEdit"
+            @cancel-edit="() => {}"
           />
         </div>
 
@@ -545,6 +630,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: 72px;
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
@@ -556,8 +642,18 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   align-items: center;
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .toolbar-select {
   width: 360px;
+}
+
+.toolbar-format-select {
+  min-width: 100px;
 }
 
 /* ===== Messages Area ===== */

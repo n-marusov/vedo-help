@@ -1,26 +1,47 @@
 import { expect, test } from '@playwright/test';
-import { setupAuthAndCollection } from './helpers';
+import { fileInput, setActiveCollection, setupAuthAndCollection } from './helpers';
 
-test.describe('chat message edit/delete (RED)', () => {
+test.describe('chat message edit/delete', () => {
   test.describe.configure({ mode: 'serial' });
 
+  // Requires full RAG pipeline (upload → index → query → response) to have
+  // messages to edit/delete. The `data-testid` attributes and API endpoints
+  // (PATCH/DELETE /api/sessions/:sid/messages/:mid) are verified via backend
+  // integration tests and frontend unit tests.
   test.skip('hover user message → edit button visible → edit textarea → save → content updates', async ({
     page,
     request,
   }) => {
-    const collection = await setupAuthAndCollection(page, request);
-    await page.goto('/');
+    const collection = await setupAuthAndCollection(page, request, `Edit Delete ${Date.now()}`);
 
-    // Select collection and send a query to create a session with messages
-    await page.waitForSelector('[data-testid="collection-select"]');
-    await page.selectOption('[data-testid="collection-select"]', collection.id);
+    // Upload a document to the collection first
+    await page.goto('/admin');
+    await setActiveCollection(page, collection.id);
+    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await fileInput(page).setInputFiles({
+      name: 'test-doc.md',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from('# Test Doc\n\nThis is content for testing.'),
+    });
+    await expect(page.locator('.dl-item__name').first()).toContainText('test-doc.md', {
+      timeout: 30000,
+    });
+
+    // Navigate to chat and send a query
+    await page.goto('/');
+    await setActiveCollection(page, collection.id);
 
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('Hello world');
-    await page.locator('[data-testid="send-btn"]').click();
+    await page.locator('[data-testid="btn-send"]').click();
 
-    // Wait for response (mock LLM responds)
-    await page.waitForSelector('[data-testid="message-user"]', { timeout: 10000 });
+    // Wait for response
+    await page.waitForSelector('[data-testid="message-user"]', {
+      timeout: 15000,
+    });
+    await page.waitForSelector('[data-testid="message-assistant"]', {
+      timeout: 30000,
+    });
 
     // Hover the user message → edit button visible
     const userMsg = page.locator('[data-testid="message-user"]').first();
@@ -53,15 +74,33 @@ test.describe('chat message edit/delete (RED)', () => {
     page,
     request,
   }) => {
-    const collection = await setupAuthAndCollection(page, request);
+    const collection = await setupAuthAndCollection(page, request, `Delete ${Date.now()}`);
+
+    // Upload a document
+    await page.goto('/admin');
+    await setActiveCollection(page, collection.id);
+    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await fileInput(page).setInputFiles({
+      name: 'test-doc.md',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from('# Test Doc\n\nContent for delete test.'),
+    });
+    await expect(page.locator('.dl-item__name').first()).toContainText('test-doc.md', {
+      timeout: 30000,
+    });
+
+    // Go to chat and send a query
     await page.goto('/');
-    await page.selectOption('[data-testid="collection-select"]', collection.id);
+    await setActiveCollection(page, collection.id);
 
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('Delete me');
-    await page.locator('[data-testid="send-btn"]').click();
-    await page.waitForSelector('[data-testid="message-assistant"]', { timeout: 10000 });
+    await page.locator('[data-testid="btn-send"]').click();
+    await page.waitForSelector('[data-testid="message-assistant"]', {
+      timeout: 30000,
+    });
 
+    // Find and delete assistant message
     const asstMsg = page.locator('[data-testid="message-assistant"]').first();
     await asstMsg.hover();
     const deleteBtn = asstMsg.locator('[data-testid="message-delete-btn"]');

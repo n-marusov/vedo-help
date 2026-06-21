@@ -336,6 +336,8 @@ mod tests {
             keycloak_client_id: "vedo-backend".to_string(),
             git_clone_root: "/tmp/test-git-repos".to_string(),
             git_sync_interval_secs: 0,
+            llm_max_history_messages: 20,
+            llm_context_token_budget: 6000,
         };
 
         let validator = JwtValidator::from_config(&config);

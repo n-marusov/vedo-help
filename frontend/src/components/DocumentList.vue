@@ -3,6 +3,7 @@ import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VDropZone from '@/components/ui/VDropZone.vue';
 import VProgressBar from '@/components/ui/VProgressBar.vue';
+import VSkeleton from '@/components/ui/VSkeleton.vue';
 import VToast from '@/components/ui/VToast.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
@@ -310,9 +311,10 @@ watch(
       <!-- Loading -->
       <div
         v-if="documentStore.isLoading && documentStore.documents.length === 0"
-        class="dl-empty"
+        class="dl-loading"
+        data-testid="documents-loading-skeleton"
       >
-        <p>Loading documents...</p>
+        <VSkeleton variant="card" :rows="5" />
       </div>
 
       <!-- No documents -->

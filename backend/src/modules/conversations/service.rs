@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 use crate::modules::conversations::models::{
-    CreateSessionRequest, Message, Session, SessionSummary,
+    CreateSessionRequest, Message, Session, SessionSummary, UpdateMessageRequest,
 };
 use crate::modules::conversations::repository::ConversationRepository;
 use crate::shared::error::AppError;
@@ -99,7 +99,61 @@ impl ConversationService {
         }))
     }
 
+    /// Update a message's content.
+    ///
+    /// Only user messages can be edited. Assistant messages return
+    /// `UnprocessableEntity`. Validates content length (1..8000 chars).
+    pub async fn update_message(
+        &self,
+        session_id: Uuid,
+        msg_id: Uuid,
+        req: UpdateMessageRequest,
+    ) -> Result<Message, AppError> {
+        tracing::info!(
+            "[conv.update_message] session={session_id} msg={msg_id} new_len={}",
+            req.content.len()
+        );
+
+        // Validate content length
+        if req.content.is_empty() || req.content.len() > 8000 {
+            return Err(AppError::BadRequest(
+                "Content must be between 1 and 8000 characters".to_string(),
+            ));
+        }
+
+        // Fetch the current message to check role
+        let msg = self.repo.get_message(msg_id).await?;
+
+        // Only user messages can be edited
+        if msg.role != "user" {
+            tracing::warn!(
+                "[conv.update_message] rejected: not user role session={session_id} msg={msg_id} role={}",
+                msg.role
+            );
+            return Err(AppError::UnprocessableEntity(
+                "Assistant messages cannot be edited".to_string(),
+            ));
+        }
+
+        let old_len = msg.content.len();
+        let updated = self.repo.update_message(msg_id, req.content).await?;
+
+        tracing::info!(
+            "[conv.update_message] session={session_id} msg={msg_id} role=user old_len={old_len} new_len={}",
+            updated.content.len()
+        );
+
+        Ok(updated)
+    }
+
+    /// Soft-delete a message.
+    pub async fn delete_message(&self, session_id: Uuid, msg_id: Uuid) -> Result<(), AppError> {
+        tracing::info!("[conv.soft_delete] session={session_id} msg={msg_id}");
+        self.repo.soft_delete_message(msg_id).await
+    }
+
     /// Export a session (with messages) as a JSON value.
+    /// Soft-deleted messages are excluded.
     pub async fn export_session(&self, id: Uuid) -> Result<serde_json::Value, AppError> {
         tracing::debug!("Exporting session: {id}");
 
@@ -119,7 +173,58 @@ impl ConversationService {
                 "content": m.content,
                 "sources": m.sources,
                 "created_at": m.created_at,
+                "edited_at": m.edited_at,
+                "original_content": m.original_content,
             })).collect::<Vec<_>>(),
         }))
+    }
+
+    /// Build a markdown export of a session.
+    ///
+    /// Format:
+    /// ```markdown
+    /// # Session Title
+    ///
+    /// ## user · 2026-06-21T12:00:00Z
+    /// (edited)
+    /// Message content
+    ///
+    /// ---
+    ///
+    /// ## assistant · 2026-06-21T12:00:05Z
+    ///
+    /// Response content
+    ///
+    /// ---
+    /// ```
+    pub async fn export_session_markdown(&self, id: Uuid) -> Result<String, AppError> {
+        tracing::info!("[conv.export_session] session={id} format=markdown");
+
+        let (session, messages) = self.get_session_history(id).await?;
+
+        let mut lines = Vec::new();
+        lines.push(format!("# {}", session.title));
+        lines.push(String::new());
+
+        for msg in &messages {
+            let header = format!("## {} · {}", msg.role, msg.created_at.to_rfc3339());
+            lines.push(header);
+            lines.push(String::new());
+            if msg.edited_at.is_some() {
+                lines.push("*(edited)*".to_string());
+            }
+            lines.push(msg.content.clone());
+            lines.push(String::new());
+            lines.push("---".to_string());
+            lines.push(String::new());
+        }
+
+        let result = lines.join("\n");
+        tracing::info!(
+            "[conv.export_session] session={id} format=markdown bytes={}",
+            result.len()
+        );
+
+        Ok(result)
     }
 }

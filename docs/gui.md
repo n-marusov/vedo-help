@@ -118,6 +118,30 @@ New messages animate in with a smooth entrance effect:
 - Staggered: 50ms delay between consecutive messages (`--msg-index` CSS variable)
 - Respects `prefers-reduced-motion` — animations disabled entirely
 
+### Message Actions
+
+Each message bubble reveals an action row on hover:
+
+- **Edit (user messages only):** Pencil icon button, switches the message to a textarea with Save/Cancel buttons. Messages show a `· edited` badge after editing. The original content is preserved as an audit trail.
+- **Delete (both roles):** Trash icon button, soft-deletes the message. Deleted messages are excluded from session history and exports.
+
+### Loading Skeletons
+
+Skeleton placeholders provide visual feedback during data loading:
+
+- **Messages area:** Shown during `loadSession` via `VSkeleton variant="text" :rows="6"` while messages are being fetched
+- **Sessions sidebar:** Shows card-style skeleton rows while `fetchSessions` is in progress
+- **Document list (admin):** Shows card-style skeleton rows while documents are loading (`data-testid="documents-loading-skeleton"`)
+- **Git repos list (admin):** Shows card-style skeleton rows while repos are loading (`data-testid="repos-loading-skeleton"`)
+
+### Chat Export
+
+The toolbar includes an **Export** button (ghost variant) with a format `<VSelect>` dropdown (Markdown / JSON). When clicked:
+1. The session is fetched as a blob via `GET /api/sessions/:id/export?format={md|json}`
+2. A download link is triggered programmatically
+3. The file is downloaded as `session-{id}.md` or `session-{id}.json`
+4. The button is disabled during export via `chatStore.isExporting`
+
 ---
 
 ## Admin View (`/admin`)
@@ -288,6 +312,8 @@ Located in `frontend/src/components/MessageBubble.vue`.
 - Blinking cursor (when `isStreaming && message.content`)
 - Collapsible sources section
 - Smooth entrance animation with staggered delay
+- **Edit mode (user only):** hover to reveal edit/delete buttons; textarea with Save/Cancel (`· edited` badge on edited messages)
+- **Delete mode (both roles):** hover to reveal delete button; soft-deletes the message
 
 **Markdown module:** `frontend/src/utils/markdown.ts` — custom `marked` renderer with `highlight.js` integration, imports only used languages for bundle size optimization.
 

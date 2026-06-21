@@ -4,7 +4,7 @@ use std::sync::Arc;
 use axum::{
     extract::FromRef,
     middleware,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
     Extension, Router,
 };
 use sqlx::postgres::PgPoolOptions;
@@ -148,8 +148,14 @@ async fn main() {
     let doc_service = DocumentService::with_clients(doc_repo, chroma_client, embedding_client);
     let collection_service = CollectionService::new(collection_repo, chroma_url.clone());
     let conversation_service = ConversationService::new(conversation_repo);
-    let query_service =
-        QueryService::new(db.clone(), &chroma_url, llm_client, &embedding_service_url);
+    let query_service = QueryService::new(
+        db.clone(),
+        &chroma_url,
+        llm_client,
+        &embedding_service_url,
+        config.llm_max_history_messages,
+        config.llm_context_token_budget,
+    );
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
         chroma_url.clone(),
@@ -237,6 +243,12 @@ async fn main() {
         .route(
             "/api/sessions/:id/export",
             get(conversations_handlers::export_session),
+        )
+        // Message edit/delete routes (v0.3.1)
+        .route(
+            "/api/sessions/:sid/messages/:mid",
+            patch(conversations_handlers::patch_message)
+                .delete(conversations_handlers::delete_message),
         )
         // Auth middleware for all /api/* routes (applies to routes defined above)
         .route_layer(middleware::from_fn(auth_middleware))

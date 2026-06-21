@@ -1,16 +1,20 @@
 use std::convert::Infallible;
+use std::sync::Arc;
 
 use futures::stream::{self, Stream};
 use futures::StreamExt;
 use serde_json::json;
 use sqlx::PgPool;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use crate::modules::conversations::models::Message;
+use crate::modules::conversations::repository::ConversationRepository;
 use crate::modules::query::models::{QueryRequest, SourceRef, StreamEvent};
 use crate::modules::query::repository::QueryRepository;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
-use crate::shared::llm::{Message, OpenRouterClient};
+use crate::shared::llm::{Message as LlmMessage, OpenRouterClient};
 
 /// Service for processing RAG queries with streaming responses.
 #[derive(Clone, Debug)]
@@ -18,6 +22,9 @@ pub struct QueryService {
     repo: QueryRepository,
     llm_client: OpenRouterClient,
     embedding_client: EmbeddingClient,
+    conversation_repo: ConversationRepository,
+    max_history_messages: usize,
+    context_token_budget: usize,
 }
 
 impl QueryService {
@@ -27,14 +34,20 @@ impl QueryService {
         chroma_url: &str,
         llm_client: OpenRouterClient,
         embedding_service_url: &str,
+        max_history_messages: usize,
+        context_token_budget: usize,
     ) -> Self {
-        let repo = QueryRepository::new(db, chroma_url);
+        let repo = QueryRepository::new(db.clone(), chroma_url);
         let embedding_client = EmbeddingClient::new(embedding_service_url);
+        let conversation_repo = ConversationRepository::new(db);
         tracing::debug!("QueryService initialized");
         Self {
             repo,
             llm_client,
             embedding_client,
+            conversation_repo,
+            max_history_messages,
+            context_token_budget,
         }
     }
 
@@ -45,7 +58,9 @@ impl QueryService {
     /// 2. Search Chroma for the top-5 most similar chunks
     /// 3. Fetch full chunk data from PostgreSQL
     /// 4. Load conversation history (if session_id is provided)
-    /// 5. Stream the LLM response, yielding events: "chunk", "sources", "done"
+    /// 5. Persist user message (if session_id is provided)
+    /// 6. Stream the LLM response, yielding events: "chunk", "sources", "done"
+    /// 7. Persist assistant message on done (if session_id is provided)
     pub async fn process_query(
         &self,
         request: QueryRequest,
@@ -126,14 +141,45 @@ impl QueryService {
             Vec::new()
         };
 
-        // 5. Stream LLM response
+        // 5. Persist user message (if session is present) and get its ID
+        let user_message_id = if let Some(session_id) = request.session_id {
+            let user_msg_id = Uuid::new_v4();
+            let msg = Message {
+                id: user_msg_id,
+                session_id,
+                role: "user".to_string(),
+                content: request.query.clone(),
+                sources: None,
+                created_at: chrono::Utc::now(),
+                edited_at: None,
+                original_content: None,
+                deleted_at: None,
+            };
+            self.conversation_repo.add_message(&msg).await?;
+            tracing::info!("[query.process_query] persisted user_message_id={user_msg_id}");
+            Some(user_msg_id)
+        } else {
+            None
+        };
+
+        // Pre-generate assistant message ID for the done event
+        let assistant_message_id = request.session_id.map(|_| Uuid::new_v4());
+
+        // 6. Stream LLM response
         let llm_stream = self
             .llm_client
             .query_stream(&request.query, &chunks, &history)
             .await?;
 
-        let stream =
-            Self::build_event_stream(llm_stream, source_refs, request.session_id, chunk_ids);
+        let stream = Self::build_event_stream(
+            llm_stream,
+            source_refs,
+            request.session_id,
+            chunk_ids,
+            user_message_id,
+            assistant_message_id,
+            self.conversation_repo.clone(),
+        );
 
         Ok(stream)
     }
@@ -141,19 +187,76 @@ impl QueryService {
     /// Build the final event stream:
     ///   1. LLM text chunks → "chunk" events
     ///   2. Sources metadata → "sources" event
-    ///   3. Completion signal → "done" event
+    ///   3. Completion signal → "done" event with message IDs
     fn build_event_stream(
         llm_stream: impl Stream<Item = Result<String, AppError>> + 'static,
         sources: Vec<SourceRef>,
-        _session_id: Option<Uuid>,
+        session_id: Option<Uuid>,
         _chunk_ids: Vec<String>,
+        user_message_id: Option<Uuid>,
+        assistant_message_id: Option<Uuid>,
+        conversation_repo: ConversationRepository,
     ) -> impl Stream<Item = Result<StreamEvent, Infallible>> {
         let sources_event = StreamEvent {
             event_type: "sources".to_string(),
             data: json!({"sources": sources}),
         };
 
-        llm_stream
+        // Track the full LLM output for persisting the assistant message
+        let full_content: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+        let content_tracker = full_content.clone();
+
+        let tracked_stream = llm_stream.map(move |result| {
+            if let Ok(text) = &result {
+                let mut content = content_tracker.blocking_lock();
+                content.push_str(text);
+            }
+            result
+        });
+
+        let done_event = {
+            let repo = conversation_repo;
+            let asst_id = assistant_message_id;
+            let sid = session_id;
+            let fc = full_content;
+
+            stream::once(async move {
+                // Persist the assistant message if we have both a session and a pre-generated ID
+                if let (Some(session_id), Some(asst_id_val)) = (sid, asst_id) {
+                    let content = fc.lock().await.clone();
+                    let msg = Message {
+                        id: asst_id_val,
+                        session_id,
+                        role: "assistant".to_string(),
+                        content,
+                        sources: None,
+                        created_at: chrono::Utc::now(),
+                        edited_at: None,
+                        original_content: None,
+                        deleted_at: None,
+                    };
+                    if let Err(e) = repo.add_message(&msg).await {
+                        tracing::error!(
+                            "[query.process_query] failed to persist assistant message: {e}"
+                        );
+                    } else {
+                        tracing::info!(
+                            "[query.process_query] persisted assistant_message_id={asst_id_val}"
+                        );
+                    }
+                }
+
+                Ok(StreamEvent {
+                    event_type: "done".to_string(),
+                    data: json!({
+                        "user_message_id": user_message_id,
+                        "assistant_message_id": assistant_message_id,
+                    }),
+                })
+            })
+        };
+
+        tracked_stream
             .map(|result| match result {
                 Ok(text) => Ok(StreamEvent {
                     event_type: "chunk".to_string(),
@@ -168,16 +271,16 @@ impl QueryService {
                 }
             })
             .chain(stream::once(async move { Ok(sources_event) }))
-            .chain(stream::once(async move {
-                Ok(StreamEvent {
-                    event_type: "done".to_string(),
-                    data: json!({}),
-                })
-            }))
+            .chain(done_event)
     }
 
     /// Load conversation history for a session from the `messages` table.
-    async fn load_conversation_history(&self, session_id: Uuid) -> Result<Vec<Message>, AppError> {
+    /// Excludes soft-deleted messages (deleted_at IS NOT NULL).
+    /// Applies sliding-window and token-budget trimming via `context_window::trim_history`.
+    async fn load_conversation_history(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Vec<LlmMessage>, AppError> {
         #[derive(sqlx::FromRow)]
         struct MessageRow {
             role: String,
@@ -186,21 +289,43 @@ impl QueryService {
 
         let rows = sqlx::query_as::<_, MessageRow>(
             "SELECT role, content FROM messages \
-             WHERE session_id = $1 ORDER BY created_at ASC",
+             WHERE session_id = $1 AND deleted_at IS NULL \
+             ORDER BY created_at ASC",
         )
         .bind(session_id.to_string())
         .fetch_all(self.repo.db())
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to load history: {e}")))?;
 
-        tracing::debug!("Loaded {} messages for session {session_id}", rows.len());
-
-        Ok(rows
+        let history: Vec<LlmMessage> = rows
             .into_iter()
-            .map(|r| Message {
+            .map(|r| LlmMessage {
                 role: r.role,
                 content: r.content,
             })
-            .collect())
+            .collect();
+
+        let count = history.len();
+
+        // Apply context window trimming
+        let (trimmed, dropped) = crate::modules::query::context_window::trim_history(
+            &history,
+            self.max_history_messages,
+            self.context_token_budget,
+        );
+
+        let kept_tokens: usize = trimmed
+            .iter()
+            .map(|m| m.content.split_whitespace().count())
+            .sum();
+
+        tracing::info!(
+            "[query.trim_history] session={session_id} in={count} out={} dropped={dropped} kept_tokens={kept_tokens} budget={} max_messages={}",
+            trimmed.len(),
+            self.context_token_budget,
+            self.max_history_messages,
+        );
+
+        Ok(trimmed)
     }
 }

@@ -161,7 +161,7 @@ Rules for the agent:
 
 ### Phase 2 — Backend Implementation (satisfy red)
 
-- [ ] **T6: Backend message migration + repository + service + handlers + routes** —
+- [x] **T6: Backend message migration + repository + service + handlers + routes** —
   - Create migration `backend/migrations/00000000000007_add_message_edit_and_soft_delete.sql`: `ALTER TABLE messages ADD COLUMN edited_at TIMESTAMPTZ NULL; ADD COLUMN original_content TEXT NULL; ADD COLUMN deleted_at TIMESTAMPTZ NULL;` + `CREATE INDEX idx_messages_deleted_at ON messages (deleted_at) WHERE deleted_at IS NULL;` (partial index to keep live-message scans fast). Document rationale inline in SQL.
   - `models.rs`: extend `Message` with `edited_at: Option<DateTime<Utc>>`, `original_content: Option<String>`, `deleted_at: Option<DateTime<Utc>>`. Add `UpdateMessageRequest { content: String }` with `serde` validate length `1..=8000`.
   - `repository.rs`: add `get_message(&self, id) -> Result<Message, AppError>` (NotFound if missing or soft-deleted); `update_message(&self, id, content) -> Result<Message, AppError>` that sets `edited_at = NOW()`, `original_content = old.content` only on first edit (preserve original). Update `get_messages`, `get_message_count`, `list_sessions` count query to filter `deleted_at IS NULL`. Add `soft_delete_message(&self, id)` setting `deleted_at = NOW()`.
@@ -173,7 +173,7 @@ Rules for the agent:
   Active form: "Implementing backend message edit/delete".
   Make green: T2 (integration tests), T3 (repository/service unit tests). Un-ignore the affected `#[ignore]` tests.
 
-- [ ] **T7: Backend context window: config + tokenizer + trim_history integration** —
+- [x] **T7: Backend context window: config + tokenizer + trim_history integration** —
   - `config.rs`: add `llm_max_history_messages: usize` (env `LLM_MAX_HISTORY_MESSAGES`, default `20`) and `llm_context_token_budget: usize` (env `LLM_CONTEXT_TOKEN_BUDGET`, default `6000`). Parse in `AppConfig::from_env`.
   - New `backend/src/modules/query/context_window.rs` (exported from `query/mod.rs`): `count_tokens(text: &str) -> usize` (word-count heuristic via `text.split_whitespace().count()`); `trim_history(history: &[Message], max_messages: usize, token_budget: usize) -> (Vec<Message>, usize)` — drops oldest user+assistant pairs until both `max_messages` and `token_budget` are satisfied; preserves at least the last 2 messages (1 turn). Returns trimmed history + dropped-count.
   - `query/service.rs`: in `load_conversation_history` (L180-205) and at the call site L124-127, wrap with `trim_history`. Already filters `deleted_at IS NULL` after T6 migration.
@@ -182,7 +182,7 @@ Rules for the agent:
   Active form: "Implementing context window trimming".
   Make green: T3 context_window unit tests; T2 `test_conversation_history_filters_soft_deleted`.
 
-- [ ] **T8: Backend markdown export** —
+- [x] **T8: Backend markdown export** —
   - `service.rs`: add `build_markdown_export(session: &Session, messages: &[Message]) -> String` — H1 `# {title}`; per message `## {role} · {created_at.rfc3339}`; blank line; content; **line**; skip soft-deleted (already filtered before call); include `(edited)` suffix when `edited_at` is set.
   - `handlers.rs`: `export_session` parse `Query<ExportFormat>` where `ExportFormat { format: Option<String> }` (default "json"); on "markdown" return `Content-Type: text/markdown` with `body::full` markdown string; on "json" keep existing path. 422 on unknown format.
   - Update `docs/api.md` (L309-312): document `?format=json|markdown`.
@@ -193,7 +193,7 @@ Rules for the agent:
 
 ### Phase 3 — Frontend Implementation (satisfy red)
 
-- [ ] **T9: VSkeleton component** —
+- [x] **T9: VSkeleton component** —
   - **DESIGN-FIRST (mandatory):** load `pencil-design` skill, open `design/ui-kit.lib.pen`, design a new `VSkeleton` atom there (props: `variant: 'text' | 'circle' | 'card'`, `rows`), mirroring the existing `VProgressBar` atom composition and using variables from the kit's token layer + `chat-tokens.css` `--animation-*` tokens for the shimmer. Visually verify via `pencil_get_screenshot` + `pencil_snapshot_layout` BEFORE generating code.
   - Create `frontend/src/components/ui/VSkeleton.vue` — props `{ variant: 'text' | 'circle' | 'card', rows: number = 1 }`; root `div` with `data-testid="skeleton"` and class `skeleton-{variant}`; for `variant="text"` and `rows>1` render `.skeleton-line` children with `v-for`; CSS shimmer animation reusing `chat-tokens.css` `--animation-*` tokens; respects dark/light theme via existing CSS custom properties (do NOT hardcode hex). Code generated from the `.pen` must keep the kit and code in sync.
   - Export from `components/ui/index.ts` if barrel exists; else import directly.
@@ -202,7 +202,7 @@ Rules for the agent:
   Active form: "Implementing VSkeleton component".
   Make green: T4 VSkeleton.spec.ts.
 
-- [ ] **T10: API client extensions + Message type** —
+- [x] **T10: API client extensions + Message type** —
   - `api/types.ts`: extend `Message` with optional `edited_at?: string` and `original_content?: string`. Add `EditMessageRequest { content: string }`. Add `ExportFormat = 'json' | 'md'`.
   - `api/client.ts`: add to `api` object `editMessage: (sessionId, messageId, req: EditMessageRequest) => api.patch<Message>(\`/sessions/${sessionId}/messages/${messageId}\`, req)` (requires adding `patch` to the api object — currently only get/post/del/…), `deleteMessage: (sessionId, messageId) => api.del<{}>(\`/sessions/${sessionId}/messages/${messageId}\`)`, `exportSession: (sessionId, format: ExportFormat) => fetch(\`/api/sessions/${sessionId}/export?format=${format}\`)` returning a Blob (mirror `upload`'s non-JSON handling). StreamEvent `done` type extended in T11 with `{ user_message_id?: string; assistant_message_id?: string }`.
   - **Logging:** Debug `console.debug('[api.${method}] ...')` consistent with existing pattern (none exist today, mirror DocumentList's debug style if available).
@@ -210,7 +210,7 @@ Rules for the agent:
   Active form: "Extending API client and types".
   Make green: parts of T4 chat.spec.ts that mock these calls.
 
-- [ ] **T11: Chat store actions + temp-ID reconciliation** —
+- [x] **T11: Chat store actions + temp-ID reconciliation** —
   - `stores/chat.ts`: add refs `isSessionLoading = ref(false)`, `isExporting = ref(false)`.
   - New actions: `editMessage(sessionId, messageId, content)` — calls `api.editMessage`, finds local message by `id` (post temp-ID reconciliation) and updates `content` + `edited_at` in place; `deleteMessage(sessionId, messageId)` — optimistic remove from `messages.value`, capture index + prev value, on api error revert and toast-error via existing `VToast` pattern; `exportSession(sessionId, format)` — sets `isExporting=true`, calls `api.exportSession` returning Blob, create object URL, programmatically click an `<a download>` link, revoke URL, set `isExporting=false`; `loadSession(sessionId)` — set `isSessionLoading=true` before GET, `false` after (today it just sets `messages.value` directly).
   - Temp-ID reconciliation in `sendMessage` — when the `done` StreamEvent arrives, if it contains `user_message_id` / `assistant_message_id`, replace the matching local `temp-${...}` IDs in `messages.value`. Backend `query/handlers.rs` must echo these IDs in the `done` payload:
@@ -222,7 +222,7 @@ Rules for the agent:
   Active form: "Implementing chat store actions and temp-ID reconciliation".
   Make green: T4 chat.spec.ts (front), parts of T2 (back) for done-payload.
 
-- [ ] **T12: MessageBubble edit/delete UI** —
+- [x] **T12: MessageBubble edit/delete UI** —
   - **DESIGN-FIRST (mandatory):** load `pencil-design` skill, open `design/chat.pen`. Extend the existing message bubble design in `chat.pen` with: (a) hover action row showing edit + delete buttons for user messages and delete-only for assistant messages; (b) edit-mode variant showing a textarea + Save/Cancel buttons; (c) a small `· edited` badge when the message has an `edited_at`. Reuse `VButton` instances from `ui-kit.lib.pen`. Visually verify via `pencil_get_screenshot` + `pencil_snapshot_layout` BEFORE generating code.
   - Add hover action row to `MessageBubble.vue` revealed via CSS opacity transition (mirror `.session-item-delete` pattern at `ChatView.vue:522-528`).
   - For user messages: show edit + delete buttons. For assistant messages: show delete only. Buttons emit events `@edit` `{ id }`, `@delete` `{ id }`.
@@ -233,7 +233,7 @@ Rules for the agent:
   Active form: "Implementing MessageBubble edit/delete UI".
   Make green: T4 MessageBubble.spec.ts extension (excluding chat-store mock wiring in T4 — store tests are independent).
 
-- [ ] **T13: ChatView wire edit/delete + export button + skeletons** —
+- [x] **T13: ChatView wire edit/delete + export button + skeletons** —
   - **DESIGN-FIRST (mandatory):** load `pencil-design` skill, open `design/chat.pen`. Extend the existing chat top toolbar layout with an "Export" `VButton` (ghost variant) and a format `VSelect` in the toolbar's right slot, matching the existing top-bar composition. Place the messages-area skeleton placeholder using the `VSkeleton` from T9 (variant `text`, `rows: 6`). Reuse `VButton`/`VSelect` instances from `ui-kit.lib.pen`. Visually verify BEFORE generating code.
   - `ChatView.vue`: listen for `@edit`, `@save-edit`, `@cancel-edit`, `@delete` on `<MessageBubble>` and call chat store actions `editMessage` / `deleteMessage` with `activeSessionId`.
   - Add toolbar right slot next to the existing collection `VSelect` (`ChatView.vue:245-257`): an "Export" `VButton` variant="ghost" + a `<VSelect>` of `[ {label: 'Markdown', value: 'md'}, {label: 'JSON', value: 'json'} ]` (default md). Click → `chatStore.exportSession(activeSessionId, format)`. Disable when `isExporting`.
@@ -244,7 +244,7 @@ Rules for the agent:
   Active form: "Wiring chat view edit/delete + export + skeleton".
   Make green: parts of T5 e2e specs (chat-export, loading-skeletons).
 
-- [ ] **T14: Skeletons across sessions sidebar, DocumentList, GitRepoManager** —
+- [x] **T14: Skeletons across sessions sidebar, DocumentList, GitRepoManager** —
   - **DESIGN-FIRST (mandatory):** load `pencil-design` skill. For the sessions sidebar open `design/chat.pen`; for `DocumentList` and `GitRepoManager` open `design/admin.pen`. Replace the existing text-only loaders in those designs with `VSkeleton` instances (variant `card`, with `rows` matching the list/card composition already in the `.pen`). Reuse kit atoms. Visually verify each updated layout BEFORE generating code.
   - `ChatView.vue` sessions sidebar: replace `v-if="chatStore.sessions.length === 0"` "No sessions yet" with "loading skeleton rows while `chatStore.isLoadingSessions`" (new ref — add to chat store, set during `fetchSessions`, default false). Add `data-testid="sessions-loading-skeleton"`.
   - Add `isLoadingSessions` flag to `stores/chat.ts` `fetchSessions` (set true at start, false at end; today no flag exists).
@@ -256,7 +256,7 @@ Rules for the agent:
   Active form: "Adding skeletons across list views".
   Make green: T5 loading-skeletons.spec.ts parts for sidebar/documents/repos.
 
-- [ ] **T15: Empty state refinement for active session** —
+- [x] **T15: Empty state refinement for active session** —
   - **DESIGN-FIRST (mandatory):** load `pencil-design` skill, open `design/chat.pen`. Add a "No messages in this session" empty-state placeholder that is visually consistent with the existing welcome screen / no-sessions empty states already designed in `chat.pen`. Reuse the existing icon + title + subtitle pattern from those empty states. Visually verify BEFORE generating code.
   - `ChatView.vue`: when a session IS active but its messages are empty (after `loadSession` resolves with `[]`), show a refined "No messages in this session. Ask a question to start." placeholder inside the messages area — distinct from the no-session welcome screen.
   - Add `data-testid="session-empty-messages"` for testability.
@@ -265,7 +265,7 @@ Rules for the agent:
   Active form: "Refining empty state for active session".
   Make green: T5 loading-skeletons.spec.ts empty-state assertions (if any) or new assertions added to T5 at impl time without reordering (per AGENTS rules the spec already authored; add minimal assertion updates here in T15).
 
-- [ ] **T16: E2E specs enable + final Playwright pass** —
+- [x] **T16: E2E specs enable + final Playwright pass** —
   - Remove `test.skip` from the three e2e spec files added in T5; ensure specs pass against the implemented system in local dev (`docker compose up` + Playwright) and in CI (`.github/workflows/e2e.yml` already runs the suite).
   - If any spec reveals a contract gap (e.g. `data-testid` mismatch), fix the implementation in this task — do NOT weaken the e2e assertions.
   - **Logging:** Playwright test steps via `test.step()` for clarity in HTML report.
@@ -275,7 +275,7 @@ Rules for the agent:
 
 ### Phase 4 — Docs & Final Validation
 
-- [ ] **T17: Documentation updates** —
+- [x] **T17: Documentation updates** —
   - `docs/api.md`: document `PATCH /api/sessions/:id/messages/:mid` and `DELETE /api/sessions/:id/messages/:mid` (responses, errors including 422 for editing assistant messages); extend the export row to show `?format=json|markdown`; document the new done-SSE payload `{ user_message_id, assistant_message_id }`.
   - `docs/gui.md`: add section "Message actions" (edit user messages, delete any message); "Chat export" (toolbar button, format selector); "Loading skeletons" (messages area, sessions sidebar, documents, repos); updated temp-ID reconciliation note (server-assigned IDs replace client temp IDs on `done`).
   - `docs/configuration.md`: add `LLM_MAX_HISTORY_MESSAGES` (default 20) and `LLM_CONTEXT_TOKEN_BUDGET` (default 6000). Update `.env.example` and `docker-compose.yml` service env for backend.
@@ -286,7 +286,7 @@ Rules for the agent:
   Active form: "Updating project docs".
   Make green: docs checkpoint gate in `/aif-implement`.
 
-- [ ] **T18: Final lint + format + verify** —
+- [x] **T18: Final lint + format + verify** —
   - Run per project convention (`AGENTS.md`):
     - `backend/`: `cargo fmt` + `cargo clippy` (default rustfmt settings, no custom config).
     - `embedding/`: `ruff format` + `ruff check` (unchanged, but include if any embedding change — likely none).

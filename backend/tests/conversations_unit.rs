@@ -60,6 +60,9 @@ async fn seed_message(db: &PgPool, session_id: Uuid, role: &str, content: &str) 
         content: content.to_string(),
         sources: None,
         created_at: chrono::Utc::now(),
+        edited_at: None,
+        original_content: None,
+        deleted_at: None,
     };
     repo.add_message(&msg).await.expect("seed message");
     msg
@@ -71,7 +74,6 @@ async fn seed_message(db: &PgPool, session_id: Uuid, role: &str, content: &str) 
 
 /// update_message sets edited_at and preserves original_content across edits.
 #[tokio::test]
-#[ignore = "RED: update_message round-trip (T6)"]
 async fn test_update_message_sets_edited_at_and_original_content() {
     let db = common::setup_test_db().await;
     let session = seed_session(&db, "Repo update").await;
@@ -79,7 +81,7 @@ async fn test_update_message_sets_edited_at_and_original_content() {
     let repo = ConversationRepository::new(db.clone());
 
     let updated = repo
-        .update_message(m.id, "second")
+        .update_message(m.id, "second".to_string())
         .await
         .expect("update_message (T6)");
     assert_eq!(updated.content, "second");
@@ -88,7 +90,7 @@ async fn test_update_message_sets_edited_at_and_original_content() {
 
     // Second edit must NOT overwrite original_content (preserves audit trail).
     let again = repo
-        .update_message(m.id, "third")
+        .update_message(m.id, "third".to_string())
         .await
         .expect("update_message second");
     assert_eq!(again.content, "third");
@@ -101,7 +103,6 @@ async fn test_update_message_sets_edited_at_and_original_content() {
 
 /// soft_delete_message sets deleted_at and is excluded from get_messages / get_message.
 #[tokio::test]
-#[ignore = "RED: soft_delete_message + filters (T6)"]
 async fn test_soft_delete_sets_deleted_at_and_filters() {
     let db = common::setup_test_db().await;
     let session = seed_session(&db, "Repo soft del").await;
@@ -124,7 +125,6 @@ async fn test_soft_delete_sets_deleted_at_and_filters() {
 
 /// get_message_count reflects soft-deleted exclusion.
 #[tokio::test]
-#[ignore = "RED: get_message_count excludes soft-deleted (T6)"]
 async fn test_get_message_count_excludes_soft_deleted() {
     let db = common::setup_test_db().await;
     let session = seed_session(&db, "Repo count").await;
@@ -149,7 +149,6 @@ async fn test_get_message_count_excludes_soft_deleted() {
 
 /// build_markdown_export includes live messages only; excludes soft-deleted.
 #[tokio::test]
-#[ignore = "RED: build_markdown_export + soft-delete filter (T6/T8)"]
 async fn test_export_markdown_includes_all_live_messages_only() {
     let db = common::setup_test_db().await;
     let session = seed_session(&db, "Md live only").await;
@@ -167,8 +166,9 @@ async fn test_export_markdown_includes_all_live_messages_only() {
 
     let svc = ConversationService::new(repo);
     let md = svc
-        .build_markdown_export(&session, &live)
-        .expect("build_markdown_export (T8)");
+        .export_session_markdown(session.id)
+        .await
+        .expect("export_session_markdown (T8)");
     assert!(md.contains("# Md live only"), "H1 session title");
     assert!(md.contains("q1"));
     assert!(md.contains("a1"));
@@ -189,7 +189,6 @@ fn llm_msg(role: &str, content: &str) -> LlmMessage {
 
 /// count_tokens approximates via word count.
 #[test]
-#[ignore = "RED: count_tokens word heuristic (T7)"]
 fn test_count_tokens_word_approach_approximates_size() {
     assert_eq!(context_window::count_tokens(""), 0);
     assert_eq!(context_window::count_tokens("one two three"), 3);
@@ -198,7 +197,6 @@ fn test_count_tokens_word_approach_approximates_size() {
 
 /// trim_history drops oldest user+assistant pair until under budget.
 #[test]
-#[ignore = "RED: trim_history drops oldest until under budget (T7)"]
 fn test_trim_history_drops_oldest_until_under_budget() {
     let hist = vec![
         llm_msg("user", "alpha beta gamma delta"),
@@ -221,7 +219,6 @@ fn test_trim_history_drops_oldest_until_under_budget() {
 
 /// trim_history preserves at least the most recent turn (2 messages) regardless of budget.
 #[test]
-#[ignore = "RED: trim_history preserves recent turn (T7)"]
 fn test_trim_history_preserves_at_least_one_recent_turn() {
     let hist = vec![
         llm_msg("user", "alpha beta gamma"),
@@ -238,7 +235,6 @@ fn test_trim_history_preserves_at_least_one_recent_turn() {
 
 /// trim_history caps by max_messages (drops oldest pairs).
 #[test]
-#[ignore = "RED: trim_history max_messages cap (T7)"]
 fn test_trim_history_max_history_messages_cap() {
     let mut hist = Vec::new();
     for i in 0..10 {
@@ -254,7 +250,6 @@ fn test_trim_history_max_history_messages_cap() {
 
 /// trim_history over-budget / under-cap history is a no-op.
 #[test]
-#[ignore = "RED: trim_history under budget is noop (T7)"]
 fn test_trim_history_under_budget_is_noop() {
     let hist = vec![llm_msg("user", "hello"), llm_msg("assistant", "world")];
     let (trimmed, dropped) = context_window::trim_history(&hist, 20, 1000);

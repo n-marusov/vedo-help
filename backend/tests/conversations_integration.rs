@@ -104,6 +104,9 @@ async fn seed_message(db: &PgPool, session_id: Uuid, role: &str, content: &str) 
         content: content.to_string(),
         sources: None,
         created_at: chrono::Utc::now(),
+        edited_at: None,
+        original_content: None,
+        deleted_at: None,
     };
     repo.add_message(&msg).await.expect("seed message");
     msg
@@ -196,7 +199,6 @@ async fn get_export(router: Router, sid: Uuid, format: Option<&str>) -> (StatusC
 /// PATCH a user message → 200, content replaced, `original_content` retains the
 /// prior content, `edited_at` is set.
 #[tokio::test]
-#[ignore = "RED: conv::patch_message + UpdateMessageRequest + edited_at/original_content (T6)"]
 async fn test_patch_message_updates_content() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "Edit contract").await;
@@ -214,7 +216,6 @@ async fn test_patch_message_updates_content() {
 /// DELETE a message → 204; subsequent GET excludes it; `get_message_count`
 /// reflects the drop.
 #[tokio::test]
-#[ignore = "RED: conv::delete_message soft-delete + get_messages filter (T6)"]
 async fn test_delete_message_soft_delete_then_excluded_from_history() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "Delete contract").await;
@@ -239,7 +240,6 @@ async fn test_delete_message_soft_delete_then_excluded_from_history() {
 
 /// PATCH on an assistant-role message → 422.
 #[tokio::test]
-#[ignore = "RED: assistant edit rejection → UnprocessableEntity (T6)"]
 async fn test_cannot_edit_assistant_message() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "Reject assistant edit").await;
@@ -252,7 +252,6 @@ async fn test_cannot_edit_assistant_message() {
 /// After editing a user message, export reflects the new content; soft-deleted
 /// messages remain excluded from export.
 #[tokio::test]
-#[ignore = "RED: export reflects edit + filters soft-deleted (T6/T8)"]
 async fn test_edit_user_message_reappears_in_export() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "Export after edit").await;
@@ -285,7 +284,6 @@ async fn test_edit_user_message_reappears_in_export() {
 /// `?format=markdown` → `Content-Type: text/markdown`, H1 session title,
 /// `## user` / `## assistant` headers per message.
 #[tokio::test]
-#[ignore = "RED: markdown export format (T8)"]
 async fn test_export_markdown_format() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "Markdown Title").await;
@@ -303,7 +301,6 @@ async fn test_export_markdown_format() {
 
 /// Default (no `format`) export stays JSON with the prior shape — backward compatible.
 #[tokio::test]
-#[ignore = "RED: default json export shape unchanged (T8)"]
 async fn test_export_default_json_unchanged() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "Backward Compat").await;
@@ -320,7 +317,6 @@ async fn test_export_default_json_unchanged() {
 /// `load_conversation_history` excludes it (asserted at the repository level,
 /// mirroring `/api/query`'s internal use).
 #[tokio::test]
-#[ignore = "RED: load_conversation_history filters soft-deleted (T6/T7)"]
 async fn test_conversation_history_filters_soft_deleted() {
     let app = spawn_app().await;
     let session = seed_session(&app.db, "History filtering").await;

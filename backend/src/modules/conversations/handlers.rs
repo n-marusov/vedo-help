@@ -1,10 +1,20 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
+use axum::response::{IntoResponse, Response};
 use axum::Json;
+use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::modules::conversations::models::{CreateSessionRequest, SessionSummary};
+use crate::modules::conversations::models::{
+    CreateSessionRequest, SessionSummary, UpdateMessageRequest,
+};
 use crate::modules::conversations::service::ConversationService;
 use crate::shared::error::AppError;
+
+/// Query parameters for export endpoint.
+#[derive(Debug, Deserialize)]
+pub struct ExportQuery {
+    pub format: Option<String>,
+}
 
 /// List all sessions, most recently updated first.
 ///
@@ -56,16 +66,35 @@ pub async fn delete_session(
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
 }
 
-/// Export a session as JSON.
+/// Export a session as JSON or Markdown.
 ///
-/// Endpoint: `GET /api/sessions/:id/export`
+/// Endpoint: `GET /api/sessions/:id/export?format={json|markdown}`
+/// Default format is `json` when omitted.
 pub async fn export_session(
     State(svc): State<ConversationService>,
     Path(id): Path<Uuid>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!("GET /api/sessions/{id}/export");
-    let export = svc.export_session(id).await?;
-    Ok(Json(export))
+    Query(query): Query<ExportQuery>,
+) -> Result<Response, AppError> {
+    let format = query.format.as_deref().unwrap_or("json");
+
+    match format {
+        "json" => {
+            tracing::info!("GET /api/sessions/{id}/export?format=json");
+            let export = svc.export_session(id).await?;
+            Ok(Json(export).into_response())
+        }
+        "markdown" => {
+            tracing::info!("GET /api/sessions/{id}/export?format=markdown");
+            let md = svc.export_session_markdown(id).await?;
+            Ok(([(axum::http::header::CONTENT_TYPE, "text/markdown")], md).into_response())
+        }
+        other => {
+            tracing::warn!("Unknown export format: {other}");
+            Err(AppError::UnprocessableEntity(format!(
+                "Unknown export format: {other}. Supported: json, markdown"
+            )))
+        }
+    }
 }
 
 /// Delete all sessions.
@@ -77,4 +106,31 @@ pub async fn delete_all_sessions(
     tracing::warn!("DELETE /api/sessions (bulk)");
     let result = svc.delete_all_sessions().await?;
     Ok(Json(result))
+}
+
+/// Update a message's content.
+///
+/// Endpoint: `PATCH /api/sessions/:session_id/messages/:message_id`
+/// Only user messages can be edited. Returns 422 for assistant messages.
+pub async fn patch_message(
+    State(svc): State<ConversationService>,
+    Path((session_id, message_id)): Path<(Uuid, Uuid)>,
+    Json(req): Json<UpdateMessageRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    tracing::info!("[conv.update_message] session={session_id} msg={message_id}",);
+    let updated = svc.update_message(session_id, message_id, req).await?;
+    Ok(Json(serde_json::json!(updated)))
+}
+
+/// Soft-delete a message.
+///
+/// Endpoint: `DELETE /api/sessions/:session_id/messages/:message_id`
+/// Returns 204 on success.
+pub async fn delete_message(
+    State(svc): State<ConversationService>,
+    Path((session_id, message_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, AppError> {
+    tracing::info!("[conv.soft_delete] session={session_id} msg={message_id}");
+    svc.delete_message(session_id, message_id).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }

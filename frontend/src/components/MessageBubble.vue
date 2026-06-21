@@ -10,7 +10,16 @@ const props = defineProps<{
   index?: number;
 }>();
 
+const emit = defineEmits<{
+  edit: [{ id: string }];
+  delete: [{ id: string }];
+  'save-edit': [{ id: string; content: string }];
+  'cancel-edit': [];
+}>();
+
 const sourcesExpanded = ref(false);
+const editing = ref(false);
+const draftContent = ref('');
 
 const renderedContent = computed(() => {
   if (!props.message.content) return '';
@@ -50,12 +59,35 @@ function handleMarkdownClick(event: MouseEvent) {
       console.warn('[MessageBubble] copy failed', err);
     });
 }
+
 const formattedTime = computed(() => {
   return new Date(props.message.created_at).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
 });
+
+function startEdit() {
+  console.debug('[MessageBubble] enter edit mid=%s', props.message.id);
+  draftContent.value = props.message.content;
+  editing.value = true;
+}
+
+function saveEdit() {
+  console.debug('[MessageBubble] save edit');
+  emit('save-edit', { id: props.message.id, content: draftContent.value });
+  editing.value = false;
+}
+
+function cancelEdit() {
+  console.debug('[MessageBubble] cancel edit');
+  editing.value = false;
+  draftContent.value = props.message.content;
+}
+
+function handleDelete() {
+  emit('delete', { id: props.message.id });
+}
 
 onMounted(() => {
   console.debug('[MessageBubble] mounted', {
@@ -117,26 +149,121 @@ watch(
         }"
         :data-testid="'message-body-' + message.role"
       >
-        <div
-          v-if="message.content"
-          class="markdown-body"
-          data-testid="message-content"
-          v-html="renderedContent"
-          @click.stop="handleMarkdownClick"
-        />
-        <span
-          v-if="isStreaming && message.content"
-          class="streaming-cursor"
-          aria-hidden="true"
-        />
-        <div v-if="isStreaming && !message.content" class="streaming-bar" />
+        <!-- Editing mode: textarea + Save/Cancel -->
+        <template v-if="editing">
+          <textarea
+            v-model="draftContent"
+            class="message-edit-textarea"
+            data-testid="message-edit-textarea"
+          />
+          <div class="message-edit-actions">
+            <button
+              class="message-edit-save"
+              data-testid="message-save-btn"
+              @click="saveEdit"
+            >
+              Save
+            </button>
+            <button
+              class="message-edit-cancel"
+              data-testid="message-cancel-edit-btn"
+              @click="cancelEdit"
+            >
+              Cancel
+            </button>
+          </div>
+        </template>
+
+        <!-- Normal display mode -->
+        <template v-else>
+          <div
+            v-if="message.content"
+            class="markdown-body"
+            data-testid="message-content"
+            v-html="renderedContent"
+            @click.stop="handleMarkdownClick"
+          />
+          <span
+            v-if="isStreaming && message.content"
+            class="streaming-cursor"
+            aria-hidden="true"
+          />
+          <div v-if="isStreaming && !message.content" class="streaming-bar" />
+        </template>
       </div>
 
-      <!-- Timestamp -->
+      <!-- Hover action row (edit/delete) -->
+      <div class="message-actions">
+        <button
+          v-if="message.role === 'user'"
+          class="message-action-btn"
+          data-testid="message-edit-btn"
+          title="Edit"
+          @click="startEdit"
+        >
+          <svg
+            fill="none"
+            height="14"
+            viewBox="0 0 14 14"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M10 1.5L12.5 4L5 11.5L1.5 12.5L2.5 9L10 1.5Z"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.2"
+            />
+          </svg>
+        </button>
+        <button
+          class="message-action-btn"
+          data-testid="message-delete-btn"
+          title="Delete"
+          @click="handleDelete"
+        >
+          <svg
+            fill="none"
+            height="14"
+            viewBox="0 0 14 14"
+            width="14"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2 3.5H12"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.2"
+            />
+            <path
+              d="M5 2H9"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.2"
+            />
+            <path
+              d="M3 5L3.5 11.5C3.5 12.3 4.2 13 5 13H9C9.8 13 10.5 12.3 10.5 11.5L11 5"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.2"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Timestamp + edited badge -->
       <div class="message-meta">
         <span class="message-time" data-testid="message-time">{{
           formattedTime
         }}</span>
+        <span
+          v-if="message.edited_at"
+          class="message-edited-badge"
+          data-testid="message-edited-badge"
+        >
+          · edited
+        </span>
       </div>
 
       <!-- Sources -->
@@ -621,7 +748,97 @@ watch(
   }
 }
 
-/* ===== Message meta (timestamp) ===== */
+/* ===== Message actions (hover row) ===== */
+.message-actions {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.1rem var(--msg-padding-x);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-bubble:hover .message-actions {
+  opacity: 1;
+}
+
+.message-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  color: var(--msg-time-color);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.message-action-btn:hover {
+  color: var(--msg-assistant-text);
+  border-color: var(--color-border);
+}
+
+/* ===== Edit mode: textarea + Save/Cancel ===== */
+.message-edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 200px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
+  font-family: var(--font-family);
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  outline: none;
+}
+
+.message-edit-textarea:focus {
+  border-color: var(--color-primary);
+}
+
+.message-edit-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.message-edit-save {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: var(--font-family);
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.message-edit-save:hover {
+  opacity: 0.9;
+}
+
+.message-edit-cancel {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: var(--font-family);
+  color: var(--msg-time-color);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.message-edit-cancel:hover {
+  color: var(--color-foreground);
+}
+
+/* ===== Message meta (timestamp + edited badge) ===== */
 .message-meta {
   display: flex;
   align-items: center;
@@ -637,6 +854,13 @@ watch(
   font-size: 0.65rem;
   color: var(--msg-time-color);
   line-height: 1;
+}
+
+.message-edited-badge {
+  font-size: 0.65rem;
+  color: var(--msg-time-color);
+  line-height: 1;
+  font-style: italic;
 }
 
 /* ===== Sources ===== */

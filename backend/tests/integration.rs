@@ -823,6 +823,9 @@ async fn test_conversation_repo_native_uuid_bind() {
         content: "Hello, мир!".to_string(),
         sources: None,
         created_at: now,
+        edited_at: None,
+        original_content: None,
+        deleted_at: None,
     };
 
     repo.add_message(&msg)

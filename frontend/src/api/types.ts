@@ -57,7 +57,15 @@ export interface Message {
   content: string;
   sources?: string;
   created_at: string;
+  edited_at?: string;
+  original_content?: string;
 }
+
+export interface EditMessageRequest {
+  content: string;
+}
+
+export type ExportFormat = 'json' | 'md';
 
 export interface SourceRef {
   document_id: string;
@@ -71,6 +79,8 @@ export interface StreamEvent {
   type: 'chunk' | 'sources' | 'error' | 'done';
   text?: string;
   sources?: SourceRef[];
+  user_message_id?: string;
+  assistant_message_id?: string;
 }
 
 export interface QueryRequest {

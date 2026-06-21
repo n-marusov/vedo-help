@@ -1,7 +1,10 @@
 import type {
   BatchDeleteResponse,
   CreateRepoRequest,
+  EditMessageRequest,
+  ExportFormat,
   GitRepoSummary,
+  Message,
   SyncStatusResponse,
 } from './types';
 
@@ -77,6 +80,31 @@ export const api = {
         );
       }
       return res.json() as Promise<T>;
+    });
+  },
+
+  // ── Conversations (v0.3.1) ──
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  editMessage: (sessionId: string, messageId: string, req: EditMessageRequest) =>
+    api.patch<Message>(`/sessions/${sessionId}/messages/${messageId}`, req),
+  deleteMessage: (sessionId: string, messageId: string) =>
+    api.del<Record<string, never>>(`/sessions/${sessionId}/messages/${messageId}`),
+  exportSession: (sessionId: string, format: ExportFormat) => {
+    const headers: Record<string, string> = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+    return fetch(`${API_BASE}/sessions/${sessionId}/export?format=${format}`, {
+      headers,
+    }).then(async (res) => {
+      if (!res.ok) {
+        throw new ApiError(res.status, 'Export failed');
+      }
+      return res.blob();
     });
   },
 };

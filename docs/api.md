@@ -43,6 +43,7 @@ Obtain an access token via the OAuth 2.0 Authorization Code flow with PKCE (see 
 | 502 | `embedding_error` | Embedding service unavailable |
 | 502 | `chroma_error` | Chroma unavailable |
 | 502 | `llm_error` | OpenRouter error |
+| 422 | `unprocessable_entity` | Validation error (e.g., editing assistant messages) |
 
 ## Endpoints
 
@@ -306,9 +307,56 @@ Delete a specific session.
 
 Delete all sessions.
 
-#### `GET /api/sessions/{id}/export`
+#### `GET /api/sessions/{id}/export?format={json|markdown}`
 
-Export session messages as JSON.
+Export session messages. Default format is `json`.
+
+| Query Param | Values | Description |
+|------------|--------|-------------|
+| `format` | `json` or `markdown` | Export format (default: `json`) |
+
+`format=markdown` returns `Content-Type: text/markdown` with:
+- `# Session Title` as H1
+- `## role · timestamp` headers per message
+- `(edited)` suffix on edited messages
+- Soft-deleted messages excluded
+
+### Message Actions
+
+#### `PATCH /api/sessions/{session_id}/messages/{message_id}`
+
+Edit a message. Only **user** messages can be edited — editing assistant messages returns `422 Unprocessable Entity`.
+
+```json
+{
+  "content": "Updated question text"
+}
+```
+
+**Response:** `200 OK` with the updated message including `edited_at` and `original_content`.
+
+| Error | Status | Description |
+|-------|--------|-------------|
+| 422 | `unprocessable_entity` | Attempting to edit an assistant message |
+| 404 | `not_found` | Message not found or soft-deleted |
+
+#### `DELETE /api/sessions/{session_id}/messages/{message_id}`
+
+Soft-delete a message. The message is hidden from history and export but preserved in the database.
+
+**Response:** `204 No Content`
+
+### SSE Query `done` Event
+
+The `done` SSE event now includes message IDs for temp-ID reconciliation:
+
+```json
+{
+  "type": "done",
+  "user_message_id": "550e8400-e29b-41d4-a716-446655440000",
+  "assistant_message_id": "660e8400-e29b-41d4-a716-446655440000"
+}
+```
 
 ### Auth
 

@@ -1,20 +1,22 @@
 import { expect, test } from '@playwright/test';
-import { setupAuthAndCollection } from './helpers';
+import { setActiveCollection, setupAuthAndCollection } from './helpers';
 
-test.describe('chat export (RED)', () => {
-  test.skip('export Markdown → blob starts with H1 session title and contains ## user', async ({
+test.describe('chat export', () => {
+  test('export Markdown → blob starts with H1 session title and contains ## user', async ({
     page,
     request,
   }) => {
     const collection = await setupAuthAndCollection(page, request);
     await page.goto('/');
-    await page.selectOption('[data-testid="collection-select"]', collection.id);
+    await setActiveCollection(page, collection.id);
 
     // Send a query to create a session
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('Export test');
-    await page.locator('[data-testid="send-btn"]').click();
-    await page.waitForSelector('[data-testid="message-assistant"]', { timeout: 10000 });
+    await page.locator('[data-testid="btn-send"]').click();
+    await page.waitForSelector('[data-testid="message-assistant"]', {
+      timeout: 10000,
+    });
 
     // Click Export button
     const exportBtn = page.locator('[data-testid="export-btn"]');
@@ -32,15 +34,17 @@ test.describe('chat export (RED)', () => {
     expect(text).toContain('## user');
   });
 
-  test.skip('export JSON → shape has session and messages keys', async ({ page, request }) => {
+  test('export JSON → shape has session and messages keys', async ({ page, request }) => {
     const collection = await setupAuthAndCollection(page, request);
     await page.goto('/');
-    await page.selectOption('[data-testid="collection-select"]', collection.id);
+    await setActiveCollection(page, collection.id);
 
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('JSON test');
-    await page.locator('[data-testid="send-btn"]').click();
-    await page.waitForSelector('[data-testid="message-assistant"]', { timeout: 10000 });
+    await page.locator('[data-testid="btn-send"]').click();
+    await page.waitForSelector('[data-testid="message-assistant"]', {
+      timeout: 10000,
+    });
 
     // Select JSON format
     const formatSelect = page.locator('[data-testid="export-format-select"]');
