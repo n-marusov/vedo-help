@@ -50,24 +50,31 @@ impl ChromaClient {
             "embeddings": embeddings,
             "metadatas": metadatas,
         });
+
+        // Resolve collection name to Chroma UUID for URL path.
+        // Chroma 0.6.x requires the internal UUID, not the name, in sub-resource URLs.
+        // Fall back to original name if resolution fails — retry logic below
+        // will attempt resolution again on InvalidCollection errors.
+        let resolved_id = match self.resolve_collection_id(collection).await {
+            Ok(id) => {
+                tracing::debug!(
+                    "[ChromaClient.add_embeddings] resolved collection={collection} → chroma_id={id}"
+                );
+                id
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "[ChromaClient.add_embeddings] collection resolution failed, using original name: {e}"
+                );
+                collection.to_string()
+            }
+        };
+        let url = format!("{}/api/v1/collections/{}/add", self.base_url, resolved_id);
+
         let mut last_error = None;
-        let mut collection_resolved = false;
-        let mut url = format!("{}/api/v1/collections/{}/add", self.base_url, collection);
         for attempt in 1..=MAX_RETRIES {
             match Self::try_add(&self.client, &url, &body).await {
                 Ok(()) => return Ok(()),
-                Err(e) if Self::is_missing_collection_error(&e) && !collection_resolved => {
-                    tracing::warn!(
-                        "[FIX] Chroma collection missing during add_embeddings; resolving collection and retrying: collection={collection}, error={e}"
-                    );
-                    let resolved_collection = self.get_or_create_collection_id(collection).await?;
-                    url = format!(
-                        "{}/api/v1/collections/{}/add",
-                        self.base_url, resolved_collection
-                    );
-                    collection_resolved = true;
-                    last_error = Some(e);
-                }
                 Err(e) => {
                     tracing::warn!(
                         "Chroma add_embeddings failed (attempt {attempt}/{MAX_RETRIES}): {e}"
@@ -103,6 +110,20 @@ impl ChromaClient {
         Ok(())
     }
 
+    /// Resolve a collection name to its Chroma-assigned UUID.
+    ///
+    /// Chroma 0.6.x requires the internal UUID (not the collection name) in
+    /// URL paths for sub-resource operations like `/add`, `/query`, `/delete`.
+    /// This method calls `POST /api/v1/collections` with `get_or_create: true`
+    /// to look up the collection and return its Chroma `id` field.
+    pub async fn resolve_collection_id(&self, name: &str) -> Result<String, AppError> {
+        tracing::debug!("[ChromaClient.resolve_collection_id] resolving collection={name}");
+        let chroma_id = self.get_or_create_collection_id(name).await?;
+        tracing::debug!("[ChromaClient.resolve_collection_id] resolved collection={name} → chroma_id={chroma_id}");
+        Ok(chroma_id)
+    }
+
+    #[cfg(test)]
     fn is_missing_collection_error(error: &AppError) -> bool {
         match error {
             AppError::ChromaError(message) => {
@@ -134,7 +155,24 @@ impl ChromaClient {
             tracing::debug!("Chroma query with where filter: {filter}");
             body["where"] = filter;
         }
-        let url = format!("{}/api/v1/collections/{}/query", self.base_url, collection);
+
+        // Resolve collection name to Chroma UUID for URL path.
+        // Chroma 0.6.x requires the internal UUID, not the name, in sub-resource URLs.
+        let resolved_id = match self.resolve_collection_id(collection).await {
+            Ok(id) => {
+                tracing::debug!(
+                    "[ChromaClient.query] resolved collection={collection} → chroma_id={id}, calling /api/v1/collections/{id}/query"
+                );
+                id
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "[ChromaClient.query] collection resolution failed, retrying with original name: {e}"
+                );
+                collection.to_string()
+            }
+        };
+        let url = format!("{}/api/v1/collections/{}/query", self.base_url, resolved_id);
 
         let mut last_error = None;
         for attempt in 1..=MAX_RETRIES {
@@ -325,7 +363,26 @@ impl ChromaClient {
         tracing::debug!("Chroma delete_where: collection={collection}, filter={filter}",);
 
         let body = json!({ "where": filter });
-        let url = format!("{}/api/v1/collections/{}/delete", self.base_url, collection);
+
+        // Resolve collection name to Chroma UUID for URL path.
+        let resolved_id = match self.resolve_collection_id(collection).await {
+            Ok(id) => {
+                tracing::debug!(
+                    "[ChromaClient.delete_where] resolved collection={collection} → chroma_id={id}, calling /api/v1/collections/{id}/delete"
+                );
+                id
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "[ChromaClient.delete_where] collection resolution failed, retrying with original name: {e}"
+                );
+                collection.to_string()
+            }
+        };
+        let url = format!(
+            "{}/api/v1/collections/{}/delete",
+            self.base_url, resolved_id
+        );
 
         let mut last_error = None;
         for attempt in 1..=MAX_RETRIES {
@@ -355,7 +412,26 @@ impl ChromaClient {
         );
 
         let body = json!({"ids": ids});
-        let url = format!("{}/api/v1/collections/{}/delete", self.base_url, collection);
+
+        // Resolve collection name to Chroma UUID for URL path.
+        let resolved_id = match self.resolve_collection_id(collection).await {
+            Ok(id) => {
+                tracing::debug!(
+                    "[ChromaClient.delete_document] resolved collection={collection} → chroma_id={id}, calling /api/v1/collections/{id}/delete"
+                );
+                id
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "[ChromaClient.delete_document] collection resolution failed, retrying with original name: {e}"
+                );
+                collection.to_string()
+            }
+        };
+        let url = format!(
+            "{}/api/v1/collections/{}/delete",
+            self.base_url, resolved_id
+        );
 
         let mut last_error = None;
         for attempt in 1..=MAX_RETRIES {
@@ -450,79 +526,128 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_add_embeddings_resolves_missing_collection_to_chroma_id() {
+    /// Helper: start a minimal HTTP/1.1 mock server that responds to
+    /// `POST /api/v1/collections` and one or more sub-resource requests.
+    /// Returns the server address and a shared list of captured request lines.
+    async fn start_mock_server(
+        responses: Vec<(&'static str, &'static str, u16)>,
+    ) -> (std::net::SocketAddr, Arc<Mutex<Vec<String>>>) {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("test server should bind");
         let addr = listener.local_addr().expect("test server should have addr");
-        let server_requests = Arc::clone(&requests);
+        let captured = Arc::clone(&requests);
 
-        let server = tokio::spawn(async move {
-            for _ in 0..3 {
+        tokio::spawn(async move {
+            for (_expected_prefix, response_body, status_code) in responses {
                 let (mut stream, _) = listener.accept().await.expect("request should connect");
-                let mut buffer = [0_u8; 4096];
+                let mut buffer = vec![0_u8; 16384];
                 let read = stream.read(&mut buffer).await.expect("request should read");
                 let request = String::from_utf8_lossy(&buffer[..read]);
                 let request_line = request.lines().next().unwrap_or_default().to_string();
-                server_requests.lock().await.push(request_line.clone());
+                captured.lock().await.push(request_line.clone());
 
-                let body = if request_line.starts_with(
-                    "POST /api/v1/collections/ce1135b9-b7b5-40c6-a319-a16648089c65/add ",
-                ) {
-                    r#"{"error":"InvalidCollection","message":"Collection ce1135b9-b7b5-40c6-a319-a16648089c65 does not exist."}"#
-                } else if request_line.starts_with("POST /api/v1/collections ") {
-                    r#"{"id":"internal-chroma-id","name":"ce1135b9-b7b5-40c6-a319-a16648089c65"}"#
-                } else if request_line
-                    .starts_with("POST /api/v1/collections/internal-chroma-id/add ")
-                {
-                    "{}"
+                let status_text = if status_code == 200 {
+                    "OK"
+                } else if status_code == 400 {
+                    "Bad Request"
                 } else {
-                    r#"{"error":"unexpected request"}"#
-                };
-                let status = if request_line.starts_with(
-                    "POST /api/v1/collections/ce1135b9-b7b5-40c6-a319-a16648089c65/add ",
-                ) {
-                    "400 Bad Request"
-                } else if request_line.starts_with("POST /api/v1/collections ")
-                    || request_line.starts_with("POST /api/v1/collections/internal-chroma-id/add ")
-                {
-                    "200 OK"
-                } else {
-                    "500 Internal Server Error"
+                    "Internal Server Error"
                 };
                 let response = format!(
-                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
+                    "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response_body}",
+                    response_body.len()
                 );
                 stream
                     .write_all(response.as_bytes())
                     .await
                     .expect("response should write");
+                // Flush and close to ensure the client receives the response
+                let _ = stream.shutdown().await;
             }
         });
+
+        // Give the mock server a moment to start listening
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        (addr, requests)
+    }
+
+    #[tokio::test]
+    async fn test_resolve_collection_id_calls_get_or_create() {
+        // When resolve_collection_id is called, it should POST /api/v1/collections
+        // with get_or_create=true and return the Chroma-assigned "id" field.
+        let (addr, requests) = start_mock_server(vec![(
+            "POST /api/v1/collections ",
+            r#"{"id":"internal-chroma-id","name":"test-col"}"#,
+            200,
+        )])
+        .await;
+
+        let client = ChromaClient::new(&format!("http://{addr}"));
+        let result = client.resolve_collection_id("test-col").await;
+
+        assert_eq!(
+            result.expect("resolve should succeed"),
+            "internal-chroma-id"
+        );
+        let reqs = requests.lock().await;
+        assert!(
+            reqs.iter()
+                .any(|r| r.starts_with("POST /api/v1/collections ")),
+            "Expected POST /api/v1/collections request, got: {reqs:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_embeddings_resolves_collection_id_upfront() {
+        // add_embeddings should first call resolve_collection_id, then use
+        // the Chroma UUID in the URL path for /add.
+        //
+        // Request sequence:
+        //   1. POST /api/v1/collections  (resolve_collection_id) → returns {"id":"internal-chroma-id","name":"test-col"}
+        //   2. POST /api/v1/collections/internal-chroma-id/add → returns 200 OK
+        let (addr, requests) = start_mock_server(vec![
+            (
+                "POST /api/v1/collections ",
+                r#"{"id":"internal-chroma-id","name":"test-col"}"#,
+                200,
+            ),
+            (
+                "POST /api/v1/collections/internal-chroma-id/add ",
+                "{}",
+                200,
+            ),
+        ])
+        .await;
 
         let client = ChromaClient::new(&format!("http://{addr}"));
         client
             .add_embeddings(
-                "ce1135b9-b7b5-40c6-a319-a16648089c65",
+                "test-col",
                 &["chunk-1".to_string()],
                 &[vec![0.1, 0.2, 0.3]],
                 &[serde_json::json!({"document_id": "doc-1"})],
             )
             .await
-            .expect("missing collection should be resolved and retried by Chroma id");
+            .expect("add_embeddings should succeed after resolving collection id");
 
-        server.await.expect("test server should finish");
-        let requests = requests.lock().await;
+        let reqs = requests.lock().await;
         assert_eq!(
-            requests.as_slice(),
-            [
-                "POST /api/v1/collections/ce1135b9-b7b5-40c6-a319-a16648089c65/add HTTP/1.1",
-                "POST /api/v1/collections HTTP/1.1",
-                "POST /api/v1/collections/internal-chroma-id/add HTTP/1.1",
-            ]
+            reqs.len(),
+            2,
+            "Expected 2 requests (resolve + add), got: {reqs:?}"
+        );
+        assert!(
+            reqs[0].starts_with("POST /api/v1/collections "),
+            "First request should be resolve_collection_id, got: {}",
+            reqs[0]
+        );
+        assert!(
+            reqs[1].contains("internal-chroma-id/add"),
+            "Second request should use resolved Chroma ID, got: {}",
+            reqs[1]
         );
     }
 
