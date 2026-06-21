@@ -49,7 +49,9 @@ services:
     volumes:
       - test_embedding_cache:/data/cache
     ports:
-      - "${TEST_EMBEDDING_PORT:-18001}:8001"
+      # Default 18081 — distinct from the dev override's 18001 so the test
+      # stack and dev stack can run concurrently without port clashes.
+      - "${TEST_EMBEDDING_PORT:-18081}:8001"
     networks:
       - test_internal
     restart: unless-stopped
@@ -160,6 +162,12 @@ services:
 
   keycloak-init:
     image: alpine:3.19
+    # Explicit public DNS — same rationale as embedding service.
+    # Without this, VPN clients on the host can break resolution of
+    # dl-cdn.alpinelinux.org, making `apk add gettext` fail at startup.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - test_keycloak_import:/import
       - ./keycloak/realm-import.json.template:/template:ro
