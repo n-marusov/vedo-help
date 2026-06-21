@@ -21,3 +21,4 @@ frontend/test-results/
 backend/rust_out.exe
 backend/rust_out.pdb
 **/.venv/
+.ai-factory/plans/
