@@ -196,4 +196,77 @@ describe('MessageBubble', () => {
     await btn.trigger('click');
     expect(btn.text()).toBe('Copied!');
   });
+
+  // ==========================================================================
+  // RED (v0.3.1 — T12): edit/delete hover row & edit mode
+  // All assertions will fail until T12 adds edit/delete UI to MessageBubble.
+  // ==========================================================================
+
+  it.skip('renders edit button on user messages only', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(wrapper.find('[data-testid="message-edit-btn"]').exists()).toBe(true);
+    const asst = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(asst.find('[data-testid="message-edit-btn"]').exists()).toBe(false);
+  });
+
+  it.skip('renders delete button on both user and assistant messages', async () => {
+    for (const role of ['user', 'assistant'] as const) {
+      const msg = role === 'user' ? createUserMessage() : createAssistantMessage();
+      const wrapper = mount(MessageBubble, {
+        props: { message: msg },
+      });
+      expect(wrapper.find('[data-testid="message-delete-btn"]').exists()).toBe(true);
+    }
+  });
+
+  it.skip('emits edit event with message id when edit clicked', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
+    expect(wrapper.emitted('edit')).toBeTruthy();
+    expect(wrapper.emitted('edit')?.[0]).toEqual([{ id: 'msg-1' }]);
+  });
+
+  it.skip('emits delete event with message id when delete clicked', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    await wrapper.find('[data-testid="message-delete-btn"]').trigger('click');
+    expect(wrapper.emitted('delete')).toBeTruthy();
+    expect(wrapper.emitted('delete')?.[0]).toEqual([{ id: 'msg-1' }]);
+  });
+
+  it.skip('enters edit mode and shows textarea + Save/Cancel', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage(), editing: true },
+    });
+    expect(wrapper.find('[data-testid="message-edit-textarea"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-save-btn"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-cancel-edit-btn"]').exists()).toBe(true);
+  });
+
+  it.skip('emits save-edit event with new content', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage(), editing: true },
+    });
+    await wrapper.find('[data-testid="message-save-btn"]').trigger('click');
+    expect(wrapper.emitted('save-edit')).toBeTruthy();
+  });
+
+  it.skip('displays edited_at indicator when message.edited_at is set', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createUserMessage({
+          edited_at: '2026-06-21T10:00:00Z',
+          original_content: 'original',
+        }),
+      },
+    });
+    expect(wrapper.find('[data-testid="message-edited-badge"]').exists()).toBe(true);
+  });
 });
