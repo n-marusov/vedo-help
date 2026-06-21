@@ -27,6 +27,9 @@ Dockerfile text eol=lf
 # Shell scripts
 *.sh text eol=lf
 
+# SQL migrations — must stay LF so sqlx checksums match
+*.sql text eol=lf
+
 # Binary files
 *.png binary
 *.jpg binary
