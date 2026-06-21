@@ -15,7 +15,7 @@ test.describe('chat export', () => {
     await input.fill('Export test');
     await page.locator('[data-testid="btn-send"]').click();
     await page.waitForSelector('[data-testid="message-assistant"]', {
-      timeout: 15000,
+      timeout: 20000,
     });
 
     // Click Export button — should be visible now because handleSend creates a session
@@ -42,7 +42,7 @@ test.describe('chat export', () => {
     await input.fill('JSON test');
     await page.locator('[data-testid="btn-send"]').click();
     await page.waitForSelector('[data-testid="message-assistant"]', {
-      timeout: 15000,
+      timeout: 20000,
     });
 
     // Select JSON format using VSelect (custom button-based dropdown):

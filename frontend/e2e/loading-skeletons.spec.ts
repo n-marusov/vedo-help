@@ -114,16 +114,7 @@ test.describe('loading skeletons', () => {
 
     await page.goto('/admin');
 
-    // Set active collection first
-    await page.evaluate(
-      ({ collectionId }) => {
-        const app = document.querySelector('#app').__vue_app__;
-        const pinia = app.config.globalProperties.$pinia;
-        pinia.state.value.collections.activeCollectionId = collectionId;
-      },
-      { collectionId: collection.id },
-    );
-
+    // Register route BEFORE setting active collection to catch the request
     await page.route(
       '**/api/git-sync/repos',
       async (route) => {
@@ -134,6 +125,16 @@ test.describe('loading skeletons', () => {
         await route.continue();
       },
       { times: 1 },
+    );
+
+    // Set active collection after route is registered
+    await page.evaluate(
+      ({ collectionId }) => {
+        const app = document.querySelector('#app').__vue_app__;
+        const pinia = app.config.globalProperties.$pinia;
+        pinia.state.value.collections.activeCollectionId = collectionId;
+      },
+      { collectionId: collection.id },
     );
 
     // Switch to git tab to trigger GitRepoManager mount

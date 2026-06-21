@@ -55,9 +55,12 @@ test.describe('RAG Flow: real backend upload → query → sources', () => {
         '# Configuration Guide\n\nRate limiting uses backend middleware and environment settings.',
       ),
     });
+    // Wait for document to appear in the list, then allow Chroma propagation
     await expect(page.locator('.dl-item__name').first()).toContainText('config-guide.md', {
       timeout: 30000,
     });
+    // Allow Chroma propagation delay so chunks are searchable
+    await page.waitForTimeout(2000);
 
     await page.goto('/');
     await expect(page.locator('[data-testid="chat-view"]')).toBeVisible({
