@@ -68,8 +68,9 @@ pub async fn delete_session(
 
 /// Export a session as JSON or Markdown.
 ///
-/// Endpoint: `GET /api/sessions/:id/export?format={json|markdown}`
+/// Endpoint: `GET /api/sessions/:id/export?format={json|md|markdown}`
 /// Default format is `json` when omitted.
+/// Both "md" and "markdown" produce Markdown output.
 pub async fn export_session(
     State(svc): State<ConversationService>,
     Path(id): Path<Uuid>,
@@ -83,15 +84,15 @@ pub async fn export_session(
             let export = svc.export_session(id).await?;
             Ok(Json(export).into_response())
         }
-        "markdown" => {
-            tracing::info!("GET /api/sessions/{id}/export?format=markdown");
+        "md" | "markdown" => {
+            tracing::info!("GET /api/sessions/{id}/export?format={format}");
             let md = svc.export_session_markdown(id).await?;
             Ok(([(axum::http::header::CONTENT_TYPE, "text/markdown")], md).into_response())
         }
         other => {
             tracing::warn!("Unknown export format: {other}");
             Err(AppError::UnprocessableEntity(format!(
-                "Unknown export format: {other}. Supported: json, markdown"
+                "Unknown export format: {other}. Supported: json, md, markdown"
             )))
         }
     }
