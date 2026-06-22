@@ -1365,14 +1365,8 @@ mod tests {
             .await
             .expect("Failed to connect to test database");
 
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .expect("Failed to run migrations");
-
-        // Clean up test data to ensure a fresh state for each test.
-        // Tests must run with --test-threads=1 to avoid race conditions
-        // between parallel TRUNCATE and INSERT operations.
+        // Migrations are already applied by the Docker test container.
+        // Just truncate tables for a fresh state.
         sqlx::query(
             "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
         )

@@ -374,10 +374,34 @@ pub(crate) async fn load_conversation_history_rows(
 #[cfg(test)]
 mod tests {
     use super::load_conversation_history_rows;
+    use sqlx::postgres::PgPoolOptions;
     use uuid::Uuid;
 
-    #[sqlx::test(migrations = "./migrations")]
-    async fn load_conversation_history_binds_session_id_as_uuid(pool: sqlx::PgPool) {
+    /// Connect to the shared test database.
+    /// Expects migrations to already be applied (by Docker test container).
+    async fn make_pool() -> sqlx::PgPool {
+        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string()
+        });
+        PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&db_url)
+            .await
+            .expect("Failed to connect to test database")
+    }
+
+    #[tokio::test]
+    async fn load_conversation_history_binds_session_id_as_uuid() {
+        let pool = make_pool().await;
+
+        // Clean tables for a fresh state (sequential tests only)
+        sqlx::query(
+            "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
+        )
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate tables");
+
         let session_id = Uuid::new_v4();
         let message_id = Uuid::new_v4();
         let now = chrono::Utc::now();
