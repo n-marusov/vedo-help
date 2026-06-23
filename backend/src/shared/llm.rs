@@ -90,7 +90,7 @@ impl LlmClient {
             conversation_history.len()
         );
 
-        let response = self.send_request_with_retry(&messages).await?;
+        let response = self.send_request_with_retry(&messages, true).await?;
 
         let stream = response
             .bytes_stream()
@@ -197,11 +197,12 @@ impl LlmClient {
     async fn send_request_with_retry(
         &self,
         messages: &[serde_json::Value],
+        stream: bool,
     ) -> Result<reqwest::Response, AppError> {
         let mut last_error = None;
 
         for attempt in 1..=MAX_RETRIES {
-            match self.send_request(messages).await {
+            match self.send_request(messages, stream).await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
@@ -241,14 +242,18 @@ impl LlmClient {
     }
 
     /// Send a single request to the LLM API.
+    ///
+    /// When `stream` is true, the response is an SSE stream; when false, the
+    /// response is a standard JSON body.
     async fn send_request(
         &self,
         messages: &[serde_json::Value],
+        stream: bool,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let body = json!({
             "model": self.model,
             "messages": messages,
-            "stream": true,
+            "stream": stream,
         });
 
         self.client
@@ -258,6 +263,62 @@ impl LlmClient {
             .json(&body)
             .send()
             .await
+    }
+
+    /// Query the LLM without streaming, returning the full response text.
+    ///
+    /// Useful for testing connectivity or for callers that don't need streaming.
+    pub async fn query_non_streaming(
+        &self,
+        prompt: &str,
+        chunks: &[CrateChunkData],
+        conversation_history: &[Message],
+    ) -> Result<String, AppError> {
+        let context: Vec<String> = chunks
+            .iter()
+            .map(|c| {
+                format!(
+                    "[Source: {} (chunk {})]\n{}",
+                    c.document_name, c.index, c.text
+                )
+            })
+            .collect();
+        let context_str = context.join("\n\n");
+
+        let messages = self.build_messages(&context_str, prompt, conversation_history);
+
+        tracing::debug!(
+            "LLM non-streaming request: {} chunks, model={}, history_messages={}",
+            chunks.len(),
+            self.model,
+            conversation_history.len()
+        );
+
+        let response = self
+            .send_request(&messages, false)
+            .await
+            .map_err(|e| AppError::LlmError(format!("Request failed: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(AppError::LlmError(format!(
+                "LLM API returned {status}: {body}"
+            )));
+        }
+
+        let data: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AppError::LlmError(format!("Failed to parse response: {e}")))?;
+
+        let content = data["choices"]
+            .get(0)
+            .and_then(|c| c["message"]["content"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        Ok(content)
     }
 }
 

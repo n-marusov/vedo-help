@@ -5,7 +5,7 @@ use futures::stream::{self, Stream};
 use futures::StreamExt;
 use serde_json::json;
 use sqlx::PgPool;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use uuid::Uuid;
 
 use crate::modules::conversations::models::Message;
@@ -230,7 +230,7 @@ impl QueryService {
 
         let tracked_stream = llm_stream.map(move |result| {
             if let Ok(text) = &result {
-                let mut content = content_tracker.blocking_lock();
+                let mut content = content_tracker.lock().unwrap();
                 content.push_str(text);
             }
             result
@@ -245,7 +245,7 @@ impl QueryService {
             stream::once(async move {
                 // Persist the assistant message if we have both a session and a pre-generated ID
                 if let (Some(session_id), Some(asst_id_val)) = (sid, asst_id) {
-                    let content = fc.lock().await.clone();
+                    let content = fc.lock().unwrap().clone();
                     let msg = Message {
                         id: asst_id_val,
                         session_id,
@@ -374,6 +374,10 @@ pub(crate) async fn load_conversation_history_rows(
 #[cfg(test)]
 mod tests {
     use super::load_conversation_history_rows;
+    use super::{AppError, QueryService, StreamEvent};
+    use crate::modules::conversations::repository::ConversationRepository;
+    use futures::stream;
+    use futures::StreamExt;
     use sqlx::postgres::PgPoolOptions;
     use uuid::Uuid;
 
@@ -444,5 +448,43 @@ mod tests {
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].role, "user");
         assert_eq!(history[0].content, "hello");
+    }
+
+    #[tokio::test]
+    async fn build_event_stream_does_not_panic_in_tokio_runtime() {
+        let pool = make_pool().await;
+
+        let llm_stream = Box::pin(stream::iter(vec![
+            Ok::<String, AppError>("Hello ".to_string()),
+            Ok::<String, AppError>("world".to_string()),
+        ]));
+
+        let repo = ConversationRepository::new(pool);
+
+        let stream = Box::pin(QueryService::build_event_stream(
+            llm_stream,
+            vec![],
+            None,
+            vec![],
+            None,
+            None,
+            repo,
+        ));
+
+        let events: Vec<StreamEvent> = stream.collect().await;
+
+        // Expected: chunk "Hello ", chunk "world", sources, done
+        assert_eq!(events.len(), 4, "should yield 4 events without panicking");
+        assert_eq!(events[0].event_type, "chunk");
+        assert_eq!(events[0].data["text"], "Hello ");
+        assert_eq!(events[1].event_type, "chunk");
+        assert_eq!(events[1].data["text"], "world");
+        assert_eq!(events[2].event_type, "sources");
+        assert_eq!(events[3].event_type, "done");
+        assert_eq!(events[3].data["user_message_id"], serde_json::Value::Null);
+        assert_eq!(
+            events[3].data["assistant_message_id"],
+            serde_json::Value::Null
+        );
     }
 }
