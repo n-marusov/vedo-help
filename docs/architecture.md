@@ -61,7 +61,7 @@ backend/src/
 └── shared/
     ├── auth.rs          # Bearer token middleware, JWT validator
     ├── error.rs         # Unified AppError enum
-    ├── llm.rs           # OpenRouter client
+    ├── llm.rs           # LLM client (RouterAI)
     ├── chunking.rs      # Text splitting
     ├── embedding_client.rs  # Embedding service HTTP client
     ├── chroma_client.rs     # Chroma HTTP client
@@ -209,7 +209,7 @@ sequenceDiagram
     participant B as Backend
     participant C as Chroma
     participant E as Embedding
-    participant L as LLM (OpenRouter)
+    participant L as LLM (RouterAI)
 
     U->>F: Asks a question
     F->>B: POST /api/query

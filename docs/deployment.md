@@ -1,4 +1,4 @@
-[← Configuration](configuration.md) · [Back to README](../README.md)
+[← Configuration](configuration.md) · [Back to README](../README.md) · [Testing →](testing.md)
 
 # Deployment
 
@@ -27,7 +27,7 @@ graph TB
 
 - A VPS with Docker and Docker Compose installed
 - A domain name pointing to your server
-- OpenRouter API key
+- RouterAI API key
 
 ### Step 1: Clone and configure
 

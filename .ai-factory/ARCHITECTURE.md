@@ -64,7 +64,7 @@ backend/
         ├── error.rs               # Unified error types, error responses
         ├── auth.rs                # Bearer token middleware
         ├── rate_limit.rs          # Rate limiting middleware
-        ├── llm.rs                 # OpenRouter client, retry logic
+        ├── llm.rs                 # RouterAI client, retry logic
         ├── chunking.rs            # Text splitter, chunk overlap
         ├── file_validation.rs     # MIME check, magic bytes
         └── types.rs               # Shared type definitions

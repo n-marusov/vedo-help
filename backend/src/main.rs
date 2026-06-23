@@ -32,7 +32,7 @@ use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::modules::query::{handlers as query_handlers, service::QueryService};
 use vedo_backend::shared::{
     auth::{authenticate_request, SharedJwtValidator},
-    llm::OpenRouterClient,
+    llm::LlmClient,
 };
 
 /// Redact the password from a PostgreSQL URL for safe logging.
@@ -135,7 +135,7 @@ async fn main() {
     tracing::info!("Embedding service configured: {embedding_service_url}");
 
     // LLM client
-    let llm_client = OpenRouterClient::from_config(&config);
+    let llm_client = LlmClient::from_config(&config);
 
     // Repositories
     let doc_repo = DocumentRepository::new(db.clone());

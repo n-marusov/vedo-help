@@ -4,7 +4,7 @@
 
 ## Overview
 
-VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in a vector database, and answers user questions using an LLM via OpenRouter. Every answer includes citations. The system is designed for single-developer VPS deployment with Docker Compose.
+VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in a vector database, and answers user questions using an LLM via RouterAI. Every answer includes citations. The system is designed for single-developer VPS deployment with Docker Compose.
 
 ## Core Features
 
@@ -26,7 +26,7 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 - **Database:** SQLite (via sqlx) for metadata and conversation history
 - **Deployment:** Docker Compose with Caddy reverse proxy (VPS)
 - **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests)
-- **LLM Gateway:** OpenRouter API (configurable model)
+- **LLM Gateway:** RouterAI API (configurable model)
 - **Authentication:** KeyCloak 26 (OIDC/OAuth2) with PostgreSQL storage
 - **Authorization:** Three-tier RBAC (guest/user/admin)
 

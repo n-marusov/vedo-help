@@ -11,7 +11,7 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ADMIN_API_KEY` | Bearer token for API authentication | `change-me` |
-| `OPENROUTER_API_KEY` | OpenRouter API key for LLM access | _(empty — no LLM without it)_ |
+| `LLM_API_KEY` | RouterAI API key for LLM access | _(empty — no LLM without it)_ |
 
 ### Backend
 
@@ -20,13 +20,13 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `DATABASE_URL` | SQLite connection string | `sqlite:/data/vedo.db?mode=rwc` |
 | `BACKEND_PORT` | Backend listen port | `3000` |
 | `RUST_LOG` | Logging filter directive | `info` |
-| `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
-| `OPENROUTER_MODEL` | LLM model identifier | `openai/gpt-4o-mini` |
+| `LLM_BASE_URL` | RouterAI API base URL | `https://routerai.ru/api/v1` |
+| `LLM_MODEL` | LLM model identifier | `anthropic/claude-sonnet-4.6` |
 | `GIT_CLONE_ROOT` | Root directory for cloned git repositories | `data/git-repos` |
 | `GIT_SYNC_INTERVAL_SECS` | Git sync polling interval in seconds (0 = disabled) | `0` |
 | `LLM_MAX_HISTORY_MESSAGES` | Max conversation history messages to include in LLM context | `20` |
 | `LLM_CONTEXT_TOKEN_BUDGET` | Token budget for LLM context window (word-count heuristic) | `6000` |
-| `OPENROUTER_API_KEY` | OpenRouter API key | _(required)_ |
+| `LLM_API_KEY` | RouterAI API key | _(required)_ |
 
 ### Embedding Service
 
@@ -94,12 +94,12 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 
 ## Model Selection
 
-The default OpenRouter model is `openai/gpt-4o-mini`. You can change it to any model available via OpenRouter:
+The default model is `anthropic/claude-sonnet-4.6` via RouterAI. You can change it to any model available via the RouterAI catalog:
 
 ```env
-OPENROUTER_MODEL=openai/gpt-4o
-OPENROUTER_MODEL=google/gemini-pro-1.5
-OPENROUTER_MODEL=anthropic/claude-3-haiku
+LLM_MODEL=anthropic/claude-sonnet-4.6
+LLM_MODEL=openai/gpt-5.2
+LLM_MODEL=deepseek/deepseek-v3.2
 ```
 
 ## Context Window

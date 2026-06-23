@@ -36,7 +36,7 @@ use vedo_backend::modules::documents::{repository::DocumentRepository, service::
 use vedo_backend::modules::git_sync::{repository::GitRepoRepository, service::GitSyncService};
 use vedo_backend::modules::query::{repository::QueryRepository, service::QueryService};
 use vedo_backend::shared::auth::{authenticate_request, SharedJwtValidator};
-use vedo_backend::shared::llm::OpenRouterClient;
+use vedo_backend::shared::llm::LlmClient;
 
 mod common;
 
@@ -55,7 +55,7 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     let conversation_repo = ConversationRepository::new(db.clone());
     let git_repo_repo = GitRepoRepository::new(db.clone());
     let _query_repo = QueryRepository::new(db.clone(), &chroma_url);
-    let llm_client = OpenRouterClient::from_config(&config);
+    let llm_client = LlmClient::from_config(&config);
 
     let doc_service = DocumentService::new(doc_repo);
     let collection_service = CollectionService::new(collection_repo, chroma_url.clone());

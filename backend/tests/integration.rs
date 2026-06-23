@@ -16,11 +16,34 @@
 /// In CI, Chroma is started as a service container automatically
 /// (see `.github/workflows/ci.yml`).
 use std::env;
+use std::time::Duration;
 
 use vedo_backend::modules::query::repository::QueryRepository;
+use vedo_backend::shared::llm::LlmClient;
 use vedo_backend::shared::ChromaClient;
 
 mod common;
+
+/// Build an LLM client from environment variables for integration testing.
+///
+/// Reads `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` from the environment.
+/// Falls back to the mock LLM defaults from `setup_test_config()` for URL and model
+/// so the test works in CI where `llm-mock` is available.
+fn llm_client_from_env() -> Option<LlmClient> {
+    let api_key = env::var("LLM_API_KEY").ok()?;
+    if api_key.trim().is_empty() {
+        return None;
+    }
+    let mut config = common::setup_test_config();
+    config.llm_api_key = api_key;
+    if let Ok(url) = env::var("LLM_BASE_URL") {
+        config.llm_base_url = url;
+    }
+    if let Ok(model) = env::var("LLM_MODEL") {
+        config.llm_model = model;
+    }
+    Some(LlmClient::from_config(&config))
+}
 
 /// URL of the Chroma instance under test.
 fn chroma_url() -> String {
@@ -1082,6 +1105,48 @@ async fn test_get_chunks_by_ids_empty_ids_list() {
     assert!(chunks.is_empty(), "should return empty list for no ids");
 
     pool.close().await;
+}
+
+// ---------------------------------------------------------------------------
+// LLM connectivity
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn test_llm_connectivity() {
+    let client = match llm_client_from_env() {
+        Some(c) => c,
+        None => {
+            eprintln!("SKIP: LLM_API_KEY not set — set LLM_API_KEY, LLM_BASE_URL, ");
+            eprintln!("      and LLM_MODEL to test real LLM connectivity");
+            return;
+        }
+    };
+
+    // Use tokio::time::timeout to prevent hanging on a slow/unreachable LLM.
+    let deadline = Duration::from_secs(30);
+
+    let result = tokio::time::timeout(
+        deadline,
+        client.query_non_streaming("Say exactly 'API OK' and nothing else.", &[], &[]),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(response)) => {
+            assert!(!response.is_empty(), "LLM response should not be empty");
+            assert!(
+                response.contains("API OK"),
+                "Expected response to contain 'API OK', got: {response}",
+            );
+            tracing::info!("LLM connectivity OK: response={}", response.trim());
+        }
+        Ok(Err(e)) => {
+            panic!("LLM request failed: {e}");
+        }
+        Err(_) => {
+            panic!("LLM request timed out after {deadline:?}");
+        }
+    }
 }
 
 #[tokio::test]

@@ -6,7 +6,7 @@
 
 - **Docker** & **Docker Compose** (v2.22+)
 - **Make** (optional — simplifies common tasks)
-- **OpenRouter API key** — sign up at [openrouter.ai](https://openrouter.ai) and create a key
+- **RouterAI API key** — sign up at [routerai.ru](https://routerai.ru) and create a key
 
 ## Installation
 
@@ -23,11 +23,10 @@ cd vedo-rag-assistant
 cp .env.example .env
 ```
 
-Edit `.env` and set at least these two:
+Edit `.env` and set at least this:
 
 ```env
-ADMIN_API_KEY=your-secret-api-key
-OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
+LLM_API_KEY=sk-or-v1-your-routerai-key
 ```
 
 Other variables have sensible defaults — see [Configuration](configuration.md).

@@ -42,7 +42,7 @@ Obtain an access token via the OAuth 2.0 Authorization Code flow with PKCE (see 
 | 429 | `rate_limited` | Too many requests |
 | 502 | `embedding_error` | Embedding service unavailable |
 | 502 | `chroma_error` | Chroma unavailable |
-| 502 | `llm_error` | OpenRouter error |
+| 502 | `llm_error` | LLM API error |
 | 422 | `unprocessable_entity` | Validation error (e.g., editing assistant messages) |
 
 ## Endpoints

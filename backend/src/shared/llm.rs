@@ -23,9 +23,10 @@ pub struct Message {
     pub content: String,
 }
 
-/// OpenRouter LLM client with streaming support and retry logic.
+/// OpenAI-compatible LLM client with streaming support and retry logic.
+/// Currently configured for RouterAI (https://routerai.ru/api/v1).
 #[derive(Clone, Debug)]
-pub struct OpenRouterClient {
+pub struct LlmClient {
     client: Client,
     api_key: String,
     base_url: String,
@@ -38,28 +39,25 @@ Answer questions based solely on the provided context. \
 If the context doesn't contain enough information, say so clearly. \
 Always cite the source document name and chunk when referencing specific information.";
 
-pub const PRIMARY_MODEL: &str = "anthropic/claude-sonnet-20241022";
+pub const PRIMARY_MODEL: &str = "anthropic/claude-sonnet-4.6";
 pub const MAX_RETRIES: u32 = 3;
 pub const RETRY_DELAY_MS: u64 = 1000;
 
-impl OpenRouterClient {
-    /// Create a new OpenRouter client from app configuration.
+impl LlmClient {
+    /// Create a new LLM client from app configuration.
     pub fn from_config(config: &AppConfig) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(60))
             .build()
-            .expect("Failed to create HTTP client for OpenRouter");
+            .expect("Failed to create HTTP client for LLM");
 
-        tracing::debug!(
-            "OpenRouter client initialized: model={}",
-            config.openrouter_model
-        );
+        tracing::debug!("LLM client initialized: model={}", config.llm_model);
 
         Self {
             client,
-            api_key: config.openrouter_api_key.clone(),
-            base_url: config.openrouter_base_url.trim_end_matches('/').to_string(),
-            model: config.openrouter_model.clone(),
+            api_key: config.llm_api_key.clone(),
+            base_url: config.llm_base_url.trim_end_matches('/').to_string(),
+            model: config.llm_model.clone(),
         }
     }
 
@@ -92,7 +90,7 @@ impl OpenRouterClient {
             conversation_history.len()
         );
 
-        let response = self.send_request_with_retry(&messages).await?;
+        let response = self.send_request_with_retry(&messages, true).await?;
 
         let stream = response
             .bytes_stream()
@@ -153,7 +151,7 @@ impl OpenRouterClient {
         Ok(stream)
     }
 
-    /// Build the messages array for the OpenRouter API.
+    /// Build the messages array for the LLM API.
     ///
     /// Security: user `prompt` is enclosed in injection-guard delimiters
     /// and the system instruction explicitly forbids following embedded
@@ -195,15 +193,16 @@ impl OpenRouterClient {
         messages
     }
 
-    /// Send a request to OpenRouter with retry on 5xx/429.
+    /// Send a request to the LLM API with retry on 5xx/429.
     async fn send_request_with_retry(
         &self,
         messages: &[serde_json::Value],
+        stream: bool,
     ) -> Result<reqwest::Response, AppError> {
         let mut last_error = None;
 
         for attempt in 1..=MAX_RETRIES {
-            match self.send_request(messages).await {
+            match self.send_request(messages, stream).await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
@@ -217,14 +216,14 @@ impl OpenRouterClient {
                             "LLM request failed (attempt {attempt}/{MAX_RETRIES}): status={status}, body={body}"
                         );
                         last_error = Some(AppError::LlmError(format!(
-                            "OpenRouter returned {status}: {body}"
+                            "LLM API returned {status}: {body}"
                         )));
                         if attempt < MAX_RETRIES {
                             tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
                         }
                     } else {
                         return Err(AppError::LlmError(format!(
-                            "OpenRouter returned {status}: {body}"
+                            "LLM API returned {status}: {body}"
                         )));
                     }
                 }
@@ -242,15 +241,19 @@ impl OpenRouterClient {
             .unwrap_or_else(|| AppError::LlmError("All retry attempts exhausted".to_string())))
     }
 
-    /// Send a single request to the OpenRouter API.
+    /// Send a single request to the LLM API.
+    ///
+    /// When `stream` is true, the response is an SSE stream; when false, the
+    /// response is a standard JSON body.
     async fn send_request(
         &self,
         messages: &[serde_json::Value],
+        stream: bool,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let body = json!({
             "model": self.model,
             "messages": messages,
-            "stream": true,
+            "stream": stream,
         });
 
         self.client
@@ -261,6 +264,62 @@ impl OpenRouterClient {
             .send()
             .await
     }
+
+    /// Query the LLM without streaming, returning the full response text.
+    ///
+    /// Useful for testing connectivity or for callers that don't need streaming.
+    pub async fn query_non_streaming(
+        &self,
+        prompt: &str,
+        chunks: &[CrateChunkData],
+        conversation_history: &[Message],
+    ) -> Result<String, AppError> {
+        let context: Vec<String> = chunks
+            .iter()
+            .map(|c| {
+                format!(
+                    "[Source: {} (chunk {})]\n{}",
+                    c.document_name, c.index, c.text
+                )
+            })
+            .collect();
+        let context_str = context.join("\n\n");
+
+        let messages = self.build_messages(&context_str, prompt, conversation_history);
+
+        tracing::debug!(
+            "LLM non-streaming request: {} chunks, model={}, history_messages={}",
+            chunks.len(),
+            self.model,
+            conversation_history.len()
+        );
+
+        let response = self
+            .send_request(&messages, false)
+            .await
+            .map_err(|e| AppError::LlmError(format!("Request failed: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(AppError::LlmError(format!(
+                "LLM API returned {status}: {body}"
+            )));
+        }
+
+        let data: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AppError::LlmError(format!("Failed to parse response: {e}")))?;
+
+        let content = data["choices"]
+            .get(0)
+            .and_then(|c| c["message"]["content"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        Ok(content)
+    }
 }
 
 #[cfg(test)]
@@ -270,7 +329,7 @@ mod tests {
     #[test]
     fn test_build_messages_with_history() {
         let config = AppConfig::from_env();
-        let client = OpenRouterClient::from_config(&config);
+        let client = LlmClient::from_config(&config);
 
         let chunks = [CrateChunkData {
             text: "Rust is a systems programming language.".to_string(),

@@ -5,7 +5,7 @@ use futures::stream::{self, Stream};
 use futures::StreamExt;
 use serde_json::json;
 use sqlx::PgPool;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use uuid::Uuid;
 
 use crate::modules::conversations::models::Message;
@@ -14,13 +14,13 @@ use crate::modules::query::models::{QueryRequest, SourceRef, StreamEvent};
 use crate::modules::query::repository::QueryRepository;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
-use crate::shared::llm::{Message as LlmMessage, OpenRouterClient};
+use crate::shared::llm::{LlmClient, Message as LlmMessage};
 
 /// Service for processing RAG queries with streaming responses.
 #[derive(Clone, Debug)]
 pub struct QueryService {
     repo: QueryRepository,
-    llm_client: OpenRouterClient,
+    llm_client: LlmClient,
     embedding_client: EmbeddingClient,
     conversation_repo: ConversationRepository,
     max_history_messages: usize,
@@ -32,7 +32,7 @@ impl QueryService {
     pub fn new(
         db: PgPool,
         chroma_url: &str,
-        llm_client: OpenRouterClient,
+        llm_client: LlmClient,
         embedding_service_url: &str,
         max_history_messages: usize,
         context_token_budget: usize,
@@ -230,7 +230,7 @@ impl QueryService {
 
         let tracked_stream = llm_stream.map(move |result| {
             if let Ok(text) = &result {
-                let mut content = content_tracker.blocking_lock();
+                let mut content = content_tracker.lock().unwrap();
                 content.push_str(text);
             }
             result
@@ -245,7 +245,7 @@ impl QueryService {
             stream::once(async move {
                 // Persist the assistant message if we have both a session and a pre-generated ID
                 if let (Some(session_id), Some(asst_id_val)) = (sid, asst_id) {
-                    let content = fc.lock().await.clone();
+                    let content = fc.lock().unwrap().clone();
                     let msg = Message {
                         id: asst_id_val,
                         session_id,
@@ -374,10 +374,38 @@ pub(crate) async fn load_conversation_history_rows(
 #[cfg(test)]
 mod tests {
     use super::load_conversation_history_rows;
+    use super::{AppError, QueryService, StreamEvent};
+    use crate::modules::conversations::repository::ConversationRepository;
+    use futures::stream;
+    use futures::StreamExt;
+    use sqlx::postgres::PgPoolOptions;
     use uuid::Uuid;
 
-    #[sqlx::test(migrations = "./migrations")]
-    async fn load_conversation_history_binds_session_id_as_uuid(pool: sqlx::PgPool) {
+    /// Connect to the shared test database.
+    /// Expects migrations to already be applied (by Docker test container).
+    async fn make_pool() -> sqlx::PgPool {
+        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string()
+        });
+        PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&db_url)
+            .await
+            .expect("Failed to connect to test database")
+    }
+
+    #[tokio::test]
+    async fn load_conversation_history_binds_session_id_as_uuid() {
+        let pool = make_pool().await;
+
+        // Clean tables for a fresh state (sequential tests only)
+        sqlx::query(
+            "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
+        )
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate tables");
+
         let session_id = Uuid::new_v4();
         let message_id = Uuid::new_v4();
         let now = chrono::Utc::now();
@@ -420,5 +448,43 @@ mod tests {
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].role, "user");
         assert_eq!(history[0].content, "hello");
+    }
+
+    #[tokio::test]
+    async fn build_event_stream_does_not_panic_in_tokio_runtime() {
+        let pool = make_pool().await;
+
+        let llm_stream = Box::pin(stream::iter(vec![
+            Ok::<String, AppError>("Hello ".to_string()),
+            Ok::<String, AppError>("world".to_string()),
+        ]));
+
+        let repo = ConversationRepository::new(pool);
+
+        let stream = Box::pin(QueryService::build_event_stream(
+            llm_stream,
+            vec![],
+            None,
+            vec![],
+            None,
+            None,
+            repo,
+        ));
+
+        let events: Vec<StreamEvent> = stream.collect().await;
+
+        // Expected: chunk "Hello ", chunk "world", sources, done
+        assert_eq!(events.len(), 4, "should yield 4 events without panicking");
+        assert_eq!(events[0].event_type, "chunk");
+        assert_eq!(events[0].data["text"], "Hello ");
+        assert_eq!(events[1].event_type, "chunk");
+        assert_eq!(events[1].data["text"], "world");
+        assert_eq!(events[2].event_type, "sources");
+        assert_eq!(events[3].event_type, "done");
+        assert_eq!(events[3].data["user_message_id"], serde_json::Value::Null);
+        assert_eq!(
+            events[3].data["assistant_message_id"],
+            serde_json::Value::Null
+        );
     }
 }

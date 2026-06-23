@@ -83,9 +83,9 @@ services:
       # Internal service discovery — use Docker service names, not localhost.
       CHROMA_URL: ${CHROMA_URL:-http://chroma:8000}
       EMBEDDING_SERVICE_URL: ${EMBEDDING_SERVICE_URL:-http://embedding:8001}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-http://openrouter-mock:18002}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-test/mock-model}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://llm-mock:18002}
+      LLM_API_KEY: ${LLM_API_KEY:?LLM_API_KEY is required}
+      LLM_MODEL: ${LLM_MODEL:-test/mock-model}
       DATABASE_URL: ${DATABASE_URL:-postgres://vedo:${VEDO_DB_PASSWORD:?VEDO_DB_PASSWORD is required}@db:5432/vedo}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-vedo-hub}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_BACKEND_CLIENT_ID:-vedo-backend}
@@ -114,7 +114,7 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-      openrouter-mock:
+      llm-mock:
         condition: service_healthy
 
   frontend:
@@ -242,9 +242,9 @@ services:
       retries: 10
       start_period: 60s
 
-  openrouter-mock:
+  llm-mock:
     build:
-      context: ./docker/test/openrouter-mock
+      context: ./docker/test/llm-mock
     networks:
       - test_internal
     restart: unless-stopped
