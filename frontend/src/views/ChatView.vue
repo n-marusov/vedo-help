@@ -510,7 +510,11 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               >{{ activeCollectionName }}</span
             >
           </div>
-          <div v-else-if="activeCollectionName" class="toolbar-collection-tag">
+          <div
+            v-else-if="activeCollectionName"
+            class="toolbar-collection-tag"
+            data-testid="toolbar-collection-tag"
+          >
             <span class="toolbar-collection-badge">{{
               activeCollectionName
             }}</span>
@@ -617,6 +621,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               idx === chatStore.messages.length - 1 &&
               msg.role === 'assistant'
             "
+            :is-admin="false"
             @edit="handleEditMessage"
             @save-edit="handleSaveEdit"
             @cancel-edit="() => {}"

@@ -45,6 +45,12 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    // jsdom does not provide navigator.clipboard
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn() },
+      writable: true,
+      configurable: true,
+    });
   });
 
   it('editMessage skips pending temp IDs before calling API', async () => {
@@ -104,9 +110,10 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
   it('editMessage calls api.editMessage and replaces content in messages.value', async () => {
     const store = useChatStore();
+    const msgId = '550e8400-e29b-41d4-a716-446655440000';
     store.messages = [
       {
-        id: 'msg-1',
+        id: msgId,
         session_id: 'sess-1',
         role: 'user',
         content: 'old',
@@ -115,7 +122,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     ];
 
     apiMock.editMessage.mockResolvedValue({
-      id: 'msg-1',
+      id: msgId,
       session_id: 'sess-1',
       role: 'user',
       content: 'new content',
@@ -124,8 +131,8 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       created_at: '2026-06-21T00:00:00Z',
     });
 
-    await store.editMessage('sess-1', 'msg-1', 'new content');
-    expect(apiMock.editMessage).toHaveBeenCalledWith('sess-1', 'msg-1', {
+    await store.editMessage('sess-1', msgId, 'new content');
+    expect(apiMock.editMessage).toHaveBeenCalledWith('sess-1', msgId, {
       content: 'new content',
     });
     expect(store.messages[0].content).toBe('new content');
@@ -138,16 +145,18 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
   it('deleteMessage optimistically removes and reverts on API error', async () => {
     const store = useChatStore();
+    const msgId1 = '550e8400-e29b-41d4-a716-446655440010';
+    const msgId2 = '550e8400-e29b-41d4-a716-446655440011';
     store.messages = [
       {
-        id: 'msg-1',
+        id: msgId1,
         session_id: 'sess-1',
         role: 'user',
         content: 'a',
         created_at: '2026-06-21T00:00:00Z',
       },
       {
-        id: 'msg-2',
+        id: msgId2,
         session_id: 'sess-1',
         role: 'assistant',
         content: 'b',
@@ -157,24 +166,24 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     apiMock.deleteMessage.mockResolvedValue({});
 
-    await store.deleteMessage('sess-1', 'msg-1');
-    // Optimistic: msg-1 removed
-    expect(store.messages.map((m) => m.id)).toEqual(['msg-2']);
+    await store.deleteMessage('sess-1', msgId1);
+    // Optimistic: msgId1 removed
+    expect(store.messages.map((m) => m.id)).toEqual([msgId2]);
 
     // Now simulate API failure and check revert
     apiMock.deleteMessage.mockRejectedValue(new ApiError(500, 'API Error'));
     store.messages = [
       {
-        id: 'msg-1',
+        id: msgId1,
         session_id: 'sess-1',
         role: 'user',
         content: 'a',
         created_at: '2026-06-21T00:00:00Z',
       },
     ];
-    await store.deleteMessage('sess-1', 'msg-1');
+    await store.deleteMessage('sess-1', msgId1);
     // After revert: message is back
-    expect(store.messages.map((m) => m.id)).toContain('msg-1');
+    expect(store.messages.map((m) => m.id)).toContain(msgId1);
   });
 
   // --------------------------------------------------------------------------
@@ -187,19 +196,17 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     const blob = new Blob([blobContent], { type: 'text/markdown' });
 
     // Mock URL.createObjectURL and <a download> click
-    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
-    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue();
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:mock');
+    URL.revokeObjectURL = vi.fn();
 
     // Mock api.exportSession to return blob directly
     apiMock.exportSession.mockResolvedValue(blob);
 
     await store.exportSession('sess-1', 'md');
     expect(apiMock.exportSession).toHaveBeenCalledWith('sess-1', 'md');
-    expect(createObjectURL).toHaveBeenCalled();
-    expect(revokeObjectURL).toHaveBeenCalled();
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalled();
     expect(store.isExporting).toBe(false);
-
-    vi.restoreAllMocks();
   });
 
   // --------------------------------------------------------------------------
@@ -242,6 +249,9 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   it('sendMessage reconciles temp IDs on done event', async () => {
     const store = useChatStore();
     store.activeSessionId = 'sess-1';
+
+    // Stub fetchSessions to avoid extra network calls
+    apiMock.get.mockResolvedValue([]);
 
     // Stub fetch to produce a mock stream that includes server IDs in done
     const encoder = new TextEncoder();
@@ -417,7 +427,9 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     // Stub fetchSessions to avoid extra network calls
     apiMock.get.mockResolvedValue([]);
 
-    await store.regenerateMessage('sess-1', 'msg-2');
+    store.lastCollectionId = 'col-1';
+
+    await store.regenerateMessage('msg-2');
 
     // Should have called POST /api/query with the last user query
     expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -455,7 +467,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
-    await store.regenerateMessage('sess-1', 'msg-2');
+    await store.regenerateMessage('msg-2');
     expect(store.error).toBeTruthy();
   });
 

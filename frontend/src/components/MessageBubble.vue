@@ -7,6 +7,7 @@ const props = defineProps<{
   message: Message;
   isStreaming?: boolean;
   index?: number;
+  isAdmin?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -17,7 +18,7 @@ const emit = defineEmits<{
   regenerate: [{ id: string }];
 }>();
 
-const sourcesExpanded = ref(false);
+const debugExpanded = ref(false);
 const editing = ref(false);
 const draftContent = ref('');
 const copyFeedback = ref(false);
@@ -36,8 +37,8 @@ const parsedSources = computed<SourceRef[]>(() => {
   }
 });
 
-function toggleSources() {
-  sourcesExpanded.value = !sourcesExpanded.value;
+function toggleDebug() {
+  debugExpanded.value = !debugExpanded.value;
 }
 
 function handleMarkdownClick(event: MouseEvent) {
@@ -82,6 +83,7 @@ function startEdit() {
   console.debug('[MessageBubble] enter edit mid=%s', props.message.id);
   draftContent.value = props.message.content;
   editing.value = true;
+  emit('edit', { id: props.message.id });
 }
 
 function saveEdit() {
@@ -211,7 +213,12 @@ watch(
 
       <!-- Actions + Timestamp row -->
       <div class="message-footer">
-        <div class="message-actions">
+        <div class="message-actions" data-testid="message-actions-row">
+          <!-- Timestamp -->
+          <span class="message-time" data-testid="message-time">{{
+            formattedTime
+          }}</span>
+
           <!-- Copy button (both roles) -->
           <button
             v-if="isPersistedMessage"
@@ -327,13 +334,36 @@ watch(
               />
             </svg>
           </button>
-        </div>
 
-        <!-- Timestamp + edited badge (inline with actions) -->
-        <div class="message-meta">
-          <span class="message-time" data-testid="message-time">{{
-            formattedTime
-          }}</span>
+          <!-- Debug button (assistant messages only, admin only) -->
+          <button
+            v-if="message.role === 'assistant' && isAdmin"
+            class="message-action-btn"
+            data-testid="message-debug-btn"
+            :title="debugExpanded ? 'Hide debug info' : 'Show debug info'"
+            @click="toggleDebug"
+          >
+            <svg
+              fill="none"
+              height="14"
+              viewBox="0 0 14 14"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5.5 2C4.7 2 4 2.5 3.8 3.2L2.5 7.5C2.2 8.5 3 9.5 4 9.5H10C11 9.5 11.8 8.5 11.5 7.5L10.2 3.2C10 2.5 9.3 2 8.5 2H5.5Z"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+              <circle cx="7" cy="6" fill="currentColor" r="1" />
+              <path
+                d="M5 10.5C5 11.3 5.7 12 6.5 12H7.5C8.3 12 9 11.3 9 10.5"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+            </svg>
+          </button>
+          <!-- Edited badge -->
           <span
             v-if="message.edited_at"
             class="message-edited-badge"
@@ -344,63 +374,42 @@ watch(
         </div>
       </div>
 
-      <!-- Sources -->
+      <!-- Debug panel (admin only, assistant messages) -->
       <div
-        v-if="parsedSources.length > 0 && message.role === 'assistant'"
-        class="sources-section"
+        v-if="debugExpanded && message.role === 'assistant' && isAdmin"
+        class="debug-panel"
+        data-testid="debug-panel"
       >
-        <button
-          class="sources-toggle"
-          data-testid="sources-toggle"
-          @click="toggleSources"
-        >
-          <svg
-            aria-hidden="true"
-            class="sources-chevron"
-            :class="{ expanded: sourcesExpanded }"
-            fill="none"
-            height="12"
-            viewBox="0 0 12 12"
-            width="12"
-            xmlns="http://www.w3.org/2000/svg"
+        <div class="debug-section">
+          <span class="debug-section-title">Found keywords (BM25)</span>
+          <p class="debug-placeholder">Waiting for BM25 implementation...</p>
+        </div>
+        <div v-if="parsedSources.length > 0" class="debug-section">
+          <span class="debug-section-title"
+            >Top {{ parsedSources.length }} chunks (embedding search)</span
           >
-            <path
-              d="M4 2.5L7.5 6L4 9.5"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-            />
-          </svg>
-          <span
-            >{{ parsedSources.length }} relevant passage{{
-              parsedSources.length > 1 ? "s" : ""
-            }}</span
-          >
-        </button>
-        <div
-          v-if="sourcesExpanded"
-          class="sources-list"
-          data-testid="sources-list"
-        >
           <div
             v-for="(source, idx) in parsedSources"
             :key="idx"
-            class="source-item"
-            data-testid="source-item"
+            class="debug-chunk"
+            data-testid="debug-chunk"
           >
-            <div class="source-header">
-              <span class="source-doc" data-testid="source-document">{{
+            <div class="debug-chunk-header">
+              <span class="debug-chunk-doc" data-testid="debug-chunk-doc">{{
                 source.document_name
               }}</span>
-              <span class="source-relevance" data-testid="source-relevance">
+              <span class="debug-chunk-score">
                 {{ Math.round(source.relevance * 100) }}%
               </span>
             </div>
-            <p class="source-text" data-testid="source-text">
+            <p class="debug-chunk-text" data-testid="debug-chunk-text">
               {{ source.text }}
             </p>
           </div>
+        </div>
+        <div class="debug-section">
+          <span class="debug-section-title">Chunks by keywords</span>
+          <p class="debug-placeholder">Waiting for BM25 implementation...</p>
         </div>
       </div>
     </div>
@@ -888,22 +897,11 @@ watch(
   background: rgba(128, 128, 128, 0.1);
 }
 
-/* Timestamp + meta row (now inline with actions) */
-.message-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+.message-time {
   font-size: 0.65rem;
   color: var(--msg-time-color);
-  white-space: nowrap;
-}
-
-.message-user .message-meta {
-  justify-content: flex-end;
-}
-
-.message-time {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .message-edited-badge {
@@ -911,61 +909,49 @@ watch(
   opacity: 0.7;
 }
 
-/* Sources section */
-.sources-section {
-  margin-top: 0.25rem;
+/* Debug panel (replaces old sources-section in chat polish) */
+.debug-panel {
+  margin-top: 0.5rem;
   width: 100%;
-}
-
-.sources-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
   background: var(--color-muted);
   border: 1px solid rgba(128, 128, 128, 0.15);
-  border-radius: 999px;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.72rem;
-  cursor: pointer;
-  color: var(--color-muted-foreground);
-  transition: all 0.12s;
-}
-
-[data-theme="light"] .sources-toggle {
-  background: rgba(128, 128, 128, 0.06);
-}
-
-.sources-toggle:hover {
-  background: rgba(128, 128, 128, 0.15);
-}
-
-.sources-chevron {
-  transition: transform 0.15s;
-}
-
-.sources-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.sources-list {
-  margin-top: 0.375rem;
+  border-radius: 8px;
+  padding: 0.625rem;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.625rem;
 }
 
-.source-item {
-  padding: 0.5rem 0.625rem;
-  border-radius: 8px;
-  background: var(--color-muted);
+.debug-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.debug-section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.debug-placeholder {
+  font-size: 0.72rem;
+  color: var(--color-muted-foreground);
+  font-style: italic;
+  margin: 0;
+}
+
+.debug-chunk {
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  background: var(--color-background);
   border: 1px solid rgba(128, 128, 128, 0.1);
+  margin-bottom: 0.25rem;
 }
 
-[data-theme="light"] .source-item {
-  background: rgba(128, 128, 128, 0.04);
-}
-
-.source-header {
+.debug-chunk-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -973,8 +959,8 @@ watch(
   gap: 0.5rem;
 }
 
-.source-doc {
-  font-size: 0.72rem;
+.debug-chunk-doc {
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -982,7 +968,7 @@ watch(
   white-space: nowrap;
 }
 
-.source-relevance {
+.debug-chunk-score {
   font-size: 0.65rem;
   color: var(--color-primary);
   font-weight: 600;
@@ -990,14 +976,15 @@ watch(
   flex-shrink: 0;
 }
 
-.source-text {
-  font-size: 0.75rem;
+.debug-chunk-text {
+  font-size: 0.72rem;
   line-height: 1.4;
   color: var(--color-muted-foreground);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin: 0;
 }
 
 /* Role label removed from individual messages, shown as text above content */

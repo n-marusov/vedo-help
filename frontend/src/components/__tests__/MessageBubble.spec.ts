@@ -213,15 +213,13 @@ describe('MessageBubble', () => {
     expect(wrapper.find('[data-testid="message-copy-btn"]').exists()).toBe(true);
   });
 
-  it('copy button copies message text to clipboard', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-
+  it('copy button emits copy event with message id', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createUserMessage({ content: 'text to copy' }) },
     });
     await wrapper.find('[data-testid="message-copy-btn"]').trigger('click');
-    expect(writeText).toHaveBeenCalledWith('text to copy');
+    expect(wrapper.emitted('copy')).toBeTruthy();
+    expect(wrapper.emitted('copy')?.[0]).toEqual([{ id: 'msg-1' }]);
   });
 
   it('renders edit button on user messages only', async () => {

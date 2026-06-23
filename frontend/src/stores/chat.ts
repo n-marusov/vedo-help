@@ -243,6 +243,25 @@ export const useChatStore = defineStore('chat', () => {
 
       // Refresh sessions after a new query (might have created a session)
       await fetchSessions();
+
+      // Auto-name session if title is still "New Chat" (v0.3.1 chat polish)
+      if (activeSessionId.value) {
+        const session = sessions.value.find((s) => s.id === activeSessionId.value);
+        if (session && (session.title === 'New Chat' || session.title === 'New Session')) {
+          const firstMsg = messages.value.find((m) => m.role === 'user');
+          if (firstMsg) {
+            const autoTitle = firstMsg.content.slice(0, 50).trim();
+            if (autoTitle) {
+              console.debug(
+                '[chat.autoName] session=%s auto-title=%s',
+                activeSessionId.value,
+                autoTitle,
+              );
+              await renameSession(activeSessionId.value, autoTitle);
+            }
+          }
+        }
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         // User cancelled
@@ -528,6 +547,7 @@ export const useChatStore = defineStore('chat', () => {
     searchQuery,
     sidebarCollapsed,
     filteredSessions,
+    lastCollectionId,
     setSearchQuery,
     toggleSidebarCollapsed,
     regenerateMessage,

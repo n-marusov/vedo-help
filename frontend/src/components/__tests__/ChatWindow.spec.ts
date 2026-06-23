@@ -178,6 +178,11 @@ describe('ChatWindow (ChatView)', () => {
     const wrapper = mount(ChatView);
     const { useChatStore } = await import('@/stores/chat');
     const chatStore = useChatStore();
+    // Wait for onMounted fetch calls to complete
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextTick();
+    // Now override with test data
     chatStore.sessions = [
       {
         id: 's1',
@@ -194,33 +199,33 @@ describe('ChatWindow (ChatView)', () => {
     await renameBtn.trigger('click');
     await nextTick();
 
-    // Dialog from VDialog component has data-testid="confirm-dialog"
-    const dialog = wrapper.find('[data-testid="confirm-dialog"]');
-    expect(dialog.exists()).toBe(true);
-    // Dialog should contain the rename input
-    const input = wrapper.find('[data-testid="session-rename-input"]');
-    expect(input.exists()).toBe(true);
+    // VDialog uses <Teleport to="body">, so search in document.body
+    const dialog = document.body.querySelector('[data-testid="confirm-dialog"]');
+    expect(dialog).not.toBeNull();
+    // Dialog should contain the rename input (also teleported)
+    const input = document.body.querySelector('[data-testid="session-rename-input"]');
+    expect(input).not.toBeNull();
   });
 
   it('displays collection tag when collection is selected', async () => {
     const wrapper = mount(ChatView);
+    // Wait for onMounted fetchCollections to resolve
+    await wrapper.vm.$nextTick();
+    await new Promise((r) => setTimeout(r, 0));
+    await wrapper.vm.$nextTick();
+
     const { useCollectionStore } = await import('@/stores/collections');
     const collectionStore = useCollectionStore();
-    collectionStore.collections = [
-      {
-        id: 'col-1',
-        name: 'My Docs',
-        created_at: '2026-06-23T00:00:00Z',
-        document_count: 5,
-      },
-    ];
-    collectionStore.activeCollectionId = 'col-1';
-    await nextTick();
+
+    // collections now has [{ id: 'collection-1', name: 'Technical Docs' }] from mock
+    // match the activeCollectionId to the mock's data
+    collectionStore.setActiveCollection('collection-1');
+    await wrapper.vm.$nextTick();
 
     // When no active session but collection is active: toolbar-collection-tag
     const tag = wrapper.find('[data-testid="toolbar-collection-tag"]');
     expect(tag.exists()).toBe(true);
-    expect(tag.text()).toContain('My Docs');
+    expect(tag.text()).toContain('Technical Docs');
   });
 
   // ==========================================================================
