@@ -75,7 +75,7 @@
 - [x] **Context management** — sliding window + token budget (сейчас передаётся вся история)
 - [x] **Chat export** — экспорт истории чата (JSON/Markdown, backend API готов, нет кнопки в UI)
 - [x] **Empty state & loading skeletons** — базовые empty state есть, нет анимированных скелетонов
-- [ ] **Chat UI polish** — доработка интерфейса чата (начать с `design/`):
+- [~] **Chat UI polish** — доработка интерфейса чата (реализация выполнена, ожидает Pencil-верификацию Task 0.4):
   - Убрать иконки у сообщений, называть сессии кратким содержимым первого запроса
   - Действия под запросом: копирование + редактирование; под ответом: копирование + регенерация
   - Поиск по содержимому сессий на сайдбаре
@@ -147,7 +147,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
-| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ **6/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ❌; admin panel & repo sync fix ❌ |
+| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ **7/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ❌ |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |

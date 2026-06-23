@@ -207,7 +207,13 @@ watch(
             class="streaming-cursor"
             aria-hidden="true"
           />
-          <div v-if="isStreaming && !message.content" class="streaming-bar" />
+          <div
+            v-if="isStreaming && !message.content"
+            class="streaming-bar"
+            data-testid="streaming-indicator"
+          >
+            Assistant is typing<span class="streaming-dots">...</span>
+          </div>
         </template>
       </div>
 
@@ -781,21 +787,23 @@ watch(
 }
 
 .streaming-bar {
-  width: 2rem;
-  height: 0.25rem;
-  background: var(--color-primary);
-  border-radius: 999px;
-  animation: pulse-width var(--anim-stream-duration) ease-in-out infinite;
+  color: var(--color-muted-foreground);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
 }
 
-@keyframes pulse-width {
+.streaming-dots {
+  animation: blink 1.4s steps(4) infinite;
+}
+
+@keyframes blink {
   0%,
   100% {
-    width: 2rem;
-    opacity: 0.5;
+    opacity: 0;
   }
   50% {
-    width: 4rem;
     opacity: 1;
   }
 }
