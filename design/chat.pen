@@ -916,6 +916,9 @@
                         "B:EDJeT": {
                           "content": "The rate limiter is configured via the backend rate limit middleware. Set the maximum request body size and use the configured layer on upload/query routes."
                         },
+                        "B:7mXlz": {
+                          "enabled": false
+                        },
                         "B:92HG2": {
                           "content": "config-guide.md"
                         },
@@ -2292,14 +2295,14 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "text",
+              "type": "icon",
               "id": "S7CH9",
               "name": "deleteIcon",
               "fill": "$B:destructive",
-              "content": "✕",
-              "fontFamily": "IBM Plex Mono",
-              "fontSize": 12,
-              "fontWeight": "bold"
+              "library": "lucide",
+              "icon": "trash-2",
+              "width": 14,
+              "height": 14
             },
             {
               "type": "text",
@@ -2481,13 +2484,13 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "text",
+              "type": "icon",
               "id": "pfmkO",
               "fill": "$B:destructive",
-              "content": "✕",
-              "fontFamily": "IBM Plex Mono",
-              "fontSize": 12,
-              "fontWeight": "bold"
+              "library": "lucide",
+              "icon": "trash-2",
+              "width": 14,
+              "height": 14
             },
             {
               "type": "text",

@@ -6057,7 +6057,7 @@
                               "id": "mu5gh",
                               "name": "debugIcon",
                               "fill": "$muted-foreground",
-                              "content": "🔓",
+                              "content": "🐛",
                               "fontFamily": "Inter",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -6265,20 +6265,27 @@
                       "fontWeight": "normal"
                     },
                     {
-                      "enabled": false,
                       "type": "frame",
                       "id": "7mXlz",
+                      "x": 0,
+                      "y": 29,
                       "name": "sourcesSection",
-                      "width": "fill_container",
+                      "enabled": false,
+                      "slot": [],
+                      "width": "fill_container(600)",
+                      "height": "fit_content(32)",
                       "layout": "vertical",
                       "gap": 6,
                       "children": [
                         {
-                          "enabled": false,
                           "type": "frame",
                           "id": "QVgQX",
+                          "x": 0,
+                          "y": 0,
                           "name": "sourceItem",
-                          "width": "fill_container",
+                          "enabled": false,
+                          "opacity": 0.5,
+                          "width": "fill_container(600)",
                           "fill": "$muted",
                           "padding": [
                             8,
@@ -6383,7 +6390,7 @@
                               "id": "f17dw",
                               "name": "debugIcon",
                               "fill": "$muted-foreground",
-                              "content": "🔓",
+                              "content": "🐛",
                               "fontFamily": "Inter",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -9341,7 +9348,7 @@
       "type": "frame",
       "id": "jQyCs",
       "x": 0,
-      "y": 3701,
+      "y": 5531,
       "name": "Organisms",
       "width": 2400,
       "fill": "$background",
@@ -12043,7 +12050,7 @@
       "type": "frame",
       "id": "NIx5U",
       "x": 2480,
-      "y": 3701,
+      "y": 5531,
       "name": "Organisms (Light)",
       "theme": {
         "mode": "light"

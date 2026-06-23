@@ -17,30 +17,6 @@
       "layout": "vertical",
       "children": [
         {
-          "id": "pageHeader",
-          "type": "ref",
-          "ref": "B:VedoPageHeader",
-          "width": "fill_container",
-          "descendants": {
-            "B:themeToggle/B:rzq1r": {
-              "children": [
-                {
-                  "type": "text",
-                  "id": "themeIconText",
-                  "fill": "$B:muted-foreground",
-                  "content": "☀️",
-                  "fontFamily": "IBM Plex Mono",
-                  "fontSize": 14,
-                  "fontWeight": "bold"
-                }
-              ]
-            },
-            "B:themeToggle/B:EIYE9": {
-              "content": ""
-            }
-          }
-        },
-        {
           "type": "frame",
           "id": "adminWorkspace",
           "name": "Admin Workspace",
@@ -50,51 +26,6 @@
           "gap": 20,
           "padding": 24,
           "children": [
-            {
-              "type": "frame",
-              "id": "adminHeader",
-              "width": "fill_container",
-              "height": 64,
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "adminTitleBlock",
-                  "layout": "vertical",
-                  "gap": 4,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "adminTitle",
-                      "fill": "$B:foreground",
-                      "content": "Admin Panel",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 24,
-                      "fontWeight": "700"
-                    },
-                    {
-                      "type": "text",
-                      "id": "adminSub",
-                      "fill": "$B:muted-foreground",
-                      "content": "Manage collections, uploads, and indexed knowledge sources",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "id": "clearKeyBtn",
-                  "type": "ref",
-                  "ref": "B:c8T4z",
-                  "descendants": {
-                    "B:esH0z": {
-                      "content": "Clear API Key"
-                    }
-                  }
-                }
-              ]
-            },
             {
               "type": "frame",
               "id": "adminPanels",
@@ -120,6 +51,7 @@
                       "type": "frame",
                       "id": "collectionsHeader",
                       "width": "fill_container",
+                      "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
                         {
@@ -162,9 +94,56 @@
                               "content": "Technical Docs"
                             },
                             "B:kaoPr": {
-                              "content": "Project specifications and development guides · 5 documents                                      🗑"
+                              "type": "frame",
+                              "name": "descRow",
+                              "layout": "horizontal",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "name": "cardDescText",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fill": "$B:muted-foreground",
+                                  "fontWeight": "normal",
+                                  "content": "Project specifications and development guides · 5 documents",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container"
+                                },
+                                {
+                                  "type": "frame",
+                                  "name": "deleteIconBtn",
+                                  "width": 24,
+                                  "height": 24,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "name": "deleteIcon",
+                                      "library": "lucide",
+                                      "icon": "trash-2",
+                                      "width": 14,
+                                      "height": 14,
+                                      "fill": "$B:destructive"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "B:0ndYv": {
+                              "enabled": false
                             }
-                          }
+                          },
+                          "gap": 4,
+                          "padding": [
+                            6,
+                            10
+                          ]
                         },
                         {
                           "id": "collectionCardTwo",
@@ -176,9 +155,56 @@
                               "content": "API Reference"
                             },
                             "B:kaoPr": {
-                              "content": "OpenAPI specs and endpoint notes · 2 documents                                      🗑"
+                              "type": "frame",
+                              "name": "descRow",
+                              "layout": "horizontal",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "name": "cardDescText",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fill": "$B:muted-foreground",
+                                  "fontWeight": "normal",
+                                  "content": "OpenAPI specs and endpoint notes · 2 documents",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container"
+                                },
+                                {
+                                  "type": "frame",
+                                  "name": "deleteIconBtn",
+                                  "width": 24,
+                                  "height": 24,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "name": "deleteIcon",
+                                      "library": "lucide",
+                                      "icon": "trash-2",
+                                      "width": 14,
+                                      "height": 14,
+                                      "fill": "$B:destructive"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "B:0ndYv": {
+                              "enabled": false
                             }
-                          }
+                          },
+                          "gap": 4,
+                          "padding": [
+                            6,
+                            10
+                          ]
                         },
                         {
                           "id": "collectionCardThree",
@@ -190,9 +216,56 @@
                               "content": "Deployment"
                             },
                             "B:kaoPr": {
-                              "content": "Docker Compose, Caddy, VPS runbooks · 4 documents"
+                              "type": "frame",
+                              "name": "descRow",
+                              "layout": "horizontal",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "name": "cardDescText",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fill": "$B:muted-foreground",
+                                  "fontWeight": "normal",
+                                  "content": "Docker Compose, Caddy, VPS runbooks · 4 documents",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container"
+                                },
+                                {
+                                  "type": "frame",
+                                  "name": "deleteIconBtn",
+                                  "width": 24,
+                                  "height": 24,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "name": "deleteIcon",
+                                      "library": "lucide",
+                                      "icon": "trash-2",
+                                      "width": 14,
+                                      "height": 14,
+                                      "fill": "$B:destructive"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "B:0ndYv": {
+                              "enabled": false
                             }
-                          }
+                          },
+                          "gap": 4,
+                          "padding": [
+                            6,
+                            10
+                          ]
                         }
                       ]
                     }
@@ -216,6 +289,7 @@
                       "type": "frame",
                       "id": "documentsHeader",
                       "width": "fill_container",
+                      "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
                         {
@@ -251,6 +325,9 @@
                           "type": "frame",
                           "id": "uploadProgressMeta",
                           "width": "fill_container",
+                          "gap": 24,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "text",
@@ -346,30 +423,6 @@
       "layout": "vertical",
       "children": [
         {
-          "id": "DECBM",
-          "type": "ref",
-          "ref": "B:VedoPageHeader",
-          "width": "fill_container",
-          "descendants": {
-            "B:themeToggle/B:rzq1r": {
-              "children": [
-                {
-                  "type": "text",
-                  "id": "CrPjB",
-                  "fill": "$B:muted-foreground",
-                  "content": "🌙",
-                  "fontFamily": "IBM Plex Mono",
-                  "fontSize": 14,
-                  "fontWeight": "bold"
-                }
-              ]
-            },
-            "B:themeToggle/B:EIYE9": {
-              "content": ""
-            }
-          }
-        },
-        {
           "type": "frame",
           "id": "gPofR",
           "name": "Admin Workspace",
@@ -379,51 +432,6 @@
           "gap": 20,
           "padding": 24,
           "children": [
-            {
-              "type": "frame",
-              "id": "faxcq",
-              "width": "fill_container",
-              "height": 64,
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "cTl7j",
-                  "layout": "vertical",
-                  "gap": 4,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "UAA2L",
-                      "fill": "$B:foreground",
-                      "content": "Admin Panel",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 24,
-                      "fontWeight": "700"
-                    },
-                    {
-                      "type": "text",
-                      "id": "JYGpw",
-                      "fill": "$B:muted-foreground",
-                      "content": "Manage collections, uploads, and indexed knowledge sources",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "id": "rQlkT",
-                  "type": "ref",
-                  "ref": "B:c8T4z",
-                  "descendants": {
-                    "B:esH0z": {
-                      "content": "Clear API Key"
-                    }
-                  }
-                }
-              ]
-            },
             {
               "type": "frame",
               "id": "Nhcv9",
@@ -449,6 +457,7 @@
                       "type": "frame",
                       "id": "wtvTO",
                       "width": "fill_container",
+                      "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
                         {
@@ -491,9 +500,56 @@
                               "content": "Technical Docs"
                             },
                             "B:kaoPr": {
-                              "content": "Project specifications and development guides · 5 documents                                      🗑"
+                              "type": "frame",
+                              "name": "descRow",
+                              "layout": "horizontal",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "name": "cardDescText",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fill": "$B:muted-foreground",
+                                  "fontWeight": "normal",
+                                  "content": "Project specifications and development guides · 5 documents",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container"
+                                },
+                                {
+                                  "type": "frame",
+                                  "name": "deleteIconBtn",
+                                  "width": 24,
+                                  "height": 24,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "name": "deleteIcon",
+                                      "library": "lucide",
+                                      "icon": "trash-2",
+                                      "width": 14,
+                                      "height": 14,
+                                      "fill": "$B:destructive"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "B:0ndYv": {
+                              "enabled": false
                             }
-                          }
+                          },
+                          "gap": 4,
+                          "padding": [
+                            6,
+                            10
+                          ]
                         },
                         {
                           "id": "el6C3",
@@ -505,9 +561,56 @@
                               "content": "API Reference"
                             },
                             "B:kaoPr": {
-                              "content": "OpenAPI specs and endpoint notes · 2 documents                                      🗑"
+                              "type": "frame",
+                              "name": "descRow",
+                              "layout": "horizontal",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "name": "cardDescText",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fill": "$B:muted-foreground",
+                                  "fontWeight": "normal",
+                                  "content": "OpenAPI specs and endpoint notes · 2 documents",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container"
+                                },
+                                {
+                                  "type": "frame",
+                                  "name": "deleteIconBtn",
+                                  "width": 24,
+                                  "height": 24,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "name": "deleteIcon",
+                                      "library": "lucide",
+                                      "icon": "trash-2",
+                                      "width": 14,
+                                      "height": 14,
+                                      "fill": "$B:destructive"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "B:0ndYv": {
+                              "enabled": false
                             }
-                          }
+                          },
+                          "gap": 4,
+                          "padding": [
+                            6,
+                            10
+                          ]
                         },
                         {
                           "id": "R1SXf",
@@ -519,9 +622,56 @@
                               "content": "Deployment"
                             },
                             "B:kaoPr": {
-                              "content": "Docker Compose, Caddy, VPS runbooks · 4 documents"
+                              "type": "frame",
+                              "name": "descRow",
+                              "layout": "horizontal",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "name": "cardDescText",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fill": "$B:muted-foreground",
+                                  "fontWeight": "normal",
+                                  "content": "Docker Compose, Caddy, VPS runbooks · 4 documents",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container"
+                                },
+                                {
+                                  "type": "frame",
+                                  "name": "deleteIconBtn",
+                                  "width": 24,
+                                  "height": 24,
+                                  "fill": "#00000000",
+                                  "cornerRadius": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "name": "deleteIcon",
+                                      "library": "lucide",
+                                      "icon": "trash-2",
+                                      "width": 14,
+                                      "height": 14,
+                                      "fill": "$B:destructive"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "B:0ndYv": {
+                              "enabled": false
                             }
-                          }
+                          },
+                          "gap": 4,
+                          "padding": [
+                            6,
+                            10
+                          ]
                         }
                       ]
                     }
@@ -545,6 +695,7 @@
                       "type": "frame",
                       "id": "ZtEeZ",
                       "width": "fill_container",
+                      "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
                         {
@@ -580,6 +731,9 @@
                           "type": "frame",
                           "id": "HxiPY",
                           "width": "fill_container",
+                          "gap": 24,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "text",
