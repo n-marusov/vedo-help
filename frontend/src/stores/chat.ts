@@ -38,6 +38,7 @@ export const useChatStore = defineStore('chat', () => {
   const isSessionLoading = ref(false);
   const isExporting = ref(false);
   const isLoadingSessions = ref(false);
+  const lastCollectionId = ref<string | null>(null);
   const searchQuery = ref('');
   const sidebarCollapsed = ref(localStorage.getItem('chat_sidebar_collapsed') === 'true');
 
@@ -108,6 +109,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendMessage(collectionId: string, query: string) {
     isLoading.value = true;
+    lastCollectionId.value = collectionId;
     error.value = null;
     abortController = new AbortController();
 
@@ -441,6 +443,60 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /** Find the last user message before a given assistant message and re-send it. */
+  async function regenerateMessage(assistantMessageId: string) {
+    const idx = messages.value.findIndex(
+      (m) => m.id === assistantMessageId && m.role === 'assistant',
+    );
+    if (idx < 1) {
+      console.warn(
+        '[chat.regenerateMessage] no preceding user msg for assist=%s',
+        assistantMessageId,
+      );
+      return;
+    }
+
+    // Find the most recent user message before this assistant message
+    let userQuery = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages.value[i].role === 'user') {
+        userQuery = messages.value[i].content;
+        break;
+      }
+    }
+    if (!userQuery) {
+      console.warn('[chat.regenerateMessage] no user msg found for assist=%s', assistantMessageId);
+      return;
+    }
+
+    console.debug(
+      '[chat.regenerateMessage] regenerating for assist=%s query_len=%d',
+      assistantMessageId,
+      userQuery.length,
+    );
+
+    // Remove the existing assistant message
+    messages.value.splice(idx, 1);
+
+    // Re-send the query with the stored collection
+    await sendMessage(lastCollectionId.value || '', userQuery);
+  }
+
+  /** Copy a message text to clipboard. */
+  async function copyMessage(messageId: string): Promise<void> {
+    const msg = messages.value.find((m) => m.id === messageId);
+    if (!msg) {
+      console.warn('[chat.copyMessage] msg not found id=%s', messageId);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      console.debug('[chat.copyMessage] copied id=%s len=%d', messageId, msg.content.length);
+    } catch (err) {
+      console.warn('[chat.copyMessage] clipboard failed id=%s', messageId, err);
+    }
+  }
+
   function clearMessages() {
     messages.value = [];
     activeSessionId.value = null;
@@ -474,5 +530,7 @@ export const useChatStore = defineStore('chat', () => {
     filteredSessions,
     setSearchQuery,
     toggleSidebarCollapsed,
+    regenerateMessage,
+    copyMessage,
   };
 });

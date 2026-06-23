@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Message, SourceRef } from '@/api/types';
-import UserAvatar from '@/components/ui/UserAvatar.vue';
 import { decodeCode, renderMarkdown } from '@/utils/markdown';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -12,14 +11,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   edit: [{ id: string }];
-  delete: [{ id: string }];
   'save-edit': [{ id: string; content: string }];
   'cancel-edit': [];
+  copy: [{ id: string }];
+  regenerate: [{ id: string }];
 }>();
 
 const sourcesExpanded = ref(false);
 const editing = ref(false);
 const draftContent = ref('');
+const copyFeedback = ref(false);
 
 const renderedContent = computed(() => {
   if (!props.message.content) return '';
@@ -95,14 +96,17 @@ function cancelEdit() {
   draftContent.value = props.message.content;
 }
 
-function handleDelete() {
-  if (!isPersistedMessage.value) {
-    console.warn('[FIX:chat-temp-id] delete disabled for pending message', {
-      messageId: props.message.id,
-    });
-    return;
-  }
-  emit('delete', { id: props.message.id });
+async function handleCopy() {
+  emit('copy', { id: props.message.id });
+  copyFeedback.value = true;
+  setTimeout(() => {
+    copyFeedback.value = false;
+  }, 1500);
+}
+
+function handleRegenerate() {
+  console.debug('[MessageBubble] regenerate assist=%s', props.message.id);
+  emit('regenerate', { id: props.message.id });
 }
 
 onMounted(() => {
@@ -147,15 +151,12 @@ watch(
       message.role === 'user' ? 'message-user' : 'message-assistant'
     "
   >
-    <!-- Avatar (assistant on left, user on right) -->
-    <UserAvatar
-      v-if="message.role === 'assistant'"
-      :role="message.role"
-      size="sm"
-      class="message-avatar"
-    />
-
     <div class="message-content-wrapper">
+      <!-- Role label -->
+      <div class="message-role-label">
+        {{ message.role === "user" ? "You" : "Assistant" }}
+      </div>
+
       <!-- Message content -->
       <div
         class="message-content"
@@ -208,79 +209,139 @@ watch(
         </template>
       </div>
 
-      <!-- Hover action row (edit/delete) -->
-      <div class="message-actions">
-        <button
-          v-if="message.role === 'user' && isPersistedMessage"
-          class="message-action-btn"
-          data-testid="message-edit-btn"
-          title="Edit"
-          @click="startEdit"
-        >
-          <svg
-            fill="none"
-            height="14"
-            viewBox="0 0 14 14"
-            width="14"
-            xmlns="http://www.w3.org/2000/svg"
+      <!-- Actions + Timestamp row -->
+      <div class="message-footer">
+        <div class="message-actions">
+          <!-- Copy button (both roles) -->
+          <button
+            v-if="isPersistedMessage"
+            class="message-action-btn"
+            data-testid="message-copy-btn"
+            :title="copyFeedback ? 'Copied!' : 'Copy'"
+            @click="handleCopy"
           >
-            <path
-              d="M10 1.5L12.5 4L5 11.5L1.5 12.5L2.5 9L10 1.5Z"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.2"
-            />
-          </svg>
-        </button>
-        <button
-          v-if="isPersistedMessage"
-          class="message-action-btn"
-          data-testid="message-delete-btn"
-          title="Delete"
-          @click="handleDelete"
-        >
-          <svg
-            fill="none"
-            height="14"
-            viewBox="0 0 14 14"
-            width="14"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M2 3.5H12"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-width="1.2"
-            />
-            <path
-              d="M5 2H9"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-width="1.2"
-            />
-            <path
-              d="M3 5L3.5 11.5C3.5 12.3 4.2 13 5 13H9C9.8 13 10.5 12.3 10.5 11.5L11 5"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-width="1.2"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg
+              v-if="!copyFeedback"
+              fill="none"
+              height="14"
+              viewBox="0 0 14 14"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="3.5"
+                y="3.5"
+                width="9"
+                height="9"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+              <path
+                d="M10.5 3.5V2.5C10.5 1.5 9.8 1 9 1H3C2.2 1 1.5 1.5 1.5 2.5V9.5C1.5 10.5 2.2 11 3 11H4"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+            </svg>
+            <svg
+              v-else
+              fill="none"
+              height="14"
+              viewBox="0 0 14 14"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3 7.5L5.5 10L11 4"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
 
-      <!-- Timestamp + edited badge -->
-      <div class="message-meta">
-        <span class="message-time" data-testid="message-time">{{
-          formattedTime
-        }}</span>
-        <span
-          v-if="message.edited_at"
-          class="message-edited-badge"
-          data-testid="message-edited-badge"
-        >
-          · edited
-        </span>
+          <!-- Edit button (user messages only) -->
+          <button
+            v-if="message.role === 'user' && isPersistedMessage"
+            class="message-action-btn"
+            data-testid="message-edit-btn"
+            title="Edit"
+            @click="startEdit"
+          >
+            <svg
+              fill="none"
+              height="14"
+              viewBox="0 0 14 14"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 1.5L12.5 4L5 11.5L1.5 12.5L2.5 9L10 1.5Z"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.2"
+              />
+            </svg>
+          </button>
+
+          <!-- Regenerate button (assistant messages only) -->
+          <button
+            v-if="message.role === 'assistant' && isPersistedMessage"
+            class="message-action-btn"
+            data-testid="message-regenerate-btn"
+            title="Regenerate"
+            @click="handleRegenerate"
+          >
+            <svg
+              fill="none"
+              height="14"
+              viewBox="0 0 14 14"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M2 7C2 4.2 4.2 2 7 2C9.8 2 11 4.5 11 4.5"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M11 4.5H9"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M12 7C12 9.8 9.8 12 7 12C4.2 12 3 9.5 3 9.5"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M3 9.5H5"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Timestamp + edited badge (inline with actions) -->
+        <div class="message-meta">
+          <span class="message-time" data-testid="message-time">{{
+            formattedTime
+          }}</span>
+          <span
+            v-if="message.edited_at"
+            class="message-edited-badge"
+            data-testid="message-edited-badge"
+          >
+            · edited
+          </span>
+        </div>
       </div>
 
       <!-- Sources -->
@@ -312,7 +373,7 @@ watch(
             />
           </svg>
           <span
-            >{{ parsedSources.length }} source{{
+            >{{ parsedSources.length }} relevant passage{{
               parsedSources.length > 1 ? "s" : ""
             }}</span
           >
@@ -336,19 +397,13 @@ watch(
                 {{ Math.round(source.relevance * 100) }}%
               </span>
             </div>
-            <p class="source-text">{{ source.text }}</p>
+            <p class="source-text" data-testid="source-text">
+              {{ source.text }}
+            </p>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- User avatar on the right -->
-    <UserAvatar
-      v-if="message.role === 'user'"
-      :role="message.role"
-      size="sm"
-      class="message-avatar"
-    />
   </div>
 </template>
 
@@ -358,28 +413,36 @@ watch(
   gap: var(--msg-gap);
   padding: 0.375rem 1.5rem;
   max-width: var(--max-msg-width);
+  width: 100%;
 }
 
 .message-user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
 .message-assistant {
-  align-self: flex-start;
+  justify-content: flex-start;
 }
 
-/* ===== Avatar ===== */
 .message-avatar {
   flex-shrink: 0;
-  margin-top: 0.15rem;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: var(--avatar-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
 }
 
-/* ===== Content wrapper ===== */
 .message-content-wrapper {
   display: flex;
   flex-direction: column;
+  gap: 0.125rem;
   min-width: 0;
+  flex: 0 1 auto;
 }
 
 .message-assistant .message-content-wrapper {
@@ -390,29 +453,40 @@ watch(
   align-items: flex-end;
 }
 
-/* ===== Message content ===== */
+.message-role-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--msg-time-color);
+  padding: 0 0.25rem;
+  margin-bottom: 0.125rem;
+}
+
 .message-content {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  word-break: break-word;
   padding: var(--msg-padding-y) var(--msg-padding-x);
+  line-height: 1.55;
+  font-size: 0.875rem;
+  position: relative;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .message-content--user {
   background: var(--msg-user-bg);
   color: var(--msg-user-text);
   border-radius: var(--msg-radius-user);
+  max-width: 520px;
 }
 
 .message-content--assistant {
-  background: transparent;
+  background: var(--msg-assistant-bg);
   color: var(--msg-assistant-text);
   border-radius: var(--msg-radius-assistant);
-  padding-left: 0;
+  max-width: 600px;
 }
 
+/* Inline code styling */
 .markdown-body :deep(p) {
-  margin: 0.35rem 0;
+  margin: 0.25rem 0;
 }
 
 .markdown-body :deep(p:first-child) {
@@ -424,67 +498,62 @@ watch(
 }
 
 .markdown-body :deep(code) {
-  background: var(--color-border);
-  padding: 0.15rem 0.35rem;
-  border-radius: var(--radius-xs);
-  font-size: 0.85em;
-  font-family: var(--font-family);
-  color: var(--color-foreground);
+  background: rgba(128, 128, 128, 0.15);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-family: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
 }
 
 .markdown-body :deep(a) {
-  color: #6b9fff;
+  color: var(--color-primary);
+  text-decoration: underline;
 }
 
-/* ===== GFM Tables ===== */
 .markdown-body :deep(table) {
-  width: 100%;
   border-collapse: collapse;
+  width: 100%;
   margin: 0.5rem 0;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 
 .markdown-body :deep(th) {
-  background: var(--color-secondary);
-  color: var(--color-foreground);
+  background: rgba(128, 128, 128, 0.1);
   font-weight: 600;
-  padding: 0.5rem 0.75rem;
   text-align: left;
-  border: 1px solid var(--color-border);
+  padding: 0.375rem 0.5rem;
+  border: 1px solid rgba(128, 128, 128, 0.2);
 }
 
 .markdown-body :deep(td) {
-  padding: 0.4rem 0.75rem;
-  border: 1px solid var(--color-border);
+  padding: 0.375rem 0.5rem;
+  border: 1px solid rgba(128, 128, 128, 0.2);
 }
 
+/* No alternating row colors — all rows same background */
 .markdown-body :deep(tr:nth-child(even)) {
-  background: var(--color-secondary);
+  background: transparent;
 }
 
-/* ===== Blockquotes ===== */
 .markdown-body :deep(blockquote) {
+  border-left: 3px solid var(--color-primary);
   margin: 0.5rem 0;
   padding: 0.25rem 0.75rem;
-  border-left: 3px solid var(--color-primary);
   color: var(--color-muted-foreground);
-  background: var(--color-secondary);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
 }
 
 .markdown-body :deep(blockquote p) {
+  margin: 0;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  padding-left: 1.25rem;
   margin: 0.25rem 0;
 }
 
-/* ===== Lists ===== */
-.markdown-body :deep(ul),
-.markdown-body :deep(ol) {
-  margin: 0.35rem 0;
-  padding-left: 1.5rem;
-}
-
 .markdown-body :deep(li) {
-  margin: 0.15rem 0;
+  margin: 0.125rem 0;
 }
 
 .markdown-body :deep(ul > li) {
@@ -495,281 +564,248 @@ watch(
   list-style-type: decimal;
 }
 
-/* ===== Horizontal Rules ===== */
 .markdown-body :deep(hr) {
   border: none;
-  height: 1px;
-  background: var(--color-border);
-  margin: 1rem 0;
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  margin: 0.75rem 0;
 }
 
-/* ===== Headings ===== */
 .markdown-body :deep(h1) {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  margin: 1rem 0 0.5rem;
-  color: var(--color-foreground);
+  margin: 0.75rem 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
 }
 
 .markdown-body :deep(h2) {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin: 0.85rem 0 0.4rem;
-  color: var(--color-foreground);
+  margin: 0.75rem 0 0.375rem;
 }
 
 .markdown-body :deep(h3) {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin: 0.7rem 0 0.35rem;
-  color: var(--color-foreground);
+  margin: 0.5rem 0 0.25rem;
 }
 
 .markdown-body :deep(h4) {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
-  margin: 0.6rem 0 0.3rem;
-  color: var(--color-foreground);
+  margin: 0.5rem 0 0.25rem;
 }
 
 .markdown-body :deep(h5),
 .markdown-body :deep(h6) {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  margin: 0.5rem 0 0.25rem;
-  color: var(--color-muted-foreground);
+  margin: 0.375rem 0 0.25rem;
 }
 
-/* ===== Images ===== */
 .markdown-body :deep(img) {
   max-width: 100%;
-  border-radius: var(--radius-sm);
+  height: auto;
+  border-radius: 8px;
   margin: 0.5rem 0;
 }
 
-/* ===== Code blocks with syntax highlighting ===== */
+/* Code block wrapper */
 .markdown-body :deep(.code-block-wrapper) {
+  position: relative;
   margin: 0.5rem 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   overflow: hidden;
-  background: var(--color-card);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .markdown-body :deep(.code-block-wrapper) {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .markdown-body :deep(.code-block-header) {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 0.35rem 0.75rem;
-  background: var(--color-secondary);
-  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
 }
 
 .markdown-body :deep(.code-lang-label) {
-  font-size: 0.7rem;
-  color: var(--color-muted-foreground);
-  font-family: var(--font-family);
+  font-family: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
   text-transform: uppercase;
+  font-size: 0.65rem;
   letter-spacing: 0.05em;
-  line-height: 1;
 }
 
 .markdown-body :deep(.copy-code-btn) {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.7rem;
-  font-family: var(--font-family);
-  color: var(--color-muted-foreground);
   background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  color: var(--color-muted-foreground);
+  font-size: 0.7rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
   cursor: pointer;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-  line-height: 1.4;
+  transition: all 0.15s;
 }
 
 .markdown-body :deep(.copy-code-btn:hover) {
+  background: rgba(128, 128, 128, 0.15);
   color: var(--color-foreground);
-  border-color: var(--color-input);
 }
 
 .markdown-body :deep(.copy-code-btn:active) {
-  opacity: 0.8;
+  transform: scale(0.97);
 }
 
 .markdown-body :deep(pre) {
-  margin: 0;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   overflow-x: auto;
-  background: var(--color-card);
+  margin: 0;
 }
 
 .markdown-body :deep(pre code) {
   background: none;
   padding: 0;
-  font-size: 0.82rem;
+  border-radius: 0;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 
-/* highlight.js dark theme overrides */
 .markdown-body :deep(.hljs) {
-  color: var(--color-foreground);
-  background: transparent;
+  display: block;
+  overflow-x: auto;
 }
 
+/* Syntax highlighting tokens */
 .markdown-body :deep(.hljs-keyword) {
-  color: #c792ea;
+  color: #7c3aed;
 }
-
 .markdown-body :deep(.hljs-string) {
-  color: #c3e88d;
+  color: #059669;
 }
-
 .markdown-body :deep(.hljs-number) {
-  color: #f78c6c;
+  color: #d97706;
 }
-
 .markdown-body :deep(.hljs-comment) {
-  color: #676e95;
+  color: #6b7280;
   font-style: italic;
 }
-
 .markdown-body :deep(.hljs-function) {
-  color: #82aaff;
+  color: #2563eb;
 }
-
 .markdown-body :deep(.hljs-title) {
-  color: #82aaff;
+  color: #2563eb;
 }
-
 .markdown-body :deep(.hljs-built_in) {
-  color: #ffcb6b;
+  color: #dc2626;
 }
-
 .markdown-body :deep(.hljs-type) {
-  color: #ffcb6b;
+  color: #059669;
 }
-
 .markdown-body :deep(.hljs-literal) {
-  color: #f78c6c;
+  color: #7c3aed;
 }
-
 .markdown-body :deep(.hljs-attr) {
-  color: #f07178;
+  color: #d97706;
 }
-
 .markdown-body :deep(.hljs-attribute) {
-  color: #c792ea;
+  color: #d97706;
 }
-
 .markdown-body :deep(.hljs-selector-tag),
 .markdown-body :deep(.hljs-selector-class),
 .markdown-body :deep(.hljs-selector-id) {
-  color: #ffcb6b;
+  color: #dc2626;
 }
-
 .markdown-body :deep(.hljs-meta) {
-  color: #89ddff;
+  color: #6b7280;
 }
-
 .markdown-body :deep(.hljs-tag) {
-  color: #f07178;
+  color: #2563eb;
 }
-
 .markdown-body :deep(.hljs-name) {
-  color: #f07178;
+  color: #dc2626;
 }
-
 .markdown-body :deep(.hljs-variable) {
-  color: #f07178;
+  color: #d97706;
 }
-
 .markdown-body :deep(.hljs-params) {
-  color: var(--color-foreground);
+  color: #d97706;
 }
-
 .markdown-body :deep(.hljs-symbol) {
-  color: #c792ea;
+  color: #7c3aed;
 }
-
 .markdown-body :deep(.hljs-section) {
-  color: #82aaff;
+  color: #2563eb;
+  font-weight: 700;
 }
-
 .markdown-body :deep(.hljs-addition) {
-  color: #c3e88d;
+  color: #059669;
 }
-
 .markdown-body :deep(.hljs-deletion) {
-  color: #f07178;
+  color: #dc2626;
 }
-
 .markdown-body :deep(.hljs-emphasis) {
   font-style: italic;
 }
-
 .markdown-body :deep(.hljs-strong) {
-  font-weight: bold;
+  font-weight: 700;
 }
 
-/* ===== Streaming states ===== */
+/* Streaming indicators */
 .streaming-cursor {
   display: inline-block;
-  width: 2px;
-  height: 1em;
-  background: var(--msg-assistant-text);
-  margin-left: 1px;
+  width: 0.5rem;
+  height: 1rem;
+  background: currentColor;
+  animation: blink 0.8s step-end infinite;
+  margin-left: 0.125rem;
   vertical-align: text-bottom;
-  animation: streamingBlink 0.8s step-end infinite;
 }
 
-@keyframes streamingBlink {
-  0%,
-  100% {
-    opacity: 1;
-  }
+@keyframes blink {
   50% {
     opacity: 0;
   }
 }
 
 .streaming-bar {
-  height: 4px;
-  width: 40px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--msg-assistant-text),
-    transparent
-  );
-  border-radius: 2px;
-  animation: streamingGlow var(--anim-stream-duration) ease-in-out infinite;
+  width: 2rem;
+  height: 0.25rem;
+  background: var(--color-primary);
+  border-radius: 999px;
+  animation: pulse-width var(--anim-stream-duration) ease-in-out infinite;
 }
 
-@keyframes streamingGlow {
-  0% {
-    opacity: 0.2;
-    transform: translateX(-8px);
+@keyframes pulse-width {
+  0%,
+  100% {
+    width: 2rem;
+    opacity: 0.5;
   }
   50% {
+    width: 4rem;
     opacity: 1;
-    transform: translateX(0);
-  }
-  100% {
-    opacity: 0.2;
-    transform: translateX(8px);
   }
 }
 
-/* ===== Message actions (hover row) ===== */
+/* Action buttons row */
+.message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0 0.25rem;
+  min-height: 24px;
+}
+
 .message-actions {
   display: flex;
-  gap: 0.15rem;
-  padding: 0.1rem var(--msg-padding-x);
+  align-items: center;
+  gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -779,60 +815,58 @@ watch(
 }
 
 .message-action-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-xs);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
   color: var(--msg-time-color);
   cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
+  transition: all 0.12s;
 }
 
 .message-action-btn:hover {
-  color: var(--msg-assistant-text);
-  border-color: var(--color-border);
+  background: rgba(128, 128, 128, 0.12);
+  color: var(--color-foreground);
 }
 
-/* ===== Edit mode: textarea + Save/Cancel ===== */
+/* Edit textarea */
 .message-edit-textarea {
   width: 100%;
   min-height: 60px;
-  max-height: 200px;
-  padding: 0.4rem 0.5rem;
-  font-size: 0.9rem;
-  font-family: var(--font-family);
-  color: var(--color-foreground);
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
   resize: vertical;
+  background: var(--color-input);
+  color: var(--color-foreground);
   outline: none;
 }
 
 .message-edit-textarea:focus {
   border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .message-edit-actions {
   display: flex;
-  gap: 0.4rem;
-  margin-top: 0.3rem;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
 }
 
 .message-edit-save {
-  padding: 0.2rem 0.6rem;
-  font-size: 0.75rem;
-  font-family: var(--font-family);
-  color: var(--color-primary-foreground);
-  background: var(--color-primary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
   border: none;
-  border-radius: var(--radius-xs);
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
@@ -841,26 +875,27 @@ watch(
 }
 
 .message-edit-cancel {
-  padding: 0.2rem 0.6rem;
-  font-size: 0.75rem;
-  font-family: var(--font-family);
-  color: var(--msg-time-color);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
   background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
+  color: var(--color-foreground);
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
 .message-edit-cancel:hover {
-  color: var(--color-foreground);
+  background: rgba(128, 128, 128, 0.1);
 }
 
-/* ===== Message meta (timestamp + edited badge) ===== */
+/* Timestamp + meta row (now inline with actions) */
 .message-meta {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.15rem var(--msg-padding-x);
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  color: var(--msg-time-color);
+  white-space: nowrap;
 }
 
 .message-user .message-meta {
@@ -868,44 +903,44 @@ watch(
 }
 
 .message-time {
-  font-size: 0.65rem;
-  color: var(--msg-time-color);
-  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .message-edited-badge {
-  font-size: 0.65rem;
-  color: var(--msg-time-color);
-  line-height: 1;
   font-style: italic;
+  opacity: 0.7;
 }
 
-/* ===== Sources ===== */
+/* Sources section */
 .sources-section {
   margin-top: 0.25rem;
-  padding: 0 var(--msg-padding-x);
+  width: 100%;
 }
 
 .sources-toggle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.3rem;
-  background: none;
-  border: none;
-  padding: 0.2rem 0;
-  color: var(--msg-time-color);
-  font-size: 0.75rem;
+  gap: 0.375rem;
+  background: var(--color-muted);
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.72rem;
   cursor: pointer;
-  transition: color 0.15s;
+  color: var(--color-muted-foreground);
+  transition: all 0.12s;
+}
+
+[data-theme="light"] .sources-toggle {
+  background: rgba(128, 128, 128, 0.06);
 }
 
 .sources-toggle:hover {
-  color: var(--msg-assistant-text);
+  background: rgba(128, 128, 128, 0.15);
 }
 
 .sources-chevron {
-  transition: transform 0.2s;
-  flex-shrink: 0;
+  transition: transform 0.15s;
 }
 
 .sources-chevron.expanded {
@@ -913,79 +948,74 @@ watch(
 }
 
 .sources-list {
-  margin-top: 0.4rem;
+  margin-top: 0.375rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.375rem;
 }
 
 .source-item {
-  background: #1a1a32;
-  border-radius: 6px;
-  padding: 0.45rem 0.65rem;
-  border-left: 3px solid var(--avatar-user-bg);
+  padding: 0.5rem 0.625rem;
+  border-radius: 8px;
+  background: var(--color-muted);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+[data-theme="light"] .source-item {
+  background: rgba(128, 128, 128, 0.04);
 }
 
 .source-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.25rem;
+  gap: 0.5rem;
 }
 
 .source-doc {
   font-size: 0.72rem;
   font-weight: 600;
-  color: #7d7da3;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .source-relevance {
-  font-size: 0.68rem;
-  color: #4caf50;
+  font-size: 0.65rem;
+  color: var(--color-primary);
   font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .source-text {
   font-size: 0.75rem;
-  color: #9a9abc;
-  margin: 0;
   line-height: 1.4;
+  color: var(--color-muted-foreground);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* ===== Role label ===== */
+/* Role label removed from individual messages, shown as text above content */
 .message-role-label {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--msg-time-color);
-  margin-bottom: 0.15rem;
-  padding: 0 var(--msg-padding-x);
-  line-height: 1;
+  display: none;
 }
 
-.message-user .message-role-label {
-  text-align: right;
-}
-
-.message-assistant .message-role-label {
-  text-align: left;
-}
-
-/* ===== Entrance animation ===== */
+/* Entry animation */
 .message-enter {
-  animation: messageEnter var(--anim-msg-enter-duration)
+  animation: message-enter var(--anim-msg-enter-duration)
     var(--anim-msg-enter-ease) both;
-  animation-delay: calc(var(--msg-index, 0) * 50ms);
+  animation-delay: calc(var(--msg-index, 0) * 30ms);
 }
 
-@keyframes messageEnter {
+@keyframes message-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -993,7 +1023,6 @@ watch(
   }
 }
 
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .message-enter {
     animation: none;

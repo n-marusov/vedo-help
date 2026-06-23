@@ -189,15 +189,17 @@ function handleEditMessage({ id }) {
   // Edit is handled inline in MessageBubble (startEdit/saveEdit)
 }
 
+function handleCopyMessage({ id }) {
+  chatStore.copyMessage(id);
+}
+
+async function handleRegenerateMessage({ id }) {
+  await chatStore.regenerateMessage(id);
+}
+
 function handleSaveEdit({ id, content }) {
   if (chatStore.activeSessionId) {
     chatStore.editMessage(chatStore.activeSessionId, id, content);
-  }
-}
-
-function handleDeleteMessage({ id }) {
-  if (chatStore.activeSessionId) {
-    chatStore.deleteMessage(chatStore.activeSessionId, id);
   }
 }
 
@@ -571,9 +573,10 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               msg.role === 'assistant'
             "
             @edit="handleEditMessage"
-            @delete="handleDeleteMessage"
             @save-edit="handleSaveEdit"
             @cancel-edit="() => {}"
+            @copy="handleCopyMessage"
+            @regenerate="handleRegenerateMessage"
           />
         </div>
 
