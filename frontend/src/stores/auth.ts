@@ -1,5 +1,5 @@
 import { getAccessToken, setAccessToken } from '@/api/client';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 /**
  * Pinia-style auth store (lightweight, no Pinia dependency needed).
@@ -21,13 +21,25 @@ export const userName = ref<string | null>(null);
 /** The OIDC provider, currently local Keycloak password auth. */
 export const userProvider = ref<string | null>(null);
 
+/** Realm roles extracted from the JWT (e.g. 'guest', 'user', 'admin'). */
+export const userRoles = ref<string[]>([]);
+
+/** Whether the current user has the 'admin' realm role. */
+export const isAdmin = computed(() => userRoles.value.includes('admin'));
+
 // ── Actions ──
 
-export function setAuthToken(token: string, name?: string, provider?: string): void {
+export function setAuthToken(
+  token: string,
+  name?: string,
+  provider?: string,
+  roles?: string[],
+): void {
   setAccessToken(token);
   isAuthenticated.value = true;
   if (name !== undefined) userName.value = name;
   if (provider !== undefined) userProvider.value = provider;
+  if (roles !== undefined) userRoles.value = roles;
 }
 
 export function clearAuth(): void {
@@ -35,4 +47,5 @@ export function clearAuth(): void {
   isAuthenticated.value = false;
   userName.value = null;
   userProvider.value = null;
+  userRoles.value = [];
 }

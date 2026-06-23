@@ -75,7 +75,7 @@
 - [x] **Context management** — sliding window + token budget (сейчас передаётся вся история)
 - [x] **Chat export** — экспорт истории чата (JSON/Markdown, backend API готов, нет кнопки в UI)
 - [x] **Empty state & loading skeletons** — базовые empty state есть, нет анимированных скелетонов
-- [~] **Chat UI polish** — доработка интерфейса чата (реализация выполнена, ожидает Pencil-верификацию Task 0.4):
+- [x] **Chat UI polish** — доработка интерфейса чата (реализация выполнена, ожидает Pencil-верификацию Task 0.4):
   - Убрать иконки у сообщений, называть сессии кратким содержимым первого запроса
   - Действия под запросом: копирование + редактирование; под ответом: копирование + регенерация
   - Поиск по содержимому сессий на сайдбаре
@@ -159,4 +159,5 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Document re-indexing:** 2026-06-19
 **Bulk deletion + VToast + optimistic UX + embedding pipeline:** 2026-06-21
 **v0.3.1 chat rework complete (message edit/delete, context window, chat export, skeletons):** 2026-06-21
+**Chat UI polish debug info + admin role wiring:** 2026-06-23
 **Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation)

@@ -218,13 +218,34 @@ export function decodeToken(token: string): Record<string, unknown> | null {
 }
 
 /** Return the `exp` claim (in ms since epoch) or 0 if unreadable. */
-function getTokenExpiry(token: string): number {
+export function getTokenExpiry(token: string): number {
   const decoded = decodeToken(token);
   if (!decoded) return 0;
   const exp = decoded.exp as number | undefined;
   return exp ? exp * 1000 : 0;
 }
 
+/**
+ * Extract realm roles from a decoded KeyCloak JWT.
+ *
+ * KeyCloak embeds realm-level roles in the `realm_access.roles` claim.
+ * Falls back to checking a top-level `roles` array for non-KeyCloak tokens.
+ */
+function extractRealmRoles(decoded: Record<string, unknown>): string[] {
+  const realmAccess = decoded.realm_access as { roles?: string[] } | undefined;
+  if (realmAccess?.roles && Array.isArray(realmAccess.roles)) {
+    return realmAccess.roles;
+  }
+  // Fallback for non-KeyCloak tokens or direct-access-grant tokens
+  const topRoles = decoded.roles as string[] | undefined;
+  if (Array.isArray(topRoles)) {
+    return topRoles;
+  }
+  // Development fallback: API-key tokens have no roles
+  return [];
+}
+
+/** Check whether the token is expired (or expires within the given margin ms). */
 /**
  * Check if the token is expired or will expire within the given margin.
  * Includes a ttl check so already-expired tokens are caught too.
@@ -367,8 +388,9 @@ export async function handleCallback(): Promise<string> {
   const decoded = decodeToken(accessToken);
   const name = (decoded?.name ?? decoded?.preferred_username ?? '') as string;
   const provider = (decoded?.identity_provider ?? decoded?.provider ?? '') as string;
+  const roles = decoded ? extractRealmRoles(decoded) : [];
 
-  setAuthToken(accessToken, name || undefined, provider || undefined);
+  setAuthToken(accessToken, name || undefined, provider || undefined, roles);
   isAuthenticated.value = true;
 
   // Schedule proactive token refresh
@@ -448,7 +470,8 @@ async function refreshAccessToken(): Promise<string | null> {
     const decoded = decodeToken(newAccessToken);
     const name = (decoded?.name ?? decoded?.preferred_username ?? '') as string;
     const provider = (decoded?.identity_provider ?? decoded?.provider ?? '') as string;
-    setAuthToken(newAccessToken, name || undefined, provider || undefined);
+    const roles = decoded ? extractRealmRoles(decoded) : [];
+    setAuthToken(newAccessToken, name || undefined, provider || undefined, roles);
 
     // Schedule the next refresh
     scheduleTokenRefresh(newAccessToken);
@@ -586,7 +609,8 @@ export function restoreSession(): boolean {
   // Token is still valid — use it and schedule proactive refresh
   const name = (decoded?.name ?? decoded?.preferred_username ?? '') as string;
   const provider = (decoded?.identity_provider ?? decoded?.provider ?? '') as string;
-  setAuthToken(stored, name || undefined, provider || undefined);
+  const roles = decoded ? extractRealmRoles(decoded) : [];
+  setAuthToken(stored, name || undefined, provider || undefined, roles);
   scheduleTokenRefresh(stored);
   console.debug('[OidcAuth] Restored session from localStorage');
   return true;
