@@ -7,6 +7,7 @@ use uuid::Uuid;
 pub struct Session {
     pub id: Uuid,
     pub title: String,
+    pub pinned: bool,
     pub collection_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -44,6 +45,8 @@ pub struct SessionSummary {
     pub id: Uuid,
     pub title: String,
     pub message_count: i64,
+    pub pinned: bool,
+    pub collection_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -53,4 +56,11 @@ pub struct SessionSummary {
 pub struct CreateSessionRequest {
     pub title: Option<String>,
     pub collection_id: Option<Uuid>,
+}
+
+/// Request payload for updating a session (title, pinned).
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateSessionRequest {
+    pub title: Option<String>,
+    pub pinned: Option<bool>,
 }

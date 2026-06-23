@@ -234,7 +234,7 @@ async fn main() {
         )
         .route(
             "/api/sessions/:id",
-            get(conversations_handlers::get_session),
+            get(conversations_handlers::get_session).patch(conversations_handlers::patch_session),
         )
         .route(
             "/api/sessions/:id",

@@ -2,6 +2,7 @@ use uuid::Uuid;
 
 use crate::modules::conversations::models::{
     CreateSessionRequest, Message, Session, SessionSummary, UpdateMessageRequest,
+    UpdateSessionRequest,
 };
 use crate::modules::conversations::repository::ConversationRepository;
 use crate::shared::error::AppError;
@@ -32,6 +33,7 @@ impl ConversationService {
         let session = Session {
             id: Uuid::new_v4(),
             title,
+            pinned: false,
             collection_id: req.collection_id,
             created_at: now,
             updated_at: now,
@@ -46,6 +48,8 @@ impl ConversationService {
             id,
             title: session.title,
             message_count: 0,
+            pinned: false,
+            collection_id: session.collection_id,
             created_at: now,
             updated_at: now,
         })
@@ -62,6 +66,8 @@ impl ConversationService {
                 id: s.id,
                 title: s.title,
                 message_count: s.message_count,
+                pinned: s.pinned,
+                collection_id: s.collection_id,
                 created_at: s.created_at,
                 updated_at: s.updated_at,
             })
@@ -144,6 +150,31 @@ impl ConversationService {
         );
 
         Ok(updated)
+    }
+
+    /// Update a session's title or pinned status.
+    pub async fn update_session(
+        &self,
+        id: Uuid,
+        req: UpdateSessionRequest,
+    ) -> Result<SessionSummary, AppError> {
+        tracing::info!(
+            "[conv.update_session] session={id} title={:?} pinned={:?}",
+            req.title,
+            req.pinned
+        );
+
+        let updated = self.repo.update_session(id, req.title, req.pinned).await?;
+
+        Ok(SessionSummary {
+            id: updated.id,
+            title: updated.title,
+            message_count: updated.message_count,
+            pinned: updated.pinned,
+            collection_id: updated.collection_id,
+            created_at: updated.created_at,
+            updated_at: updated.updated_at,
+        })
     }
 
     /// Soft-delete a message.

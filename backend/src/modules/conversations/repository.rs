@@ -40,8 +40,8 @@ impl ConversationRepository {
     pub async fn list_sessions(&self) -> Result<Vec<Session>, AppError> {
         tracing::debug!("Listing all sessions");
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, Option<uuid::Uuid>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
-            "SELECT id, title, collection_id, created_at, updated_at FROM sessions ORDER BY updated_at DESC",
+        let rows = sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
+            "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions ORDER BY pinned DESC, updated_at DESC",
         )
         .fetch_all(&self.db)
         .await
@@ -54,9 +54,10 @@ impl ConversationRepository {
             sessions.push(Session {
                 id: row.0,
                 title: row.1,
-                collection_id: row.2,
-                created_at: row.3,
-                updated_at: row.4,
+                pinned: row.2,
+                collection_id: row.3,
+                created_at: row.4,
+                updated_at: row.5,
                 message_count: count,
             });
         }
@@ -74,12 +75,13 @@ impl ConversationRepository {
             (
                 uuid::Uuid,
                 String,
+                bool,
                 Option<uuid::Uuid>,
                 chrono::DateTime<chrono::Utc>,
                 chrono::DateTime<chrono::Utc>,
             ),
         >(
-            "SELECT id, title, collection_id, created_at, updated_at FROM sessions WHERE id = $1",
+            "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&self.db)
@@ -92,9 +94,10 @@ impl ConversationRepository {
         Ok(Session {
             id: row.0,
             title: row.1,
-            collection_id: row.2,
-            created_at: row.3,
-            updated_at: row.4,
+            pinned: row.2,
+            collection_id: row.3,
+            created_at: row.4,
+            updated_at: row.5,
             message_count: count,
         })
     }
@@ -309,6 +312,35 @@ impl ConversationRepository {
         let count = result.rows_affected();
         tracing::info!("Deleted {count} sessions");
         Ok(count)
+    }
+
+    /// Update a session's title and/or pinned status.
+    /// Only the provided fields are updated (Option::None = no change).
+    pub async fn update_session(
+        &self,
+        id: Uuid,
+        title: Option<String>,
+        pinned: Option<bool>,
+    ) -> Result<Session, AppError> {
+        tracing::debug!("Updating session: {id}");
+
+        let current = self.get_session(id).await?;
+        let new_title = title.unwrap_or(current.title);
+        let new_pinned = pinned.unwrap_or(current.pinned);
+
+        sqlx::query("UPDATE sessions SET title = $1, pinned = $2, updated_at = $3 WHERE id = $4")
+            .bind(&new_title)
+            .bind(new_pinned)
+            .bind(chrono::Utc::now())
+            .bind(id)
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to update session: {e}")))?;
+
+        tracing::info!("Session updated: {id} title={new_title} pinned={new_pinned}");
+
+        // Re-fetch to get consistent state
+        self.get_session(id).await
     }
 
     /// Count live (non-deleted) messages belonging to a session.

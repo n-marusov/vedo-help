@@ -5,7 +5,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::modules::conversations::models::{
-    CreateSessionRequest, SessionSummary, UpdateMessageRequest,
+    CreateSessionRequest, SessionSummary, UpdateMessageRequest, UpdateSessionRequest,
 };
 use crate::modules::conversations::service::ConversationService;
 use crate::shared::error::AppError;
@@ -121,6 +121,19 @@ pub async fn patch_message(
     tracing::info!("[conv.update_message] session={session_id} msg={message_id}",);
     let updated = svc.update_message(session_id, message_id, req).await?;
     Ok(Json(serde_json::json!(updated)))
+}
+
+/// Update a session's title or pinned status.
+///
+/// Endpoint: `PATCH /api/sessions/:id`
+pub async fn patch_session(
+    State(svc): State<ConversationService>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateSessionRequest>,
+) -> Result<Json<SessionSummary>, AppError> {
+    tracing::info!("PATCH /api/sessions/{id}");
+    let summary = svc.update_session(id, req).await?;
+    Ok(Json(summary))
 }
 
 /// Soft-delete a message.
