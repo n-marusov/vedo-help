@@ -179,6 +179,27 @@ impl QueryService {
             };
             self.conversation_repo.add_message(&msg).await?;
             tracing::info!("[query.process_query] persisted user_message_id={user_msg_id}");
+
+            // Auto-name session if title is still the default placeholder
+            let session = self.conversation_repo.get_session(session_id).await?;
+            if session.title == "New Chat" || session.title == "New Session" {
+                let auto_title = request
+                    .query
+                    .chars()
+                    .take(50)
+                    .collect::<String>()
+                    .trim()
+                    .to_string();
+                if !auto_title.is_empty() {
+                    tracing::info!(
+                        "[query.auto_name] session={session_id} auto-title=\"{auto_title}\""
+                    );
+                    self.conversation_repo
+                        .update_session(session_id, Some(auto_title), None)
+                        .await?;
+                }
+            }
+
             Some(user_msg_id)
         } else {
             None
