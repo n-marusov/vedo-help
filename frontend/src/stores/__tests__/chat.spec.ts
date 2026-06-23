@@ -102,7 +102,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // editMessage
   // --------------------------------------------------------------------------
 
-  it.skip('editMessage calls api.patch and replaces content in messages.value', async () => {
+  it('editMessage calls api.editMessage and replaces content in messages.value', async () => {
     const store = useChatStore();
     store.messages = [
       {
@@ -114,7 +114,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    apiMock.patch.mockResolvedValue({
+    apiMock.editMessage.mockResolvedValue({
       id: 'msg-1',
       session_id: 'sess-1',
       role: 'user',
@@ -125,7 +125,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     });
 
     await store.editMessage('sess-1', 'msg-1', 'new content');
-    expect(apiMock.patch).toHaveBeenCalledWith('/sessions/sess-1/messages/msg-1', {
+    expect(apiMock.editMessage).toHaveBeenCalledWith('sess-1', 'msg-1', {
       content: 'new content',
     });
     expect(store.messages[0].content).toBe('new content');
@@ -136,7 +136,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // deleteMessage
   // --------------------------------------------------------------------------
 
-  it.skip('deleteMessage optimistically removes and reverts on API error', async () => {
+  it('deleteMessage optimistically removes and reverts on API error', async () => {
     const store = useChatStore();
     store.messages = [
       {
@@ -155,14 +155,14 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    apiMock.del.mockResolvedValue({});
+    apiMock.deleteMessage.mockResolvedValue({});
 
     await store.deleteMessage('sess-1', 'msg-1');
     // Optimistic: msg-1 removed
     expect(store.messages.map((m) => m.id)).toEqual(['msg-2']);
 
     // Now simulate API failure and check revert
-    apiMock.del.mockRejectedValue(new ApiError(500, 'API Error'));
+    apiMock.deleteMessage.mockRejectedValue(new ApiError(500, 'API Error'));
     store.messages = [
       {
         id: 'msg-1',
@@ -181,7 +181,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // exportSession
   // --------------------------------------------------------------------------
 
-  it.skip('exportSession triggers blob download and sets isExporting', async () => {
+  it('exportSession triggers blob download and sets isExporting', async () => {
     const store = useChatStore();
     const blobContent = '# Session Title\n\n## user\nhello';
     const blob = new Blob([blobContent], { type: 'text/markdown' });
@@ -190,17 +190,11 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue();
 
-    // Mock global fetch for the export-session blob
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      blob: () => Promise.resolve(blob),
-    });
+    // Mock api.exportSession to return blob directly
+    apiMock.exportSession.mockResolvedValue(blob);
 
     await store.exportSession('sess-1', 'md');
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/sessions/sess-1/export?format=md',
-      expect.any(Object),
-    );
+    expect(apiMock.exportSession).toHaveBeenCalledWith('sess-1', 'md');
     expect(createObjectURL).toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalled();
     expect(store.isExporting).toBe(false);
@@ -212,7 +206,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // loadSession — sets isSessionLoading
   // --------------------------------------------------------------------------
 
-  it.skip('loadSession sets isSessionLoading during fetch then false after', async () => {
+  it('loadSession sets isSessionLoading during fetch then false after', async () => {
     const store = useChatStore();
     const messages = [
       {
@@ -223,8 +217,16 @@ describe('chat store — v0.3.1 actions (RED)', () => {
         created_at: '2026-06-21T00:00:00Z',
       },
     ];
+    const response = {
+      session: {
+        id: 'sess-1',
+        title: 'Test',
+        created_at: '2026-06-21T00:00:00Z',
+      },
+      messages,
+    };
 
-    apiMock.get.mockResolvedValue(messages);
+    apiMock.get.mockResolvedValue(response);
 
     const promise = store.loadSession('sess-1');
     expect(store.isSessionLoading).toBe(true);
@@ -237,7 +239,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // sendMessage — temp-ID reconciliation on done event
   // --------------------------------------------------------------------------
 
-  it.skip('sendMessage reconciles temp IDs on done event', async () => {
+  it('sendMessage reconciles temp IDs on done event', async () => {
     const store = useChatStore();
     store.activeSessionId = 'sess-1';
 
@@ -272,7 +274,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // Chat UI polish: renameSession
   // --------------------------------------------------------------------------
 
-  it.skip('renameSession calls api.patch and updates session title', async () => {
+  it('renameSession calls api.patch and updates session title', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -299,7 +301,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.sessions[0].title).toBe('New Title');
   });
 
-  it.skip('renameSession stores error on API failure', async () => {
+  it('renameSession stores error on API failure', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -322,7 +324,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // Chat UI polish: togglePinSession
   // --------------------------------------------------------------------------
 
-  it.skip('togglePinSession calls api.patch and flips pinned state', async () => {
+  it('togglePinSession calls api.patch and flips pinned state', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -351,7 +353,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.sessions[0].pinned).toBe(true);
   });
 
-  it.skip('togglePinSession stores error on API failure and reverts pin state', async () => {
+  it('togglePinSession stores error on API failure and reverts pin state', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -377,7 +379,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // Chat UI polish: regenerateMessage
   // --------------------------------------------------------------------------
 
-  it.skip('regenerateMessage resends last user query and replaces assistant response', async () => {
+  it('regenerateMessage resends last user query and replaces assistant response', async () => {
     const store = useChatStore();
     store.activeSessionId = 'sess-1';
     store.messages = [
@@ -431,7 +433,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(asstMsg?.id).toBe('msg-3');
   });
 
-  it.skip('regenerateMessage stores error on fetch failure', async () => {
+  it('regenerateMessage stores error on fetch failure', async () => {
     const store = useChatStore();
     store.activeSessionId = 'sess-1';
     store.messages = [
@@ -461,7 +463,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // Chat UI polish: copyMessage
   // --------------------------------------------------------------------------
 
-  it.skip('copyMessage copies message content to clipboard', async () => {
+  it('copyMessage copies message content to clipboard', async () => {
     const store = useChatStore();
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
 
@@ -480,7 +482,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     writeTextSpy.mockRestore();
   });
 
-  it.skip('copyMessage handles missing message gracefully', async () => {
+  it('copyMessage handles missing message gracefully', async () => {
     const store = useChatStore();
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
 
@@ -490,7 +492,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     writeTextSpy.mockRestore();
   });
 
-  it.skip('copyMessage handles clipboard API failure gracefully', async () => {
+  it('copyMessage handles clipboard API failure gracefully', async () => {
     const store = useChatStore();
     const writeTextSpy = vi
       .spyOn(navigator.clipboard, 'writeText')
@@ -518,7 +520,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   // Chat UI polish: searchSessions
   // --------------------------------------------------------------------------
 
-  it.skip('searchSessions returns filtered sessions by title', () => {
+  it('setSearchQuery filters sessions by title', () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -544,12 +546,13 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    const result = store.searchSessions('deploy');
+    store.setSearchQuery('deploy');
+    const result = store.filteredSessions;
     expect(result).toHaveLength(2);
     expect(result.map((s) => s.id)).toEqual(['sess-1', 'sess-3']);
   });
 
-  it.skip('searchSessions returns all sessions when query is empty', () => {
+  it('setSearchQuery returns all sessions when query is empty', () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -568,11 +571,13 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    expect(store.searchSessions('')).toHaveLength(2);
-    expect(store.searchSessions()).toHaveLength(2);
+    store.setSearchQuery('');
+    expect(store.filteredSessions).toHaveLength(2);
+    store.setSearchQuery('');
+    expect(store.filteredSessions).toHaveLength(2);
   });
 
-  it.skip('searchSessions is case-insensitive', () => {
+  it('setSearchQuery is case-insensitive', () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -591,7 +596,9 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    expect(store.searchSessions('deploy')).toHaveLength(1);
-    expect(store.searchSessions('DEPLOY')).toHaveLength(1);
+    store.setSearchQuery('deploy');
+    expect(store.filteredSessions).toHaveLength(1);
+    store.setSearchQuery('DEPLOY');
+    expect(store.filteredSessions).toHaveLength(1);
   });
 });

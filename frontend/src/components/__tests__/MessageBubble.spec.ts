@@ -93,7 +93,11 @@ describe('MessageBubble', () => {
     expect(html).toContain('<code>');
   });
 
-  it('shows source toggle when sources are present', () => {
+  // ==========================================================================
+  // Sources section (removed in chat UI polish design)
+  // ==========================================================================
+
+  it('does not show sources section even when sources are present', () => {
     const wrapper = mount(MessageBubble, {
       props: {
         message: createAssistantMessage({
@@ -109,7 +113,7 @@ describe('MessageBubble', () => {
         }),
       },
     });
-    expect(wrapper.text()).toContain('source');
+    expect(wrapper.find('.sources-section').exists()).toBe(false);
   });
 
   it('does not show source toggle for user messages with sources', () => {
@@ -131,17 +135,11 @@ describe('MessageBubble', () => {
     expect(wrapper.find('.sources-section').exists()).toBe(false);
   });
 
-  it('renders streaming bar when streaming and no content', () => {
-    const wrapper = mount(MessageBubble, {
-      props: {
-        message: createAssistantMessage({ content: '' }),
-        isStreaming: true,
-      },
-    });
-    expect(wrapper.find('.streaming-bar').exists()).toBe(true);
-  });
+  // ==========================================================================
+  // Streaming indicator (animated "..." instead of progress bar)
+  // ==========================================================================
 
-  it('renders streaming cursor when streaming with content', () => {
+  it('shows streaming cursor when streaming with content', () => {
     const wrapper = mount(MessageBubble, {
       props: {
         message: createAssistantMessage(),
@@ -198,97 +196,24 @@ describe('MessageBubble', () => {
   });
 
   // ==========================================================================
-  // RED (v0.3.1 — T12): edit/delete hover row & edit mode
-  // All assertions will fail until T12 adds edit/delete UI to MessageBubble.
+  // Chat UI polish: message action buttons
   // ==========================================================================
 
-  it.skip('renders edit button on user messages only', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createUserMessage() },
-    });
-    expect(wrapper.find('[data-testid="message-edit-btn"]').exists()).toBe(true);
-    const asst = mount(MessageBubble, {
-      props: { message: createAssistantMessage() },
-    });
-    expect(asst.find('[data-testid="message-edit-btn"]').exists()).toBe(false);
-  });
-
-  it.skip('renders delete button on both user and assistant messages', async () => {
-    for (const role of ['user', 'assistant'] as const) {
-      const msg = role === 'user' ? createUserMessage() : createAssistantMessage();
-      const wrapper = mount(MessageBubble, {
-        props: { message: msg },
-      });
-      expect(wrapper.find('[data-testid="message-delete-btn"]').exists()).toBe(true);
-    }
-  });
-
-  it.skip('emits edit event with message id when edit clicked', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createUserMessage() },
-    });
-    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
-    expect(wrapper.emitted('edit')).toBeTruthy();
-    expect(wrapper.emitted('edit')?.[0]).toEqual([{ id: 'msg-1' }]);
-  });
-
-  it.skip('emits delete event with message id when delete clicked', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createUserMessage() },
-    });
-    await wrapper.find('[data-testid="message-delete-btn"]').trigger('click');
-    expect(wrapper.emitted('delete')).toBeTruthy();
-    expect(wrapper.emitted('delete')?.[0]).toEqual([{ id: 'msg-1' }]);
-  });
-
-  it.skip('enters edit mode and shows textarea + Save/Cancel', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createUserMessage(), editing: true },
-    });
-    expect(wrapper.find('[data-testid="message-edit-textarea"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="message-save-btn"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="message-cancel-edit-btn"]').exists()).toBe(true);
-  });
-
-  it.skip('emits save-edit event with new content', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createUserMessage(), editing: true },
-    });
-    await wrapper.find('[data-testid="message-save-btn"]').trigger('click');
-    expect(wrapper.emitted('save-edit')).toBeTruthy();
-  });
-
-  it.skip('displays edited_at indicator when message.edited_at is set', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: {
-        message: createUserMessage({
-          edited_at: '2026-06-21T10:00:00Z',
-          original_content: 'original',
-        }),
-      },
-    });
-    expect(wrapper.find('[data-testid="message-edited-badge"]').exists()).toBe(true);
-  });
-
-  // ==========================================================================
-  // Chat UI polish: new message actions (copy, regenerate, debug)
-  // ==========================================================================
-
-  it.skip('renders copy button on each user message', async () => {
+  it('renders copy button on user messages', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createUserMessage() },
     });
     expect(wrapper.find('[data-testid="message-copy-btn"]').exists()).toBe(true);
   });
 
-  it.skip('renders copy button on each assistant message', async () => {
+  it('renders copy button on assistant messages', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createAssistantMessage() },
     });
     expect(wrapper.find('[data-testid="message-copy-btn"]').exists()).toBe(true);
   });
 
-  it.skip('copy button copies message text to clipboard', async () => {
+  it('copy button copies message text to clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
 
@@ -299,7 +224,7 @@ describe('MessageBubble', () => {
     expect(writeText).toHaveBeenCalledWith('text to copy');
   });
 
-  it.skip('renders edit button on user messages only', async () => {
+  it('renders edit button on user messages only', async () => {
     const userWrapper = mount(MessageBubble, {
       props: { message: createUserMessage() },
     });
@@ -311,7 +236,49 @@ describe('MessageBubble', () => {
     expect(asstWrapper.find('[data-testid="message-edit-btn"]').exists()).toBe(false);
   });
 
-  it.skip('renders regenerate button on assistant messages only', async () => {
+  it('emits edit event with message id when edit clicked', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
+    expect(wrapper.emitted('edit')).toBeTruthy();
+    expect(wrapper.emitted('edit')?.[0]).toEqual([{ id: 'msg-1' }]);
+  });
+
+  it('enters edit mode and shows textarea + Save/Cancel', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
+    expect(wrapper.find('[data-testid="message-edit-textarea"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-save-btn"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="message-cancel-edit-btn"]').exists()).toBe(true);
+  });
+
+  it('emits save-edit event with new content', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    // Enter edit mode
+    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
+    // Save
+    await wrapper.find('[data-testid="message-save-btn"]').trigger('click');
+    expect(wrapper.emitted('save-edit')).toBeTruthy();
+  });
+
+  it('displays edited_at indicator when message.edited_at is set', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createUserMessage({
+          edited_at: '2026-06-21T10:00:00Z',
+          original_content: 'original',
+        }),
+      },
+    });
+    expect(wrapper.find('[data-testid="message-edited-badge"]').exists()).toBe(true);
+  });
+
+  it('renders regenerate button on assistant messages only', async () => {
     const asstWrapper = mount(MessageBubble, {
       props: { message: createAssistantMessage() },
     });
@@ -323,7 +290,7 @@ describe('MessageBubble', () => {
     expect(userWrapper.find('[data-testid="message-regenerate-btn"]').exists()).toBe(false);
   });
 
-  it.skip('regenerate button emits regenerate event with message id', async () => {
+  it('regenerate button emits regenerate event with message id', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createAssistantMessage() },
     });
@@ -332,7 +299,7 @@ describe('MessageBubble', () => {
     expect(wrapper.emitted('regenerate')?.[0]).toEqual([{ id: 'msg-2' }]);
   });
 
-  it.skip('does not render delete buttons on messages', async () => {
+  it('does not render delete buttons on messages', async () => {
     const userWrapper = mount(MessageBubble, {
       props: { message: createUserMessage() },
     });
@@ -344,32 +311,32 @@ describe('MessageBubble', () => {
     expect(asstWrapper.find('[data-testid="message-delete-btn"]').exists()).toBe(false);
   });
 
-  // --------------------------------------------------------------------------
-  // Debug info button (admin)
-  // --------------------------------------------------------------------------
+  // ==========================================================================
+  // Debug info button (admin only)
+  // ==========================================================================
 
-  it.skip('renders debug info button when isAdmin is true', async () => {
+  it('renders debug info button when isAdmin is true', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createAssistantMessage(), isAdmin: true },
     });
     expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(true);
   });
 
-  it.skip('does not render debug info button when isAdmin is false', async () => {
+  it('does not render debug info button when isAdmin is false', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createAssistantMessage(), isAdmin: false },
     });
     expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
   });
 
-  it.skip('does not render debug info button for user messages even when admin', async () => {
+  it('does not render debug info button for user messages even when admin', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createUserMessage(), isAdmin: true },
     });
     expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
   });
 
-  it.skip('debug button toggles debug panel on click', async () => {
+  it('debug button toggles debug panel on click', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createAssistantMessage(), isAdmin: true },
     });
@@ -378,11 +345,11 @@ describe('MessageBubble', () => {
     expect(wrapper.find('[data-testid="debug-panel"]').exists()).toBe(true);
   });
 
-  // --------------------------------------------------------------------------
+  // ==========================================================================
   // Timestamp layout
-  // --------------------------------------------------------------------------
+  // ==========================================================================
 
-  it.skip('renders timestamp inline with action row', async () => {
+  it('renders timestamp inline with action row', async () => {
     const wrapper = mount(MessageBubble, {
       props: { message: createUserMessage() },
     });
@@ -392,34 +359,9 @@ describe('MessageBubble', () => {
     expect(actionsRow.find('[data-testid="message-time"]').exists()).toBe(true);
   });
 
-  // --------------------------------------------------------------------------
-  // Source styling
-  // --------------------------------------------------------------------------
-
-  it.skip('source pills use light background in light theme (CSS class applied)', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: {
-        message: createAssistantMessage({
-          sources: JSON.stringify([
-            {
-              document_id: 'doc-1',
-              document_name: 'test.pdf',
-              chunk_index: 0,
-              text: 'content',
-              relevance: 0.95,
-            },
-          ]),
-        }),
-      },
-    });
-    await wrapper.find('[data-testid="sources-toggle"]').trigger('click');
-    const sourceItem = wrapper.find('[data-testid="source-item"]');
-    expect(sourceItem.classes('source-item-light')).toBe(true);
-  });
-
-  // --------------------------------------------------------------------------
+  // ==========================================================================
   // Table styling (no alternating row colors)
-  // --------------------------------------------------------------------------
+  // ==========================================================================
 
   it.skip('does not have alternating row colors in tables', async () => {
     const wrapper = mount(MessageBubble, {
@@ -434,9 +376,9 @@ describe('MessageBubble', () => {
     expect(html).not.toContain('tr:nth-child(even)');
   });
 
-  // --------------------------------------------------------------------------
+  // ==========================================================================
   // No "chunk" terminology in UI
-  // --------------------------------------------------------------------------
+  // ==========================================================================
 
   it.skip('does not contain "chunk" text in response content or source labels', async () => {
     const wrapper = mount(MessageBubble, {
