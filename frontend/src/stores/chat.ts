@@ -7,7 +7,7 @@ import type {
   StreamEvent,
 } from '@/api/types';
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 function normalizeStreamLine(line: string): string {
   const trimmed = line.trim();
@@ -38,6 +38,23 @@ export const useChatStore = defineStore('chat', () => {
   const isSessionLoading = ref(false);
   const isExporting = ref(false);
   const isLoadingSessions = ref(false);
+  const searchQuery = ref('');
+  const sidebarCollapsed = ref(localStorage.getItem('chat_sidebar_collapsed') === 'true');
+
+  const filteredSessions = computed(() => {
+    if (!searchQuery.value.trim()) return sessions.value;
+    const q = searchQuery.value.toLowerCase();
+    return sessions.value.filter((s) => s.title.toLowerCase().includes(q));
+  });
+
+  function setSearchQuery(query: string) {
+    searchQuery.value = query;
+  }
+
+  function toggleSidebarCollapsed() {
+    sidebarCollapsed.value = !sidebarCollapsed.value;
+    localStorage.setItem('chat_sidebar_collapsed', String(sidebarCollapsed.value));
+  }
 
   let abortController: AbortController | null = null;
 
@@ -370,6 +387,38 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  async function renameSession(sessionId: string, title: string) {
+    console.debug('[chat.renameSession] session=%s title=%s', sessionId, title);
+    try {
+      await api.patch(`/sessions/${sessionId}`, { title });
+      // Update in local sessions list
+      const idx = sessions.value.findIndex((s) => s.id === sessionId);
+      if (idx !== -1) {
+        sessions.value[idx] = { ...sessions.value[idx], title };
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.message;
+      }
+    }
+  }
+
+  async function togglePinSession(sessionId: string) {
+    console.debug('[chat.togglePinSession] session=%s', sessionId);
+    const idx = sessions.value.findIndex((s) => s.id === sessionId);
+    if (idx === -1) return;
+
+    const newPinned = !sessions.value[idx].pinned;
+    try {
+      await api.patch(`/sessions/${sessionId}`, { pinned: newPinned });
+      sessions.value[idx] = { ...sessions.value[idx], pinned: newPinned };
+    } catch (err) {
+      if (err instanceof ApiError) {
+        error.value = err.message;
+      }
+    }
+  }
+
   async function exportSession(sessionId: string, format: 'md' | 'json') {
     isExporting.value = true;
     console.debug('[chat.exportSession] format=%s', format);
@@ -418,5 +467,12 @@ export const useChatStore = defineStore('chat', () => {
     exportSession,
     clearMessages,
     canPersistMessageAction,
+    renameSession,
+    togglePinSession,
+    searchQuery,
+    sidebarCollapsed,
+    filteredSessions,
+    setSearchQuery,
+    toggleSidebarCollapsed,
   };
 });

@@ -1,6 +1,7 @@
 <script setup>
 import MessageBubble from '@/components/MessageBubble.vue';
 import VButton from '@/components/ui/VButton.vue';
+import VDialog from '@/components/ui/VDialog.vue';
 import VSelect from '@/components/ui/VSelect.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useChatStore } from '@/stores/chat';
@@ -11,6 +12,10 @@ const chatStore = useChatStore();
 const collectionStore = useCollectionStore();
 
 const sidebarOpen = ref(false);
+const showSearchInput = ref(false);
+const renameDialogOpen = ref(false);
+const renameSessionTarget = ref(null);
+const renameInput = ref('');
 const inputText = ref('');
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
@@ -38,6 +43,13 @@ watch(
 
 function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
+}
+
+function toggleSearchInput() {
+  showSearchInput.value = !showSearchInput.value;
+  if (!showSearchInput.value) {
+    chatStore.setSearchQuery('');
+  }
 }
 
 function formatRelativeTime(dateStr) {
@@ -69,6 +81,34 @@ async function handleDeleteSession(sessionId, e) {
   if (confirm('Delete this session?')) {
     await chatStore.deleteSession(sessionId);
   }
+}
+
+function handleRenameSession(session) {
+  renameSessionTarget.value = session;
+  renameInput.value = session.title;
+  renameDialogOpen.value = true;
+}
+
+async function confirmRename() {
+  if (!renameSessionTarget.value) return;
+  const title = renameInput.value.trim();
+  if (!title) {
+    renameDialogOpen.value = false;
+    renameSessionTarget.value = null;
+    return;
+  }
+  await chatStore.renameSession(renameSessionTarget.value.id, title);
+  renameDialogOpen.value = false;
+  renameSessionTarget.value = null;
+}
+
+function cancelRename() {
+  renameDialogOpen.value = false;
+  renameSessionTarget.value = null;
+}
+
+async function togglePin(sessionId) {
+  await chatStore.togglePinSession(sessionId);
 }
 
 async function handleNewChat() {
@@ -223,15 +263,88 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
     <aside
       class="session-sidebar"
       data-testid="session-sidebar"
-      :class="{ 'session-sidebar--open': sidebarOpen }"
+      :class="[
+        { 'session-sidebar--open': sidebarOpen },
+        { 'session-sidebar--collapsed': chatStore.sidebarCollapsed },
+      ]"
     >
       <div class="session-header">
-        <span class="session-title">SESSIONS</span>
+        <span class="session-title">HISTORY</span>
+        <div class="session-header-actions">
+          <button
+            class="session-header-btn"
+            data-testid="session-search-toggle"
+            title="Search sessions"
+            @click="toggleSearchInput"
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="16"
+              viewBox="0 0 16 16"
+              width="16"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="7"
+                cy="7"
+                r="5.5"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <path
+                d="M11 11L14.5 14.5"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="1.5"
+              />
+            </svg>
+          </button>
+          <button
+            class="session-header-btn"
+            data-testid="sidebar-collapse-btn"
+            title="Collapse sidebar"
+            @click="chatStore.toggleSidebarCollapsed"
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="16"
+              viewBox="0 0 16 16"
+              width="16"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 3L6 8L10 13"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search input -->
+      <div v-if="showSearchInput" class="session-search">
+        <input
+          v-model="chatStore.searchQuery"
+          class="session-search-input"
+          data-testid="session-search-input"
+          type="text"
+          placeholder="Search sessions..."
+          @input="chatStore.setSearchQuery($event.target.value)"
+        />
+      </div>
+
+      <!-- New session button (centered below header) -->
+      <div class="session-new-wrapper">
         <VButton
-          variant="small"
+          variant="primary"
           data-testid="btn-new-chat"
           @click="handleNewChat"
-          >+ New</VButton
+          >+ New Session</VButton
         >
       </div>
 
@@ -242,18 +355,26 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         <VSkeleton variant="card" :rows="5" />
       </div>
 
-      <div v-else-if="chatStore.sessions.length === 0" class="session-empty">
+      <div
+        v-else-if="chatStore.filteredSessions.length === 0"
+        class="session-empty"
+      >
         No sessions yet. Start a new chat!
       </div>
 
       <div v-else class="session-list">
         <div
-          v-for="session in chatStore.sessions"
+          v-for="session in chatStore.filteredSessions"
           :key="session.id"
           class="session-item"
-          :class="{
-            'session-item--active': session.id === chatStore.activeSessionId,
-          }"
+          :class="[
+            {
+              'session-item--active': session.id === chatStore.activeSessionId,
+            },
+            { 'session-item--pinned': session.pinned },
+          ]"
+          :data-pinned="session.pinned ? 'true' : 'false'"
+          data-testid="session-item"
           @click="handleSelectSession(session.id)"
           role="button"
           tabindex="0"
@@ -268,13 +389,85 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               {{ formatRelativeTime(session.updated_at) }}
             </span>
           </div>
-          <button
-            class="session-item-delete"
-            @click="handleDeleteSession(session.id, $event)"
-            title="Delete session"
-          >
-            🗑
-          </button>
+          <div class="session-item-actions">
+            <button
+              class="session-action-btn"
+              data-testid="session-pin-btn"
+              title="Pin session"
+              @click.stop="togglePin(session.id)"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="12"
+                viewBox="0 0 12 12"
+                width="12"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M7.5 1L9.5 3L8 4.5L10 7L9 8L6 5L4 10L2 10L3 8L1 7L4 4.5L3 3L5 1L6.5 2.5L7.5 1Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+            <button
+              class="session-action-btn"
+              data-testid="session-rename-btn"
+              title="Rename session"
+              @click.stop="handleRenameSession(session)"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="12"
+                viewBox="0 0 12 12"
+                width="12"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8.5 1L11 3.5L4 10.5L1 11L1.5 8L8.5 1Z"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.2"
+                />
+              </svg>
+            </button>
+            <button
+              class="session-action-btn session-action-btn--delete"
+              data-testid="session-delete-btn"
+              title="Delete session"
+              @click.stop="handleDeleteSession(session.id, $event)"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="12"
+                viewBox="0 0 12 12"
+                width="12"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 3H10"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="1.2"
+                />
+                <path
+                  d="M4 2H8"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="1.2"
+                />
+                <path
+                  d="M3 4L3.5 9.5C3.5 10.3 4.2 11 5 11H7C7.8 11 8.5 10.3 8.5 9.5L9 4"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="1.2"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </aside>
@@ -494,6 +687,28 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         </p>
       </div>
     </main>
+
+    <!-- Rename session dialog -->
+    <VDialog
+      :open="renameDialogOpen"
+      title="Rename session"
+      description="Enter a new name for this session."
+      confirmText="Save"
+      cancelText="Cancel"
+      @close="cancelRename"
+      @confirm="confirmRename"
+    >
+      <div class="rename-dialog-body">
+        <input
+          v-model="renameInput"
+          class="rename-dialog-input"
+          data-testid="session-rename-input"
+          type="text"
+          placeholder="Session name"
+          @keydown.enter="confirmRename"
+        />
+      </div>
+    </VDialog>
   </div>
 </template>
 
@@ -533,12 +748,70 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   flex-shrink: 0;
 }
 
+.session-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.session-header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.session-header-btn:hover {
+  color: var(--color-foreground);
+  background: var(--color-secondary);
+  border-color: var(--color-border);
+}
+
 .session-title {
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-muted-foreground);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.session-search {
+  flex-shrink: 0;
+}
+
+.session-search-input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-family);
+  color: var(--color-foreground);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.session-search-input:focus {
+  border-color: var(--color-primary);
+}
+
+.session-search-input::placeholder {
+  color: var(--color-muted-foreground);
+}
+
+.session-new-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .session-empty {
@@ -615,12 +888,47 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   transition: opacity var(--transition-fast);
 }
 
-.session-item:hover .session-item-delete {
+.session-item--pinned {
+  border-color: var(--color-primary);
+}
+
+.session-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.session-item:hover .session-item-actions {
   opacity: 1;
 }
 
-.session-item-delete:hover {
+.session-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+  line-height: 1;
+}
+
+.session-action-btn:hover {
+  color: var(--color-foreground);
+  background: var(--color-border);
+}
+
+.session-action-btn--delete:hover {
   color: var(--color-destructive);
+  background: color-mix(in srgb, var(--color-destructive) 15%, transparent);
 }
 
 /* ===== Main Chat Area ===== */
@@ -875,6 +1183,42 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   inset: 0;
   z-index: 80;
   background: rgba(0, 0, 0, 0.5);
+}
+
+.session-sidebar--collapsed {
+  width: 48px;
+  min-width: 48px;
+  padding: var(--space-3);
+  overflow: hidden;
+}
+
+.session-sidebar--collapsed .session-title,
+.session-sidebar--collapsed .session-new-wrapper,
+.session-sidebar--collapsed .session-list,
+.session-sidebar--collapsed .session-search {
+  display: none;
+}
+
+.rename-dialog-body {
+  padding: var(--space-3) 0;
+}
+
+.rename-dialog-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--color-foreground);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.rename-dialog-input:focus {
+  border-color: var(--color-primary);
 }
 
 /* ===== Scrollbar Styling ===== */
