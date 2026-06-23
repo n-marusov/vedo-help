@@ -496,21 +496,36 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
           />
         </div>
         <div class="toolbar-right">
-          <VSelect
+          <button
             v-if="chatStore.activeSessionId"
-            v-model="exportFormat"
-            data-testid="export-format-select"
-            :options="exportFormatOptions"
-            class="toolbar-format-select"
-          />
-          <VButton
-            v-if="chatStore.activeSessionId"
-            variant="ghost"
+            class="toolbar-icon-btn"
             data-testid="export-btn"
             :disabled="chatStore.isExporting"
+            title="Export session"
             @click="handleExport"
-            >Export</VButton
           >
+            <svg
+              fill="none"
+              height="18"
+              viewBox="0 0 18 18"
+              width="18"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M9 3V12M9 12L6 9M9 12L12 9"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M3 12V14C3 15.1 3.9 16 5 16H13C14.1 16 15 15.1 15 14V12"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -974,8 +989,28 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   width: 360px;
 }
 
-.toolbar-format-select {
-  min-width: 100px;
+.toolbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toolbar-icon-btn:hover {
+  background: rgba(128, 128, 128, 0.1);
+  color: var(--color-foreground);
+}
+
+.toolbar-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ===== Messages Area ===== */
@@ -1073,15 +1108,19 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   display: flex;
   gap: var(--space-2);
   align-items: flex-end;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(128, 128, 128, 0.15);
   border-radius: var(--radius-lg);
-  background: var(--color-secondary);
+  background: var(--color-card);
   padding: var(--space-2);
-  transition: border-color var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .composer-input-wrap:focus-within {
   border-color: var(--color-primary);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
 .composer-textarea {

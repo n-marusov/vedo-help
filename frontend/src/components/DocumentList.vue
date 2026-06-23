@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
-import VDropZone from '@/components/ui/VDropZone.vue';
 import VProgressBar from '@/components/ui/VProgressBar.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';
 import VToast from '@/components/ui/VToast.vue';
@@ -293,13 +292,6 @@ watch(
     </div>
 
     <template v-else>
-      <!-- Drop zone -->
-      <VDropZone
-        :disabled="isUploading"
-        label="Drop PDF, MD, TXT, HTML, JSON, or ZIP files here"
-        @files-selected="handleFilesSelected"
-      />
-
       <!-- Upload progress -->
       <div v-if="isUploading && uploadProgress !== null" class="dl-progress">
         <div class="dl-progress__meta">
@@ -326,7 +318,7 @@ watch(
         class="dl-empty"
       >
         <p>No documents in this collection.</p>
-        <p class="dl-empty__hint">Drop files above or use the Upload button.</p>
+        <p class="dl-empty__hint">Use the Upload button to add files.</p>
       </div>
 
       <!-- Document list -->
