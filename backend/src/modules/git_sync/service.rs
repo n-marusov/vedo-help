@@ -188,7 +188,7 @@ impl GitSyncService {
             Err(e) => {
                 let msg = format!("Failed to fetch repo metadata: {e}");
                 tracing::error!("[GitSyncService::sync_repo] {msg} repo_id={repo_id}");
-                self.repo.mark_sync_error(repo_id, "", &msg).await?;
+                self.repo.mark_sync_error(repo_id, &msg).await?;
                 return Ok(SyncStatusResponse {
                     repo_id,
                     status: "error".to_string(),
@@ -242,11 +242,9 @@ impl GitSyncService {
                 tracing::error!(
                     "[GitSyncService::sync_repo] failed repo_id={repo_id} error={error_msg}"
                 );
-                // Preserve the old commit hash on failure
-                let old_commit = git_repo.last_commit_hash.clone().unwrap_or_default();
-                self.repo
-                    .mark_sync_error(repo_id, &old_commit, &error_msg)
-                    .await?;
+                // `mark_sync_error` only sets status to "error" without
+                // overwriting last_commit_hash, preserving it for future syncs.
+                self.repo.mark_sync_error(repo_id, &error_msg).await?;
 
                 Ok(SyncStatusResponse {
                     repo_id,

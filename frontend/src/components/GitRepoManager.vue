@@ -177,6 +177,8 @@ async function handleDeleteConfirm() {
   try {
     await api.deleteGitRepo(deletingRepo.value.id);
     repos.value = repos.value.filter((r) => r.id !== deletingRepo.value?.id);
+    // Clean up any stored error for this repo
+    delete syncErrors.value[deletingRepo.value.id];
     showDeleteDialog.value = false;
     deletingRepo.value = null;
   } catch (err) {

@@ -377,12 +377,7 @@ impl GitRepoRepository {
     /// Mark a sync attempt as failed, preserving the old commit hash.
     ///
     /// Sets status to `"error"` and logs the error reason for frontend display.
-    pub async fn mark_sync_error(
-        &self,
-        id: Uuid,
-        _old_commit: &str,
-        error_message: &str,
-    ) -> Result<(), AppError> {
+    pub async fn mark_sync_error(&self, id: Uuid, error_message: &str) -> Result<(), AppError> {
         tracing::debug!(
             "[GitRepoRepository::mark_sync_error] entry repo_id={id} error={error_message}"
         );
