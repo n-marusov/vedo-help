@@ -290,7 +290,43 @@ impl GitRepoRepository {
         Ok(summaries)
     }
 
-    /// Update the sync status, commit hash, and last synced timestamp.
+    /// Try to acquire a sync lock by atomically setting status to `"syncing"`.
+    ///
+    /// Returns `true` if the lock was acquired (previous status was not `"syncing"`),
+    /// `false` if the repo was already being synced by another caller.
+    /// This uses a compare-and-swap pattern to prevent race conditions.
+    pub async fn try_acquire_sync_lock(&self, id: Uuid) -> Result<bool, AppError> {
+        tracing::debug!("[GitRepoRepository::try_acquire_sync_lock] entry repo_id={id}");
+
+        let now = Utc::now();
+        let result = sqlx::query(
+            r#"
+            UPDATE git_repositories
+            SET status = 'syncing',
+                updated_at = $1
+            WHERE id = $2 AND status != 'syncing'
+            "#,
+        )
+        .bind(now)
+        .bind(id)
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "[GitRepoRepository::try_acquire_sync_lock] SQL error: error={e}, \
+                 query=UPDATE git_repositories SET status = syncing WHERE id"
+            );
+            AppError::InternalError(format!("Failed to acquire sync lock: {e}"))
+        })?;
+
+        let acquired = result.rows_affected() > 0;
+        tracing::debug!(
+            "[GitRepoRepository::try_acquire_sync_lock] exit repo_id={id} acquired={acquired}"
+        );
+        Ok(acquired)
+    }
+
+    /// Release the sync lock and update status, commit hash, and last synced timestamp.
     pub async fn update_sync_status(
         &self,
         id: Uuid,
@@ -335,6 +371,48 @@ impl GitRepoRepository {
         tracing::debug!(
             "[GitRepoRepository::update_sync_status] exit repo_id={id} status={status}"
         );
+        Ok(())
+    }
+
+    /// Mark a sync attempt as failed, preserving the old commit hash.
+    ///
+    /// Sets status to `"error"` and logs the error reason for frontend display.
+    pub async fn mark_sync_error(
+        &self,
+        id: Uuid,
+        _old_commit: &str,
+        error_message: &str,
+    ) -> Result<(), AppError> {
+        tracing::debug!(
+            "[GitRepoRepository::mark_sync_error] entry repo_id={id} error={error_message}"
+        );
+
+        let now = Utc::now();
+        let affected = sqlx::query(
+            r#"
+            UPDATE git_repositories
+            SET status = 'error',
+                updated_at = $1
+            WHERE id = $2
+            "#,
+        )
+        .bind(now)
+        .bind(id)
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "[GitRepoRepository::mark_sync_error] SQL error: error={e}, \
+             query=UPDATE git_repositories SET status = error"
+            );
+            AppError::InternalError(format!("Failed to mark sync error: {e}"))
+        })?;
+
+        if affected.rows_affected() == 0 {
+            return Err(AppError::NotFound(format!("Git repository {id} not found")));
+        }
+
+        tracing::debug!("[GitRepoRepository::mark_sync_error] exit repo_id={id}");
         Ok(())
     }
 

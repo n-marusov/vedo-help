@@ -152,32 +152,57 @@ impl GitSyncService {
 
     /// Full sync orchestrator for a single repo.
     ///
-    /// 1. Sets status to `syncing`
-    /// 2. If no `last_commit_hash` → full clone + parse all `.md` files
-    /// 3. Else → pull + diff → parse only changed files
-    /// 4. Index chunks into Chroma
-    /// 5. Update `last_commit_hash`, `last_synced_at`, status → `idle`
-    /// 6. On failure → status → `error`
+    /// 1. Atomically acquire sync lock (CAS: only if status != `"syncing"`)
+    /// 2. Fetch repo metadata and resolve collection
+    /// 3. If no `last_commit_hash` → full clone + parse all `.md` files
+    /// 4. Else → pull + diff → parse only changed files
+    /// 5. Index chunks into Chroma
+    /// 6. Update `last_commit_hash`, `last_synced_at`, status → `"idle"`
+    /// 7. On failure → status → `"error"`
+    ///
+    /// Uses the collection UUID (not the display name) for Chroma API calls,
+    /// since Chroma accepts only ASCII alphanumeric, underscores, and hyphens
+    /// in collection names.
     pub async fn sync_repo(&self, repo_id: Uuid) -> Result<SyncStatusResponse, AppError> {
         tracing::info!("[GitSyncService::sync_repo] started repo_id={repo_id}");
 
-        // Fetch repo metadata
-        let git_repo = self.repo.get_repo(repo_id).await?;
-        let collection_name = self
-            .repo
-            .get_collection_name(git_repo.collection_id)
-            .await?;
-
-        // Set status to syncing
-        let now = Utc::now();
-        self.repo
-            .update_sync_status(
+        // Atomically acquire sync lock — prevents concurrent syncs
+        let acquired = self.repo.try_acquire_sync_lock(repo_id).await?;
+        if !acquired {
+            tracing::warn!(
+                "[GitSyncService::sync_repo] concurrent sync attempted repo_id={repo_id}"
+            );
+            return Ok(SyncStatusResponse {
                 repo_id,
-                &git_repo.last_commit_hash.clone().unwrap_or_default(),
-                &now,
-                "syncing",
-            )
-            .await?;
+                status: "syncing".to_string(),
+                files_indexed: 0,
+                chunks_total: 0,
+                last_commit: None,
+                error: Some("Sync already in progress for this repository".to_string()),
+            });
+        }
+
+        // Fetch repo metadata
+        let git_repo = match self.repo.get_repo(repo_id).await {
+            Ok(r) => r,
+            Err(e) => {
+                let msg = format!("Failed to fetch repo metadata: {e}");
+                tracing::error!("[GitSyncService::sync_repo] {msg} repo_id={repo_id}");
+                self.repo.mark_sync_error(repo_id, "", &msg).await?;
+                return Ok(SyncStatusResponse {
+                    repo_id,
+                    status: "error".to_string(),
+                    files_indexed: 0,
+                    chunks_total: 0,
+                    last_commit: None,
+                    error: Some(msg),
+                });
+            }
+        };
+
+        // Use the collection UUID as the Chroma collection name — this is safe
+        // for Chroma which accepts only ASCII alphanumeric, underscores, and hyphens.
+        let collection_name = git_repo.collection_id.to_string();
 
         let local_path = self.clone_root.join(repo_id.to_string());
 
@@ -213,12 +238,14 @@ impl GitSyncService {
                 })
             }
             Err(e) => {
-                tracing::error!("[GitSyncService::sync_repo] failed repo_id={repo_id} error={e}");
-                let now = Utc::now();
+                let error_msg = e.to_string();
+                tracing::error!(
+                    "[GitSyncService::sync_repo] failed repo_id={repo_id} error={error_msg}"
+                );
                 // Preserve the old commit hash on failure
                 let old_commit = git_repo.last_commit_hash.clone().unwrap_or_default();
                 self.repo
-                    .update_sync_status(repo_id, &old_commit, &now, "error")
+                    .mark_sync_error(repo_id, &old_commit, &error_msg)
                     .await?;
 
                 Ok(SyncStatusResponse {
@@ -227,7 +254,7 @@ impl GitSyncService {
                     files_indexed: 0,
                     chunks_total: 0,
                     last_commit: git_repo.last_commit_hash,
-                    error: Some(e.to_string()),
+                    error: Some(error_msg),
                 })
             }
         }
@@ -956,6 +983,89 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_try_acquire_sync_lock_acquires_and_rejects_concurrent() {
+        // This test verifies the CAS-based sync lock prevents concurrent syncs.
+        //
+        // Expected behavior:
+        //   1. A repo with status != "syncing" should acquire the lock (returns true)
+        //   2. A second attempt on the same repo (now "syncing") should fail (returns false)
+        //
+        // Requires PostgreSQL test database (same as other make_test_service tests).
+        let svc = make_test_service().await;
+        let repo_id = Uuid::new_v4();
+        let collection_id = Uuid::new_v4();
+
+        // Create a test collection first (needed for FK constraint)
+        sqlx::query("INSERT INTO collections (id, name, created_at) VALUES ($1, $2, NOW())")
+            .bind(collection_id)
+            .bind("test-git-sync-lock")
+            .execute(&svc.repo.db)
+            .await
+            .expect("Failed to create test collection");
+
+        // Create a test repo with status "idle"
+        let now = Utc::now();
+        sqlx::query(
+            r#"
+            INSERT INTO git_repositories
+                (id, url, branch, access_token, local_path, last_commit_hash,
+                 last_synced_at, collection_id, status, webhook_secret, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            "#,
+        )
+        .bind(repo_id)
+        .bind("https://github.com/test/repo.git")
+        .bind("main")
+        .bind(None::<String>)
+        .bind("/tmp/test-git-repos/test")
+        .bind(None::<String>)
+        .bind(None::<DateTime<Utc>>)
+        .bind(collection_id)
+        .bind("idle")
+        .bind(None::<String>)
+        .bind(now)
+        .bind(now)
+        .execute(&svc.repo.db)
+        .await
+        .expect("Failed to create test repo");
+
+        // Act 1: first acquire should succeed (status was "idle" → becomes "syncing")
+        let acquired1 = svc
+            .repo
+            .try_acquire_sync_lock(repo_id)
+            .await
+            .expect("try_acquire_sync_lock should not fail");
+        assert!(
+            acquired1,
+            "First attempt should acquire the lock (status was 'idle')"
+        );
+
+        // Verify status is now "syncing"
+        let row: (String,) = sqlx::query_as("SELECT status FROM git_repositories WHERE id = $1")
+            .bind(repo_id)
+            .fetch_one(&svc.repo.db)
+            .await
+            .expect("Failed to fetch status");
+        assert_eq!(
+            row.0, "syncing",
+            "Status should be 'syncing' after lock acquire"
+        );
+
+        // Act 2: second acquire should fail (status is "syncing")
+        let acquired2 = svc
+            .repo
+            .try_acquire_sync_lock(repo_id)
+            .await
+            .expect("try_acquire_sync_lock should not fail");
+        assert!(
+            !acquired2,
+            "Second attempt should NOT acquire the lock (status is 'syncing')"
+        );
+
+        tracing::info!("[test_try_acquire_sync_lock] passed: first={acquired1} second={acquired2}");
+    }
+
+    #[tokio::test]
     async fn test_index_chunks_includes_is_active_in_metadata() {
         let svc = make_test_service().await;
         let collection_name = "test-index-chunks-active";
@@ -978,13 +1088,6 @@ mod tests {
         // We expect a connection error (Chroma/embedding not available in unit test)
         // But the important behavior to verify: the method should attempt to
         // call delete_where for each file BEFORE adding new embeddings.
-        //
-        // Once T8.1 is implemented, the flow will be:
-        //   1. For each file: compute doc_id, call chroma.delete_where(...)
-        //   2. Then embed and add with is_active=true in metadata
-        //
-        // For now, this test documents the expected behavior and will
-        // exercise the new code paths once implemented.
         match &result {
             Err(AppError::ChromaError(_)) | Err(AppError::EmbeddingError(_)) => {
                 // Expected: external service not available

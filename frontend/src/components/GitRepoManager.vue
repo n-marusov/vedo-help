@@ -34,6 +34,8 @@ const isDeleting = ref(false);
 
 // Tooltip for error status
 const hoveredRepoId = ref<string | null>(null);
+// Per-repo sync error messages (from SyncStatusResponse.error)
+const syncErrors = ref<Record<string, string>>({});
 
 const activeCollectionName = computed(
   () =>
@@ -134,17 +136,30 @@ async function syncRepo(repo: GitRepoSummary) {
   console.debug('[GitRepoManager] triggering sync for repo:', repo.id);
   try {
     const result = await api.triggerSync(repo.id);
-    // Update with response data
+    // Update with response data — check for error/syncing status in the response body
+    const newStatus = (result.status as GitRepoSummary['status']) || 'idle';
     repos.value[idx] = {
       ...repos.value[idx],
-      status: (result.status as GitRepoSummary['status']) || 'idle',
+      status: newStatus,
       last_commit_hash: result.last_commit,
       last_synced_at: new Date().toISOString(),
     };
+    // Store the error message so the tooltip can show it
+    if (result.error) {
+      console.warn('[GitRepoManager] sync returned with error message:', result.error);
+      syncErrors.value[repo.id] = result.error;
+    } else {
+      delete syncErrors.value[repo.id];
+    }
     console.debug('[GitRepoManager] sync result:', result);
   } catch (err) {
     console.error('[GitRepoManager] sync failed:', err);
-    repos.value[idx] = { ...repos.value[idx], status: 'error' };
+    repos.value[idx] = {
+      ...repos.value[idx],
+      status: 'error',
+      last_commit_hash: undefined,
+    };
+    syncErrors.value[repo.id] = err instanceof Error ? err.message : 'Sync request failed.';
   }
 }
 
@@ -276,7 +291,10 @@ function formatDate(iso?: string): string {
                   v-if="repo.status === 'error' && hoveredRepoId === repo.id"
                   class="grm-error-tooltip"
                 >
-                  Sync failed. Check logs for details.
+                  {{
+                    syncErrors[repo.id] ||
+                    "Sync failed. Check logs for details."
+                  }}
                 </div>
               </div>
             </td>

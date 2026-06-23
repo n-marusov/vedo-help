@@ -65,7 +65,7 @@
 
 ---
 
-## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework ⏳
+## Milestone: v0.3.1 — Basic Q&A Logic & Chat Rework ✅
 
 Реализация базовой логики ответов и доработка чата: улучшение потокового вывода, обработка ошибок LLM, сохранение контекста, UI для редактирования/удаления сообщений.
 
@@ -86,7 +86,7 @@
   - Убрать кнопки удаления ответа/запроса; поле ввода с белым фоном и тенью по контуру
   - Авто-выбор первой коллекции при загрузке; авто-установка коллекции при выборе сессии; замена выпадающего списка на тэг (название сессии + коллекция)
   - Кнопка debug info в ответах (только для admin): найденные ключевые слова (BM25), 5 чанков embedding-search, чанки по ключевым словам
-- [ ] **Admin panel & repo sync fix** — удалить Drop-зону в админ-панели (оставить только кнопку upload); исправить ошибку синхронизации репозитория
+- [x] **Admin panel & repo sync fix** — удалить Drop-зону в админ-панели (оставить только кнопку upload); исправить ошибку синхронизации репозитория ✅
 
 ---
 
@@ -147,7 +147,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2 — GUI Redesign | ✅ **6/6** | DeepSeek-style chat UI, UI atoms, session sidebar, admin redesign, login page, dark/light theme |
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
-| v0.3.1 — Basic Q&A Logic & Chat Rework | ⏳ **7/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ❌ |
+| v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
 | v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
