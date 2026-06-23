@@ -221,6 +221,16 @@ const collectionOptions = computed(() =>
   })),
 );
 
+const activeSession = computed(
+  () => chatStore.sessions.find((s) => s.id === chatStore.activeSessionId) || null,
+);
+
+const activeCollectionName = computed(() => {
+  if (!collectionStore.activeCollectionId) return '';
+  const col = collectionStore.collections.find((c) => c.id === collectionStore.activeCollectionId);
+  return col?.name || '';
+});
+
 const hasInput = computed(() => inputText.value.trim().length > 0);
 </script>
 
@@ -486,7 +496,27 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
       <!-- Toolbar -->
       <div class="toolbar" data-testid="chat-toolbar">
         <div class="toolbar-left">
+          <div
+            v-if="activeSession"
+            class="toolbar-session-tag"
+            data-testid="toolbar-session-tag"
+          >
+            <span class="toolbar-session-title">{{
+              truncateTitle(activeSession.title, 30)
+            }}</span>
+            <span
+              v-if="activeCollectionName"
+              class="toolbar-collection-badge"
+              >{{ activeCollectionName }}</span
+            >
+          </div>
+          <div v-else-if="activeCollectionName" class="toolbar-collection-tag">
+            <span class="toolbar-collection-badge">{{
+              activeCollectionName
+            }}</span>
+          </div>
           <VSelect
+            v-else
             v-model="collectionStore.activeCollectionId"
             data-testid="collection-select"
             :options="collectionOptions"
