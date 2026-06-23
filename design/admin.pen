@@ -1,8 +1,5 @@
 {
   "version": "2.13",
-  "imports": {
-    "B": "./ui-kit.lib.pen"
-  },
   "children": [
     {
       "type": "frame",
@@ -10,6 +7,10 @@
       "x": 0,
       "y": 0,
       "name": "Admin Page — Dark Theme",
+      "theme": {
+        "mode": "dark",
+        "B:mode": "dark"
+      },
       "width": 1920,
       "height": 1080,
       "fill": "$B:background",
@@ -54,7 +55,6 @@
               "id": "adminHeader",
               "width": "fill_container",
               "height": 64,
-              "justifyContent": "space-between",
               "alignItems": "center",
               "children": [
                 {
@@ -78,7 +78,8 @@
                       "fill": "$B:muted-foreground",
                       "content": "Manage collections, uploads, and indexed knowledge sources",
                       "fontFamily": "IBM Plex Mono",
-                      "fontSize": 12
+                      "fontSize": 12,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -99,7 +100,6 @@
               "id": "adminPanels",
               "width": "fill_container",
               "height": "fill_container",
-              "layout": "horizontal",
               "gap": 24,
               "children": [
                 {
@@ -108,10 +108,10 @@
                   "width": 380,
                   "height": "fill_container",
                   "fill": "$B:card",
+                  "cornerRadius": 16,
                   "stroke": "$B:border",
                   "strokeWidth": 1,
                   "strokeAlignment": "inner",
-                  "cornerRadius": 16,
                   "layout": "vertical",
                   "gap": 16,
                   "padding": 20,
@@ -120,7 +120,6 @@
                       "type": "frame",
                       "id": "collectionsHeader",
                       "width": "fill_container",
-                      "justifyContent": "space-between",
                       "alignItems": "center",
                       "children": [
                         {
@@ -205,10 +204,10 @@
                   "width": "fill_container",
                   "height": "fill_container",
                   "fill": "$B:card",
+                  "cornerRadius": 16,
                   "stroke": "$B:border",
                   "strokeWidth": 1,
                   "strokeAlignment": "inner",
-                  "cornerRadius": 16,
                   "layout": "vertical",
                   "gap": 16,
                   "padding": 20,
@@ -217,7 +216,6 @@
                       "type": "frame",
                       "id": "documentsHeader",
                       "width": "fill_container",
-                      "justifyContent": "space-between",
                       "alignItems": "center",
                       "children": [
                         {
@@ -243,18 +241,6 @@
                       ]
                     },
                     {
-                      "id": "dropZone",
-                      "type": "ref",
-                      "ref": "B:1kAx2",
-                      "width": "fill_container",
-                      "height": 128,
-                      "descendants": {
-                        "B:HaNWx": {
-                          "content": "Drop PDF, MD, TXT, HTML, JSON, or ZIP files here"
-                        }
-                      }
-                    },
-                    {
                       "type": "frame",
                       "id": "uploadProgress",
                       "width": "fill_container",
@@ -265,7 +251,6 @@
                           "type": "frame",
                           "id": "uploadProgressMeta",
                           "width": "fill_container",
-                          "justifyContent": "space-between",
                           "children": [
                             {
                               "type": "text",
@@ -273,7 +258,8 @@
                               "fill": "$B:foreground",
                               "content": "technical-specification-rag-system.md",
                               "fontFamily": "IBM Plex Mono",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             },
                             {
                               "type": "text",
@@ -281,7 +267,8 @@
                               "fill": "$B:muted-foreground",
                               "content": "64%",
                               "fontFamily": "IBM Plex Mono",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             }
                           ]
                         },
@@ -341,11 +328,7 @@
             }
           ]
         }
-      ],
-      "theme": {
-        "mode": "dark",
-        "B:mode": "dark"
-      }
+      ]
     },
     {
       "type": "frame",
@@ -353,13 +336,17 @@
       "x": 2070,
       "y": 0,
       "name": "Admin Page — Light Theme",
+      "theme": {
+        "mode": "light",
+        "B:mode": "light"
+      },
       "width": 1920,
       "height": 1080,
       "fill": "$B:background",
       "layout": "vertical",
       "children": [
         {
-          "id": "pageHeader",
+          "id": "DECBM",
           "type": "ref",
           "ref": "B:VedoPageHeader",
           "width": "fill_container",
@@ -368,7 +355,7 @@
               "children": [
                 {
                   "type": "text",
-                  "id": "themeIconText",
+                  "id": "CrPjB",
                   "fill": "$B:muted-foreground",
                   "content": "🌙",
                   "fontFamily": "IBM Plex Mono",
@@ -384,7 +371,7 @@
         },
         {
           "type": "frame",
-          "id": "adminWorkspace",
+          "id": "gPofR",
           "name": "Admin Workspace",
           "width": "fill_container",
           "height": "fill_container",
@@ -394,21 +381,20 @@
           "children": [
             {
               "type": "frame",
-              "id": "adminHeader",
+              "id": "faxcq",
               "width": "fill_container",
               "height": 64,
-              "justifyContent": "space-between",
               "alignItems": "center",
               "children": [
                 {
                   "type": "frame",
-                  "id": "adminTitleBlock",
+                  "id": "cTl7j",
                   "layout": "vertical",
                   "gap": 4,
                   "children": [
                     {
                       "type": "text",
-                      "id": "adminTitle",
+                      "id": "UAA2L",
                       "fill": "$B:foreground",
                       "content": "Admin Panel",
                       "fontFamily": "IBM Plex Mono",
@@ -417,16 +403,17 @@
                     },
                     {
                       "type": "text",
-                      "id": "adminSub",
+                      "id": "JYGpw",
                       "fill": "$B:muted-foreground",
                       "content": "Manage collections, uploads, and indexed knowledge sources",
                       "fontFamily": "IBM Plex Mono",
-                      "fontSize": 12
+                      "fontSize": 12,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
                 {
-                  "id": "clearKeyBtn",
+                  "id": "rQlkT",
                   "type": "ref",
                   "ref": "B:c8T4z",
                   "descendants": {
@@ -439,35 +426,33 @@
             },
             {
               "type": "frame",
-              "id": "adminPanels",
+              "id": "Nhcv9",
               "width": "fill_container",
               "height": "fill_container",
-              "layout": "horizontal",
               "gap": 24,
               "children": [
                 {
                   "type": "frame",
-                  "id": "collectionsPanel",
+                  "id": "KDOUZ",
                   "width": 380,
                   "height": "fill_container",
                   "fill": "$B:card",
+                  "cornerRadius": 16,
                   "stroke": "$B:border",
                   "strokeWidth": 1,
                   "strokeAlignment": "inner",
-                  "cornerRadius": 16,
                   "layout": "vertical",
                   "gap": 16,
                   "padding": 20,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "collectionsHeader",
+                      "id": "wtvTO",
                       "width": "fill_container",
-                      "justifyContent": "space-between",
                       "alignItems": "center",
                       "children": [
                         {
-                          "id": "collectionsTitle",
+                          "id": "m3Jis",
                           "type": "ref",
                           "ref": "B:OWO60",
                           "descendants": {
@@ -477,7 +462,7 @@
                           }
                         },
                         {
-                          "id": "newCollectionBtn",
+                          "id": "TTuIw",
                           "type": "ref",
                           "ref": "B:ahk3w",
                           "descendants": {
@@ -490,13 +475,13 @@
                     },
                     {
                       "type": "frame",
-                      "id": "collectionList",
+                      "id": "dH2VJ",
                       "width": "fill_container",
                       "layout": "vertical",
                       "gap": 12,
                       "children": [
                         {
-                          "id": "collectionCardOne",
+                          "id": "i2NEB",
                           "type": "ref",
                           "ref": "B:Nie8I",
                           "width": "fill_container",
@@ -511,7 +496,7 @@
                           }
                         },
                         {
-                          "id": "collectionCardTwo",
+                          "id": "el6C3",
                           "type": "ref",
                           "ref": "B:Nie8I",
                           "width": "fill_container",
@@ -525,7 +510,7 @@
                           }
                         },
                         {
-                          "id": "collectionCardThree",
+                          "id": "R1SXf",
                           "type": "ref",
                           "ref": "B:Nie8I",
                           "width": "fill_container",
@@ -544,27 +529,26 @@
                 },
                 {
                   "type": "frame",
-                  "id": "documentsPanel",
+                  "id": "IPbxf",
                   "width": "fill_container",
                   "height": "fill_container",
                   "fill": "$B:card",
+                  "cornerRadius": 16,
                   "stroke": "$B:border",
                   "strokeWidth": 1,
                   "strokeAlignment": "inner",
-                  "cornerRadius": 16,
                   "layout": "vertical",
                   "gap": 16,
                   "padding": 20,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "documentsHeader",
+                      "id": "ZtEeZ",
                       "width": "fill_container",
-                      "justifyContent": "space-between",
                       "alignItems": "center",
                       "children": [
                         {
-                          "id": "documentsTitle",
+                          "id": "q2bhB",
                           "type": "ref",
                           "ref": "B:OWO60",
                           "descendants": {
@@ -574,7 +558,7 @@
                           }
                         },
                         {
-                          "id": "uploadBtn",
+                          "id": "d8tsVl",
                           "type": "ref",
                           "ref": "B:3CI7c",
                           "descendants": {
@@ -586,50 +570,39 @@
                       ]
                     },
                     {
-                      "id": "dropZone",
-                      "type": "ref",
-                      "ref": "B:1kAx2",
-                      "width": "fill_container",
-                      "height": 128,
-                      "descendants": {
-                        "B:HaNWx": {
-                          "content": "Drop PDF, MD, TXT, HTML, JSON, or ZIP files here"
-                        }
-                      }
-                    },
-                    {
                       "type": "frame",
-                      "id": "uploadProgress",
+                      "id": "v9OzT",
                       "width": "fill_container",
                       "layout": "vertical",
                       "gap": 8,
                       "children": [
                         {
                           "type": "frame",
-                          "id": "uploadProgressMeta",
+                          "id": "HxiPY",
                           "width": "fill_container",
-                          "justifyContent": "space-between",
                           "children": [
                             {
                               "type": "text",
-                              "id": "uploadName",
+                              "id": "e5GzFS",
                               "fill": "$B:foreground",
                               "content": "technical-specification-rag-system.md",
                               "fontFamily": "IBM Plex Mono",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             },
                             {
                               "type": "text",
-                              "id": "uploadPercent",
+                              "id": "R4pXQo",
                               "fill": "$B:muted-foreground",
                               "content": "64%",
                               "fontFamily": "IBM Plex Mono",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             }
                           ]
                         },
                         {
-                          "id": "progressBar",
+                          "id": "cd9gL",
                           "type": "ref",
                           "ref": "B:BJBat",
                           "width": "fill_container"
@@ -638,13 +611,13 @@
                     },
                     {
                       "type": "frame",
-                      "id": "documentList",
+                      "id": "O0EA8Y",
                       "width": "fill_container",
                       "layout": "vertical",
                       "gap": 10,
                       "children": [
                         {
-                          "id": "fileOne",
+                          "id": "RmqEo",
                           "type": "ref",
                           "ref": "B:9RljR",
                           "width": "fill_container",
@@ -655,7 +628,7 @@
                           }
                         },
                         {
-                          "id": "fileTwo",
+                          "id": "x4jF00",
                           "type": "ref",
                           "ref": "B:9RljR",
                           "width": "fill_container",
@@ -666,7 +639,7 @@
                           }
                         },
                         {
-                          "id": "fileThree",
+                          "id": "a9JcWl",
                           "type": "ref",
                           "ref": "B:9RljR",
                           "width": "fill_container",
@@ -684,21 +657,16 @@
             }
           ]
         }
-      ],
-      "theme": {
-        "mode": "light",
-        "B:mode": "light"
-      }
+      ]
     }
   ],
   "themes": {
     "mode": [
       "dark",
       "light"
-    ],
-    "B:mode": [
-      "dark",
-      "light"
     ]
+  },
+  "imports": {
+    "B": "ui-kit.lib.pen"
   }
 }

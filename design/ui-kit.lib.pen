@@ -637,10 +637,7 @@
                       "fill": "$background",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -669,10 +666,7 @@
                       "fill": "$card",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -729,10 +723,7 @@
                       "fill": "$secondary",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -761,10 +752,7 @@
                       "fill": "$muted",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -1014,10 +1002,7 @@
       "name": "Atoms",
       "width": 1400,
       "fill": "$background",
-      "stroke": {
-        "type": "color",
-        "color": "$border"
-      },
+      "stroke": "$border",
       "layout": "vertical",
       "gap": 24,
       "padding": 40,
@@ -1266,10 +1251,7 @@
               "name": "Component/Badge/SM",
               "reusable": true,
               "fill": "#10b98126",
-              "stroke": {
-                "type": "color",
-                "color": "#10b9814D"
-              },
+              "stroke": "#10b9814D",
               "padding": [
                 0,
                 6
@@ -1294,10 +1276,7 @@
               "name": "Component/Badge/XS",
               "reusable": true,
               "fill": "#10b98126",
-              "stroke": {
-                "type": "color",
-                "color": "#10b9814D"
-              },
+              "stroke": "#10b9814D",
               "padding": [
                 0,
                 4
@@ -1407,10 +1386,7 @@
                       "name": "Component/Label",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": [
@@ -1447,10 +1423,7 @@
                       "name": "Component/Radio",
                       "reusable": true,
                       "fill": "#00000000",
-                      "stroke": {
-                        "type": "color",
-                        "color": "#00000000"
-                      },
+                      "stroke": "#00000000",
                       "gap": 8,
                       "alignItems": "center",
                       "children": [
@@ -1464,6 +1437,7 @@
                           "children": [
                             {
                               "type": "rectangle",
+                              "cornerRadius": 9999,
                               "id": "ArGsk",
                               "x": 0,
                               "y": 0,
@@ -1471,22 +1445,18 @@
                               "fill": "$card",
                               "width": 16,
                               "height": 16,
-                              "cornerRadius": 9999,
-                              "stroke": {
-                                "type": "color",
-                                "color": "$border"
-                              }
+                              "stroke": "$border"
                             },
                             {
                               "type": "rectangle",
+                              "cornerRadius": 9999,
                               "id": "0OdbE",
                               "x": 4,
                               "y": 4,
                               "name": "radioInner",
                               "fill": "$primary",
                               "width": 8,
-                              "height": 8,
-                              "cornerRadius": 9999
+                              "height": 8
                             }
                           ]
                         },
@@ -1508,10 +1478,7 @@
                       "name": "Component/FileInput",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 6,
                       "padding": [
                         6,
@@ -1578,10 +1545,7 @@
                           "width": "fill_container",
                           "height": 36,
                           "fill": "$card",
-                          "stroke": {
-                            "type": "color",
-                            "color": "$input"
-                          },
+                          "stroke": "$input",
                           "padding": [
                             4,
                             12
@@ -1628,10 +1592,7 @@
                           "name": "selDropdown",
                           "width": "fill_container",
                           "fill": "$popover",
-                          "stroke": {
-                            "type": "color",
-                            "color": "$border"
-                          },
+                          "stroke": "$border",
                           "effect": {
                             "type": "shadow",
                             "shadowType": "outer",
@@ -1709,6 +1670,7 @@
                                   "type": "frame",
                                   "id": "pJbIN",
                                   "name": "selCheck2",
+                                  "opacity": 0,
                                   "width": 12,
                                   "height": 12,
                                   "justifyContent": "center",
@@ -1724,8 +1686,7 @@
                                       "fontSize": 10,
                                       "fontWeight": "bold"
                                     }
-                                  ],
-                                  "opacity": 0
+                                  ]
                                 },
                                 {
                                   "type": "text",
@@ -1755,6 +1716,7 @@
                                   "type": "frame",
                                   "id": "s8dZE",
                                   "name": "selCheck3",
+                                  "opacity": 0,
                                   "width": 12,
                                   "height": 12,
                                   "justifyContent": "center",
@@ -1770,8 +1732,7 @@
                                       "fontSize": 10,
                                       "fontWeight": "bold"
                                     }
-                                  ],
-                                  "opacity": 0
+                                  ]
                                 },
                                 {
                                   "type": "text",
@@ -1798,10 +1759,7 @@
                       "width": 200,
                       "height": 28,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$input"
-                      },
+                      "stroke": "$input",
                       "padding": [
                         2,
                         8
@@ -1836,10 +1794,7 @@
                           "width": "fill_container",
                           "height": 28,
                           "fill": "$card",
-                          "stroke": {
-                            "type": "color",
-                            "color": "$input"
-                          },
+                          "stroke": "$input",
                           "padding": [
                             2,
                             8
@@ -2031,10 +1986,7 @@
                       "name": "Component/Tooltip",
                       "reusable": true,
                       "fill": "$popover",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "padding": [
                         4,
                         8
@@ -2059,10 +2011,7 @@
                       "reusable": true,
                       "width": 200,
                       "fill": "$popover",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 8,
                       "padding": 12,
@@ -2102,10 +2051,7 @@
                       "height": 32,
                       "fill": "$muted",
                       "cornerRadius": 16,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -2147,10 +2093,7 @@
                       "name": "Component/ToggleButton",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": [
                         4,
@@ -2197,10 +2140,7 @@
                       "name": "Component/FilterButton",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": [
                         2,
@@ -2246,10 +2186,7 @@
                       "name": "Component/AttachmentChip",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 6,
                       "padding": [
                         4,
@@ -2317,10 +2254,7 @@
                       "name": "Component/AuthorBadge",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 6,
                       "padding": [
                         4,
@@ -2367,10 +2301,7 @@
                       "name": "Component/SourceIcon",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "padding": 4,
                       "justifyContent": "center",
                       "alignItems": "center",
@@ -2407,10 +2338,7 @@
                       "width": 160,
                       "height": 80,
                       "fill": "$background",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "padding": 8,
                       "children": [
@@ -2517,10 +2445,7 @@
                   "width": 200,
                   "height": 4,
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "children": [
                     {
                       "type": "rectangle",
@@ -2548,10 +2473,7 @@
                       "fill": "$border",
                       "width": "fill_container",
                       "height": 12,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "rectangle",
@@ -2560,10 +2482,7 @@
                       "fill": "$border",
                       "width": 140,
                       "height": 12,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "rectangle",
@@ -2572,10 +2491,7 @@
                       "fill": "$border",
                       "width": 100,
                       "height": 12,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     }
                   ]
                 }
@@ -2593,10 +2509,7 @@
       "name": "Molecules",
       "width": 1400,
       "fill": "$background",
-      "stroke": {
-        "type": "color",
-        "color": "$border"
-      },
+      "stroke": "$border",
       "layout": "vertical",
       "gap": 24,
       "padding": 40,
@@ -2772,10 +2685,7 @@
                       "reusable": true,
                       "width": 340,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 16,
                       "padding": 24,
@@ -2871,6 +2781,9 @@
                         {
                           "type": "frame",
                           "id": "133yK",
+                          "layoutPosition": "absolute",
+                          "x": 316,
+                          "y": 8,
                           "name": "dialogClose",
                           "width": 16,
                           "height": 16,
@@ -2887,10 +2800,7 @@
                               "fontSize": 14,
                               "fontWeight": "bold"
                             }
-                          ],
-                          "layoutPosition": "absolute",
-                          "x": 316,
-                          "y": 8
+                          ]
                         }
                       ]
                     },
@@ -2902,13 +2812,6 @@
                       "width": 340,
                       "height": 200,
                       "fill": "$card",
-                      "stroke": {
-                        "align": "inside",
-                        "thickness": {
-                          "left": 1
-                        },
-                        "fill": "$border"
-                      },
                       "layout": "vertical",
                       "gap": 16,
                       "padding": 24,
@@ -2960,6 +2863,9 @@
                         {
                           "type": "frame",
                           "id": "d10Xj",
+                          "layoutPosition": "absolute",
+                          "x": 316,
+                          "y": 8,
                           "name": "sheetClose",
                           "width": 16,
                           "height": 16,
@@ -2976,10 +2882,7 @@
                               "fontSize": 14,
                               "fontWeight": "bold"
                             }
-                          ],
-                          "layoutPosition": "absolute",
-                          "x": 316,
-                          "y": 8
+                          ]
                         }
                       ]
                     }
@@ -2995,10 +2898,7 @@
               "opacity": 0.3,
               "width": 340,
               "fill": "$secondary",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "gap": 12,
               "padding": [
                 6,
@@ -3077,10 +2977,7 @@
               "reusable": true,
               "width": 300,
               "fill": "#10b98119",
-              "stroke": {
-                "type": "color",
-                "color": "#10b98166"
-              },
+              "stroke": "#10b98166",
               "effect": {
                 "type": "shadow",
                 "shadowType": "outer",
@@ -3207,10 +3104,7 @@
                   "reusable": true,
                   "width": 340,
                   "fill": "$card",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 16,
                   "padding": 24,
@@ -3307,10 +3201,7 @@
                   "reusable": true,
                   "width": 260,
                   "fill": "$card",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -3436,10 +3327,7 @@
               "width": 280,
               "height": 60,
               "fill": "$secondary",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "gap": 6,
               "padding": 12,
               "justifyContent": "center",
@@ -3580,10 +3468,7 @@
                       "reusable": true,
                       "width": 260,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 8,
                       "padding": [
                         6,
@@ -3650,10 +3535,7 @@
                       "name": "Component/ActionButtonGroup",
                       "reusable": true,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": 4,
                       "alignItems": "center",
@@ -3665,10 +3547,7 @@
                           "name": "ag1",
                           "x": 4,
                           "y": 4,
-                          "stroke": {
-                            "type": "color",
-                            "color": "$border"
-                          },
+                          "stroke": "$border",
                           "width": "fit_content",
                           "height": "fit_content",
                           "descendants": {
@@ -3707,13 +3586,6 @@
                       "reusable": true,
                       "width": 340,
                       "fill": "$card",
-                      "stroke": {
-                        "align": "inside",
-                        "thickness": {
-                          "top": 1
-                        },
-                        "fill": "$border"
-                      },
                       "gap": 8,
                       "padding": 12,
                       "alignItems": "center",
@@ -3762,10 +3634,7 @@
                       "reusable": true,
                       "width": 260,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 8,
                       "padding": [
                         6,
@@ -3871,10 +3740,7 @@
                   "x": 0,
                   "y": 0,
                   "fill": "#8b5cf626",
-                  "stroke": {
-                    "type": "color",
-                    "color": "#8b5cf659"
-                  },
+                  "stroke": "#8b5cf659",
                   "padding": [
                     0,
                     6
@@ -3898,10 +3764,7 @@
                   "x": 40,
                   "y": 0,
                   "fill": "#64748b26",
-                  "stroke": {
-                    "type": "color",
-                    "color": "#64748b59"
-                  },
+                  "stroke": "#64748b59",
                   "padding": [
                     0,
                     6
@@ -3925,10 +3788,7 @@
                   "x": 104,
                   "y": 0,
                   "fill": "#64748b26",
-                  "stroke": {
-                    "type": "color",
-                    "color": "#64748b59"
-                  },
+                  "stroke": "#64748b59",
                   "padding": [
                     0,
                     6
@@ -3958,10 +3818,7 @@
       "name": "Component Library (source)",
       "width": 600,
       "fill": "$card",
-      "stroke": {
-        "type": "color",
-        "color": "$border"
-      },
+      "stroke": "$border",
       "layout": "vertical",
       "gap": 16,
       "padding": 24,
@@ -4025,10 +3882,7 @@
           "id": "c8T4z",
           "name": "Component/Button/Outline",
           "reusable": true,
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "gap": 6,
           "padding": [
             8,
@@ -4054,10 +3908,7 @@
           "id": "kLoW9",
           "name": "Component/Button/Ghost",
           "reusable": true,
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "gap": 6,
           "padding": [
             8,
@@ -4110,10 +3961,7 @@
           "name": "Component/Badge",
           "reusable": true,
           "fill": "#10b98126",
-          "stroke": {
-            "type": "color",
-            "color": "#10b9814D"
-          },
+          "stroke": "#10b9814D",
           "padding": [
             2,
             10
@@ -4138,10 +3986,7 @@
           "name": "Component/Badge/Priority",
           "reusable": true,
           "fill": "#f9731626",
-          "stroke": {
-            "type": "color",
-            "color": "#f973164D"
-          },
+          "stroke": "#f973164D",
           "padding": [
             2,
             10
@@ -4169,10 +4014,7 @@
           "width": 240,
           "height": 36,
           "fill": "$card",
-          "stroke": {
-            "type": "color",
-            "color": "$input"
-          },
+          "stroke": "$input",
           "padding": [
             4,
             12
@@ -4206,10 +4048,7 @@
               "fill": "$card",
               "width": 16,
               "height": 16,
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              }
+              "stroke": "$border"
             },
             {
               "type": "text",
@@ -4239,10 +4078,7 @@
               "fill": "$primary",
               "width": 36,
               "height": 20,
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              }
+              "stroke": "$border"
             },
             {
               "type": "text",
@@ -4256,6 +4092,7 @@
             },
             {
               "type": "rectangle",
+              "cornerRadius": 9999,
               "id": "pS4Fq",
               "layoutPosition": "absolute",
               "x": 20,
@@ -4263,8 +4100,7 @@
               "name": "switchThumb",
               "fill": "$foreground",
               "width": 14,
-              "height": 14,
-              "cornerRadius": 9999
+              "height": 14
             }
           ]
         },
@@ -4278,12 +4114,12 @@
           "children": [
             {
               "type": "rectangle",
+              "cornerRadius": 9999,
               "id": "1dIMB",
               "name": "statusDotCircle",
               "fill": "$status-done",
               "width": 8,
-              "height": 8,
-              "cornerRadius": 9999
+              "height": 8
             },
             {
               "type": "text",
@@ -4304,10 +4140,7 @@
           "reusable": true,
           "width": 320,
           "fill": "#10b98119",
-          "stroke": {
-            "type": "color",
-            "color": "#10b9814D"
-          },
+          "stroke": "#10b9814D",
           "gap": 8,
           "padding": [
             8,
@@ -4397,10 +4230,7 @@
           "name": "Component/EmptyState",
           "reusable": true,
           "width": 280,
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "layout": "vertical",
           "gap": 8,
           "padding": [
@@ -4414,6 +4244,7 @@
               "type": "frame",
               "id": "3sJkD",
               "name": "emptyIcon",
+              "opacity": 0.5,
               "width": 32,
               "height": 32,
               "justifyContent": "center",
@@ -4429,8 +4260,7 @@
                   "fontSize": 30,
                   "fontWeight": "bold"
                 }
-              ],
-              "opacity": 0.5
+              ]
             },
             {
               "type": "text",
@@ -4458,10 +4288,7 @@
               "name": "kbd1",
               "opacity": 0.8,
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "padding": [
                 2,
                 6
@@ -4496,10 +4323,7 @@
               "name": "kbd2",
               "opacity": 0.8,
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "padding": [
                 2,
                 6
@@ -4605,10 +4429,7 @@
           "reusable": true,
           "opacity": 0.5,
           "fill": "$card",
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "layout": "vertical",
           "gap": 2,
           "padding": [
@@ -4646,10 +4467,7 @@
           "reusable": true,
           "width": 300,
           "fill": "$card",
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "layout": "vertical",
           "gap": 12,
           "padding": 12,
@@ -4713,10 +4531,7 @@
               "width": "fill_container",
               "height": 36,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$input"
-              },
+              "stroke": "$input",
               "padding": [
                 4,
                 12
@@ -4762,10 +4577,7 @@
               "id": "IXtXH",
               "name": "tab1",
               "fill": "#10b98126",
-              "stroke": {
-                "type": "color",
-                "color": "#10b98173"
-              },
+              "stroke": "#10b98173",
               "padding": [
                 4,
                 8
@@ -4788,10 +4600,7 @@
               "type": "frame",
               "id": "E5CaJ",
               "name": "tab2",
-              "stroke": {
-                "type": "color",
-                "color": "#2a2a2a66"
-              },
+              "stroke": "#2a2a2a66",
               "padding": [
                 4,
                 8
@@ -4818,10 +4627,7 @@
           "name": "Component/SegmentedControl",
           "reusable": true,
           "fill": "$card",
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "children": [
             {
               "type": "frame",
@@ -4887,10 +4693,7 @@
               "opacity": 0.6,
               "width": "fill_container",
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "gap": 4,
               "padding": [
                 4,
@@ -4949,10 +4752,7 @@
           "reusable": true,
           "width": 200,
           "fill": "$popover",
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "effect": {
             "type": "shadow",
             "shadowType": "outer",
@@ -5875,7 +5675,7 @@
                   "type": "ref",
                   "ref": "hcfFJ",
                   "name": "srcItem",
-                  "x": 80,
+                  "x": 35,
                   "width": "fit_content",
                   "height": "fit_content"
                 },
@@ -5884,7 +5684,7 @@
                   "type": "ref",
                   "ref": "2ld3C",
                   "name": "providerBtn",
-                  "x": 360,
+                  "x": 163,
                   "width": "fit_content",
                   "height": "fit_content"
                 },
@@ -5893,8 +5693,8 @@
                   "type": "ref",
                   "ref": "L7tZ8",
                   "name": "streamBar",
-                  "x": 650,
-                  "height": "fit_content",
+                  "x": 426,
+                  "height": "fit_content(0)",
                   "width": "fit_content"
                 }
               ]
@@ -5956,9 +5756,10 @@
                 {
                   "type": "frame",
                   "id": "V0z4v",
-                  "name": "sourceScore",
-                  "x": 160,
                   "layoutPosition": "absolute",
+                  "x": 160,
+                  "y": 0,
+                  "name": "sourceScore",
                   "children": [
                     {
                       "type": "text",
@@ -5981,10 +5782,7 @@
               "reusable": true,
               "width": "fill_container",
               "height": 48,
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "gap": 12,
               "padding": [
                 8,
@@ -6105,12 +5903,7 @@
                   "ref": "Rup2V",
                   "name": "chatInputMol",
                   "x": 0,
-                  "height": "fit_content",
-                  "descendants": {
-                    "bOYxK": {
-                      "content": "→"
-                    }
-                  }
+                  "height": "fit_content"
                 },
                 {
                   "id": "QHmpx",
@@ -6137,7 +5930,7 @@
               "name": "Component/Message/Bot",
               "reusable": true,
               "width": "fill_container",
-              "gap": 12,
+              "gap": 6,
               "padding": [
                 8,
                 12
@@ -6146,7 +5939,10 @@
                 {
                   "type": "frame",
                   "id": "Z5GgX",
+                  "x": 12,
+                  "y": 8,
                   "name": "botAvatar",
+                  "enabled": false,
                   "width": 32,
                   "height": 32,
                   "fill": "$primary",
@@ -6170,9 +5966,9 @@
                   "type": "frame",
                   "id": "qgWLk",
                   "name": "messageBubble",
-                  "width": 480,
+                  "width": 600,
                   "layout": "vertical",
-                  "gap": 6,
+                  "gap": 8,
                   "children": [
                     {
                       "type": "text",
@@ -6182,20 +5978,93 @@
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Hello! I'm VEDO Assistant. How can I help you?",
+                      "lineHeight": 1.5,
                       "fontFamily": "IBM Plex Mono",
                       "fontSize": 14,
-                      "fontWeight": "normal",
-                      "lineHeight": 1.5
+                      "fontWeight": "normal"
                     },
                     {
-                      "type": "text",
-                      "id": "4VxG9",
-                      "name": "timestamp",
-                      "fill": "$muted-foreground",
-                      "content": "Just now",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "frame",
+                      "id": "WREID",
+                      "name": "botActionsRow",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "4VxG9",
+                          "name": "timestamp",
+                          "fill": "$muted-foreground",
+                          "content": "Just now",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "f3DvK",
+                          "name": "copyBtn",
+                          "width": 24,
+                          "height": 24,
+                          "fill": "$muted-foreground",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "s4rIL5",
+                              "name": "copyIcon",
+                              "fill": "$muted-foreground",
+                              "content": "📋",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "E1JhRU",
+                          "name": "regenerateBtn",
+                          "width": 24,
+                          "height": 24,
+                          "fill": "$muted-foreground",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "UnXA2",
+                              "name": "regenerateIcon",
+                              "fill": "$muted-foreground",
+                              "content": "🔄",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "RD336",
+                          "name": "debugBtn",
+                          "opacity": 0.4,
+                          "width": 24,
+                          "height": 24,
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "mu5gh",
+                              "name": "debugIcon",
+                              "fill": "$muted-foreground",
+                              "content": "🔓",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -6207,7 +6076,7 @@
               "name": "Component/Message/User",
               "reusable": true,
               "width": "fill_container",
-              "gap": 12,
+              "gap": 6,
               "padding": [
                 8,
                 12
@@ -6218,8 +6087,10 @@
                   "type": "frame",
                   "id": "ykQFb",
                   "name": "userBubble",
-                  "width": 400,
+                  "width": 520,
                   "fill": "$primary",
+                  "layout": "vertical",
+                  "gap": 6,
                   "padding": [
                     10,
                     14
@@ -6233,28 +6104,86 @@
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "What are the main features?",
+                      "lineHeight": 1.5,
                       "fontFamily": "IBM Plex Mono",
                       "fontSize": 14,
-                      "fontWeight": "normal",
-                      "lineHeight": 1.5
+                      "fontWeight": "normal"
                     },
                     {
-                      "type": "text",
-                      "id": "7Q6jV",
-                      "name": "timestamp",
-                      "fill": "$primary-foreground",
-                      "opacity": 0.6,
-                      "content": "Just now",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "frame",
+                      "id": "F8b5h",
+                      "name": "userActionsRow",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "7Q6jV",
+                          "name": "timestamp",
+                          "opacity": 0.6,
+                          "fill": "$primary-foreground",
+                          "content": "Just now",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "qTKBT",
+                          "name": "copyBtn",
+                          "opacity": 0.6,
+                          "width": 24,
+                          "height": 24,
+                          "fill": "$primary-foreground",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "gI1PF",
+                              "name": "copyIcon",
+                              "fill": "$primary-foreground",
+                              "content": "📋",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "UOB73",
+                          "name": "editBtn",
+                          "opacity": 0.6,
+                          "width": 24,
+                          "height": 24,
+                          "fill": "$primary-foreground",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Wa4K8",
+                              "name": "editIcon",
+                              "fill": "$primary-foreground",
+                              "content": "✏️",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 },
                 {
                   "type": "frame",
                   "id": "HLxN7",
+                  "x": 508,
+                  "y": 8,
                   "name": "userAvatar",
+                  "enabled": false,
                   "width": 32,
                   "height": 32,
                   "fill": "$muted",
@@ -6282,7 +6211,7 @@
               "name": "Component/Message/BotWithSources",
               "reusable": true,
               "width": "fill_container",
-              "gap": 12,
+              "gap": 6,
               "padding": [
                 8,
                 12
@@ -6291,7 +6220,10 @@
                 {
                   "type": "frame",
                   "id": "IB22B",
+                  "x": 12,
+                  "y": 8,
                   "name": "botAvatar",
+                  "enabled": false,
                   "width": 32,
                   "height": 32,
                   "fill": "$primary",
@@ -6315,7 +6247,7 @@
                   "type": "frame",
                   "id": "mF4MH",
                   "name": "messageBubble",
-                  "width": 520,
+                  "width": 600,
                   "layout": "vertical",
                   "gap": 8,
                   "children": [
@@ -6327,21 +6259,22 @@
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Here are the relevant sources:",
+                      "lineHeight": 1.5,
                       "fontFamily": "IBM Plex Mono",
                       "fontSize": 14,
-                      "fontWeight": "normal",
-                      "lineHeight": 1.5
+                      "fontWeight": "normal"
                     },
                     {
+                      "enabled": false,
                       "type": "frame",
                       "id": "7mXlz",
                       "name": "sourcesSection",
                       "width": "fill_container",
                       "layout": "vertical",
                       "gap": 6,
-                      "slot": [],
                       "children": [
                         {
+                          "enabled": false,
                           "type": "frame",
                           "id": "QVgQX",
                           "name": "sourceItem",
@@ -6377,14 +6310,87 @@
                       ]
                     },
                     {
-                      "type": "text",
-                      "id": "BINPk",
-                      "name": "timestamp",
-                      "fill": "$muted-foreground",
-                      "content": "Just now",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 11,
-                      "fontWeight": "normal"
+                      "type": "frame",
+                      "id": "mN3B1",
+                      "name": "botActionsRow",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BINPk",
+                          "name": "timestamp",
+                          "fill": "$muted-foreground",
+                          "content": "Just now",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ZulRO",
+                          "name": "copyBtn",
+                          "width": 24,
+                          "height": 24,
+                          "fill": "$muted-foreground",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TmIvO",
+                              "name": "copyIcon",
+                              "fill": "$muted-foreground",
+                              "content": "📋",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "wEDFH",
+                          "name": "regenerateBtn",
+                          "width": 24,
+                          "height": 24,
+                          "fill": "$muted-foreground",
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "t9ynO",
+                              "name": "regenerateIcon",
+                              "fill": "$muted-foreground",
+                              "content": "🔄",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zJCQw",
+                          "name": "debugBtn",
+                          "opacity": 0.4,
+                          "width": 24,
+                          "height": 24,
+                          "cornerRadius": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "f17dw",
+                              "name": "debugIcon",
+                              "fill": "$muted-foreground",
+                              "content": "🔓",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -6396,7 +6402,7 @@
               "name": "Component/StreamingIndicator",
               "reusable": true,
               "width": "fill_container",
-              "gap": 12,
+              "gap": 6,
               "padding": [
                 8,
                 12
@@ -6405,7 +6411,10 @@
                 {
                   "type": "frame",
                   "id": "Fz9NV",
+                  "x": 12,
+                  "y": 8,
                   "name": "botAvatar",
+                  "enabled": false,
                   "width": 32,
                   "height": 32,
                   "fill": "$primary",
@@ -6426,22 +6435,14 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "NkWfY",
-                  "name": "streamingBar",
-                  "width": 240,
-                  "height": 4,
-                  "fill": "$border",
-                  "children": [
-                    {
-                      "type": "rectangle",
-                      "id": "7PjbX",
-                      "name": "streamFill",
-                      "fill": "$primary",
-                      "width": 120,
-                      "height": "fill_container"
-                    }
-                  ]
+                  "type": "text",
+                  "id": "o62xW",
+                  "name": "typingIndicator",
+                  "fill": "$muted-foreground",
+                  "content": "Assistant is typing...",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
                 }
               ]
             },
@@ -6461,9 +6462,16 @@
                   "width": "fill_container",
                   "height": 44,
                   "fill": "$card",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
+                  "stroke": "$border",
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#00000015",
+                    "offset": {
+                      "x": 0,
+                      "y": 2
+                    },
+                    "blur": 8
                   },
                   "padding": [
                     4,
@@ -6500,10 +6508,7 @@
               "reusable": true,
               "width": 400,
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "gap": 24,
               "padding": 32,
@@ -6514,8 +6519,8 @@
                   "name": "logoArea",
                   "width": "fill_container",
                   "gap": 8,
-                  "alignItems": "center",
                   "justifyContent": "center",
+                  "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
@@ -6565,10 +6570,10 @@
                   "type": "frame",
                   "id": "qakbH",
                   "name": "providerButtons",
+                  "slot": [],
                   "width": "fill_container",
                   "layout": "vertical",
                   "gap": 12,
-                  "slot": [],
                   "children": [
                     {
                       "type": "frame",
@@ -6576,10 +6581,7 @@
                       "name": "providerBtn",
                       "width": "fill_container",
                       "height": 48,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 12,
                       "padding": [
                         8,
@@ -7267,10 +7269,7 @@
                       "fill": "$background",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -7299,10 +7298,7 @@
                       "fill": "$card",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -7359,10 +7355,7 @@
                       "fill": "$secondary",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -7391,10 +7384,7 @@
                       "fill": "$muted",
                       "width": 64,
                       "height": 40,
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      }
+                      "stroke": "$border"
                     },
                     {
                       "type": "text",
@@ -7647,10 +7637,7 @@
       },
       "width": 1400,
       "fill": "$background",
-      "stroke": {
-        "type": "color",
-        "color": "$border"
-      },
+      "stroke": "$border",
       "layout": "vertical",
       "gap": 24,
       "padding": 40,
@@ -7747,10 +7734,7 @@
                   "name": "btn3",
                   "x": 206,
                   "y": 0,
-                  "stroke": {
-                    "type": "color",
-                    "color": "#b7c4bc66"
-                  },
+                  "stroke": "#b7c4bc66",
                   "width": "fit_content",
                   "height": "fit_content",
                   "descendants": {
@@ -7838,10 +7822,7 @@
                   "name": "bg1",
                   "x": 0,
                   "fill": "#0f766e26",
-                  "stroke": {
-                    "type": "color",
-                    "color": "#0f766e4D"
-                  },
+                  "stroke": "#0f766e4D",
                   "width": "fit_content",
                   "height": "fit_content",
                   "descendants": {
@@ -7859,10 +7840,7 @@
                   "x": 69,
                   "y": 0,
                   "fill": "#ea580c26",
-                  "stroke": {
-                    "type": "color",
-                    "color": "#ea580c4D"
-                  },
+                  "stroke": "#ea580c4D",
                   "width": "fit_content",
                   "height": "fit_content",
                   "descendants": {
@@ -8558,10 +8536,7 @@
                   "x": 0,
                   "y": 0,
                   "fill": "#05966919",
-                  "stroke": {
-                    "type": "color",
-                    "color": "#0596694D"
-                  },
+                  "stroke": "#0596694D",
                   "height": "fit_content",
                   "descendants": {
                     "TITDo": {
@@ -8642,10 +8617,7 @@
       },
       "width": 1400,
       "fill": "$background",
-      "stroke": {
-        "type": "color",
-        "color": "$border"
-      },
+      "stroke": "$border",
       "layout": "vertical",
       "gap": 24,
       "padding": 40,
@@ -9147,10 +9119,7 @@
                       "descendants": {
                         "IXtXH": {
                           "fill": "#0f766e26",
-                          "stroke": {
-                            "type": "color",
-                            "color": "#0f766e73"
-                          },
+                          "stroke": "#0f766e73",
                           "width": "fit_content",
                           "height": "fit_content"
                         },
@@ -9159,10 +9128,7 @@
                           "y": 4
                         },
                         "E5CaJ": {
-                          "stroke": {
-                            "type": "color",
-                            "color": "#b7c4bc66"
-                          },
+                          "stroke": "#b7c4bc66",
                           "width": "fit_content",
                           "height": "fit_content",
                           "x": 60
@@ -9437,10 +9403,7 @@
               "width": "fill_container",
               "height": 56,
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "padding": [
                 0,
                 24
@@ -9665,10 +9628,7 @@
                       "name": "roadmapBtn",
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": [
                         4,
@@ -9715,10 +9675,7 @@
                       "name": "metricsBtn",
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": [
                         4,
@@ -9766,10 +9723,7 @@
                       "width": 32,
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -9803,10 +9757,7 @@
                       "width": 32,
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -9840,10 +9791,7 @@
                       "width": 32,
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -9907,10 +9855,7 @@
               "name": "FilterBar",
               "width": "fill_container",
               "fill": "$secondary",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "gap": 8,
               "padding": [
                 6,
@@ -10024,10 +9969,7 @@
                   "name": "Column/Backlog",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -10147,10 +10089,7 @@
                   "name": "Column/Implementing",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -10241,10 +10180,7 @@
                   "name": "Column/Review",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -10335,10 +10271,7 @@
                   "name": "Column/Done",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -10480,89 +10413,132 @@
               "id": "9Hq6W",
               "name": "ChatPanel",
               "clip": true,
-              "width": "fill_container",
+              "width": 800,
               "height": 480,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
-              "layout": "vertical",
+              "stroke": "$border",
               "children": [
                 {
                   "type": "frame",
-                  "id": "74zmV",
-                  "name": "chatHeader",
-                  "width": "fill_container",
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": {
-                      "bottom": 1
-                    },
-                    "fill": "$border"
+                  "id": "QX7VQ",
+                  "name": "sessionSidebar",
+                  "width": 240,
+                  "height": "fill_container",
+                  "fill": "$card",
+                  "stroke": "$border",
+                  "strokeWidth": {
+                    "right": 1
                   },
-                  "padding": [
-                    12,
-                    16
-                  ],
-                  "alignItems": "center",
+                  "layout": "vertical",
+                  "gap": 4,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "TpazX",
-                      "name": "chatBot",
-                      "width": 16,
-                      "height": 16,
+                      "id": "V5l824",
+                      "name": "newBtnRow",
+                      "width": "fill_container",
+                      "gap": 6,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
                         {
                           "type": "text",
-                          "id": "TpazX_ic",
-                          "name": "chatBotText",
-                          "fill": "$primary",
-                          "content": "🤖",
+                          "id": "gOcYl",
+                          "name": "newBtnLabel",
+                          "fill": "$foreground",
+                          "content": "+ New",
                           "fontFamily": "IBM Plex Mono",
-                          "fontSize": 14,
-                          "fontWeight": "bold"
+                          "fontSize": 13,
+                          "fontWeight": "600"
                         }
                       ]
                     },
                     {
-                      "type": "text",
-                      "id": "0vPds",
-                      "name": "chatTitle",
-                      "fill": "$foreground",
-                      "content": "AI Chat",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 14,
-                      "fontWeight": "600"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "smnya",
-                      "name": "chatSpacer",
+                      "type": "rectangle",
+                      "id": "ndh4h",
+                      "name": "sidebarDivider",
+                      "fill": "$border",
                       "width": "fill_container",
                       "height": 1
                     },
                     {
                       "type": "frame",
-                      "id": "CivfZ",
-                      "name": "chatClose",
-                      "width": 16,
-                      "height": 16,
-                      "justifyContent": "center",
-                      "alignItems": "center",
+                      "id": "o64Bj",
+                      "name": "sessionItem1",
+                      "width": "fill_container",
+                      "fill": "$muted",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "children": [
                         {
                           "type": "text",
-                          "id": "CivfZ_ic",
-                          "name": "chatCloseText",
-                          "fill": "$muted-foreground",
-                          "content": "✕",
+                          "id": "buCi0",
+                          "name": "sessionTitle",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "What are the main features?",
                           "fontFamily": "IBM Plex Mono",
-                          "fontSize": 14,
-                          "fontWeight": "bold"
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "x3rQ2",
+                          "name": "sessionMeta",
+                          "fill": "$muted-foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Technical Documentation  ·  2h ago",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Lljma",
+                      "name": "sessionItem2",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": [
+                        8,
+                        12
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "a79WP",
+                          "name": "sessionTitle2",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "How do I configure the API?",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "x2t8Ac",
+                          "name": "sessionMeta2",
+                          "fill": "$muted-foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Getting Started  ·  5h ago",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
                         }
                       ]
                     }
@@ -10570,83 +10546,93 @@
                 },
                 {
                   "type": "frame",
-                  "id": "K6ZBp",
-                  "name": "chatMessages",
+                  "id": "PwaIu",
+                  "name": "chatArea",
                   "width": "fill_container",
                   "height": "fill_container",
                   "layout": "vertical",
-                  "gap": 8,
-                  "padding": [
-                    8,
-                    0
-                  ],
                   "children": [
                     {
                       "type": "frame",
-                      "id": "bYShQ",
-                      "name": "userMessage",
+                      "id": "74zmV",
+                      "name": "chatHeader",
                       "width": "fill_container",
-                      "gap": 8,
-                      "padding": [
-                        0,
-                        12
-                      ],
-                      "justifyContent": "end",
+                      "fill": "$card",
+                      "stroke": "$border",
+                      "strokeWidth": {
+                        "bottom": 1
+                      },
+                      "alignItems": "center",
                       "children": [
                         {
                           "type": "frame",
-                          "id": "i8Cld",
-                          "name": "bubble",
-                          "width": 260,
-                          "fill": "#2563eb26",
+                          "id": "mSNlN",
+                          "name": "headerRow",
+                          "width": "fill_container",
+                          "height": 44,
+                          "gap": 8,
                           "padding": [
-                            8,
+                            0,
                             12
                           ],
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "6OS6E",
-                              "name": "userText",
-                              "fill": "$foreground",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Can you extract the FilterBar from Board.tsx?",
-                              "fontFamily": "IBM Plex Mono",
-                              "fontSize": 13,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "Fdmnu",
-                          "name": "userAvatar",
-                          "width": 28,
-                          "height": 28,
-                          "fill": "#2563eb",
-                          "cornerRadius": 14,
-                          "justifyContent": "center",
                           "alignItems": "center",
                           "children": [
                             {
+                              "type": "text",
+                              "id": "R45kS",
+                              "name": "historyLabel",
+                              "fill": "$foreground",
+                              "content": "History",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            },
+                            {
                               "type": "frame",
-                              "id": "WkYgr",
-                              "name": "userIcon",
-                              "width": 14,
-                              "height": 14,
+                              "id": "YhVQM",
+                              "name": "hdrSpacer",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "WPqgn",
+                              "name": "searchBtn",
+                              "width": 28,
+                              "height": 28,
                               "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "WkYgr_ic",
-                                  "name": "userIconText",
-                                  "fill": "#ffffff",
-                                  "content": "👤",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 12,
-                                  "fontWeight": "bold"
+                                  "id": "IU4ML",
+                                  "name": "searchIcon",
+                                  "fill": "$muted-foreground",
+                                  "content": "🔍",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FvhgP",
+                              "name": "collapseBtn",
+                              "width": 28,
+                              "height": 28,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "IPYnm",
+                                  "name": "collapseIcon",
+                                  "fill": "$muted-foreground",
+                                  "content": "◀",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
@@ -10656,44 +10642,51 @@
                     },
                     {
                       "type": "frame",
-                      "id": "LDrN5",
-                      "name": "botMessage",
+                      "id": "K6ZBp",
+                      "name": "chatMessages",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "layout": "vertical",
                       "gap": 8,
                       "padding": [
-                        0,
-                        12
+                        8,
+                        0
                       ],
                       "children": [
                         {
                           "type": "frame",
-                          "id": "hpX02",
-                          "name": "botAvatar",
-                          "width": 28,
-                          "height": 28,
-                          "fill": "#7c3aed",
-                          "cornerRadius": 14,
-                          "justifyContent": "center",
-                          "alignItems": "center",
+                          "id": "bYShQ",
+                          "name": "userMessage",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            12
+                          ],
+                          "justifyContent": "end",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "MhCdw",
-                              "name": "botIcon",
-                              "width": 14,
-                              "height": 14,
-                              "justifyContent": "center",
-                              "alignItems": "center",
+                              "id": "i8Cld",
+                              "name": "bubble",
+                              "width": 520,
+                              "fill": "$primary",
+                              "padding": [
+                                10,
+                                14
+                              ],
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "MhCdw_ic",
-                                  "name": "botIconText",
-                                  "fill": "#ffffff",
-                                  "content": "🤖",
+                                  "id": "6OS6E",
+                                  "name": "userText",
+                                  "fill": "$primary-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Can you extract the FilterBar from Board.tsx?",
                                   "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 12,
-                                  "fontWeight": "bold"
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
@@ -10701,104 +10694,60 @@
                         },
                         {
                           "type": "frame",
-                          "id": "TOaz8",
-                          "name": "bubble",
-                          "width": 280,
-                          "fill": "#7c3aed26",
+                          "id": "LDrN5",
+                          "name": "botMessage",
+                          "width": "fill_container",
+                          "gap": 8,
                           "padding": [
-                            8,
+                            0,
                             12
                           ],
                           "children": [
                             {
-                              "type": "text",
-                              "id": "Fm2rD",
-                              "name": "botText",
-                              "fill": "$foreground",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Done! I extracted FilterBar into a separate component with toggle buttons for quick filters and roadmap aliases.",
-                              "fontFamily": "IBM Plex Mono",
-                              "fontSize": 13,
-                              "fontWeight": "normal"
+                              "type": "frame",
+                              "id": "TOaz8",
+                              "name": "bubble",
+                              "width": 600,
+                              "fill": "#7c3aed26",
+                              "padding": [
+                                10,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Fm2rD",
+                                  "name": "botText",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Done! I extracted FilterBar into a separate component with toggle buttons for quick filters and roadmap aliases.",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
                             }
                           ]
                         }
                       ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "Lt2NZ",
-                  "name": "chatInput",
-                  "width": "fill_container",
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": {
-                      "top": 1
                     },
-                    "fill": "$border"
-                  },
-                  "gap": 8,
-                  "padding": [
-                    12,
-                    16
-                  ],
-                  "alignItems": "end",
-                  "children": [
                     {
                       "type": "frame",
-                      "id": "RzI7I",
-                      "name": "chatAttach",
-                      "width": 16,
-                      "height": 16,
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "RzI7I_ic",
-                          "name": "chatAttachText",
-                          "fill": "$muted-foreground",
-                          "content": "📎",
-                          "fontFamily": "IBM Plex Mono",
-                          "fontSize": 14,
-                          "fontWeight": "bold"
-                        }
-                      ]
-                    },
-                    {
-                      "id": "PnG4K",
-                      "type": "ref",
-                      "ref": "yA4l7",
+                      "id": "Lt2NZ",
+                      "name": "chatInput",
                       "width": "fill_container",
-                      "name": "chatTextarea",
-                      "x": 40,
-                      "y": 12,
-                      "fill": "$secondary",
-                      "descendants": {
-                        "xAwdW": {
-                          "content": "Ask a question...",
-                          "x": 12,
-                          "y": 9.5
-                        }
-                      }
-                    },
-                    {
-                      "type": "frame",
-                      "id": "TDvDQ",
-                      "name": "chatSend",
-                      "width": 36,
-                      "height": 36,
-                      "fill": "$primary",
-                      "justifyContent": "center",
-                      "alignItems": "center",
+                      "gap": 8,
+                      "padding": [
+                        12,
+                        16
+                      ],
+                      "alignItems": "end",
                       "children": [
                         {
                           "type": "frame",
-                          "id": "uFq2C",
-                          "name": "chatSendIcon",
+                          "id": "RzI7I",
+                          "name": "chatAttach",
                           "width": 16,
                           "height": 16,
                           "justifyContent": "center",
@@ -10806,13 +10755,63 @@
                           "children": [
                             {
                               "type": "text",
-                              "id": "uFq2C_ic",
-                              "name": "chatSendIconText",
-                              "fill": "$primary-foreground",
-                              "content": "➤",
+                              "id": "RzI7I_ic",
+                              "name": "chatAttachText",
+                              "fill": "$muted-foreground",
+                              "content": "📎",
                               "fontFamily": "IBM Plex Mono",
                               "fontSize": 14,
                               "fontWeight": "bold"
+                            }
+                          ]
+                        },
+                        {
+                          "id": "PnG4K",
+                          "type": "ref",
+                          "ref": "yA4l7",
+                          "width": "fill_container",
+                          "name": "chatTextarea",
+                          "x": 40,
+                          "y": 12,
+                          "fill": "$secondary",
+                          "descendants": {
+                            "xAwdW": {
+                              "content": "Ask a question...",
+                              "x": 12,
+                              "y": 9.5
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "TDvDQ",
+                          "name": "chatSend",
+                          "width": 36,
+                          "height": 36,
+                          "fill": "$primary",
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "uFq2C",
+                              "name": "chatSendIcon",
+                              "width": 16,
+                              "height": 16,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "uFq2C_ic",
+                                  "name": "chatSendIconText",
+                                  "fill": "$primary-foreground",
+                                  "content": "➤",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 14,
+                                  "fontWeight": "bold"
+                                }
+                              ]
                             }
                           ]
                         }
@@ -10850,10 +10849,7 @@
               "clip": true,
               "width": "fill_container",
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "children": [
                 {
@@ -10861,13 +10857,6 @@
                   "id": "3Fdxl",
                   "name": "detailHeader",
                   "width": "fill_container",
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": {
-                      "bottom": 1
-                    },
-                    "fill": "$border"
-                  },
                   "layout": "vertical",
                   "gap": 6,
                   "padding": 16,
@@ -11036,10 +11025,7 @@
                       "name": "description",
                       "width": "fill_container",
                       "fill": "$secondary",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": 12,
@@ -11104,10 +11090,7 @@
                       "name": "agentTimeline",
                       "width": "fill_container",
                       "fill": "$secondary",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 6,
                       "padding": 8,
@@ -11128,10 +11111,7 @@
                           "name": "tlEntry1",
                           "width": "fill_container",
                           "fill": "$background",
-                          "stroke": {
-                            "type": "color",
-                            "color": "$border"
-                          },
+                          "stroke": "$border",
                           "gap": 6,
                           "padding": 6,
                           "alignItems": "center",
@@ -11219,10 +11199,7 @@
               "name": "AddTaskForm",
               "width": "fill_container",
               "fill": "$secondary",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "gap": 8,
               "padding": 10,
@@ -11251,10 +11228,7 @@
                   "width": "fill_container",
                   "height": 48,
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$input"
-                  },
+                  "stroke": "$input",
                   "padding": [
                     4,
                     12
@@ -11278,13 +11252,6 @@
                   "name": "taskType",
                   "width": "fill_container",
                   "fill": "$background",
-                  "stroke": {
-                    "thickness": {
-                      "top": 1,
-                      "bottom": 1
-                    },
-                    "fill": "$border"
-                  },
                   "layout": "vertical",
                   "gap": 6,
                   "padding": 8,
@@ -11738,10 +11705,7 @@
               "width": "fill_container",
               "height": 450,
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "gap": 16,
               "padding": 24,
@@ -11817,10 +11781,7 @@
                       "id": "fIqUX",
                       "name": "ReadyBadge",
                       "fill": "#10b98126",
-                      "stroke": {
-                        "type": "color",
-                        "color": "#10b9814D"
-                      },
+                      "stroke": "#10b9814D",
                       "padding": [
                         2,
                         10
@@ -11856,10 +11817,7 @@
                       "name": "RuntimeMeta",
                       "width": "fill_container",
                       "fill": "$background",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": [
@@ -11895,10 +11853,7 @@
                       "name": "ModelMeta",
                       "width": "fill_container",
                       "fill": "$background",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": [
@@ -11944,10 +11899,7 @@
                       "name": "RemainingBox",
                       "width": "fill_container",
                       "fill": "$background",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": [
@@ -11983,10 +11935,7 @@
                       "name": "TtlBox",
                       "width": "fill_container",
                       "fill": "$background",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": [
@@ -12024,10 +11973,7 @@
                   "name": "Summary",
                   "width": "fill_container",
                   "fill": "$background",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 6,
                   "padding": [
@@ -12162,10 +12108,7 @@
               "width": "fill_container",
               "height": 56,
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "padding": [
                 0,
                 24
@@ -12390,10 +12333,7 @@
                       "name": "roadmapBtn",
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": [
                         4,
@@ -12440,10 +12380,7 @@
                       "name": "metricsBtn",
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "gap": 4,
                       "padding": [
                         4,
@@ -12491,10 +12428,7 @@
                       "width": 32,
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -12528,10 +12462,7 @@
                       "width": 32,
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -12565,10 +12496,7 @@
                       "width": 32,
                       "height": 32,
                       "fill": "$card",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
@@ -12632,10 +12560,7 @@
               "name": "FilterBar",
               "width": "fill_container",
               "fill": "$secondary",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "gap": 8,
               "padding": [
                 6,
@@ -12749,10 +12674,7 @@
                   "name": "Column/Backlog",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -12872,10 +12794,7 @@
                   "name": "Column/Implementing",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -12966,10 +12885,7 @@
                   "name": "Column/Review",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -13060,10 +12976,7 @@
                   "name": "Column/Done",
                   "width": "fill_container",
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$border"
-                  },
+                  "stroke": "$border",
                   "layout": "vertical",
                   "gap": 8,
                   "padding": 8,
@@ -13208,10 +13121,7 @@
               "width": "fill_container",
               "height": 480,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "children": [
                 {
@@ -13219,13 +13129,6 @@
                   "id": "N9cHQ",
                   "name": "chatHeader",
                   "width": "fill_container",
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": {
-                      "bottom": 1
-                    },
-                    "fill": "$border"
-                  },
                   "padding": [
                     12,
                     16
@@ -13458,13 +13361,6 @@
                   "id": "qHI7V",
                   "name": "chatInput",
                   "width": "fill_container",
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": {
-                      "top": 1
-                    },
-                    "fill": "$border"
-                  },
                   "gap": 8,
                   "padding": [
                     12,
@@ -13575,10 +13471,7 @@
               "clip": true,
               "width": "fill_container",
               "fill": "$card",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "children": [
                 {
@@ -13586,13 +13479,6 @@
                   "id": "6KJvh",
                   "name": "detailHeader",
                   "width": "fill_container",
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": {
-                      "bottom": 1
-                    },
-                    "fill": "$border"
-                  },
                   "layout": "vertical",
                   "gap": 6,
                   "padding": 16,
@@ -13761,10 +13647,7 @@
                       "name": "description",
                       "width": "fill_container",
                       "fill": "$secondary",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 4,
                       "padding": 12,
@@ -13829,10 +13712,7 @@
                       "name": "agentTimeline",
                       "width": "fill_container",
                       "fill": "$secondary",
-                      "stroke": {
-                        "type": "color",
-                        "color": "$border"
-                      },
+                      "stroke": "$border",
                       "layout": "vertical",
                       "gap": 6,
                       "padding": 8,
@@ -13853,10 +13733,7 @@
                           "name": "tlEntry1",
                           "width": "fill_container",
                           "fill": "$background",
-                          "stroke": {
-                            "type": "color",
-                            "color": "$border"
-                          },
+                          "stroke": "$border",
                           "gap": 6,
                           "padding": 6,
                           "alignItems": "center",
@@ -13944,10 +13821,7 @@
               "name": "AddTaskForm",
               "width": "fill_container",
               "fill": "$secondary",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "layout": "vertical",
               "gap": 8,
               "padding": 10,
@@ -13976,10 +13850,7 @@
                   "width": "fill_container",
                   "height": 48,
                   "fill": "$secondary",
-                  "stroke": {
-                    "type": "color",
-                    "color": "$input"
-                  },
+                  "stroke": "$input",
                   "padding": [
                     4,
                     12
@@ -14003,13 +13874,6 @@
                   "name": "taskType",
                   "width": "fill_container",
                   "fill": "$background",
-                  "stroke": {
-                    "thickness": {
-                      "top": 1,
-                      "bottom": 1
-                    },
-                    "fill": "$border"
-                  },
                   "layout": "vertical",
                   "gap": 6,
                   "padding": 8,
@@ -14437,10 +14301,7 @@
       "name": "Runtime Warmup UI Sync",
       "width": 520,
       "fill": "$background",
-      "stroke": {
-        "type": "color",
-        "color": "$border"
-      },
+      "stroke": "$border",
       "layout": "vertical",
       "gap": 16,
       "padding": 32,
@@ -14472,10 +14333,7 @@
           "width": "fill_container",
           "height": 56,
           "fill": "$card",
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "gap": 16,
           "alignItems": "center",
           "children": [
@@ -14496,10 +14354,7 @@
               "width": 96,
               "height": 32,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "children": [
                 {
                   "type": "text",
@@ -14521,10 +14376,7 @@
           "name": "WarmupDialog",
           "width": 376,
           "fill": "$card",
-          "stroke": {
-            "type": "color",
-            "color": "$border"
-          },
+          "stroke": "$border",
           "layout": "vertical",
           "gap": 12,
           "padding": 24,
@@ -14545,10 +14397,7 @@
               "name": "ReadyBadge",
               "opacity": 0.2,
               "fill": "$primary",
-              "stroke": {
-                "type": "color",
-                "color": "$primary"
-              },
+              "stroke": "$primary",
               "children": [
                 {
                   "type": "text",
@@ -14579,10 +14428,7 @@
               "width": "fill_container",
               "height": 48,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "children": [
                 {
                   "type": "text",
@@ -14603,10 +14449,7 @@
               "width": "fill_container",
               "height": 48,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "children": [
                 {
                   "type": "text",
@@ -14627,10 +14470,7 @@
               "width": "fill_container",
               "height": 48,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "children": [
                 {
                   "type": "text",
@@ -14651,10 +14491,7 @@
               "width": "fill_container",
               "height": 36,
               "fill": "$background",
-              "stroke": {
-                "type": "color",
-                "color": "$input"
-              },
+              "stroke": "$input",
               "children": [
                 {
                   "type": "text",
@@ -14674,10 +14511,7 @@
               "name": "RegenerateButton",
               "width": "fill_container",
               "height": 36,
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "children": [
                 {
                   "type": "text",
@@ -14697,10 +14531,7 @@
               "name": "ClearButton",
               "width": "fill_container",
               "height": 36,
-              "stroke": {
-                "type": "color",
-                "color": "$border"
-              },
+              "stroke": "$border",
               "justifyContent": "center",
               "alignItems": "center",
               "children": [
@@ -14727,7 +14558,7 @@
       "y": 3600,
       "name": "Component/PageHeader",
       "reusable": true,
-      "width": "fill_container",
+      "width": "fill_container(0)",
       "height": 60,
       "fill": "$card",
       "stroke": "$border",
@@ -14741,8 +14572,6 @@
         0,
         24
       ],
-      "layout": "horizontal",
-      "justifyContent": "space-between",
       "alignItems": "center",
       "children": [
         {
@@ -14775,8 +14604,8 @@
           "type": "frame",
           "id": "headerActions",
           "width": "fill_container",
-          "justifyContent": "end",
           "gap": 8,
+          "justifyContent": "end",
           "alignItems": "center",
           "children": [
             {
