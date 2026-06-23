@@ -267,4 +267,331 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(userMsg?.id).toBe('server-user-1');
     expect(asstMsg?.id).toBe('server-asst-1');
   });
+
+  // --------------------------------------------------------------------------
+  // Chat UI polish: renameSession
+  // --------------------------------------------------------------------------
+
+  it.skip('renameSession calls api.patch and updates session title', async () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'Old Title',
+        message_count: 3,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    apiMock.patch.mockResolvedValue({
+      id: 'sess-1',
+      title: 'New Title',
+      message_count: 3,
+      created_at: '2026-06-23T00:00:00Z',
+      updated_at: '2026-06-23T01:00:00Z',
+    });
+
+    await store.renameSession('sess-1', 'New Title');
+    expect(apiMock.patch).toHaveBeenCalledWith('/sessions/sess-1', {
+      title: 'New Title',
+    });
+    expect(store.sessions[0].title).toBe('New Title');
+  });
+
+  it.skip('renameSession stores error on API failure', async () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'Old',
+        message_count: 1,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    apiMock.patch.mockRejectedValue(new ApiError(500, 'Rename failed'));
+
+    await store.renameSession('sess-1', 'New');
+    expect(store.sessions[0].title).toBe('Old');
+    expect(store.error).toBe('Rename failed');
+  });
+
+  // --------------------------------------------------------------------------
+  // Chat UI polish: togglePinSession
+  // --------------------------------------------------------------------------
+
+  it.skip('togglePinSession calls api.patch and flips pinned state', async () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'Chat',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        pinned: false,
+      },
+    ];
+
+    apiMock.patch.mockResolvedValue({
+      id: 'sess-1',
+      title: 'Chat',
+      pinned: true,
+      message_count: 2,
+      created_at: '2026-06-23T00:00:00Z',
+      updated_at: '2026-06-23T01:00:00Z',
+    });
+
+    await store.togglePinSession('sess-1');
+    expect(apiMock.patch).toHaveBeenCalledWith('/sessions/sess-1', {
+      pinned: true,
+    });
+    expect(store.sessions[0].pinned).toBe(true);
+  });
+
+  it.skip('togglePinSession stores error on API failure and reverts pin state', async () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'Chat',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        pinned: false,
+      },
+    ];
+
+    // Optimistic: flip to true, then revert on failure
+    apiMock.patch.mockRejectedValue(new ApiError(500, 'Pin failed'));
+
+    await store.togglePinSession('sess-1');
+    expect(store.error).toBe('Pin failed');
+    // Should revert back to false after failure
+    expect(store.sessions[0].pinned).toBe(false);
+  });
+
+  // --------------------------------------------------------------------------
+  // Chat UI polish: regenerateMessage
+  // --------------------------------------------------------------------------
+
+  it.skip('regenerateMessage resends last user query and replaces assistant response', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+    store.messages = [
+      {
+        id: 'msg-1',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'my question',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'msg-2',
+        session_id: 'sess-1',
+        role: 'assistant',
+        content: 'old answer',
+        created_at: '2026-06-23T00:01:00Z',
+      },
+    ];
+
+    const encoder = new TextEncoder();
+    const donePayload = JSON.stringify({
+      type: 'done',
+      user_message_id: 'msg-1',
+      assistant_message_id: 'msg-3',
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+    // Stub fetchSessions to avoid extra network calls
+    apiMock.get.mockResolvedValue([]);
+
+    await store.regenerateMessage('sess-1', 'msg-2');
+
+    // Should have called POST /api/query with the last user query
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/query',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('my question'),
+      }),
+    );
+    // The old assistant message should have been replaced
+    const asstMsg = store.messages.find((m) => m.role === 'assistant');
+    expect(asstMsg).toBeDefined();
+    expect(asstMsg?.id).toBe('msg-3');
+  });
+
+  it.skip('regenerateMessage stores error on fetch failure', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+    store.messages = [
+      {
+        id: 'msg-1',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'my question',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'msg-2',
+        session_id: 'sess-1',
+        role: 'assistant',
+        content: 'old answer',
+        created_at: '2026-06-23T00:01:00Z',
+      },
+    ];
+
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    await store.regenerateMessage('sess-1', 'msg-2');
+    expect(store.error).toBeTruthy();
+  });
+
+  // --------------------------------------------------------------------------
+  // Chat UI polish: copyMessage
+  // --------------------------------------------------------------------------
+
+  it.skip('copyMessage copies message content to clipboard', async () => {
+    const store = useChatStore();
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+
+    store.messages = [
+      {
+        id: 'msg-1',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'copy this text',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    await store.copyMessage('msg-1');
+    expect(writeTextSpy).toHaveBeenCalledWith('copy this text');
+    writeTextSpy.mockRestore();
+  });
+
+  it.skip('copyMessage handles missing message gracefully', async () => {
+    const store = useChatStore();
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+
+    store.messages = [];
+    await store.copyMessage('non-existent-id');
+    expect(writeTextSpy).not.toHaveBeenCalled();
+    writeTextSpy.mockRestore();
+  });
+
+  it.skip('copyMessage handles clipboard API failure gracefully', async () => {
+    const store = useChatStore();
+    const writeTextSpy = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('Clipboard blocked'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    store.messages = [
+      {
+        id: 'msg-1',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'text',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    await store.copyMessage('msg-1');
+    expect(writeTextSpy).toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    writeTextSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  // --------------------------------------------------------------------------
+  // Chat UI polish: searchSessions
+  // --------------------------------------------------------------------------
+
+  it.skip('searchSessions returns filtered sessions by title', () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'How to deploy',
+        message_count: 3,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'sess-2',
+        title: 'API documentation',
+        message_count: 5,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'sess-3',
+        title: 'Deploy to production',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    const result = store.searchSessions('deploy');
+    expect(result).toHaveLength(2);
+    expect(result.map((s) => s.id)).toEqual(['sess-1', 'sess-3']);
+  });
+
+  it.skip('searchSessions returns all sessions when query is empty', () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'Chat 1',
+        message_count: 1,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'sess-2',
+        title: 'Chat 2',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    expect(store.searchSessions('')).toHaveLength(2);
+    expect(store.searchSessions()).toHaveLength(2);
+  });
+
+  it.skip('searchSessions is case-insensitive', () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'How to DEPLOY',
+        message_count: 1,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'sess-2',
+        title: 'Getting started',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    expect(store.searchSessions('deploy')).toHaveLength(1);
+    expect(store.searchSessions('DEPLOY')).toHaveLength(1);
+  });
 });

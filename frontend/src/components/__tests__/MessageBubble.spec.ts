@@ -269,4 +269,193 @@ describe('MessageBubble', () => {
     });
     expect(wrapper.find('[data-testid="message-edited-badge"]').exists()).toBe(true);
   });
+
+  // ==========================================================================
+  // Chat UI polish: new message actions (copy, regenerate, debug)
+  // ==========================================================================
+
+  it.skip('renders copy button on each user message', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(wrapper.find('[data-testid="message-copy-btn"]').exists()).toBe(true);
+  });
+
+  it.skip('renders copy button on each assistant message', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(wrapper.find('[data-testid="message-copy-btn"]').exists()).toBe(true);
+  });
+
+  it.skip('copy button copies message text to clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage({ content: 'text to copy' }) },
+    });
+    await wrapper.find('[data-testid="message-copy-btn"]').trigger('click');
+    expect(writeText).toHaveBeenCalledWith('text to copy');
+  });
+
+  it.skip('renders edit button on user messages only', async () => {
+    const userWrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(userWrapper.find('[data-testid="message-edit-btn"]').exists()).toBe(true);
+
+    const asstWrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(asstWrapper.find('[data-testid="message-edit-btn"]').exists()).toBe(false);
+  });
+
+  it.skip('renders regenerate button on assistant messages only', async () => {
+    const asstWrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(asstWrapper.find('[data-testid="message-regenerate-btn"]').exists()).toBe(true);
+
+    const userWrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(userWrapper.find('[data-testid="message-regenerate-btn"]').exists()).toBe(false);
+  });
+
+  it.skip('regenerate button emits regenerate event with message id', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    await wrapper.find('[data-testid="message-regenerate-btn"]').trigger('click');
+    expect(wrapper.emitted('regenerate')).toBeTruthy();
+    expect(wrapper.emitted('regenerate')?.[0]).toEqual([{ id: 'msg-2' }]);
+  });
+
+  it.skip('does not render delete buttons on messages', async () => {
+    const userWrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(userWrapper.find('[data-testid="message-delete-btn"]').exists()).toBe(false);
+
+    const asstWrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(asstWrapper.find('[data-testid="message-delete-btn"]').exists()).toBe(false);
+  });
+
+  // --------------------------------------------------------------------------
+  // Debug info button (admin)
+  // --------------------------------------------------------------------------
+
+  it.skip('renders debug info button when isAdmin is true', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage(), isAdmin: true },
+    });
+    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(true);
+  });
+
+  it.skip('does not render debug info button when isAdmin is false', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage(), isAdmin: false },
+    });
+    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
+  });
+
+  it.skip('does not render debug info button for user messages even when admin', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage(), isAdmin: true },
+    });
+    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
+  });
+
+  it.skip('debug button toggles debug panel on click', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage(), isAdmin: true },
+    });
+    expect(wrapper.find('[data-testid="debug-panel"]').exists()).toBe(false);
+    await wrapper.find('[data-testid="message-debug-btn"]').trigger('click');
+    expect(wrapper.find('[data-testid="debug-panel"]').exists()).toBe(true);
+  });
+
+  // --------------------------------------------------------------------------
+  // Timestamp layout
+  // --------------------------------------------------------------------------
+
+  it.skip('renders timestamp inline with action row', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    // Timestamp should be in the same container as action buttons
+    const actionsRow = wrapper.find('[data-testid="message-actions-row"]');
+    expect(actionsRow.exists()).toBe(true);
+    expect(actionsRow.find('[data-testid="message-time"]').exists()).toBe(true);
+  });
+
+  // --------------------------------------------------------------------------
+  // Source styling
+  // --------------------------------------------------------------------------
+
+  it.skip('source pills use light background in light theme (CSS class applied)', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'content',
+              relevance: 0.95,
+            },
+          ]),
+        }),
+      },
+    });
+    await wrapper.find('[data-testid="sources-toggle"]').trigger('click');
+    const sourceItem = wrapper.find('[data-testid="source-item"]');
+    expect(sourceItem.classes('source-item-light')).toBe(true);
+  });
+
+  // --------------------------------------------------------------------------
+  // Table styling (no alternating row colors)
+  // --------------------------------------------------------------------------
+
+  it.skip('does not have alternating row colors in tables', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: '| h1 | h2 |\n|----|----|\n| a | b |\n| c | d |',
+        }),
+      },
+    });
+    const html = wrapper.html();
+    // Should not contain nth-child(even) pattern for tables
+    expect(html).not.toContain('tr:nth-child(even)');
+  });
+
+  // --------------------------------------------------------------------------
+  // No "chunk" terminology in UI
+  // --------------------------------------------------------------------------
+
+  it.skip('does not contain "chunk" text in response content or source labels', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({
+          content: 'Found 3 relevant passages',
+          sources: JSON.stringify([
+            {
+              document_id: 'doc-1',
+              document_name: 'test.pdf',
+              chunk_index: 0,
+              text: 'relevant excerpt',
+              relevance: 0.95,
+            },
+          ]),
+        }),
+      },
+    });
+    const text = wrapper.text().toLowerCase();
+    expect(text).not.toContain('chunk');
+  });
 });
