@@ -13,13 +13,13 @@ test.describe('ChatWindow Layout with real backend', () => {
     await expect(page.locator('[data-testid="chat-toolbar"]')).toBeVisible({
       timeout: 10000,
     });
-    await expect(page.locator('[data-testid="collection-select"]')).toBeVisible();
+    await expect(page.locator('[data-testid="collection-selector-trigger"]')).toBeVisible();
   });
 
   test('TC-CHAT-002: collection selector shows real backend collections', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-testid="collection-select"]').click();
-    const dropdown = page.locator('[data-testid="collection-select-dropdown"]');
+    await page.locator('[data-testid="collection-selector-trigger"]').click();
+    const dropdown = page.locator('[data-testid="collection-selector-dropdown"]');
     await expect(dropdown).toBeVisible({ timeout: 5000 });
     await expect(dropdown).toContainText(collection.name);
   });

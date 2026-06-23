@@ -1,8 +1,8 @@
 <script setup>
+import CollectionSelector from '@/components/CollectionSelector.vue';
 import MessageBubble from '@/components/MessageBubble.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
-import VSelect from '@/components/ui/VSelect.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
@@ -214,12 +214,7 @@ function handleCancel() {
   chatStore.cancelStream();
 }
 
-const collectionOptions = computed(() =>
-  collectionStore.collections.map((c) => ({
-    label: c.name,
-    value: c.id,
-  })),
-);
+// removed: collectionOptions — replaced by CollectionSelector component
 
 const activeSession = computed(
   () => chatStore.sessions.find((s) => s.id === chatStore.activeSessionId) || null,
@@ -519,14 +514,12 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               activeCollectionName
             }}</span>
           </div>
-          <VSelect
+          <CollectionSelector
             v-else
             v-model="collectionStore.activeCollectionId"
-            data-testid="collection-select"
-            :options="collectionOptions"
+            :collections="collectionStore.collections"
+            :active-collection-id="collectionStore.activeCollectionId"
             placeholder="Select a collection..."
-            class="toolbar-select"
-            @update:model-value="collectionStore.setActiveCollection"
           />
         </div>
         <div class="toolbar-right">
@@ -1020,10 +1013,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   gap: 0.5rem;
 }
 
-.toolbar-select {
-  width: 360px;
-}
-
 .toolbar-icon-btn {
   display: flex;
   align-items: center;
@@ -1361,10 +1350,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   .chat-main {
     border-radius: 0;
     border: none;
-  }
-
-  .toolbar-select {
-    width: auto;
   }
 
   .composer-textarea {

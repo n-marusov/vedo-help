@@ -85,7 +85,7 @@ describe('ChatWindow (ChatView)', () => {
     await nextTick();
 
     const trigger = document.body.querySelector<HTMLElement>(
-      '[data-testid="collection-select"] .v-select__trigger',
+      '[data-testid="collection-selector-trigger"]',
     );
     if (!trigger) {
       throw new Error('Expected chat collection selector trigger to be rendered.');
@@ -95,7 +95,7 @@ describe('ChatWindow (ChatView)', () => {
     await nextTick();
 
     const dropdown = document.body.querySelector<HTMLElement>(
-      '[data-testid="collection-select-dropdown"]',
+      '[data-testid="collection-selector-dropdown"]',
     );
     expect(dropdown).not.toBeNull();
     expect(dropdown?.textContent).toContain('Technical Docs');
