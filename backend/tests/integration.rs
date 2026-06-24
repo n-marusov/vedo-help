@@ -47,7 +47,7 @@ fn llm_client_from_env() -> Option<LlmClient> {
 
 /// URL of the Chroma instance under test.
 fn chroma_url() -> String {
-    env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:8000".to_string())
+    env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:18000".to_string())
 }
 
 /// Generate a unique collection name for testing using a UUID.
@@ -630,7 +630,7 @@ async fn test_delete_where_removes_specific_document_chunks() {
 
 #[tokio::test]
 async fn test_query_repository_applies_active_filter() {
-    let db_url = env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+    let db_url = env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:18000".to_string());
     let client = ChromaClient::new(&db_url);
     let name = unique_collection("query_repo_active");
 
@@ -828,6 +828,7 @@ async fn test_conversation_repo_native_uuid_bind() {
     let session = vedo_backend::modules::conversations::models::Session {
         id: Uuid::new_v4(),
         title: "Test Chat".to_string(),
+        pinned: false,
         collection_id: None,
         created_at: now,
         updated_at: now,

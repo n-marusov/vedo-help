@@ -1,4 +1,4 @@
-.PHONY: test test-env test-env-down test:e2e lint format check coverage ci-backend ci-embedding ci-frontend help
+.PHONY: test test-env test-env-down test-e2e lint format check coverage ci-backend ci-embedding ci-frontend help
 .PHONY: dev-up dev-down prod-up prod-down docker-logs docker-health docker-shell
 
 # VEDO hub RAG Assistant — Makefile
@@ -71,7 +71,7 @@ test: ## Run all tests (backend + frontend + embedding)
 	cd frontend && npm test
 	cd embedding && pytest tests/ -v
 
-test:e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
+test-e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
 	docker compose --env-file .env.test -f docker-compose.test.yml \
 		--profile test-runner run --rm frontend-tests
 

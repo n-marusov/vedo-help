@@ -29,7 +29,7 @@ pub async fn setup_test_db() -> PgPool {
     );
 
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(10)
         .connect(&db_url)
         .await
         .expect("Failed to connect to test database");

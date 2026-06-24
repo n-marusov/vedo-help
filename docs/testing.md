@@ -299,12 +299,21 @@ CHROMA_URL=http://chroma:8000 \
   cargo test --test integration -- --test-threads=1
 ```
 
-### Интеграционные тесты с `#[ignore]`
-
-Некоторые тесты в `tests/` помечены `#[ignore]` — они представляют собой RED-спецификацию для ещё не реализованных фич (фаза executable specification). Для их запуска:
+### Запуск всех интеграционных тестов одной командой
 
 ```bash
-cargo test --test git_sync_integration -- --ignored
+cd backend
+cargo test --tests -- --test-threads=1
+```
+
+Эта команда запускает все тесты из `tests/` последовательно, чтобы избежать
+race condition от `TRUNCATE ... CASCADE` в `common::setup_test_db()`.
+
+**Быстрый запуск только HTTP-интеграционных (Chroma + PostgreSQL):**
+
+```bash
+cd backend
+cargo test --test git_sync_integration --test integration --test conversations_integration --test auth_integration --test auth_middleware_test -- --test-threads=1
 ```
 
 ## E2E-тесты (Playwright)
