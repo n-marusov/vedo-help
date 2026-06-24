@@ -109,7 +109,8 @@ vedo-assistant/
 │   ├── navigation.spec.ts     # Routing & responsive layout
 │   ├── avatar.spec.ts         # Avatar component preview
 │   ├── theme-switching.spec.ts# Dark/light theme toggle across pages
-│   └── rag-flow.spec.ts       # RAG flow: upload → query → sources
+│   ├── rag-flow.spec.ts       # RAG flow: upload → query → sources
+│   ├── api-backend.spec.ts    # API tests without browser (37 tests)
 ├── .github/                    # GitHub Actions CI
 │   └── workflows/
 │       └── e2e.yml            # Playwright E2E tests in CI

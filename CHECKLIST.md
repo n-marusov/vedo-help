@@ -139,6 +139,23 @@ npx playwright test e2e/login.spec.ts   # отдельный spec
 > UI-режим (`npx playwright test --ui`) требует проброса `DISPLAY`/X-сервера из
 > контейнера — для локальной отладки используй `--debug` (headless с трейсами).
 
+### E2E API-тесты (без браузера)
+
+Для быстрой проверки бэкенда без браузера используются API-тесты из
+`api-backend.spec.ts` (37 тестов). Они работают через `APIRequestContext` Playwright
+и не требуют Vite dev-server. Запускаются в том же `frontend-tests`-контейнере.
+
+```bash
+# Внутри контейнера frontend-tests — все API-тесты
+npx playwright test e2e/api-backend.spec.ts
+
+# Одна группа (например, Collections)
+npx playwright test e2e/api-backend.spec.ts --grep "Collections"
+
+# Один тест по ID
+npx playwright test e2e/api-backend.spec.ts --grep "TC-API-020"
+```
+
 ### После завершения всех тестов
 
 ```bash
