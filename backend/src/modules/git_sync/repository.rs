@@ -93,6 +93,11 @@ impl GitRepoRepository {
         Self { db }
     }
 
+    /// Get a reference to the underlying database pool.
+    pub fn pool(&self) -> &PgPool {
+        &self.db
+    }
+
     /// Insert a new Git repository record.
     pub async fn create_repo(&self, repo: &GitRepo) -> Result<Uuid, AppError> {
         tracing::debug!(

@@ -48,14 +48,24 @@ cd frontend && npm test
 
 ### Backend unit-тесты (`cargo test --lib`)
 
-Chroma и Embedding **мокаются** через `setup_test_config()`. Требуется только PostgreSQL
-из тестового окружения (`localhost:15432`). Выполняются на хосте.
+Чистые unit-тесты не требуют никакой инфраструктуры — ни PostgreSQL, ни Chroma,
+ни Embedding. Выполняются на хосте сразу.
+
+```bash
+cd backend && cargo test --lib
+```
+
+### Backend DB round-trip тесты (`cargo test --test *_unit`)
+
+Тесты, проверяющие работу с PostgreSQL напрямую (репозитории, сервисы).
+Требуют только PostgreSQL из тестового окружения (`localhost:15432`).
 
 ```bash
 # Терминал 1: тестовое окружение уже запущено (см. выше)
 # Терминал 2:
 export DATABASE_URL=postgres://vedo:test-vedo-password@localhost:15432/vedo
-cd backend && cargo test --lib
+cd backend && cargo test --test git_sync_unit -- --test-threads=1
+cd backend && cargo test --test documents_db_unit -- --test-threads=1
 ```
 
 ### Backend интеграционные тесты (`cargo test --test integration`)

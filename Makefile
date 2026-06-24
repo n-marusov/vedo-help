@@ -104,7 +104,7 @@ ci-backend: ## Backend CI (format + lint + test)
 	cd backend && cargo fmt --check && cargo clippy -- -D warnings && cargo test --lib && cargo test --test integration -- --test-threads=1
 
 ci-embedding: ## Embedding CI (format + lint + test)
-	cd embedding && ruff format src/ --check && ruff check src/ && pytest tests/ -v --cov=src --cov-report=term
+	cd embedding && uv run ruff format src/ --check && uv run ruff check src/ && uv run pytest tests/ -v --cov=src --cov-report=term
 
 ci-frontend: ## Frontend CI (lint + format check + test + build)
 	cd frontend && npm run lint:ci && npm run format:check && npm run test -- --run && npm run build

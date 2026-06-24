@@ -7,14 +7,15 @@
 ## Содержание
 
 1. [Обзор тестовой инфраструктуры](#обзор-тестовой-инфраструктуры)
-2. [Тестовое окружение (Docker Compose)](#тестовое-окружение-docker-compose)
-3. [Модульные тесты](#модульные-тесты)
-4. [Интеграционные тесты](#интеграционные-тесты)
-5. [E2E-тесты (Playwright)](#e2e-тесты-playwright)
-6. [Полный прогон всех тестов](#полный-прогон-всех-тестов)
-7. [CI-цели (аналог GitHub Actions локально)](#ci-цели-аналог-github-actions-локально)
-8. [Форматирование и линтинг](#форматирование-и-линтинг)
-9. [Полезные советы](#полезные-советы)
+2. [Подготовка локального окружения](#подготовка-локального-окружения)
+3. [Тестовое окружение (Docker Compose)](#тестовое-окружение-docker-compose)
+4. [Модульные тесты](#модульные-тесты)
+5. [Интеграционные тесты](#интеграционные-тесты)
+6. [E2E-тесты (Playwright)](#e2e-тесты-playwright)
+7. [Полный прогон всех тестов](#полный-прогон-всех-тестов)
+8. [CI-цели (аналог GitHub Actions локально)](#ci-цели-аналог-github-actions-локально)
+9. [Форматирование и линтинг](#форматирование-и-линтинг)
+10. [Полезные советы](#полезные-советы)
 
 ---
 
@@ -22,11 +23,103 @@
 
 Проект содержит три тестируемых сервиса и отдельные E2E-тесты:
 
-| Сервис | Язык | Фреймворк тестов | Модульные | Интеграционные | E2E |
-|--------|------|-------------------|-----------|----------------|-----|
-| **backend** | Rust | cargo test | ✅ `cargo test --lib` | ✅ `cargo test --test integration` | — |
-| **embedding** | Python | pytest | ✅ `pytest tests/` | — | — |
-| **frontend** | Vue 3 / TS | Vitest / Playwright | ✅ `npm test` | — | ✅ `npm run test:e2e` |
+| Сервис | Язык | Фреймворк | Модульные (без инфраструктуры) | Интеграционные (с БД, `tests/`) | Интеграционные (HTTP, `tests/`) | E2E |
+|--------|------|-----------|:---:|:---:|:---:|:---:|
+| **backend** | Rust | cargo test | ✅ `cargo test --lib` | ✅ `cargo test --test git_sync_unit`
+  `cargo test --test documents_db_unit`
+  `cargo test --test conversations_unit` | ✅ `cargo test --test integration`
+  `cargo test --test *_integration` | — |
+| **embedding** | Python | pytest | ✅ `pytest tests/` | — | — | — |
+| **frontend** | Vue 3 / TS | Vitest / Playwright | ✅ `npm test` | — | — | ✅ `npm run test:e2e` |
+
+---
+
+## Подготовка локального окружения
+
+Перед запуском тестов убедитесь, что все необходимые инструменты установлены.
+
+### Backend (Rust)
+
+Модульные тесты backend требуют только Rust toolchain. Интеграционные тесты дополнительно
+требуют Docker Compose для PostgreSQL и других сервисов.
+
+**Минимальные требования:**
+
+- **Rust** — через [rustup](https://rustup.rs/). Версия синхронизирована с `rust-toolchain.toml`:
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  rustup show  # установит версию из rust-toolchain.toml
+  ```
+- **Git** — для клонирования репозиториев и работы `git2`:
+  ```bash
+  # Windows (winget):
+  winget install --id Git.Git -e --source winget
+  # macOS:
+  brew install git
+  # Linux (Debian/Ubuntu):
+  sudo apt-get install git
+  ```
+- **Docker Desktop** — для тестового окружения (PostgreSQL, Chroma, LLM mock):
+  - [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/)
+  - [Docker Desktop for macOS](https://docs.docker.com/desktop/setup/install/mac-install/)
+  - Linux: `sudo apt-get install docker-ce docker-ce-cli docker-compose-plugin`
+
+**Проверка установки:**
+
+```bash
+rustc --version
+cargo --version
+docker --version
+docker compose version
+```
+
+### Embedding (Python)
+
+```bash
+# Установить uv (рекомендуемый менеджер пакетов):
+# Windows (powershell):
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# macOS / Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Создать виртуальное окружение и установить зависимости (включая dev-зависимости для тестов):
+cd embedding
+uv sync --extra dev
+```
+
+> **Примечание:** Dev-зависимости (`pytest`, `pytest-asyncio`, `ruff`, `coverage`, `httpx`)
+> объявлены в группе `[project.optional-dependencies] dev` в `pyproject.toml`.
+> Используйте `--extra dev`, а не `--dev` — на uv 0.8.x флаг `--dev` не активирует
+> опциональную группу. Команда `uv sync` без `--extra dev` устанавливает только
+> production-зависимости.
+
+### Frontend (Vue 3 / TypeScript)
+
+```bash
+# Установить Node.js (рекомендуется LTS):
+#   https://nodejs.org/ (v20 или новее)
+# Или через менеджер версий:
+#   nvm install --lts    # macOS / Linux / WSL
+#   nvm use --lts
+
+# Установить зависимости:
+cd frontend
+npm ci
+```
+
+### Проверка готовности окружения
+
+```bash
+# Всё одной командой:
+make check-tools
+```
+
+Если `make check-tools` не настроен, выполните вручную:
+
+```bash
+rustc --version && cargo --version && node --version && npm --version && uv --version && docker --version
+```
 
 ---
 
@@ -91,14 +184,18 @@ make test-env-down
 
 ## Модульные тесты
 
-Модульные тесты не требуют запуска тестового окружения и выполняются изолированно.
+Модульные тесты проверяют изолированные компоненты без внешних зависимостей. Они не требуют запуска тестового окружения (`make test-env`).
 
-### Backend (Rust)
+### Backend (Rust) — без инфраструктуры
+
+Чистые unit-тесты, не требующие БД, Chroma или других сервисов — запускаются без какого-либо тестового окружения:
 
 ```bash
 cd backend
 cargo test --lib
 ```
+
+Результат: **~49 тестов** (конфигурация, chunking, file validation, HMAC, token injection, LLM messages, chroma client mock, context window).
 
 Опции:
 - `cargo test --lib -- --nocapture` — показать stdout в консоли
@@ -107,16 +204,36 @@ cargo test --lib
   cargo test --lib documents
   ```
 
+### Backend (Rust) — с PostgreSQL (DB round-trip)
+
+Тесты, проверяющие работу с хранилищем (document upload, ZIP processing, soft-delete, batch delete,
+reindex, git sync lock, conversation history). Они находятся в отдельных бинарниках в `tests/`
+и **требуют работающего PostgreSQL**:
+
+```bash
+# 1. Запустить тестовое окружение (требуется только PostgreSQL)
+make test-env
+
+# 2. Запустить все DB round-trip тесты (последовательно)
+cd backend
+cargo test --test git_sync_unit -- --test-threads=1
+cargo test --test documents_db_unit -- --test-threads=1
+cargo test --test conversations_unit -- --test-threads=1
+```
+
+Эти тесты используют `common::setup_test_db()`, которая подключается к PostgreSQL,
+накатывает миграции и чистит таблицы. Они не требуют Chroma, Embedding или других сервисов.
+
 ### Embedding (Python)
 
 ```bash
 cd embedding
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 Опции:
-- `pytest tests/ -v -k "test_embed"` — фильтрация по имени теста
-- `pytest tests/ -v --coverage --cov=src --cov-report=term` — с отчётом о покрытии
+- `uv run pytest tests/ -v -k "test_embed"` — фильтрация по имени теста
+- `uv run pytest tests/ -v --cov=src --cov-report=term` — с отчётом о покрытии
 
 ### Frontend (Vue 3 / TypeScript)
 
@@ -139,27 +256,40 @@ Vitest настроен на:
 
 ## Интеграционные тесты
 
-Интеграционные тесты подключаются к реальным сервисам (Chroma, PostgreSQL) и **требуют запущенного тестового окружения**.
+Интеграционные тесты подключаются к реальным сервисам (Chroma, PostgreSQL, LLM mock) и **требуют запущенного тестового окружения**.
 
-### Backend — интеграционные тесты
+### Backend — интеграционные тесты (`tests/`)
+
+Backend имеет три категории тестов в директории `tests/`:
+
+1. **HTTP-интеграционные** — проверяют HTTP-эндпоинты через реальные запросы:
+   `git_sync_integration`, `conversations_integration`, `auth_integration`, `integration`, `auth_middleware_test`
+2. **DB round-trip** — проверяют репозитории и сервисы напрямую (без HTTP):
+   `git_sync_unit`, `documents_db_unit`, `conversations_unit`
+3. **Mock-тесты** — чисто логические тесты без БД (RED-спецификация):
+   некоторые тесты в `conversations_unit` (контекстное окно, токены)
+
+Все тесты, использующие `common::setup_test_db()`, подключаются к PostgreSQL, накатывают миграции и чистят таблицы.
 
 ```bash
 # 1. Запустить тестовое окружение
 make test-env
 
-# 2. Запустить интеграционные тесты
+# 2. Запустить конкретную группу интеграционных тестов
 cd backend
-cargo test --test integration -- --test-threads=1
+cargo test --test git_sync_integration -- --test-threads=1
 ```
 
-**Важно:** Интеграционные тесты должны выполняться последовательно (`--test-threads=1`), так как они используют общую базу данных и операция `TRUNCATE ... CASCADE` сбрасывает все таблицы.
+**Важно:** Все тесты, использующие `common::setup_test_db()`, должны выполняться последовательно (`--test-threads=1`), так как `TRUNCATE ... CASCADE` сбрасывает все таблицы.
 
-Интеграционные тесты проверяют:
-- **Chroma CRUD** — создание, чтение, удаление коллекций в векторной БД
-- **Репозиторий QueryRepository** — взаимодействие с Chroma через `ChromaClient`
+Интеграционные тесты покрывают:
+- **Chroma CRUD** — создание, чтение, удаление коллекций
+- **QueryRepository** — взаимодействие с Chroma через `ChromaClient`
 - **Auth middleware** — проверка JWT-токенов
-- **Conversations** — CRUD для сессий и сообщений
+- **Conversations** — CRUD сессий и сообщений через HTTP
 - **Git sync** — клонирование и синхронизация репозиториев
+- **Documents** — загрузка, ZIP-пакеты, soft-delete, batch delete
+- **RAG pipeline** — upload → chunk → embed → query
 
 Настройка подключения (через переменные окружения):
 
@@ -169,7 +299,13 @@ CHROMA_URL=http://chroma:8000 \
   cargo test --test integration -- --test-threads=1
 ```
 
----
+### Интеграционные тесты с `#[ignore]`
+
+Некоторые тесты в `tests/` помечены `#[ignore]` — они представляют собой RED-спецификацию для ещё не реализованных фич (фаза executable specification). Для их запуска:
+
+```bash
+cargo test --test git_sync_integration -- --ignored
+```
 
 ## E2E-тесты (Playwright)
 
@@ -251,10 +387,29 @@ make test
 Эта команда последовательно запускает:
 
 ```bash
-cd backend && cargo test --lib              # модульные тесты backend
-cd backend && cargo test --test integration -- --test-threads=1  # интеграционные тесты backend
-cd frontend && npm test                     # модульные тесты frontend
-cd embedding && pytest tests/ -v            # модульные тесты embedding
+cd backend && cargo test --lib                                      # модульные тесты backend (без инфраструктуры)
+cd backend && cargo test --test integration -- --test-threads=1     # HTTP-интеграционные тесты backend
+cd frontend && npm test                                             # модульные тесты frontend
+cd embedding && pytest tests/ -v                                    # модульные тесты embedding
+```
+
+### Полная проверка с тестами на БД
+
+```bash
+make test-env
+
+# DB round-trip тесты (только PostgreSQL)
+cargo test --test git_sync_unit -- --test-threads=1                 # git sync repository + service
+cargo test --test documents_db_unit -- --test-threads=1             # document upload, ZIP, soft-delete
+cargo test --test conversations_unit -- --test-threads=1            # conversations repository + context
+
+# HTTP-интеграционные тесты (все сервисы)
+cargo test --test git_sync_integration -- --test-threads=1          # интеграционные git-sync
+cargo test --test conversations_integration -- --test-threads=1     # интеграционные conversations
+cargo test --test auth_integration -- --test-threads=1              # интеграционные auth
+
+make test:e2e                                                        # E2E-тесты
+make test-env-down
 ```
 
 ### Полная проверка (форматирование + линтинг + тесты)
@@ -285,7 +440,7 @@ make ci-backend
 make ci-embedding
 ```
 
-Выполняет: `ruff format src/ --check && ruff check src/ && pytest tests/ -v --cov=src --cov-report=term`
+Выполняет: `ruff format src/ --check && ruff check src/ && uv run pytest tests/ -v --cov=src --cov-report=term`
 
 ### Frontend
 

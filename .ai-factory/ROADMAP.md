@@ -94,6 +94,14 @@
 
 Мониторинг, алёртинг, автоматический бэкап, per-route rate limiting.
 
+- [ ] **Debug view for bot responses** — при нажатии кнопки «Отладка» в сообщении бота переключение на debug-представление, отображающее все шаги генерации ответа:
+  - Шаг 1. **Multi-query** — один исходный вопрос превращается в три (1 запрос к LLM)
+  - Шаг 2. **HyDE** — для каждого из трёх вопросов LLM генерирует гипотетический документ (3 запроса к LLM)
+  - Шаг 3. **Embedding search** — каждый гипотетический документ ищет 3 ближайших чанка в FAISS (9 чанков, быстро — обращение к FAISS)
+  - Шаг 4. **Hybrid keyword search** — генерация ключевых слов (через LLM или BM25), по каждому до 2 чанков (~6 чанков)
+  - Шаг 5. **Merge & deduplication** — всего ~15–19 чанков, удаление дубликатов
+  - Шаг 6. **Reranking** — LLM оценивает каждый уникальный чанк (до 19 запросов), решает, брать или нет
+  - Шаг 7. **Final answer** — отобранные чанки (например 4 из 19) подаются в финальную LLM вместе с вопросом (1 запрос)
 - [ ] **Deep healthcheck** — проверка зависимостей (Chroma, embedding)
 - [ ] **Per-route rate limiting** — защита `/api/query`
 - [ ] **Automated backup** — cron-контейнер или host cron для SQLite + Chroma (скрипты backup.sh/restore.sh есть, автоматизации нет)
@@ -148,7 +156,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
-| v0.4 — Observability & Reliability | ⏳ 0/5 | Healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
+| v0.4 — Observability & Reliability | ⏳ 0/6 | Debug view, deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
 | v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
@@ -160,4 +168,4 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Bulk deletion + VToast + optimistic UX + embedding pipeline:** 2026-06-21
 **v0.3.1 chat rework complete (message edit/delete, context window, chat export, skeletons):** 2026-06-21
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
-**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation)
+**Что дальше:** `/aif-implement` — завершение v0.4 (debug view, deep healthcheck, rate limiting, backup automation)

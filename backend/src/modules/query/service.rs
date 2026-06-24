@@ -357,7 +357,7 @@ struct MessageRow {
     content: String,
 }
 
-pub(crate) async fn load_conversation_history_rows(
+pub async fn load_conversation_history_rows(
     db: &PgPool,
     session_id: Uuid,
 ) -> Result<Vec<LlmMessage>, AppError> {
@@ -394,86 +394,22 @@ pub(crate) async fn load_conversation_history_rows(
 
 #[cfg(test)]
 mod tests {
-    use super::load_conversation_history_rows;
     use super::{AppError, QueryService, StreamEvent};
     use crate::modules::conversations::repository::ConversationRepository;
     use futures::stream;
     use futures::StreamExt;
     use sqlx::postgres::PgPoolOptions;
-    use uuid::Uuid;
 
-    /// Connect to the shared test database.
-    /// Expects migrations to already be applied (by Docker test container).
-    async fn make_pool() -> sqlx::PgPool {
-        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string()
-        });
-        PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&db_url)
-            .await
-            .expect("Failed to connect to test database")
-    }
-
-    #[tokio::test]
-    async fn load_conversation_history_binds_session_id_as_uuid() {
-        let pool = make_pool().await;
-
-        // Clean tables for a fresh state (sequential tests only)
-        sqlx::query(
-            "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
-        )
-        .execute(&pool)
-        .await
-        .expect("Failed to truncate tables");
-
-        let session_id = Uuid::new_v4();
-        let message_id = Uuid::new_v4();
-        let now = chrono::Utc::now();
-
-        sqlx::query(
-            "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) \
-             VALUES ($1, $2, $3, $4, $5)",
-        )
-        .bind(session_id)
-        .bind("UUID bind regression")
-        .bind(Option::<Uuid>::None)
-        .bind(now)
-        .bind(now)
-        .execute(&pool)
-        .await
-        .expect("insert session");
-
-        sqlx::query(
-            "INSERT INTO messages \
-             (id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-        )
-        .bind(message_id)
-        .bind(session_id)
-        .bind("user")
-        .bind("hello")
-        .bind(serde_json::Value::Null)
-        .bind(now)
-        .bind(Option::<chrono::DateTime<chrono::Utc>>::None)
-        .bind(Option::<String>::None)
-        .bind(Option::<chrono::DateTime<chrono::Utc>>::None)
-        .execute(&pool)
-        .await
-        .expect("insert message");
-
-        let history = load_conversation_history_rows(&pool, session_id)
-            .await
-            .expect("history loads with uuid bind");
-
-        assert_eq!(history.len(), 1);
-        assert_eq!(history[0].role, "user");
-        assert_eq!(history[0].content, "hello");
-    }
-
+    /// Pure unit test: `build_event_stream` with all `None` IDs never touches the DB.
+    /// Uses `connect_lazy` so no PostgreSQL is needed.
     #[tokio::test]
     async fn build_event_stream_does_not_panic_in_tokio_runtime() {
-        let pool = make_pool().await;
+        // Lazy pool — never connects because the stream skips DB calls
+        // when session_id, user_message_id, and assistant_message_id are all None.
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy("postgres://localhost/nonexistent")
+            .expect("lazy pool creation should not require a running DB");
 
         let llm_stream = Box::pin(stream::iter(vec![
             Ok::<String, AppError>("Hello ".to_string()),
@@ -492,7 +428,10 @@ mod tests {
             repo,
         ));
 
-        let events: Vec<StreamEvent> = stream.collect().await;
+        let events: Vec<StreamEvent> = stream
+            .filter_map(|r| futures::future::ready(r.ok()))
+            .collect()
+            .await;
 
         // Expected: chunk "Hello ", chunk "world", sources, done
         assert_eq!(events.len(), 4, "should yield 4 events without panicking");
