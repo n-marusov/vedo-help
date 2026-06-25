@@ -7,12 +7,19 @@ use axum::{
     routing::{delete, get, patch, post},
     Extension, Router,
 };
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry::KeyValue;
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_sdk::Resource;
 use sqlx::postgres::PgPoolOptions;
 use tokio::signal;
 use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
+use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::Registry;
 
 use vedo_backend::config::AppConfig;
 use vedo_backend::modules::auth::handlers as auth_handlers;
@@ -35,21 +42,49 @@ use vedo_backend::shared::{
     llm::LlmClient,
 };
 
-/// Redact the password from a PostgreSQL URL for safe logging.
-/// `postgres://vedo:s3cret@db:5432/vedo` → `postgres://vedo:***@db:5432/vedo`
-fn redacted_db_url(url: &str) -> String {
-    // Simple redaction: replace password between :// and @
-    if let Some(after_scheme) = url.split_once("://") {
-        let scheme = after_scheme.0;
-        let rest = after_scheme.1;
-        if let Some((before_at, after_at)) = rest.split_once('@') {
-            // before_at could be "user" or "user:password"
-            if let Some((user, _password)) = before_at.split_once(':') {
-                return format!("{}://{}:***@{}", scheme, user, after_at);
-            }
-        }
-    }
-    url.to_string()
+/// Initialize OpenTelemetry tracing pipeline with dual output:
+/// 1. JSON-formatted stdout (for Docker journald/logging driver)
+/// 2. OTLP gRPC export to OTel Collector
+///
+/// Returns the `TracerProvider` handle — keeping it alive until shutdown
+/// ensures all spans are flushed before the process exits.
+fn init_telemetry(config: &AppConfig) -> TracerProvider {
+    let resource = Resource::new(vec![
+        KeyValue::new("service.name", "vedo-backend"),
+        KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+        KeyValue::new("deployment.environment", config.environment.clone()),
+    ]);
+
+    let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(&config.otel_endpoint)
+        .build()
+        .expect("Failed to build OTLP span exporter");
+
+    let tracer_provider = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_batch_exporter(otlp_exporter, opentelemetry_sdk::runtime::Tokio)
+        .with_resource(resource)
+        .build();
+
+    let telemetry_layer =
+        tracing_opentelemetry::layer().with_tracer(tracer_provider.tracer("vedo-backend"));
+
+    // Build a registry that writes JSON to stdout AND exports via OTLP
+    let subscriber = Registry::default()
+        .with(EnvFilter::new(&config.rust_log))
+        .with(tracing_subscriber::fmt::layer().json())
+        .with(telemetry_layer);
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Failed to set global tracing subscriber");
+
+    tracing::info!(
+        component = "main",
+        otel_endpoint = %config.otel_endpoint,
+        "telemetry.initialized"
+    );
+
+    tracer_provider
 }
 
 #[tokio::main]
@@ -59,13 +94,16 @@ async fn main() {
 
     let config = AppConfig::from_env();
 
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::new(&config.rust_log))
-        .json()
-        .init();
+    // Initialize telemetry (tracing + OTel)
+    let _tracer_provider = init_telemetry(&config);
 
-    tracing::info!("Starting VEDO hub RAG Assistant backend");
+    tracing::info!(
+        component = "main",
+        service_name = %config.service_name,
+        environment = %config.environment,
+        otel_endpoint = %config.otel_endpoint,
+        "server.starting",
+    );
 
     // Connect to PostgreSQL with retry loop (database container may not be ready immediately in Docker).
     // Override retry count via DB_CONNECT_RETRIES env var (default: 30, 1 second between attempts).
@@ -77,8 +115,10 @@ async fn main() {
     let db = loop {
         retries += 1;
         tracing::info!(
-            "[main] connecting to PostgreSQL (attempt {}/{max_retries})",
-            retries
+            component = "main",
+            retry_attempt = retries,
+            max_retries = max_retries,
+            "db.connect.retry"
         );
         match PgPoolOptions::new()
             .max_connections(5)
@@ -86,22 +126,25 @@ async fn main() {
             .await
         {
             Ok(pool) => {
-                tracing::info!(
-                    "[main] database connected: postgresql://{}",
-                    redacted_db_url(&config.database_url)
-                );
+                tracing::info!(component = "main", "db.connected");
                 break pool;
             }
             Err(e) if retries < max_retries => {
                 tracing::warn!(
-                    "[main] PostgreSQL not ready (attempt {}/{max_retries}): {e}",
-                    retries
+                    component = "main",
+                    error = %e,
+                    retry_attempt = retries,
+                    max_retries = max_retries,
+                    "db.connect.retry_waiting"
                 );
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
             Err(e) => {
                 tracing::error!(
-                    "[main] Failed to connect to database after {max_retries} retries: {e}"
+                    component = "main",
+                    error = %e,
+                    max_retries = max_retries,
+                    "db.connect.exhausted"
                 );
                 std::process::exit(1);
             }
@@ -109,11 +152,17 @@ async fn main() {
     };
 
     // Ensure git clone root directory exists
-    tracing::info!("Git clone root: {}", config.git_clone_root);
+    tracing::info!(
+        component = "main",
+        git_clone_root = %config.git_clone_root,
+        "git_clone_root.configured"
+    );
     std::fs::create_dir_all(&config.git_clone_root).unwrap_or_else(|e| {
         tracing::error!(
-            "Failed to create git clone root directory {}: {e}",
-            config.git_clone_root
+            component = "main",
+            error = %e,
+            git_clone_root = %config.git_clone_root,
+            "git_clone_root.create_failed"
         );
         std::process::exit(1);
     });
@@ -127,12 +176,20 @@ async fn main() {
 
     // Chroma client
     let chroma_client = vedo_backend::shared::chroma_client::ChromaClient::new(&chroma_url);
-    tracing::info!("Chroma client configured: {chroma_url}");
+    tracing::info!(
+        component = "main",
+        chroma_url = %chroma_url,
+        "chroma_client.configured"
+    );
 
     // Embedding client
     let embedding_client =
         vedo_backend::shared::embedding_client::EmbeddingClient::new(&embedding_service_url);
-    tracing::info!("Embedding service configured: {embedding_service_url}");
+    tracing::info!(
+        component = "main",
+        embedding_url = %embedding_service_url,
+        "embedding_client.configured"
+    );
 
     // LLM client
     let llm_client = LlmClient::from_config(&config);
@@ -274,12 +331,12 @@ async fn main() {
         .parse()
         .expect("Invalid host:port address");
 
-    tracing::info!("Starting server on {addr}");
+    tracing::info!(component = "main", addr = %addr, "server.starting");
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .unwrap_or_else(|e| {
-            tracing::error!("Failed to bind to {addr}: {e}");
+            tracing::error!(component = "main", error = %e, addr = %addr, "server.bind_failed");
             std::process::exit(1);
         });
 
@@ -287,10 +344,10 @@ async fn main() {
         .with_graceful_shutdown(shutdown_signal_with_tx(shutdown_tx))
         .await
         .unwrap_or_else(|e| {
-            tracing::error!("Server error: {e}");
+            tracing::error!(component = "main", error = %e, "server.error");
         });
 
-    tracing::info!("Server shut down gracefully");
+    tracing::info!(component = "main", "server.shutdown");
 }
 
 /// Shared application state accessible from all handlers.
@@ -387,10 +444,10 @@ async fn shutdown_signal_with_tx(tx: broadcast::Sender<()>) {
 
 /// Run PostgreSQL schema migrations using sqlx::migrate!().
 async fn run_migrations(db: &sqlx::PgPool) {
-    tracing::info!("[main] running database migrations...");
+    tracing::info!(component = "main", "db.migrations.start");
     sqlx::migrate!().run(db).await.unwrap_or_else(|e| {
-        tracing::error!("[main] Failed to run migrations: {e}");
+        tracing::error!(component = "main", error = %e, "db.migrations.failed");
         std::process::exit(1);
     });
-    tracing::info!("[main] database migrations completed successfully");
+    tracing::info!(component = "main", "db.migrations.complete");
 }
