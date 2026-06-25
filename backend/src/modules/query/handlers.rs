@@ -7,6 +7,7 @@ use axum::Json;
 use futures::stream::Stream;
 use futures::StreamExt;
 
+use crate::modules::auth::models::UserContext;
 use crate::modules::query::models::QueryRequest;
 use crate::modules::query::service::QueryService;
 use crate::shared::error::AppError;
@@ -22,6 +23,7 @@ use crate::shared::error::AppError;
 /// - `data: {"type":"error","text":"..."}`
 /// - `data: {"type":"done"}`
 pub async fn query_handler(
+    user_ctx: UserContext,
     State(svc): State<QueryService>,
     Json(request): Json<QueryRequest>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
@@ -29,10 +31,13 @@ pub async fn query_handler(
         component = "query/handlers",
         collection_id = %request.collection_id,
         query_length = request.query.len(),
+        user_id = %user_ctx.user_id,
         "query.handler.invoked"
     );
 
-    let event_stream = svc.process_query(request).await?;
+    let event_stream = svc
+        .process_query(request, &user_ctx.user_id, user_ctx.is_admin())
+        .await?;
 
     // Map internal StreamEvents into SSE Event objects
     let sse_stream = event_stream.map(|result| {

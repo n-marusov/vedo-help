@@ -8,6 +8,7 @@ use sqlx::PgPool;
 use std::sync::Mutex;
 use uuid::Uuid;
 
+use crate::modules::collections::repository::CollectionRepository;
 use crate::modules::conversations::models::Message;
 use crate::modules::conversations::repository::ConversationRepository;
 use crate::modules::query::models::{QueryRequest, SourceRef, StreamEvent};
@@ -22,6 +23,7 @@ pub struct QueryService {
     repo: QueryRepository,
     llm_client: LlmClient,
     embedding_client: EmbeddingClient,
+    collection_repo: CollectionRepository,
     conversation_repo: ConversationRepository,
     max_history_messages: usize,
     context_token_budget: usize,
@@ -34,6 +36,7 @@ impl QueryService {
         chroma_url: &str,
         llm_client: LlmClient,
         embedding_service_url: &str,
+        collection_repo: CollectionRepository,
         max_history_messages: usize,
         context_token_budget: usize,
     ) -> Self {
@@ -45,6 +48,7 @@ impl QueryService {
             repo,
             llm_client,
             embedding_client,
+            collection_repo,
             conversation_repo,
             max_history_messages,
             context_token_budget,
@@ -64,6 +68,8 @@ impl QueryService {
     pub async fn process_query(
         &self,
         request: QueryRequest,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<impl Stream<Item = Result<StreamEvent, Infallible>>, AppError> {
         tracing::info!(
             component = "query/service",
@@ -72,6 +78,11 @@ impl QueryService {
             query_length = request.query.len(),
             "query.process.start"
         );
+
+        // 0. Verify collection ownership
+        self.collection_repo
+            .get_collection_for_user(request.collection_id, user_id, is_admin)
+            .await?;
 
         // 1. Embed the query
         tracing::debug!(component = "query/service", "query.embed.start");

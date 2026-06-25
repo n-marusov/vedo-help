@@ -8,6 +8,7 @@ use serde_json::json;
 use sha2::Sha256;
 use uuid::Uuid;
 
+use crate::modules::auth::models::UserContext;
 use crate::modules::git_sync::models::{
     CreateRepoRequest, GitRepo, GitRepoSummary, SyncStatusResponse,
 };
@@ -22,6 +23,7 @@ use crate::shared::error::AppError;
 /// unique ID, and creates the local path. The `access_token` is stored but
 /// never returned in responses.
 pub async fn create_repo(
+    user_ctx: UserContext,
     State(svc): State<GitSyncService>,
     Json(req): Json<CreateRepoRequest>,
 ) -> Result<Json<GitRepoSummary>, AppError> {
@@ -64,6 +66,7 @@ pub async fn create_repo(
         collection_id: req.collection_id,
         status: "idle".to_string(),
         webhook_secret: None,
+        user_id: user_ctx.user_id.clone(),
         created_at: now,
         updated_at: now,
     };
@@ -95,13 +98,14 @@ pub async fn create_repo(
 ///
 /// Endpoint: `GET /api/git-sync/repos`
 pub async fn list_repos(
+    user_ctx: UserContext,
     State(svc): State<GitSyncService>,
 ) -> Result<Json<Vec<GitRepoSummary>>, AppError> {
-    tracing::info!(component = "git_sync/handlers", "list_repos");
+    tracing::info!(component = "git_sync/handlers", user_id = %user_ctx.user_id, "list_repos");
 
     let repos = svc
         .repo
-        .list_repos_with_collection_names()
+        .list_repos_with_collection_names_for_user(&user_ctx.user_id, user_ctx.is_admin())
         .await
         .map_err(|e| {
             tracing::error!(component = "git_sync/handlers", error = %e, "list_repos.failed");
@@ -120,14 +124,15 @@ pub async fn list_repos(
 ///
 /// Endpoint: `GET /api/git-sync/repos/{id}`
 pub async fn get_repo(
+    user_ctx: UserContext,
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<GitRepoSummary>, AppError> {
-    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "get_repo");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, user_id = %user_ctx.user_id, "get_repo");
 
     let summary = svc
         .repo
-        .get_repo_with_collection_name(id)
+        .get_repo_with_collection_name_for_user(id, &user_ctx.user_id, user_ctx.is_admin())
         .await
         .map_err(|e| {
             tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "get_repo.failed");
@@ -145,12 +150,13 @@ pub async fn get_repo(
 /// For large repositories this may take significant time; future iterations
 /// may use a `202 Accepted` pattern with polling.
 pub async fn trigger_sync(
+    user_ctx: UserContext,
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<SyncStatusResponse>, AppError> {
-    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "trigger_sync");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, user_id = %user_ctx.user_id, "trigger_sync");
 
-    let response = svc.sync_repo(id).await.map_err(|e| {
+    let response = svc.sync_repo(id, &user_ctx.user_id, user_ctx.is_admin()).await.map_err(|e| {
         tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "trigger_sync.failed");
         e
     })?;
@@ -173,12 +179,13 @@ pub async fn trigger_sync(
 /// Returns the persisted status from the database. During an active sync the
 /// status will be `"syncing"`; only after completion does it become `"idle"`.
 pub async fn get_sync_status(
+    user_ctx: UserContext,
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<SyncStatusResponse>, AppError> {
-    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "get_sync_status");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, user_id = %user_ctx.user_id, "get_sync_status");
 
-    let repo = svc.repo.get_repo(id).await.map_err(|e| {
+    let repo = svc.repo.get_repo_for_user(id, &user_ctx.user_id, user_ctx.is_admin()).await.map_err(|e| {
         tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "get_sync_status.failed");
         e
     })?;
@@ -208,12 +215,13 @@ pub async fn get_sync_status(
 /// Removes the local clone, deletes the Chroma collection, and removes the
 /// PostgreSQL record.
 pub async fn delete_repo(
+    user_ctx: UserContext,
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "delete_repo");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, user_id = %user_ctx.user_id, "delete_repo");
 
-    svc.delete_repo_and_cleanup(id).await.map_err(|e| {
+    svc.delete_repo_and_cleanup(id, &user_ctx.user_id, user_ctx.is_admin()).await.map_err(|e| {
         tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "delete_repo.failed");
         e
     })?;
@@ -424,7 +432,7 @@ pub async fn webhook(
     // Spawn async sync task and return 202 Accepted
     let svc_clone = svc.clone();
     tokio::spawn(async move {
-        if let Err(e) = svc_clone.sync_repo(repo_id).await {
+        if let Err(e) = svc_clone.sync_repo_internal(repo_id).await {
             tracing::error!(component = "git_sync/handlers", git_repo_id = %repo_id, error = %e, "webhook.sync_failed");
         }
     });

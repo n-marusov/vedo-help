@@ -140,7 +140,7 @@ impl GitSyncService {
                         let svc = self.clone();
                         let rid = *repo_id;
                         tokio::spawn(async move {
-                            if let Err(e) = svc.sync_repo(rid).await {
+                            if let Err(e) = svc.sync_repo_internal(rid).await {
                                 tracing::error!(
                                     component = "git_sync/service",
                                     git_repo_id = %rid,
@@ -175,7 +175,18 @@ impl GitSyncService {
     /// Uses the collection UUID (not the display name) for Chroma API calls,
     /// since Chroma accepts only ASCII alphanumeric, underscores, and hyphens
     /// in collection names.
-    pub async fn sync_repo(&self, repo_id: Uuid) -> Result<SyncStatusResponse, AppError> {
+    /// Sync a repository without ownership checks (internal use — scheduler, webhook).
+    pub async fn sync_repo_internal(&self, repo_id: Uuid) -> Result<SyncStatusResponse, AppError> {
+        self.sync_repo(repo_id, "", true).await
+    }
+
+    /// Sync a repository with ownership verification.
+    pub async fn sync_repo(
+        &self,
+        repo_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<SyncStatusResponse, AppError> {
         tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "sync_repo.started");
 
         // Atomically acquire sync lock — prevents concurrent syncs
@@ -196,8 +207,12 @@ impl GitSyncService {
             });
         }
 
-        // Fetch repo metadata
-        let git_repo = match self.repo.get_repo(repo_id).await {
+        // Fetch repo metadata with ownership check
+        let git_repo = match self
+            .repo
+            .get_repo_for_user(repo_id, user_id, is_admin)
+            .await
+        {
             Ok(r) => r,
             Err(e) => {
                 let msg = format!("Failed to fetch repo metadata: {e}");
@@ -807,11 +822,19 @@ impl GitSyncService {
     ///
     /// Uses Chroma's `where` filter to remove only git-sourced chunks from the
     /// collection, preserving any manually uploaded documents in the same collection.
-    pub async fn delete_repo_and_cleanup(&self, repo_id: Uuid) -> Result<(), AppError> {
+    pub async fn delete_repo_and_cleanup(
+        &self,
+        repo_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
         tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "delete_repo_and_cleanup.starting");
 
-        // Get repo to know the collection name
-        let git_repo = self.repo.get_repo(repo_id).await?;
+        // Get repo with ownership check
+        let git_repo = self
+            .repo
+            .get_repo_for_user(repo_id, user_id, is_admin)
+            .await?;
         let collection_name = self
             .repo
             .get_collection_name(git_repo.collection_id)
@@ -837,8 +860,10 @@ impl GitSyncService {
         // 2. Delete local clone
         self.delete_repo_local(repo_id).await?;
 
-        // 3. Delete PostgreSQL row
-        self.repo.delete_repo(repo_id).await?;
+        // 3. Delete PostgreSQL row with ownership check
+        self.repo
+            .delete_repo_for_user(repo_id, user_id, is_admin)
+            .await?;
 
         tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "delete_repo_and_cleanup.completed");
 

@@ -22,6 +22,8 @@ pub struct GitRepo {
     /// One of `"idle"`, `"syncing"`, `"error"`.
     pub status: String,
     pub webhook_secret: Option<String>,
+    /// The KeyCloak user `sub` that owns this repo.
+    pub user_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

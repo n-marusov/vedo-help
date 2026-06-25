@@ -9,6 +9,10 @@ pub struct Session {
     pub title: String,
     pub pinned: bool,
     pub collection_id: Option<Uuid>,
+    /// The KeyCloak user `sub` that owns this session.
+    /// Never serialized in API responses to prevent info leakage.
+    #[serde(skip_serializing)]
+    pub user_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub message_count: i64,

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use uuid::Uuid;
 
+use crate::modules::collections::repository::CollectionRepository;
 use crate::modules::documents::models::{
     BatchDeleteResponse, Chunk, Document, DocumentSummary, UploadResponse, ZipUploadItem,
     ZipUploadResponse,
@@ -18,15 +19,17 @@ use crate::shared::types::FileType;
 #[derive(Clone, Debug)]
 pub struct DocumentService {
     pub(crate) repo: DocumentRepository,
+    pub(crate) collection_repo: CollectionRepository,
     pub(crate) chroma_client: Option<ChromaClient>,
     pub(crate) embedding_client: Option<EmbeddingClient>,
 }
 
 impl DocumentService {
     /// Create a new DocumentService with only a repository (no Chroma/embedding).
-    pub fn new(repo: DocumentRepository) -> Self {
+    pub fn new(repo: DocumentRepository, collection_repo: CollectionRepository) -> Self {
         Self {
             repo,
+            collection_repo,
             chroma_client: None,
             embedding_client: None,
         }
@@ -35,11 +38,13 @@ impl DocumentService {
     /// Create a DocumentService with Chroma and embedding clients.
     pub fn with_clients(
         repo: DocumentRepository,
+        collection_repo: CollectionRepository,
         chroma_client: ChromaClient,
         embedding_client: EmbeddingClient,
     ) -> Self {
         Self {
             repo,
+            collection_repo,
             chroma_client: Some(chroma_client),
             embedding_client: Some(embedding_client),
         }
@@ -52,7 +57,14 @@ impl DocumentService {
         filename: &str,
         collection_id: Uuid,
         _content_type: String,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<UploadResponse, AppError> {
+        // 0. Verify collection ownership
+        self.collection_repo
+            .get_collection_for_user(collection_id, user_id, is_admin)
+            .await?;
+
         // 1. Validate file
         let file_type = validate_file(data, filename)?;
         tracing::info!(
@@ -61,6 +73,7 @@ impl DocumentService {
             file_type = ?file_type,
             file_size = data.len(),
             collection_id = %collection_id,
+            user_id = %user_id,
             "document.upload.started"
         );
 
@@ -99,6 +112,7 @@ impl DocumentService {
             uploaded_at: chrono::Utc::now(),
             collection_id,
             is_active: true,
+            user_id: user_id.to_string(),
         };
 
         self.repo.save_document(&doc).await?;
@@ -141,12 +155,22 @@ impl DocumentService {
         })
     }
 
-    /// List documents in a collection.
+    /// List documents in a collection with user ownership scoping.
     pub async fn list_documents(
         &self,
         collection_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<Vec<DocumentSummary>, AppError> {
-        let documents = self.repo.list_documents(collection_id).await?;
+        // Verify collection ownership first
+        self.collection_repo
+            .get_collection_for_user(collection_id, user_id, is_admin)
+            .await?;
+
+        let documents = self
+            .repo
+            .list_documents_for_user(collection_id, user_id, is_admin)
+            .await?;
         let summaries = documents
             .into_iter()
             .map(|d| DocumentSummary {
@@ -162,20 +186,29 @@ impl DocumentService {
         Ok(summaries)
     }
 
-    /// Soft delete a document: deactivate it and its chunks in the database.
-    /// Rows remain in the database but are excluded from active queries.
-    /// Also removes the document's embeddings from Chroma if clients are configured.
-    pub async fn delete_document(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!(component = "documents/service", document_id = %id, "document.delete.soft_start");
+    /// Soft delete a document with ownership verification.
+    /// Non-admin users can only delete their own documents.
+    pub async fn delete_document(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
+        tracing::info!(component = "documents/service", document_id = %id, user_id = %user_id, "document.delete.soft_start");
 
-        // Fetch the document to get collection_id for Chroma cleanup
-        let doc = self.repo.get_document(id).await?;
+        // Fetch the document with ownership check
+        let doc = self
+            .repo
+            .get_document_for_user(id, user_id, is_admin)
+            .await?;
 
         // Deactivate chunks first
         self.repo.deactivate_chunks(id).await?;
 
         // Deactivate the document itself
-        self.repo.deactivate_document(id).await?;
+        self.repo
+            .deactivate_document_for_user(id, user_id, is_admin)
+            .await?;
 
         // Clean up Chroma embeddings if clients are available
         if let Some(ref chroma) = self.chroma_client {
@@ -210,12 +243,13 @@ impl DocumentService {
         Ok(())
     }
 
-    /// Soft delete multiple documents and their chunks in the database.
-    /// Rows remain in the database but are excluded from active queries.
-    /// Also removes each document's embeddings from Chroma if clients are configured.
+    /// Soft delete multiple documents and their chunks with ownership verification.
+    /// Non-admin users can only delete their own documents.
     pub async fn delete_documents_batch(
         &self,
         ids: Vec<Uuid>,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<BatchDeleteResponse, AppError> {
         if ids.is_empty() {
             tracing::warn!(
@@ -228,6 +262,7 @@ impl DocumentService {
         tracing::info!(
             component = "documents/service",
             request_count = ids.len(),
+            user_id = %user_id,
             "documents.batch_delete.start"
         );
         tracing::debug!(
@@ -243,6 +278,22 @@ impl DocumentService {
                 request_count = ids.len(),
                 "documents.batch_delete.no_matches"
             );
+            return Err(AppError::NotFound(
+                "No matching documents found".to_string(),
+            ));
+        }
+
+        // Filter by ownership: non-admin users can only delete their own documents
+        let documents: Vec<Document> = if is_admin {
+            documents
+        } else {
+            documents
+                .into_iter()
+                .filter(|d| d.user_id == user_id)
+                .collect()
+        };
+
+        if documents.is_empty() {
             return Err(AppError::NotFound(
                 "No matching documents found".to_string(),
             ));
@@ -317,14 +368,14 @@ impl DocumentService {
         })
     }
 
-    /// Reload/re-index a document: deactivate old chunks, parse new content,
-    /// chunk it, and save new active chunks while preserving the document identity.
-    /// Also updates Chroma embeddings if clients are configured.
+    /// Reload/re-index a document with ownership verification.
     pub async fn reload_document(
         &self,
         data: &[u8],
         filename: &str,
         document_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<UploadResponse, AppError> {
         tracing::info!(
             component = "documents/service",
@@ -333,8 +384,11 @@ impl DocumentService {
             "document.reload.started"
         );
 
-        // 1. Verify document exists (will error if not found)
-        let doc = self.repo.get_document(document_id).await?;
+        // 1. Verify document exists and user owns it
+        let doc = self
+            .repo
+            .get_document_for_user(document_id, user_id, is_admin)
+            .await?;
 
         // 2. Validate and parse new file before changing active state.
         let file_type = validate_file(data, filename)?;
@@ -432,19 +486,27 @@ impl DocumentService {
         })
     }
 
-    /// Process a ZIP batch upload: extract, validate, chunk, and save each file.
+    /// Process a ZIP batch upload with ownership verification.
     pub async fn process_zip_upload(
         &self,
         data: &[u8],
         collection_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<ZipUploadResponse, AppError> {
         use std::io::Cursor;
         use std::io::Read;
+
+        // Verify collection ownership
+        self.collection_repo
+            .get_collection_for_user(collection_id, user_id, is_admin)
+            .await?;
 
         tracing::info!(
             component = "documents/service",
             collection_id = %collection_id,
             file_size = data.len(),
+            user_id = %user_id,
             "zip.upload.started"
         );
 
@@ -655,6 +717,7 @@ impl DocumentService {
                 uploaded_at: chrono::Utc::now(),
                 collection_id,
                 is_active: true,
+                user_id: user_id.to_string(),
             };
 
             // Save document (async, no ZipFile borrow)

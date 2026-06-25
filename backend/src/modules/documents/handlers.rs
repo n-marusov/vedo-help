@@ -5,6 +5,7 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::modules::auth::models::UserContext;
 use crate::modules::documents::models::{
     BatchDeleteResponse, DocumentSummary, UploadResponse, ZipUploadResponse,
 };
@@ -28,9 +29,11 @@ pub struct BatchDeleteRequest {
 /// Endpoint: `POST /api/documents/upload`
 pub async fn upload(
     State(svc): State<DocumentService>,
+    user_ctx: UserContext,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<UploadResponse>, AppError> {
-    tracing::info!(component = "documents/handlers", "document.upload.request");
+    let is_admin = user_ctx.roles.contains(&"admin".to_string());
+    tracing::info!(component = "documents/handlers", user_id = %user_ctx.user_id, "document.upload.request");
 
     let mut collection_id: Option<Uuid> = None;
     let mut filename: Option<String> = None;
@@ -87,7 +90,14 @@ pub async fn upload(
     let data = file_data.ok_or_else(|| AppError::BadRequest("No file provided".to_string()))?;
 
     let response = svc
-        .process_upload(&data, &filename, collection_id, content_type)
+        .process_upload(
+            &data,
+            &filename,
+            collection_id,
+            content_type,
+            &user_ctx.user_id,
+            is_admin,
+        )
         .await?;
 
     tracing::info!(
@@ -105,10 +115,15 @@ pub async fn upload(
 /// Endpoint: `GET /api/documents`
 pub async fn list(
     State(svc): State<DocumentService>,
+    user_ctx: UserContext,
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Json<Vec<DocumentSummary>>, AppError> {
+    let is_admin = user_ctx.roles.contains(&"admin".to_string());
     let collection_id = query.collection_id.unwrap_or_default();
-    let documents = svc.list_documents(collection_id).await?;
+    tracing::info!(component = "documents/handlers", collection_id = %collection_id, user_id = %user_ctx.user_id, "document.list");
+    let documents = svc
+        .list_documents(collection_id, &user_ctx.user_id, is_admin)
+        .await?;
     Ok(Json(documents))
 }
 
@@ -117,9 +132,12 @@ pub async fn list(
 /// Endpoint: `DELETE /api/documents/:id`
 pub async fn delete(
     State(svc): State<DocumentService>,
+    user_ctx: UserContext,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    svc.delete_document(id).await?;
+    let is_admin = user_ctx.roles.contains(&"admin".to_string());
+    tracing::info!(component = "documents/handlers", document_id = %id, user_id = %user_ctx.user_id, "document.delete");
+    svc.delete_document(id, &user_ctx.user_id, is_admin).await?;
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
 }
 
@@ -128,11 +146,14 @@ pub async fn delete(
 /// Endpoint: `DELETE /api/documents/batch`
 pub async fn delete_batch(
     State(svc): State<DocumentService>,
+    user_ctx: UserContext,
     Json(req): Json<BatchDeleteRequest>,
 ) -> Result<Json<BatchDeleteResponse>, AppError> {
+    let is_admin = user_ctx.roles.contains(&"admin".to_string());
     tracing::info!(
         component = "documents/handlers",
         request_count = req.ids.len(),
+        user_id = %user_ctx.user_id,
         "document.batch_delete.request"
     );
     tracing::debug!(
@@ -149,7 +170,9 @@ pub async fn delete_batch(
         return Err(AppError::BadRequest("No document IDs provided".to_string()));
     }
 
-    let response = svc.delete_documents_batch(req.ids).await?;
+    let response = svc
+        .delete_documents_batch(req.ids, &user_ctx.user_id, is_admin)
+        .await?;
     tracing::info!(
         component = "documents/handlers",
         deleted_count = response.deleted_count,
@@ -164,10 +187,12 @@ pub async fn delete_batch(
 /// Endpoint: `POST /api/documents/reload/{id}`
 pub async fn reload(
     State(svc): State<DocumentService>,
+    user_ctx: UserContext,
     Path(id): Path<Uuid>,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<UploadResponse>, AppError> {
-    tracing::info!(component = "documents/handlers", document_id = %id, "document.reload.request");
+    let is_admin = user_ctx.roles.contains(&"admin".to_string());
+    tracing::info!(component = "documents/handlers", document_id = %id, user_id = %user_ctx.user_id, "document.reload.request");
 
     let mut filename: Option<String> = None;
     let mut file_data: Option<Vec<u8>> = None;
@@ -199,7 +224,9 @@ pub async fn reload(
     let filename = filename.unwrap_or_else(|| "unknown".to_string());
     let data = file_data.ok_or_else(|| AppError::BadRequest("No file provided".to_string()))?;
 
-    let response = svc.reload_document(&data, &filename, id).await?;
+    let response = svc
+        .reload_document(&data, &filename, id, &user_ctx.user_id, is_admin)
+        .await?;
 
     tracing::info!(
         component = "documents/handlers",
@@ -216,9 +243,11 @@ pub async fn reload(
 /// Endpoint: `POST /api/documents/upload-zip`
 pub async fn upload_zip(
     State(svc): State<DocumentService>,
+    user_ctx: UserContext,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<ZipUploadResponse>, AppError> {
-    tracing::info!(component = "documents/handlers", "zip.upload.request");
+    let is_admin = user_ctx.roles.contains(&"admin".to_string());
+    tracing::info!(component = "documents/handlers", user_id = %user_ctx.user_id, "zip.upload.request");
 
     let mut collection_id: Option<Uuid> = None;
     let mut file_data: Option<Vec<u8>> = None;
@@ -268,7 +297,9 @@ pub async fn upload_zip(
         "zip.upload.processing"
     );
 
-    let response = svc.process_zip_upload(&data, collection_id).await?;
+    let response = svc
+        .process_zip_upload(&data, collection_id, &user_ctx.user_id, is_admin)
+        .await?;
 
     tracing::info!(
         component = "documents/handlers",

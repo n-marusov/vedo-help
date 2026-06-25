@@ -51,4 +51,9 @@ impl UserContext {
             roles: user.roles.clone(),
         }
     }
+
+    /// Check whether the user has the `admin` realm role.
+    pub fn is_admin(&self) -> bool {
+        self.roles.iter().any(|r| r == "admin")
+    }
 }

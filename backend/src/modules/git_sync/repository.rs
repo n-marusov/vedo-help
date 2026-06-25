@@ -17,6 +17,7 @@ struct GitRepoRow {
     collection_id: Uuid,
     status: String,
     webhook_secret: Option<String>,
+    user_id: String,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -51,6 +52,7 @@ impl TryFrom<GitRepoRow> for GitRepo {
             collection_id: row.collection_id,
             status: row.status,
             webhook_secret: row.webhook_secret,
+            user_id: row.user_id,
             created_at: row.created_at,
             updated_at: row.updated_at,
         })
@@ -111,8 +113,8 @@ impl GitRepoRepository {
             r#"
             INSERT INTO git_repositories
                 (id, url, branch, access_token, local_path, last_commit_hash,
-                 last_synced_at, collection_id, status, webhook_secret, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                 last_synced_at, collection_id, status, webhook_secret, user_id, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             "#,
         )
         .bind(repo.id)
@@ -125,6 +127,7 @@ impl GitRepoRepository {
         .bind(repo.collection_id)
         .bind(&repo.status)
         .bind(&repo.webhook_secret)
+        .bind(&repo.user_id)
         .bind(repo.created_at)
         .bind(repo.updated_at)
         .execute(&self.db)
@@ -144,28 +147,57 @@ impl GitRepoRepository {
     }
 
     /// List all registered Git repositories.
-    pub async fn list_repos(&self) -> Result<Vec<GitRepo>, AppError> {
+    /// Admin users see all repos; non-admin users see only their own.
+    pub async fn list_repos_by_user(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<GitRepo>, AppError> {
         tracing::debug!(component = "git_sync/repository", "list_repos.entry");
 
-        let rows = sqlx::query_as::<_, GitRepoRow>(
-            r#"
-            SELECT id, url, branch, access_token, local_path, last_commit_hash,
-                   last_synced_at, collection_id, status, webhook_secret, created_at, updated_at
-            FROM git_repositories
-            ORDER BY created_at DESC
-            "#,
-        )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                component = "git_sync/repository",
-                error = %e,
-                query = "SELECT git_repositories",
-                "list_repos.sql_error"
-            );
-            AppError::InternalError(format!("Failed to list git repositories: {e}"))
-        })?;
+        let rows = if is_admin {
+            sqlx::query_as::<_, GitRepoRow>(
+                r#"
+                SELECT id, url, branch, access_token, local_path, last_commit_hash,
+                       last_synced_at, collection_id, status, webhook_secret, user_id, created_at, updated_at
+                FROM git_repositories
+                ORDER BY created_at DESC
+                "#,
+            )
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT git_repositories",
+                    "list_repos.sql_error"
+                );
+                AppError::InternalError(format!("Failed to list git repositories: {e}"))
+            })?
+        } else {
+            sqlx::query_as::<_, GitRepoRow>(
+                r#"
+                SELECT id, url, branch, access_token, local_path, last_commit_hash,
+                       last_synced_at, collection_id, status, webhook_secret, user_id, created_at, updated_at
+                FROM git_repositories
+                WHERE user_id = $1
+                ORDER BY created_at DESC
+                "#,
+            )
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT git_repositories WHERE user_id",
+                    "list_repos.sql_error"
+                );
+                AppError::InternalError(format!("Failed to list git repositories: {e}"))
+            })?
+        };
 
         let repos = rows
             .into_iter()
@@ -180,36 +212,73 @@ impl GitRepoRepository {
         Ok(repos)
     }
 
-    /// Retrieve a single Git repository by ID.
-    ///
-    /// Returns `AppError::NotFound` if no row exists.
-    pub async fn get_repo(&self, id: Uuid) -> Result<GitRepo, AppError> {
+    /// List all registered Git repositories (legacy, admin-only).
+    pub async fn list_repos(&self) -> Result<Vec<GitRepo>, AppError> {
+        self.list_repos_by_user("", true).await
+    }
+
+    /// Retrieve a single Git repository by ID with ownership check.
+    /// Non-admin users can only access their own repos.
+    pub async fn get_repo_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<GitRepo, AppError> {
         tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.entry");
 
-        let repo = sqlx::query_as::<_, GitRepoRow>(
-            r#"
-            SELECT id, url, branch, access_token, local_path, last_commit_hash,
-                   last_synced_at, collection_id, status, webhook_secret, created_at, updated_at
-            FROM git_repositories
-            WHERE id = $1
-            "#,
-        )
-        .bind(id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                component = "git_sync/repository",
-                error = %e,
-                query = "SELECT git_repositories WHERE id",
-                "get_repo.sql_error"
-            );
-            AppError::InternalError(format!("Database error: {e}"))
-        })?
-        .ok_or_else(|| {
-            tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.not_found");
-            AppError::NotFound(format!("Git repository {id} not found"))
-        })?;
+        let repo = if is_admin {
+            sqlx::query_as::<_, GitRepoRow>(
+                r#"
+                SELECT id, url, branch, access_token, local_path, last_commit_hash,
+                       last_synced_at, collection_id, status, webhook_secret, user_id, created_at, updated_at
+                FROM git_repositories
+                WHERE id = $1
+                "#,
+            )
+            .bind(id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT git_repositories WHERE id",
+                    "get_repo.sql_error"
+                );
+                AppError::InternalError(format!("Database error: {e}"))
+            })?
+            .ok_or_else(|| {
+                tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.not_found");
+                AppError::NotFound(format!("Git repository {id} not found"))
+            })?
+        } else {
+            sqlx::query_as::<_, GitRepoRow>(
+                r#"
+                SELECT id, url, branch, access_token, local_path, last_commit_hash,
+                       last_synced_at, collection_id, status, webhook_secret, user_id, created_at, updated_at
+                FROM git_repositories
+                WHERE id = $1 AND user_id = $2
+                "#,
+            )
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT git_repositories WHERE id AND user_id",
+                    "get_repo.sql_error"
+                );
+                AppError::InternalError(format!("Database error: {e}"))
+            })?
+            .ok_or_else(|| {
+                tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.not_found");
+                AppError::NotFound(format!("Git repository {id} not found"))
+            })?
+        };
 
         let repo = GitRepo::try_from(repo)?;
 
@@ -217,52 +286,104 @@ impl GitRepoRepository {
         Ok(repo)
     }
 
-    /// Retrieve a single repo with its resolved collection name.
-    pub async fn get_repo_with_collection_name(
+    /// Retrieve a single Git repository by ID (legacy, admin-only).
+    ///
+    /// Returns `AppError::NotFound` if no row exists.
+    pub async fn get_repo(&self, id: Uuid) -> Result<GitRepo, AppError> {
+        self.get_repo_for_user(id, "", true).await
+    }
+
+    /// Retrieve a single repo with its resolved collection name and ownership check.
+    pub async fn get_repo_with_collection_name_for_user(
         &self,
         id: Uuid,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<GitRepoSummary, AppError> {
         tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo_with_collection_name.entry");
 
-        let summary = sqlx::query_as::<_, GitRepoSummaryRow>(
-            r#"
-            SELECT
-                g.id,
-                g.url,
-                g.branch,
-                g.local_path,
-                g.last_commit_hash,
-                g.last_synced_at,
-                g.collection_id,
-                COALESCE(c.name, '') AS collection_name,
-                g.status,
-                g.created_at,
-                g.updated_at
-            FROM git_repositories g
-            LEFT JOIN collections c ON g.collection_id = c.id
-            WHERE g.id = $1
-            "#,
-        )
-        .bind(id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                component = "git_sync/repository",
-                error = %e,
-                query = "SELECT JOIN",
-                "get_repo_with_collection_name.sql_error"
-            );
-            AppError::InternalError(format!("Database error: {e}"))
-        })?
-        .ok_or_else(|| {
-            tracing::debug!(
-                component = "git_sync/repository",
-                git_repo_id = %id,
-                "get_repo_with_collection_name.not_found"
-            );
-            AppError::NotFound(format!("Git repository {id} not found"))
-        })?;
+        let summary = if is_admin {
+            sqlx::query_as::<_, GitRepoSummaryRow>(
+                r#"
+                SELECT
+                    g.id,
+                    g.url,
+                    g.branch,
+                    g.local_path,
+                    g.last_commit_hash,
+                    g.last_synced_at,
+                    g.collection_id,
+                    COALESCE(c.name, '') AS collection_name,
+                    g.status,
+                    g.created_at,
+                    g.updated_at
+                FROM git_repositories g
+                LEFT JOIN collections c ON g.collection_id = c.id
+                WHERE g.id = $1
+                "#,
+            )
+            .bind(id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT JOIN",
+                    "get_repo_with_collection_name.sql_error"
+                );
+                AppError::InternalError(format!("Database error: {e}"))
+            })?
+            .ok_or_else(|| {
+                tracing::debug!(
+                    component = "git_sync/repository",
+                    git_repo_id = %id,
+                    "get_repo_with_collection_name.not_found"
+                );
+                AppError::NotFound(format!("Git repository {id} not found"))
+            })?
+        } else {
+            sqlx::query_as::<_, GitRepoSummaryRow>(
+                r#"
+                SELECT
+                    g.id,
+                    g.url,
+                    g.branch,
+                    g.local_path,
+                    g.last_commit_hash,
+                    g.last_synced_at,
+                    g.collection_id,
+                    COALESCE(c.name, '') AS collection_name,
+                    g.status,
+                    g.created_at,
+                    g.updated_at
+                FROM git_repositories g
+                LEFT JOIN collections c ON g.collection_id = c.id
+                WHERE g.id = $1 AND g.user_id = $2
+                "#,
+            )
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT JOIN WHERE user_id",
+                    "get_repo_with_collection_name.sql_error"
+                );
+                AppError::InternalError(format!("Database error: {e}"))
+            })?
+            .ok_or_else(|| {
+                tracing::debug!(
+                    component = "git_sync/repository",
+                    git_repo_id = %id,
+                    "get_repo_with_collection_name.not_found"
+                );
+                AppError::NotFound(format!("Git repository {id} not found"))
+            })?
+        };
 
         let summary = GitRepoSummary::try_from(summary)?;
 
@@ -270,43 +391,91 @@ impl GitRepoRepository {
         Ok(summary)
     }
 
-    /// List all repos with their resolved collection names.
-    pub async fn list_repos_with_collection_names(&self) -> Result<Vec<GitRepoSummary>, AppError> {
+    /// Retrieve a single repo with its resolved collection name (legacy, admin-only).
+    pub async fn get_repo_with_collection_name(
+        &self,
+        id: Uuid,
+    ) -> Result<GitRepoSummary, AppError> {
+        self.get_repo_with_collection_name_for_user(id, "", true)
+            .await
+    }
+
+    /// List all repos with their resolved collection names, scoped by user.
+    pub async fn list_repos_with_collection_names_for_user(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<GitRepoSummary>, AppError> {
         tracing::debug!(
             component = "git_sync/repository",
             "list_repos_with_collection_names.entry"
         );
 
-        let rows = sqlx::query_as::<_, GitRepoSummaryRow>(
-            r#"
-            SELECT
-                g.id,
-                g.url,
-                g.branch,
-                g.local_path,
-                g.last_commit_hash,
-                g.last_synced_at,
-                g.collection_id,
-                COALESCE(c.name, '') AS collection_name,
-                g.status,
-                g.created_at,
-                g.updated_at
-            FROM git_repositories g
-            LEFT JOIN collections c ON g.collection_id = c.id
-            ORDER BY g.created_at DESC
-            "#,
-        )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                component = "git_sync/repository",
-                error = %e,
-                query = "SELECT JOIN all",
-                "list_repos_with_collection_names.sql_error"
-            );
-            AppError::InternalError(format!("Database error: {e}"))
-        })?;
+        let rows = if is_admin {
+            sqlx::query_as::<_, GitRepoSummaryRow>(
+                r#"
+                SELECT
+                    g.id,
+                    g.url,
+                    g.branch,
+                    g.local_path,
+                    g.last_commit_hash,
+                    g.last_synced_at,
+                    g.collection_id,
+                    COALESCE(c.name, '') AS collection_name,
+                    g.status,
+                    g.created_at,
+                    g.updated_at
+                FROM git_repositories g
+                LEFT JOIN collections c ON g.collection_id = c.id
+                ORDER BY g.created_at DESC
+                "#,
+            )
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT JOIN all",
+                    "list_repos_with_collection_names.sql_error"
+                );
+                AppError::InternalError(format!("Database error: {e}"))
+            })?
+        } else {
+            sqlx::query_as::<_, GitRepoSummaryRow>(
+                r#"
+                SELECT
+                    g.id,
+                    g.url,
+                    g.branch,
+                    g.local_path,
+                    g.last_commit_hash,
+                    g.last_synced_at,
+                    g.collection_id,
+                    COALESCE(c.name, '') AS collection_name,
+                    g.status,
+                    g.created_at,
+                    g.updated_at
+                FROM git_repositories g
+                LEFT JOIN collections c ON g.collection_id = c.id
+                WHERE g.user_id = $1
+                ORDER BY g.created_at DESC
+                "#,
+            )
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!(
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "SELECT JOIN all WHERE user_id",
+                    "list_repos_with_collection_names.sql_error"
+                );
+                AppError::InternalError(format!("Database error: {e}"))
+            })?
+        };
 
         let summaries = rows
             .into_iter()
@@ -319,6 +488,12 @@ impl GitRepoRepository {
             "list_repos_with_collection_names.exit"
         );
         Ok(summaries)
+    }
+
+    /// List all repos with their resolved collection names (legacy, admin-only).
+    pub async fn list_repos_with_collection_names(&self) -> Result<Vec<GitRepoSummary>, AppError> {
+        self.list_repos_with_collection_names_for_user("", true)
+            .await
     }
 
     /// Try to acquire a sync lock by atomically setting status to `"syncing"`.
@@ -460,25 +635,47 @@ impl GitRepoRepository {
         Ok(())
     }
 
-    /// Delete a Git repository record by ID.
+    /// Delete a Git repository record by ID with ownership check.
     ///
     /// Returns `AppError::NotFound` if no row exists.
-    pub async fn delete_repo(&self, id: Uuid) -> Result<(), AppError> {
+    pub async fn delete_repo_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
         tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "delete_repo.entry");
 
-        let affected = sqlx::query("DELETE FROM git_repositories WHERE id = $1")
-            .bind(id)
-            .execute(&self.db)
-            .await
-            .map_err(|e| {
-                tracing::error!(
-                    component = "git_sync/repository",
-                    error = %e,
-                    query = "DELETE git_repositories",
-                    "delete_repo.sql_error"
-                );
-                AppError::InternalError(format!("Failed to delete git repository: {e}"))
-            })?;
+        let affected = if is_admin {
+            sqlx::query("DELETE FROM git_repositories WHERE id = $1")
+                .bind(id)
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!(
+                        component = "git_sync/repository",
+                        error = %e,
+                        query = "DELETE git_repositories",
+                        "delete_repo.sql_error"
+                    );
+                    AppError::InternalError(format!("Failed to delete git repository: {e}"))
+                })?
+        } else {
+            sqlx::query("DELETE FROM git_repositories WHERE id = $1 AND user_id = $2")
+                .bind(id)
+                .bind(user_id)
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!(
+                        component = "git_sync/repository",
+                        error = %e,
+                        query = "DELETE git_repositories WHERE id AND user_id",
+                        "delete_repo.sql_error"
+                    );
+                    AppError::InternalError(format!("Failed to delete git repository: {e}"))
+                })?
+        };
 
         if affected.rows_affected() == 0 {
             return Err(AppError::NotFound(format!("Git repository {id} not found")));
@@ -486,6 +683,11 @@ impl GitRepoRepository {
 
         tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "delete_repo.exit");
         Ok(())
+    }
+
+    /// Delete a Git repository record by ID (legacy, admin-only).
+    pub async fn delete_repo(&self, id: Uuid) -> Result<(), AppError> {
+        self.delete_repo_for_user(id, "", true).await
     }
 
     /// Look up a collection name by its ID.

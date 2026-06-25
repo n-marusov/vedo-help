@@ -13,6 +13,7 @@ fn test_user_context_from_auth_info_with_roles() {
         email: Some("alice@example.com".to_string()),
         preferred_username: Some("alice".to_string()),
         provider: Some("keycloak".to_string()),
+        roles: vec!["admin".to_string(), "user".to_string()],
     };
     let auth_info = AuthInfo { user: auth_user };
 
@@ -32,6 +33,7 @@ fn test_user_context_from_auth_info_minimal() {
         email: None,
         preferred_username: None,
         provider: None,
+        roles: vec![],
     };
     let auth_info = AuthInfo { user: auth_user };
 
@@ -55,6 +57,7 @@ fn test_user_info_serialization() {
         email: Some("alice@test.com".to_string()),
         preferred_username: Some("alice".to_string()),
         provider: Some("github".to_string()),
+        roles: vec!["admin".to_string(), "user".to_string()],
     };
 
     let json = serde_json::to_value(&info).unwrap();
@@ -74,6 +77,7 @@ fn test_user_info_serialization_minimal() {
         email: None,
         preferred_username: None,
         provider: None,
+        roles: vec![],
     };
 
     let json = serde_json::to_value(&info).unwrap();
@@ -88,41 +92,33 @@ fn test_user_info_serialization_minimal() {
 // ---------------------------------------------------------------------------
 // RBAC: role extraction from JWT (AuthUser extension)
 // ---------------------------------------------------------------------------
-//
-// Once roles are added to AuthUser in Task 2.1, these tests will validate
-// that realm_access.roles from the JWT are correctly extracted.
-//
-// For now, these tests validate the expected interface.
 
 #[test]
 fn test_auth_user_with_roles_can_check_admin() {
-    // Simulated: AuthUser will gain a `roles: Vec<String>` field in Task 2.1.
-    // The expected behavior: check if "admin" is in roles.
-    // This test validates the interface contract before implementation.
-    //
-    // let user = AuthUser {
-    //     sub: "admin-uuid".to_string(),
-    //     roles: vec!["admin".to_string(), "user".to_string()],
-    //     ...
-    // };
-    // assert!(user.roles.contains(&"admin".to_string()));
-
-    // Placeholder: once AuthUser.roles is implemented, replace the above.
-    assert!(true, "RBAC role checking will be enabled in Task 2.1");
+    let auth_user = AuthUser {
+        sub: "admin-uuid".to_string(),
+        name: None,
+        email: None,
+        preferred_username: None,
+        provider: None,
+        roles: vec!["admin".to_string(), "user".to_string()],
+    };
+    assert!(auth_user.roles.contains(&"admin".to_string()));
+    assert!(auth_user.roles.contains(&"user".to_string()));
 }
 
 #[test]
 fn test_auth_user_without_admin_role_is_not_admin() {
-    // Simulated: AuthUser will gain a `roles: Vec<String>` field in Task 2.1.
-    //
-    // let user = AuthUser {
-    //     sub: "regular-uuid".to_string(),
-    //     roles: vec!["user".to_string()],
-    //     ...
-    // };
-    // assert!(!user.roles.contains(&"admin".to_string()));
-
-    assert!(true, "RBAC role checking will be enabled in Task 2.1");
+    let auth_user = AuthUser {
+        sub: "regular-uuid".to_string(),
+        name: None,
+        email: None,
+        preferred_username: None,
+        provider: None,
+        roles: vec!["user".to_string()],
+    };
+    assert!(!auth_user.roles.contains(&"admin".to_string()));
+    assert!(auth_user.roles.contains(&"user".to_string()));
 }
 
 // ---------------------------------------------------------------------------

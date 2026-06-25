@@ -23,6 +23,7 @@ impl ConversationService {
     pub async fn create_session(
         &self,
         req: CreateSessionRequest,
+        user_id: &str,
     ) -> Result<SessionSummary, AppError> {
         let now = chrono::Utc::now();
         let title = req
@@ -35,6 +36,7 @@ impl ConversationService {
             title,
             pinned: false,
             collection_id: req.collection_id,
+            user_id: user_id.to_string(),
             created_at: now,
             updated_at: now,
             message_count: 0,
@@ -56,10 +58,14 @@ impl ConversationService {
     }
 
     /// List all sessions, most recently updated first.
-    pub async fn list_sessions(&self) -> Result<Vec<SessionSummary>, AppError> {
-        tracing::debug!(component = "conversations/service", "session.list");
+    pub async fn list_sessions(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<SessionSummary>, AppError> {
+        tracing::debug!(component = "conversations/service", user_id = %user_id, is_admin = is_admin, "session.list");
 
-        let sessions = self.repo.list_sessions().await?;
+        let sessions = self.repo.list_sessions_by_user(user_id, is_admin).await?;
         let summaries = sessions
             .into_iter()
             .map(|s| SessionSummary {
@@ -77,27 +83,50 @@ impl ConversationService {
     }
 
     /// Get a session with its full message history.
-    pub async fn get_session_history(&self, id: Uuid) -> Result<(Session, Vec<Message>), AppError> {
+    pub async fn get_session_history(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(Session, Vec<Message>), AppError> {
         tracing::debug!(component = "conversations/service", session_id = %id, "session.get");
 
-        let session = self.repo.get_session(id).await?;
+        let session = self
+            .repo
+            .get_session_for_user(id, user_id, is_admin)
+            .await?;
         let messages = self.repo.get_messages(id).await?;
 
         Ok((session, messages))
     }
 
     /// Delete a session and its messages.
-    pub async fn delete_session(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!(component = "conversations/service", session_id = %id, "session.delete");
-        self.repo.delete_session(id).await
+    pub async fn delete_session(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
+        tracing::info!(component = "conversations/service", session_id = %id, user_id = %user_id, is_admin = is_admin, "session.delete");
+        self.repo
+            .delete_session_for_user(id, user_id, is_admin)
+            .await
     }
 
     /// Delete all sessions and their messages.
     /// Returns a JSON response with the count of deleted sessions.
-    pub async fn delete_all_sessions(&self) -> Result<serde_json::Value, AppError> {
-        tracing::warn!(component = "conversations/service", "session.delete_all");
+    pub async fn delete_all_sessions(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<serde_json::Value, AppError> {
+        tracing::warn!(component = "conversations/service", user_id = %user_id, is_admin = is_admin, "session.delete_all");
 
-        let count = self.repo.delete_all_sessions().await?;
+        let count = if is_admin {
+            self.repo.delete_all_sessions().await?
+        } else {
+            self.repo.delete_all_sessions_for_user(user_id).await?
+        };
 
         Ok(serde_json::json!({
             "status": "deleted",
@@ -114,6 +143,8 @@ impl ConversationService {
         session_id: Uuid,
         msg_id: Uuid,
         req: UpdateMessageRequest,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<Message, AppError> {
         tracing::info!(component = "conversations/service", session_id = %session_id, message_id = %msg_id, new_len = req.content.len(), "message.update");
 
@@ -123,6 +154,11 @@ impl ConversationService {
                 "Content must be between 1 and 8000 characters".to_string(),
             ));
         }
+
+        // Verify session ownership first
+        self.repo
+            .get_session_for_user(session_id, user_id, is_admin)
+            .await?;
 
         // Fetch the current message to check role
         let msg = self.repo.get_message(msg_id).await?;
@@ -148,8 +184,15 @@ impl ConversationService {
         &self,
         id: Uuid,
         req: UpdateSessionRequest,
+        user_id: &str,
+        is_admin: bool,
     ) -> Result<SessionSummary, AppError> {
         tracing::info!(component = "conversations/service", session_id = %id, session_title = ?req.title, pinned = ?req.pinned, "session.update");
+
+        // Verify ownership first
+        self.repo
+            .get_session_for_user(id, user_id, is_admin)
+            .await?;
 
         let updated = self.repo.update_session(id, req.title, req.pinned).await?;
 
@@ -165,17 +208,34 @@ impl ConversationService {
     }
 
     /// Soft-delete a message.
-    pub async fn delete_message(&self, session_id: Uuid, msg_id: Uuid) -> Result<(), AppError> {
+    pub async fn delete_message(
+        &self,
+        session_id: Uuid,
+        msg_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
         tracing::info!(component = "conversations/service", session_id = %session_id, message_id = %msg_id, "message.delete");
+
+        // Verify session ownership first
+        self.repo
+            .get_session_for_user(session_id, user_id, is_admin)
+            .await?;
+
         self.repo.soft_delete_message(msg_id).await
     }
 
     /// Export a session (with messages) as a JSON value.
     /// Soft-deleted messages are excluded.
-    pub async fn export_session(&self, id: Uuid) -> Result<serde_json::Value, AppError> {
+    pub async fn export_session(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<serde_json::Value, AppError> {
         tracing::debug!(component = "conversations/service", session_id = %id, "session.export");
 
-        let (session, messages) = self.get_session_history(id).await?;
+        let (session, messages) = self.get_session_history(id, user_id, is_admin).await?;
 
         Ok(serde_json::json!({
             "session": {
@@ -215,10 +275,15 @@ impl ConversationService {
     ///
     /// ---
     /// ```
-    pub async fn export_session_markdown(&self, id: Uuid) -> Result<String, AppError> {
+    pub async fn export_session_markdown(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<String, AppError> {
         tracing::info!(component = "conversations/service", session_id = %id, format = "markdown", "session.export");
 
-        let (session, messages) = self.get_session_history(id).await?;
+        let (session, messages) = self.get_session_history(id, user_id, is_admin).await?;
 
         let mut lines = Vec::new();
         lines.push(format!("# {}", session.title));

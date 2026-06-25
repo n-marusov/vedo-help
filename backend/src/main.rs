@@ -202,14 +202,20 @@ async fn main() {
     let git_repo_repo = GitRepoRepository::new(db.clone());
 
     // Services
-    let doc_service = DocumentService::with_clients(doc_repo, chroma_client, embedding_client);
-    let collection_service = CollectionService::new(collection_repo, chroma_url.clone());
+    let doc_service = DocumentService::with_clients(
+        doc_repo,
+        collection_repo.clone(),
+        chroma_client,
+        embedding_client,
+    );
+    let collection_service = CollectionService::new(collection_repo.clone(), chroma_url.clone());
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service = QueryService::new(
         db.clone(),
         &chroma_url,
         llm_client,
         &embedding_service_url,
+        collection_repo.clone(),
         config.llm_max_history_messages,
         config.llm_context_token_budget,
     );

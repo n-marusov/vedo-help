@@ -12,6 +12,10 @@ pub struct Document {
     pub uploaded_at: DateTime<Utc>,
     pub collection_id: Uuid,
     pub is_active: bool,
+    /// The user who uploaded this document.
+    /// Skipped in serialization to avoid leaking user IDs in API responses.
+    #[serde(skip_serializing)]
+    pub user_id: String,
 }
 
 /// Response returned after a successful document upload.

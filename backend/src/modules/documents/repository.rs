@@ -13,6 +13,7 @@ struct DocumentRow {
     uploaded_at: chrono::DateTime<chrono::Utc>,
     collection_id: uuid::Uuid,
     is_active: bool,
+    user_id: String,
 }
 
 impl TryFrom<DocumentRow> for Document {
@@ -27,6 +28,7 @@ impl TryFrom<DocumentRow> for Document {
             uploaded_at: row.uploaded_at,
             collection_id: row.collection_id,
             is_active: row.is_active,
+            user_id: row.user_id,
         })
     }
 }
@@ -53,8 +55,8 @@ impl DocumentRepository {
         );
 
         sqlx::query(
-            "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(doc.id)
         .bind(&doc.name)
@@ -63,6 +65,7 @@ impl DocumentRepository {
         .bind(doc.uploaded_at)
         .bind(doc.collection_id)
         .bind(doc.is_active)
+        .bind(&doc.user_id)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to save document: {e}")))?;
@@ -82,8 +85,8 @@ impl DocumentRepository {
     pub async fn get_document(&self, id: Uuid) -> Result<Document, AppError> {
         tracing::debug!(component = "documents/repository", document_id = %id, "document.fetch");
 
-        let row = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool)>(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE id = $1",
+        let row = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&self.db)
@@ -99,15 +102,59 @@ impl DocumentRepository {
             uploaded_at: row.4,
             collection_id: row.5,
             is_active: row.6,
+            user_id: row.7,
         })
     }
 
-    /// List documents belonging to a collection.
+    /// Retrieve a document by its ID with user ownership verification.
+    /// Non-admin users can only access their own documents.
+    pub async fn get_document_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Document, AppError> {
+        tracing::debug!(component = "documents/repository", document_id = %id, "document.fetch_for_user");
+
+        let row = if is_admin {
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
+                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id = $1",
+            )
+            .bind(id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?
+        } else {
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
+                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id = $1 AND user_id = $2",
+            )
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?
+        };
+
+        Ok(Document {
+            id: row.0,
+            name: row.1,
+            file_type: row.2,
+            file_size: row.3,
+            uploaded_at: row.4,
+            collection_id: row.5,
+            is_active: row.6,
+            user_id: row.7,
+        })
+    }
+
+    /// List documents belonging to a collection (legacy, no ownership check).
     pub async fn list_documents(&self, collection_id: Uuid) -> Result<Vec<Document>, AppError> {
         tracing::debug!(component = "documents/repository", collection_id = %collection_id, "document.list");
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool)>(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE collection_id = $1 AND is_active = TRUE",
+        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE collection_id = $1 AND is_active = TRUE",
         )
         .bind(collection_id)
         .fetch_all(&self.db)
@@ -124,6 +171,7 @@ impl DocumentRepository {
                 uploaded_at: row.4,
                 collection_id: row.5,
                 is_active: row.6,
+                user_id: row.7,
             })
             .collect();
 
@@ -132,6 +180,59 @@ impl DocumentRepository {
             collection_id = %collection_id,
             document_count = documents.len(),
             "document.list.found"
+        );
+
+        Ok(documents)
+    }
+
+    /// List documents belonging to a collection with user ownership filter.
+    /// Non-admin users see only their own documents; admin users see all.
+    pub async fn list_documents_for_user(
+        &self,
+        collection_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<Document>, AppError> {
+        tracing::debug!(component = "documents/repository", collection_id = %collection_id, "document.list_for_user");
+
+        let rows = if is_admin {
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
+                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE collection_id = $1 AND is_active = TRUE",
+            )
+            .bind(collection_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        } else {
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
+                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE collection_id = $1 AND is_active = TRUE AND user_id = $2",
+            )
+            .bind(collection_id)
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        };
+
+        let documents: Vec<Document> = rows
+            .into_iter()
+            .map(|row| Document {
+                id: row.0,
+                name: row.1,
+                file_type: row.2,
+                file_size: row.3,
+                uploaded_at: row.4,
+                collection_id: row.5,
+                is_active: row.6,
+                user_id: row.7,
+            })
+            .collect();
+
+        tracing::debug!(
+            component = "documents/repository",
+            collection_id = %collection_id,
+            document_count = documents.len(),
+            "document.list_for_user.found"
         );
 
         Ok(documents)
@@ -154,7 +255,7 @@ impl DocumentRepository {
         );
 
         let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE id IN ("
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id IN ("
         );
         let mut separated = query_builder.separated(", ");
         for id in ids {
@@ -367,7 +468,55 @@ impl DocumentRepository {
         Ok(())
     }
 
-    /// Deactivate a document (soft delete) without removing the row.
+    /// Deactivate a document (soft delete) with ownership verification.
+    /// Non-admin users can only deactivate their own documents.
+    pub async fn deactivate_document_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Document, AppError> {
+        tracing::debug!(component = "documents/repository", document_id = %id, "document.deactivate_for_user.started");
+
+        if is_admin {
+            // Admin: no ownership check
+            let doc = self.get_document(id).await?;
+            let affected = sqlx::query("UPDATE documents SET is_active = FALSE WHERE id = $1")
+                .bind(id)
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    AppError::InternalError(format!("Failed to deactivate document: {e}"))
+                })?;
+
+            if affected.rows_affected() == 0 {
+                return Err(AppError::NotFound(format!("Document {id} not found")));
+            }
+
+            tracing::info!(component = "documents/repository", document_id = %id, "document.deactivated");
+            Ok(doc)
+        } else {
+            // Non-admin: verify ownership
+            let doc = self.get_document_for_user(id, user_id, false).await?;
+            let affected = sqlx::query(
+                "UPDATE documents SET is_active = FALSE WHERE id = $1 AND user_id = $2",
+            )
+            .bind(id)
+            .bind(user_id)
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to deactivate document: {e}")))?;
+
+            if affected.rows_affected() == 0 {
+                return Err(AppError::NotFound(format!("Document {id} not found")));
+            }
+
+            tracing::info!(component = "documents/repository", document_id = %id, "document.deactivated");
+            Ok(doc)
+        }
+    }
+
+    /// Deactivate a document (soft delete) without removing the row (legacy, no owner check).
     pub async fn deactivate_document(&self, id: Uuid) -> Result<(), AppError> {
         tracing::debug!(component = "documents/repository", document_id = %id, "document.deactivate.started");
 

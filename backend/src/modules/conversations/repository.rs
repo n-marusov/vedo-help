@@ -21,11 +21,12 @@ impl ConversationRepository {
         tracing::debug!(component = "conversations/repository", session_title = %session.title, "session.create.started");
 
         sqlx::query(
-            "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO sessions (id, title, collection_id, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(session.id)
         .bind(&session.title)
         .bind(session.collection_id)
+        .bind(&session.user_id)
         .bind(session.created_at)
         .bind(session.updated_at)
         .execute(&self.db)
@@ -37,18 +38,39 @@ impl ConversationRepository {
     }
 
     /// List all sessions ordered by most recently updated.
+    /// Used by admin users who can see all sessions.
     pub async fn list_sessions(&self) -> Result<Vec<Session>, AppError> {
+        self.list_sessions_by_user("", true).await
+    }
+
+    /// List sessions scoped by user.
+    /// Non-admin users see only their own sessions; admin users see all.
+    pub async fn list_sessions_by_user(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<Session>, AppError> {
         tracing::debug!(
             component = "conversations/repository",
             "session.list.started"
         );
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
-            "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions ORDER BY pinned DESC, updated_at DESC",
-        )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+        let rows = if is_admin {
+            sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, String, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
+                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions ORDER BY pinned DESC, updated_at DESC",
+            )
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        } else {
+            sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, String, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
+                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions WHERE user_id = $1 ORDER BY pinned DESC, updated_at DESC",
+            )
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        };
 
         let mut sessions = Vec::with_capacity(rows.len());
         for row in rows {
@@ -59,8 +81,9 @@ impl ConversationRepository {
                 title: row.1,
                 pinned: row.2,
                 collection_id: row.3,
-                created_at: row.4,
-                updated_at: row.5,
+                user_id: row.4,
+                created_at: row.5,
+                updated_at: row.6,
                 message_count: count,
             });
         }
@@ -74,27 +97,63 @@ impl ConversationRepository {
     }
 
     /// Retrieve a single session by ID.
+    /// Used by admin users who can access any session.
     pub async fn get_session(&self, id: Uuid) -> Result<Session, AppError> {
+        self.get_session_for_user(id, "", true).await
+    }
+
+    /// Retrieve a single session by ID with ownership check.
+    /// Non-admin users can only access their own sessions.
+    pub async fn get_session_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Session, AppError> {
         tracing::debug!(component = "conversations/repository", session_id = %id, "session.get.started");
 
-        let row = sqlx::query_as::<
-            _,
-            (
-                uuid::Uuid,
-                String,
-                bool,
-                Option<uuid::Uuid>,
-                chrono::DateTime<chrono::Utc>,
-                chrono::DateTime<chrono::Utc>,
-            ),
-        >(
-            "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-        .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?;
+        let row = if is_admin {
+            sqlx::query_as::<
+                _,
+                (
+                    uuid::Uuid,
+                    String,
+                    bool,
+                    Option<uuid::Uuid>,
+                    String,
+                    chrono::DateTime<chrono::Utc>,
+                    chrono::DateTime<chrono::Utc>,
+                ),
+            >(
+                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions WHERE id = $1",
+            )
+            .bind(id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?
+        } else {
+            sqlx::query_as::<
+                _,
+                (
+                    uuid::Uuid,
+                    String,
+                    bool,
+                    Option<uuid::Uuid>,
+                    String,
+                    chrono::DateTime<chrono::Utc>,
+                    chrono::DateTime<chrono::Utc>,
+                ),
+            >(
+                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions WHERE id = $1 AND user_id = $2",
+            )
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?
+        };
 
         let count = self.get_message_count(id).await.unwrap_or(0);
 
@@ -103,26 +162,53 @@ impl ConversationRepository {
             title: row.1,
             pinned: row.2,
             collection_id: row.3,
-            created_at: row.4,
-            updated_at: row.5,
+            user_id: row.4,
+            created_at: row.5,
+            updated_at: row.6,
             message_count: count,
         })
     }
 
     /// Delete a session and its associated messages.
+    /// Used by admin users who can delete any session.
     pub async fn delete_session(&self, id: Uuid) -> Result<(), AppError> {
+        self.delete_session_for_user(id, "", true).await
+    }
+
+    /// Delete a session and its associated messages with ownership check.
+    /// Non-admin users can only delete their own sessions.
+    pub async fn delete_session_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
         tracing::debug!(component = "conversations/repository", session_id = %id, "session.delete.started");
 
         // Delete messages first (explicit cascade for clarity)
-        sqlx::query("DELETE FROM messages WHERE session_id = $1")
+        let msg_query = if is_admin {
+            "DELETE FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE id = $1)"
+        } else {
+            "DELETE FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE id = $1 AND user_id = $2)"
+        };
+        sqlx::query(msg_query)
             .bind(id)
+            .bind(user_id)
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete messages: {e}")))?;
 
         // Delete the session
-        let affected = sqlx::query("DELETE FROM sessions WHERE id = $1")
-            .bind(id)
+        let query_str = if is_admin {
+            "DELETE FROM sessions WHERE id = $1".to_string()
+        } else {
+            "DELETE FROM sessions WHERE id = $1 AND user_id = $2".to_string()
+        };
+        let mut q = sqlx::query(&query_str).bind(id);
+        if !is_admin {
+            q = q.bind(user_id);
+        }
+        let affected = q
             .execute(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to delete session: {e}")))?;
@@ -296,6 +382,7 @@ impl ConversationRepository {
     }
 
     /// Delete all sessions and their messages.
+    /// Used by admin users who can delete all sessions.
     /// Returns the number of sessions deleted.
     pub async fn delete_all_sessions(&self) -> Result<u64, AppError> {
         tracing::warn!(
@@ -320,6 +407,41 @@ impl ConversationRepository {
             component = "conversations/repository",
             count = count,
             "session.delete_all.done"
+        );
+        Ok(count)
+    }
+
+    /// Delete all sessions belonging to a specific user.
+    /// Returns the number of sessions deleted.
+    pub async fn delete_all_sessions_for_user(&self, user_id: &str) -> Result<u64, AppError> {
+        tracing::warn!(
+            component = "conversations/repository",
+            user_id = %user_id,
+            "session.delete_all_for_user.started"
+        );
+
+        // Delete messages for this user's sessions first
+        sqlx::query(
+            "DELETE FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE user_id = $1)",
+        )
+        .bind(user_id)
+        .execute(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Failed to delete messages: {e}")))?;
+
+        // Delete this user's sessions
+        let result = sqlx::query("DELETE FROM sessions WHERE user_id = $1")
+            .bind(user_id)
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to delete sessions: {e}")))?;
+
+        let count = result.rows_affected();
+        tracing::info!(
+            component = "conversations/repository",
+            user_id = %user_id,
+            count = count,
+            "session.delete_all_for_user.done"
         );
         Ok(count)
     }

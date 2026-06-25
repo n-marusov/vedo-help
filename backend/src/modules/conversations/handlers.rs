@@ -4,6 +4,7 @@ use axum::Json;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::modules::auth::models::UserContext;
 use crate::modules::conversations::models::{
     CreateSessionRequest, SessionSummary, UpdateMessageRequest, UpdateSessionRequest,
 };
@@ -20,10 +21,13 @@ pub struct ExportQuery {
 ///
 /// Endpoint: `GET /api/sessions`
 pub async fn list_sessions(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
 ) -> Result<Json<Vec<SessionSummary>>, AppError> {
-    tracing::info!(component = "conversations/handlers", "session.list");
-    let sessions = svc.list_sessions().await?;
+    tracing::info!(component = "conversations/handlers", user_id = %user_ctx.user_id, "session.list");
+    let sessions = svc
+        .list_sessions(&user_ctx.user_id, user_ctx.is_admin())
+        .await?;
     Ok(Json(sessions))
 }
 
@@ -31,11 +35,12 @@ pub async fn list_sessions(
 ///
 /// Endpoint: `POST /api/sessions`
 pub async fn create_session(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Json(req): Json<CreateSessionRequest>,
 ) -> Result<Json<SessionSummary>, AppError> {
-    tracing::info!(component = "conversations/handlers", "session.create");
-    let summary = svc.create_session(req).await?;
+    tracing::info!(component = "conversations/handlers", user_id = %user_ctx.user_id, "session.create");
+    let summary = svc.create_session(req, &user_ctx.user_id).await?;
     Ok(Json(summary))
 }
 
@@ -43,11 +48,14 @@ pub async fn create_session(
 ///
 /// Endpoint: `GET /api/sessions/:id`
 pub async fn get_session(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!(component = "conversations/handlers", session_id = %id, "session.get");
-    let (session, messages) = svc.get_session_history(id).await?;
+    tracing::info!(component = "conversations/handlers", session_id = %id, user_id = %user_ctx.user_id, "session.get");
+    let (session, messages) = svc
+        .get_session_history(id, &user_ctx.user_id, user_ctx.is_admin())
+        .await?;
     Ok(Json(serde_json::json!({
         "session": session,
         "messages": messages,
@@ -58,11 +66,13 @@ pub async fn get_session(
 ///
 /// Endpoint: `DELETE /api/sessions/:id`
 pub async fn delete_session(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!(component = "conversations/handlers", session_id = %id, "session.delete");
-    svc.delete_session(id).await?;
+    tracing::info!(component = "conversations/handlers", session_id = %id, user_id = %user_ctx.user_id, "session.delete");
+    svc.delete_session(id, &user_ctx.user_id, user_ctx.is_admin())
+        .await?;
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
 }
 
@@ -72,6 +82,7 @@ pub async fn delete_session(
 /// Default format is `json` when omitted.
 /// Both "md" and "markdown" produce Markdown output.
 pub async fn export_session(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Path(id): Path<Uuid>,
     Query(query): Query<ExportQuery>,
@@ -81,12 +92,16 @@ pub async fn export_session(
     match format {
         "json" => {
             tracing::info!(component = "conversations/handlers", session_id = %id, format = "json", "session.export");
-            let export = svc.export_session(id).await?;
+            let export = svc
+                .export_session(id, &user_ctx.user_id, user_ctx.is_admin())
+                .await?;
             Ok(Json(export).into_response())
         }
         "md" | "markdown" => {
             tracing::info!(component = "conversations/handlers", session_id = %id, format = %format, "session.export");
-            let md = svc.export_session_markdown(id).await?;
+            let md = svc
+                .export_session_markdown(id, &user_ctx.user_id, user_ctx.is_admin())
+                .await?;
             Ok(([(axum::http::header::CONTENT_TYPE, "text/markdown")], md).into_response())
         }
         other => {
@@ -102,10 +117,13 @@ pub async fn export_session(
 ///
 /// Endpoint: `DELETE /api/sessions`
 pub async fn delete_all_sessions(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::warn!(component = "conversations/handlers", "session.delete_all");
-    let result = svc.delete_all_sessions().await?;
+    tracing::warn!(component = "conversations/handlers", user_id = %user_ctx.user_id, "session.delete_all");
+    let result = svc
+        .delete_all_sessions(&user_ctx.user_id, user_ctx.is_admin())
+        .await?;
     Ok(Json(result))
 }
 
@@ -114,12 +132,21 @@ pub async fn delete_all_sessions(
 /// Endpoint: `PATCH /api/sessions/:session_id/messages/:message_id`
 /// Only user messages can be edited. Returns 422 for assistant messages.
 pub async fn patch_message(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Path((session_id, message_id)): Path<(Uuid, Uuid)>,
     Json(req): Json<UpdateMessageRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!(component = "conversations/handlers", session_id = %session_id, message_id = %message_id, "message.update");
-    let updated = svc.update_message(session_id, message_id, req).await?;
+    tracing::info!(component = "conversations/handlers", session_id = %session_id, message_id = %message_id, user_id = %user_ctx.user_id, "message.update");
+    let updated = svc
+        .update_message(
+            session_id,
+            message_id,
+            req,
+            &user_ctx.user_id,
+            user_ctx.is_admin(),
+        )
+        .await?;
     Ok(Json(serde_json::json!(updated)))
 }
 
@@ -127,12 +154,15 @@ pub async fn patch_message(
 ///
 /// Endpoint: `PATCH /api/sessions/:id`
 pub async fn patch_session(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateSessionRequest>,
 ) -> Result<Json<SessionSummary>, AppError> {
-    tracing::info!(component = "conversations/handlers", session_id = %id, "session.update");
-    let summary = svc.update_session(id, req).await?;
+    tracing::info!(component = "conversations/handlers", session_id = %id, user_id = %user_ctx.user_id, "session.update");
+    let summary = svc
+        .update_session(id, req, &user_ctx.user_id, user_ctx.is_admin())
+        .await?;
     Ok(Json(summary))
 }
 
@@ -141,10 +171,17 @@ pub async fn patch_session(
 /// Endpoint: `DELETE /api/sessions/:session_id/messages/:message_id`
 /// Returns 204 on success.
 pub async fn delete_message(
+    user_ctx: UserContext,
     State(svc): State<ConversationService>,
     Path((session_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, AppError> {
-    tracing::info!(component = "conversations/handlers", session_id = %session_id, message_id = %message_id, "message.delete");
-    svc.delete_message(session_id, message_id).await?;
+    tracing::info!(component = "conversations/handlers", session_id = %session_id, message_id = %message_id, user_id = %user_ctx.user_id, "message.delete");
+    svc.delete_message(
+        session_id,
+        message_id,
+        &user_ctx.user_id,
+        user_ctx.is_admin(),
+    )
+    .await?;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
