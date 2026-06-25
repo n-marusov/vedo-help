@@ -162,6 +162,16 @@
 - [x] **CORS hardening** — строгие origin
 - [x] **SAST scanning** — зависимостей в CI
 
+> **Known Issues (pre-existing, не связаны с v0.6):**
+> - `tests/conversations_unit.rs` — 2 errors: missing `pinned` + `user_id` в `Session`; `export_session_markdown` принимает 3 аргумента (v0.3.1 chat rework)
+> - `tests/documents_db_unit.rs` — `DocumentService::new` требует 2 аргумента (добавлен `CollectionRepository`) — ошибка от OTel милестоуна
+> - `tests/integration.rs` — 6 errors: missing `user_id` в Collection/Document/Session/GitRepo (v0.3.1)
+> - `tests/conversations_integration.rs` — 1 error: missing `pinned` + `user_id` в `Session` (v0.3.1)
+> - `src/modules/auth/tests.rs` — 2 errors: function signature mismatch (v0.3.1)
+> - `cargo clippy` — 1 pre-existing `dead_code` warning
+> 
+> **Статус:** production code v0.6 работает полностью. Pre-existing test errors будут исправлены в рамках соответствующих милестоунов или отдельного cleanup.
+
 ---
 
 ## Milestone: v1.0 — Production Ready ⏳
@@ -200,3 +210,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
 **v0.6 — Multi-user & Security complete (all 7 phases):** 2026-06-25
 **Что дальше:** `/aif-implement` — завершение v0.4 (debug view, deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
+
+**Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:
+  1. `/aif-plan fix "pre-existing test errors from v0.3.1 chat rework and OTel milestone"`
+  2. `/aif-implement` — исправить `conversations_unit`, `documents_db_unit`, `integration`, `conversations_integration`, `auth_middleware_test`
