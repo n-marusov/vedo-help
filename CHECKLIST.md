@@ -5,6 +5,8 @@
 ## Code gates
 - `npm run ai:validate` — exit 0
 - `uvx ruff check --fix` — exit 0
+- `bash scripts/validate-migrations.sh` — exit 0
+- `bash scripts/validate-migrations.sh --git` — exit 0 (если origin/main доступен)
 
 ## Contract
 - Типы в `src/api/types.ts` 1:1 соответствуют `workflow/task-manager/openapi.yaml` (envelope-обёртки, имена полей)

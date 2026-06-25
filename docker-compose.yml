@@ -131,10 +131,9 @@ services:
   # Produces realm-import.json (gitignored) from the template for Keycloak import.
   keycloak-init:
     image: alpine:3.19
-    # Explicit public DNS — same rationale as embedding service.
-    # Without this, VPN clients on the host can break resolution of
-    # dl-cdn.alpinelinux.org, which makes `apk add gettext` fail at
-    # startup with a "temporary error (try again later)" fetch error.
+    # DNS entries retained for forward compatibility (e.g. future apk operations).
+    # No longer required for template substitution — switched from envsubst
+    # to sed to eliminate the alpine:3.19 EOL package-repo fetch dependency.
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -167,8 +166,11 @@ services:
           exit 1
         fi
         echo "[keycloak-init] Substituting template..."
-        apk add --no-cache gettext > /dev/null
-        envsubst < /template > /import/realm-import.json
+        cp /template /import/realm-import.json
+        sed -i 's|[$][{]VEDO_BACKEND_CLIENT_SECRET[}]|'"$$VEDO_BACKEND_CLIENT_SECRET"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_ADMIN_PASSWORD[}]|'"$$VEDO_ADMIN_PASSWORD"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_ALICE_PASSWORD[}]|'"$$VEDO_ALICE_PASSWORD"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_GUEST_PASSWORD[}]|'"$$VEDO_GUEST_PASSWORD"'|g' /import/realm-import.json
         chmod 644 /import/realm-import.json
         echo "[keycloak-init] Done. realm-import.json generated."
     restart: "no"

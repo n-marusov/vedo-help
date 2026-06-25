@@ -17,6 +17,12 @@ jobs:
       - name: Validate compose files & port uniqueness
         run: ./scripts/validate-compose-ports.sh
 
+      - name: Validate keycloak template substitution
+        run: ./scripts/validate-keycloak-template.sh
+
+      - name: Validate sqlx migrations
+        run: bash scripts/validate-migrations.sh
+
   playwright:
     name: Playwright E2E
     runs-on: ubuntu-22.04

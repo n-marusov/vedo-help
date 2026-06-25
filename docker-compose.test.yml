@@ -164,9 +164,8 @@ services:
 
   keycloak-init:
     image: alpine:3.19
-    # Explicit public DNS — same rationale as embedding service.
-    # Without this, VPN clients on the host can break resolution of
-    # dl-cdn.alpinelinux.org, making `apk add gettext` fail at startup.
+    # DNS entries retained for forward compatibility.
+    # Template substitution uses sed, not envsubst, so package repos are not needed.
     dns:
       - 8.8.8.8
       - 1.1.1.1
