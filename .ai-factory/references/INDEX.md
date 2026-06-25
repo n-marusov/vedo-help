@@ -12,3 +12,4 @@ Available knowledge references for AI agents.
 | [uv-pre-commit](uv-pre-commit.md) | uv pre-commit hooks (lock, export, compile, sync, audit) | docs.astral.sh | 2026-06-17 |
 | [capn-rust-hooks](capn-rust-hooks.md) | capn — Rust dev automation hooks (pre-commit, pre-push) | github.com/bearcove/capn | 2026-06-17 |
 | [routerai-api](routerai-api.md) | RouterAI API gateway — models, endpoints, auth, agent integrations | routerai.ru | 2026-06-21 |
+| [opentelemetry-logging-unification](opentelemetry-logging-unification.md) | OpenTelemetry logging unification — structured logs, OTLP, service migration plans | opentelemetry.io | 2026-06-25 |
