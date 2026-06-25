@@ -354,8 +354,36 @@ async fn main() {
         .layer(Extension(jwt_validator))
         // Audit service for middleware
         .layer(Extension(audit_service.clone()))
-        // CORS
-        .layer(CorsLayer::permissive())
+        // Security headers — outer layer covering all routes
+        .layer(middleware::from_fn_with_state(
+            config.environment.clone(),
+            vedo_backend::shared::security_headers::middleware,
+        ))
+        // CORS — explicit origin from config
+        .layer(
+            CorsLayer::new()
+                .allow_origin(
+                    config
+                        .frontend_url
+                        .parse::<axum::http::HeaderValue>()
+                        .expect("Invalid frontend_url for CORS origin"),
+                )
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::PUT,
+                    axum::http::Method::PATCH,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::OPTIONS,
+                ])
+                .allow_headers([
+                    axum::http::header::AUTHORIZATION,
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::HeaderName::from_static("x-requested-with"),
+                ])
+                .allow_credentials(true)
+                .max_age(std::time::Duration::from_secs(86400)),
+        )
         // Shared state
         .with_state(AppState {
             doc_service,
