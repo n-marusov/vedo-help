@@ -9,9 +9,9 @@
 -- Only the FIRST edit preserves `original_content`; subsequent edits update
 -- `edited_at` but keep the original.
 ALTER TABLE messages
-    ADD COLUMN edited_at TIMESTAMPTZ NULL,
-    ADD COLUMN original_content TEXT NULL,
-    ADD COLUMN deleted_at TIMESTAMPTZ NULL;
+    ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS original_content TEXT NULL,
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
 
 -- Partial index to keep live-message scans fast by indexing only non-deleted
 -- messages. Also benefits the session-history and message-count queries that

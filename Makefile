@@ -75,6 +75,9 @@ test-e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
 	docker compose --env-file .env.test -f docker-compose.test.yml \
 		--profile test-runner run --rm frontend-tests
 
+test:keycloak-template: ## Validate keycloak realm template substitution (no Docker needed)
+	@bash scripts/validate-keycloak-template.sh
+
 lint: ## Run all linters
 	cd backend && cargo clippy -- -D warnings
 	cd frontend && npm run lint:ci
@@ -89,7 +92,12 @@ format: ## Format all code
 
 # === Full check ===
 
-check: format lint test ## Format + lint + test (fail-fast)
+check: validate-migrations format lint test ## Format + lint + test (fail-fast)
+
+# === Migration Validation ===
+
+validate-migrations: ## Validate sqlx migration files (duplicates, gaps, naming)
+	@bash scripts/validate-migrations.sh --git
 
 # === Coverage ===
 
