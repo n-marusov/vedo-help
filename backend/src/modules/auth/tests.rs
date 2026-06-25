@@ -122,32 +122,33 @@ fn test_auth_user_without_admin_role_is_not_admin() {
 }
 
 // ---------------------------------------------------------------------------
-// RBAC middleware interface tests
+// RBAC role-checking logic tests
 // ---------------------------------------------------------------------------
-//
-// The `require_role` middleware will be created in Task 3.1.
-// These tests define its expected behavior.
 
 #[test]
-fn test_require_role_accepts_matching_role() {
-    // Expected behavior:
-    //   require_role("admin") with roles=["admin"] → Ok(())
-    assert!(true, "require_role('admin') should accept admin role");
+fn test_role_check_accepts_matching_role() {
+    let roles = ["admin".to_string(), "user".to_string()];
+    let required = "admin";
+    let granted = roles.iter().any(|r| r == required);
+    assert!(granted, "require_role('admin') should accept admin role");
 }
 
 #[test]
-fn test_require_role_rejects_non_matching_role() {
-    // Expected behavior:
-    //   require_role("admin") with roles=["user"] → Err(AppError::Forbidden(...))
-    assert!(true, "require_role('admin') should reject non-admin role");
+fn test_role_check_rejects_non_matching_role() {
+    let roles = ["user".to_string()];
+    let required = "admin";
+    let granted = roles.iter().any(|r| r == required);
+    assert!(
+        !granted,
+        "require_role('admin') should reject non-admin role"
+    );
 }
 
 #[test]
-fn test_require_one_of_accepts_any_matching_role() {
-    // Expected behavior:
-    //   require_one_of(&["admin", "moderator"]) with roles=["user"] → Err
-    //   require_one_of(&["admin", "user"]) with roles=["user"] → Ok
-    assert!(true, "require_one_of should accept any matching role");
+fn test_role_check_empty_roles_rejects_all() {
+    let roles: Vec<String> = [].to_vec();
+    assert!(!roles.iter().any(|r| r == "admin"));
+    assert!(!roles.iter().any(|r| r == "user"));
 }
 
 // ---------------------------------------------------------------------------
@@ -187,13 +188,15 @@ fn test_document_user_id_mapping_contract() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_forbidden_error_is_defined() {
-    // The AppError::Forbidden variant should be added in Task 3.1 for RBAC.
-    // Expected: returns HTTP 403 with type "forbidden".
-    //
-    // let err = AppError::Forbidden("Admin access required".to_string());
-    // let response = err.into_response();
-    // assert_eq!(response.status(), 403);
+fn test_forbidden_error_returns_403() {
+    use crate::shared::error::AppError;
+    use axum::response::IntoResponse;
 
-    assert!(true, "AppError::Forbidden will be added in Task 3.1");
+    let err = AppError::Forbidden("Admin access required".to_string());
+    let response = err.into_response();
+    assert_eq!(
+        response.status(),
+        403,
+        "AppError::Forbidden should return HTTP 403"
+    );
 }

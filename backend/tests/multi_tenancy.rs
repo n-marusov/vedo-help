@@ -13,11 +13,8 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use vedo_backend::modules::collections::models::Collection;
 use vedo_backend::modules::collections::repository::CollectionRepository;
-use vedo_backend::modules::conversations::models::{NewSession, Session};
 use vedo_backend::modules::conversations::repository::ConversationRepository;
-use vedo_backend::modules::documents::models::{Document, NewDocument};
 use vedo_backend::modules::documents::repository::DocumentRepository;
 
 mod common;
@@ -25,8 +22,6 @@ mod common;
 /// Test user IDs — fixed UUIDs for reproducible test assertions.
 const USER_A_ID: &str = "00000000-0000-0000-0000-000000000001";
 const USER_B_ID: &str = "00000000-0000-0000-0000-000000000002";
-const ADMIN_ID: &str = "00000000-0000-0000-0000-000000000000";
-
 // ---------------------------------------------------------------------------
 // Helper: run TRUNCATE to get a clean slate
 // ---------------------------------------------------------------------------
@@ -78,18 +73,24 @@ async fn test_collections_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
     .await?;
 
     // User A should see only their own collection
-    let colls_a = repo.find_all_by_user(&pool, USER_A_ID).await.unwrap();
+    let colls_a = repo
+        .list_collections_by_user(USER_A_ID, false)
+        .await
+        .unwrap();
     assert_eq!(colls_a.len(), 1, "User A should see exactly 1 collection");
     assert_eq!(colls_a[0].id, coll_a_id, "User A's collection should match");
 
     // User B should see only their own collection
-    let colls_b = repo.find_all_by_user(&pool, USER_B_ID).await.unwrap();
+    let colls_b = repo
+        .list_collections_by_user(USER_B_ID, false)
+        .await
+        .unwrap();
     assert_eq!(colls_b.len(), 1, "User B should see exactly 1 collection");
     assert_eq!(colls_b[0].id, coll_b_id, "User B's collection should match");
 
     // Verify user A cannot find user B's collection by ID
     let found = repo
-        .find_by_id_and_user(&pool, coll_b_id, USER_A_ID)
+        .find_by_id_and_user(coll_b_id, USER_A_ID)
         .await
         .unwrap();
     assert!(
@@ -119,17 +120,11 @@ async fn test_collection_ownership_verification(pool: PgPool) -> sqlx::Result<()
 
     // User A should be able to find and delete their own collection
     let repo = CollectionRepository::new(pool.clone());
-    let found = repo
-        .find_by_id_and_user(&pool, coll_id, USER_A_ID)
-        .await
-        .unwrap();
+    let found = repo.find_by_id_and_user(coll_id, USER_A_ID).await.unwrap();
     assert!(found.is_some(), "User A should find their own collection");
 
     // User B should NOT find it (ownership check)
-    let not_found = repo
-        .find_by_id_and_user(&pool, coll_id, USER_B_ID)
-        .await
-        .unwrap();
+    let not_found = repo.find_by_id_and_user(coll_id, USER_B_ID).await.unwrap();
     assert!(
         not_found.is_none(),
         "User B should NOT find User A's collection"
@@ -188,7 +183,7 @@ async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sql
 
     // User A should see documents in their collection
     let docs_a = repo
-        .find_by_collection_and_user(&pool, coll_a_id, USER_A_ID)
+        .list_documents_for_user(coll_a_id, USER_A_ID, false)
         .await
         .unwrap();
     assert_eq!(docs_a.len(), 1, "User A should see 1 document");
@@ -196,7 +191,7 @@ async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sql
 
     // User B should NOT see documents in User A's collection
     let docs_b_in_a = repo
-        .find_by_collection_and_user(&pool, coll_a_id, USER_B_ID)
+        .list_documents_for_user(coll_a_id, USER_B_ID, false)
         .await
         .unwrap();
     assert_eq!(
@@ -240,22 +235,21 @@ async fn test_sessions_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
     let repo = ConversationRepository::new(pool.clone());
 
     // User A should see only their sessions
-    let sessions_a = repo.find_by_user(&pool, USER_A_ID).await.unwrap();
+    let sessions_a = repo.list_sessions_by_user(USER_A_ID, false).await.unwrap();
     assert_eq!(sessions_a.len(), 1, "User A should see 1 session");
     assert_eq!(sessions_a[0].id, session_a_id);
 
     // User B should see only their sessions
-    let sessions_b = repo.find_by_user(&pool, USER_B_ID).await.unwrap();
+    let sessions_b = repo.list_sessions_by_user(USER_B_ID, false).await.unwrap();
     assert_eq!(sessions_b.len(), 1, "User B should see 1 session");
     assert_eq!(sessions_b[0].id, session_b_id);
 
-    // Verify ownership check
+    // Verify ownership check — User B should get NotFound for User A's session
     let repo = ConversationRepository::new(pool.clone());
-    let found = repo
-        .find_by_id_and_user(&pool, session_a_id, USER_B_ID)
-        .await
-        .unwrap();
-    assert!(found.is_none(), "User B should NOT find User A's session");
+    let result = repo
+        .get_session_for_user(session_a_id, USER_B_ID, false)
+        .await;
+    assert!(result.is_err(), "User B should NOT find User A's session");
 
     Ok(())
 }
@@ -290,23 +284,19 @@ async fn test_session_messages_are_scoped_via_session_ownership(pool: PgPool) ->
 
     let repo = ConversationRepository::new(pool.clone());
 
-    // User A should see the message
-    let msgs_a = repo
-        .find_messages_by_session(&pool, session_a_id, USER_A_ID)
+    // User A should see the message (ownership verified via session check)
+    let _session = repo
+        .get_session_for_user(session_a_id, USER_A_ID, false)
         .await
         .unwrap();
+    let msgs_a = repo.get_messages(session_a_id).await.unwrap();
     assert_eq!(msgs_a.len(), 1, "User A should see 1 message");
 
-    // User B should get empty result
-    let msgs_b = repo
-        .find_messages_by_session(&pool, session_a_id, USER_B_ID)
-        .await
-        .unwrap();
-    assert_eq!(
-        msgs_b.len(),
-        0,
-        "User B should see 0 messages in User A's session"
-    );
+    // User B should not find the session (ownership check)
+    let result = repo
+        .get_session_for_user(session_a_id, USER_B_ID, false)
+        .await;
+    assert!(result.is_err(), "User B should NOT find User A's session");
 
     Ok(())
 }

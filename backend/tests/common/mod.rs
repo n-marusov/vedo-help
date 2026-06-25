@@ -75,6 +75,9 @@ pub fn setup_test_config() -> AppConfig {
         git_sync_interval_secs: 0,
         llm_max_history_messages: 20,
         llm_context_token_budget: 6000,
+        otel_endpoint: String::new(),
+        service_name: "vedo-backend-test".to_string(),
+        environment: "test".to_string(),
     }
 }
 
