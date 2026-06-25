@@ -22,6 +22,9 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Registry;
 
 use vedo_backend::config::AppConfig;
+use vedo_backend::modules::audit::handlers as audit_handlers;
+use vedo_backend::modules::audit::repository::AuditRepository;
+use vedo_backend::modules::audit::service::AuditService;
 use vedo_backend::modules::auth::handlers as auth_handlers;
 use vedo_backend::modules::collections::repository::CollectionRepository;
 use vedo_backend::modules::collections::{
@@ -38,6 +41,7 @@ use vedo_backend::modules::git_sync::{handlers as git_sync_handlers, service::Gi
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::modules::query::{handlers as query_handlers, service::QueryService};
 use vedo_backend::shared::{
+    audit_middleware,
     auth::{authenticate_request, SharedJwtValidator},
     llm::LlmClient,
     rbac,
@@ -201,6 +205,7 @@ async fn main() {
     let collection_repo = CollectionRepository::new(db.clone());
     let conversation_repo = ConversationRepository::new(db.clone());
     let git_repo_repo = GitRepoRepository::new(db.clone());
+    let audit_repo = AuditRepository::new(db.clone());
 
     // Services
     let doc_service = DocumentService::with_clients(
@@ -220,6 +225,8 @@ async fn main() {
         config.llm_max_history_messages,
         config.llm_context_token_budget,
     );
+    let audit_service = AuditService::new(audit_repo);
+
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
         chroma_url.clone(),
@@ -254,7 +261,7 @@ async fn main() {
             "/api/admin/collections/:id",
             delete(collections_handlers::admin_delete),
         )
-        .route("/api/admin/audit-log", get(|| async { "placeholder" }));
+        .route("/api/admin/audit-log", get(audit_handlers::list_audit_log));
 
     // Build router
     let app = Router::new()
@@ -334,7 +341,9 @@ async fn main() {
             patch(conversations_handlers::patch_message)
                 .delete(conversations_handlers::delete_message),
         )
-        // Auth middleware for all /api/* routes (applies to routes defined above)
+        // Audit middleware for all /api/* routes (inner — runs after auth).
+        .route_layer(middleware::from_fn(audit_middleware::audit_middleware))
+        // Auth middleware for all /api/* routes (outer — runs first, inserts AuthInfo).
         .route_layer(middleware::from_fn(auth_middleware))
         // Public routes registered AFTER route_layer so auth middleware does not apply.
         .route("/health", get(health_check))
@@ -343,6 +352,8 @@ async fn main() {
         .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))
         // JWT validator shared across middleware
         .layer(Extension(jwt_validator))
+        // Audit service for middleware
+        .layer(Extension(audit_service.clone()))
         // CORS
         .layer(CorsLayer::permissive())
         // Shared state
@@ -352,6 +363,7 @@ async fn main() {
             conversation_service,
             query_service,
             git_sync_service,
+            audit_service,
         });
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
@@ -385,6 +397,7 @@ pub struct AppState {
     pub conversation_service: ConversationService,
     pub query_service: QueryService,
     pub git_sync_service: GitSyncService,
+    pub audit_service: AuditService,
 }
 
 impl FromRef<AppState> for DocumentService {
@@ -414,6 +427,12 @@ impl FromRef<AppState> for QueryService {
 impl FromRef<AppState> for GitSyncService {
     fn from_ref(state: &AppState) -> Self {
         state.git_sync_service.clone()
+    }
+}
+
+impl FromRef<AppState> for AuditService {
+    fn from_ref(state: &AppState) -> Self {
+        state.audit_service.clone()
     }
 }
 

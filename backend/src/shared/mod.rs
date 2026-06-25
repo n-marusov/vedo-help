@@ -1,3 +1,4 @@
+pub mod audit_middleware;
 pub mod auth;
 pub mod chroma_client;
 pub mod chunking;
