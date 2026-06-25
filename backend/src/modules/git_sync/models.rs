@@ -59,8 +59,9 @@ pub struct GitRepoSummary {
 impl From<GitRepo> for GitRepoSummary {
     fn from(repo: GitRepo) -> Self {
         tracing::debug!(
-            "[GitRepoSummary::from] Stripping sensitive fields for repo_id={}",
-            repo.id
+            component = "git_sync/models",
+            git_repo_id = %repo.id,
+            "GitRepoSummary.strip_sensitive_fields"
         );
 
         Self {

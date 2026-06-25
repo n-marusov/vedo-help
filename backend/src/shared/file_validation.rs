@@ -25,8 +25,11 @@ pub fn validate_file(content: &[u8], filename: &str) -> Result<FileType, AppErro
     let file_type = detect_file_type(filename, content)?;
 
     tracing::info!(
-        "Validated file: {filename} ({file_type:?}, {} bytes)",
-        content.len()
+        component = "file_validation",
+        file_name = %filename,
+        file_type = %format!("{:?}", file_type),
+        file_size = content.len(),
+        "file.validated"
     );
 
     Ok(file_type)
@@ -49,7 +52,7 @@ fn detect_file_type(filename: &str, content: &[u8]) -> Result<FileType, AppError
         })
         .ok_or_else(|| {
             let reason = format!("Unsupported file extension: {filename}");
-            tracing::warn!("File rejected: {filename} - {reason}");
+            tracing::warn!(component = "file_validation", file_name = %filename, reason = %reason, "file.rejected");
             AppError::FileError(reason)
         })?;
 
@@ -91,7 +94,11 @@ pub fn validate_zip_magic(content: &[u8]) -> Result<(), AppError> {
             "Invalid ZIP file: missing ZIP header".to_string(),
         ));
     }
-    tracing::debug!("ZIP magic bytes validated: {} bytes", content.len());
+    tracing::debug!(
+        component = "file_validation",
+        file_size = content.len(),
+        "zip.magic_bytes_validated"
+    );
     Ok(())
 }
 

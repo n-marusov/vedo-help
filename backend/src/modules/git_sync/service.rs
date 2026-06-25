@@ -39,9 +39,11 @@ impl GitSyncService {
         clone_root: PathBuf,
     ) -> Self {
         tracing::info!(
-            "[GitSyncService::new] chroma_url={chroma_url}, embedding_url={embedding_url}, \
-             clone_root={}",
-            clone_root.display()
+            component = "git_sync/service",
+            chroma_url = %chroma_url,
+            embedding_url = %embedding_url,
+            clone_root = %clone_root.display(),
+            "new"
         );
         Self {
             repo,
@@ -69,11 +71,15 @@ impl GitSyncService {
         mut shutdown: broadcast::Receiver<()>,
     ) {
         if interval_secs == 0 {
-            tracing::info!("[GitSyncService::start_scheduler] disabled (interval=0)");
+            tracing::info!(component = "git_sync/service", "start_scheduler.disabled");
             return;
         }
 
-        tracing::info!("[GitSyncService::start_scheduler] started interval={interval_secs}s");
+        tracing::info!(
+            component = "git_sync/service",
+            interval_secs = interval_secs,
+            "start_scheduler.started"
+        );
 
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
 
@@ -85,7 +91,9 @@ impl GitSyncService {
                         Ok(r) => r,
                         Err(e) => {
                             tracing::error!(
-                                "[GitSyncService::start_scheduler] failed to list repos: {e}"
+                                component = "git_sync/service",
+                                error = %e,
+                                "start_scheduler.list_repos_failed"
                             );
                             continue;
                         }
@@ -107,9 +115,10 @@ impl GitSyncService {
                                     // but for simplicity use fixed 5m backoff
                                     if elapsed < 300 {
                                         tracing::debug!(
-                                            "[GitSyncService::start_scheduler] skipping \
-                                             errored repo_id={} ({}s since last fail < 300s)",
-                                            r.id, elapsed
+                                            component = "git_sync/service",
+                                            git_repo_id = %r.id,
+                                            elapsed_secs = elapsed,
+                                            "start_scheduler.skipping_errored_repo"
                                         );
                                         return false;
                                     }
@@ -121,8 +130,9 @@ impl GitSyncService {
                         .collect();
 
                     tracing::debug!(
-                        "[GitSyncService::start_scheduler] poll cycle repos_checked={}",
-                        eligible.len()
+                        component = "git_sync/service",
+                        repos_checked = eligible.len(),
+                        "start_scheduler.poll_cycle"
                     );
 
                     // Spawn sync tasks for all eligible repos in parallel
@@ -132,15 +142,17 @@ impl GitSyncService {
                         tokio::spawn(async move {
                             if let Err(e) = svc.sync_repo(rid).await {
                                 tracing::error!(
-                                    "[GitSyncService::start_scheduler] sync failed \
-                                     repo_id={rid} error={e}"
+                                    component = "git_sync/service",
+                                    git_repo_id = %rid,
+                                    error = %e,
+                                    "start_scheduler.sync_failed"
                                 );
                             }
                         });
                     }
                 }
                 _ = shutdown.recv() => {
-                    tracing::info!("[GitSyncService::start_scheduler] stopped");
+                    tracing::info!(component = "git_sync/service", "start_scheduler.stopped");
                     break;
                 }
             }
@@ -164,13 +176,15 @@ impl GitSyncService {
     /// since Chroma accepts only ASCII alphanumeric, underscores, and hyphens
     /// in collection names.
     pub async fn sync_repo(&self, repo_id: Uuid) -> Result<SyncStatusResponse, AppError> {
-        tracing::info!("[GitSyncService::sync_repo] started repo_id={repo_id}");
+        tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "sync_repo.started");
 
         // Atomically acquire sync lock — prevents concurrent syncs
         let acquired = self.repo.try_acquire_sync_lock(repo_id).await?;
         if !acquired {
             tracing::warn!(
-                "[GitSyncService::sync_repo] concurrent sync attempted repo_id={repo_id}"
+                component = "git_sync/service",
+                git_repo_id = %repo_id,
+                "sync_repo.concurrent_sync_attempted"
             );
             return Ok(SyncStatusResponse {
                 repo_id,
@@ -187,7 +201,12 @@ impl GitSyncService {
             Ok(r) => r,
             Err(e) => {
                 let msg = format!("Failed to fetch repo metadata: {e}");
-                tracing::error!("[GitSyncService::sync_repo] {msg} repo_id={repo_id}");
+                tracing::error!(
+                    component = "git_sync/service",
+                    error = %msg,
+                    git_repo_id = %repo_id,
+                    "sync_repo.fetch_metadata_failed"
+                );
                 self.repo.mark_sync_error(repo_id, &msg).await?;
                 return Ok(SyncStatusResponse {
                     repo_id,
@@ -207,11 +226,11 @@ impl GitSyncService {
         let local_path = self.clone_root.join(repo_id.to_string());
 
         let result = if git_repo.last_commit_hash.is_none() {
-            tracing::info!("[GitSyncService::sync_repo] full clone mode repo_id={repo_id}");
+            tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "sync_repo.full_clone_mode");
             self.full_sync(&git_repo, &local_path, &collection_name)
                 .await
         } else {
-            tracing::info!("[GitSyncService::sync_repo] incremental sync mode repo_id={repo_id}");
+            tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "sync_repo.incremental_sync_mode");
             self.incremental_sync(&git_repo, &local_path, &collection_name)
                 .await
         };
@@ -224,8 +243,11 @@ impl GitSyncService {
                     .await?;
 
                 tracing::info!(
-                    "[GitSyncService::sync_repo] completed repo_id={repo_id} \
-                     files={files_indexed} chunks={chunks_total}"
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    files_indexed = files_indexed,
+                    chunks_total = chunks_total,
+                    "sync_repo.completed"
                 );
 
                 Ok(SyncStatusResponse {
@@ -240,7 +262,10 @@ impl GitSyncService {
             Err(e) => {
                 let error_msg = e.to_string();
                 tracing::error!(
-                    "[GitSyncService::sync_repo] failed repo_id={repo_id} error={error_msg}"
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    error = %error_msg,
+                    "sync_repo.failed"
                 );
                 // `mark_sync_error` only sets status to "error" without
                 // overwriting last_commit_hash, preserving it for future syncs.
@@ -271,9 +296,12 @@ impl GitSyncService {
         let local_path = self.clone_root.join(repo_id.to_string());
 
         tracing::info!(
-            "[GitSyncService::clone_repo] starting repo_id={repo_id} branch={branch} \
-             url={redacted_url} local_path={:?}",
-            local_path
+            component = "git_sync/service",
+            git_repo_id = %repo_id,
+            branch = %branch,
+            repo_url = %redacted_url,
+            local_path = %local_path.display(),
+            "clone_repo.starting"
         );
 
         let local_path_clone = local_path.clone();
@@ -287,19 +315,25 @@ impl GitSyncService {
 
             builder.clone(&clone_url, &local_path_clone).map_err(|e| {
                 tracing::error!(
-                    "[GitSyncService::clone_repo] clone failed repo_id={repo_id} error={e}",
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    error = %e,
+                    "clone_repo.failed"
                 );
                 AppError::InternalError(format!("Failed to clone repository: {e}"))
             })?;
 
-            tracing::debug!("[GitSyncService::clone_repo] clone completed repo_id={repo_id}",);
+            tracing::debug!(component = "git_sync/service", git_repo_id = %repo_id, "clone_repo.completed");
 
             Ok::<PathBuf, AppError>(local_path_clone)
         })
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitSyncService::clone_repo] spawn_blocking panicked repo_id={repo_id} error={e}",
+                component = "git_sync/service",
+                git_repo_id = %repo_id,
+                error = %e,
+                "clone_repo.spawn_blocking_panicked"
             );
             AppError::InternalError(format!("Clone task failed: {e}"))
         })??;
@@ -322,15 +356,19 @@ impl GitSyncService {
         let pull_url = Self::inject_token(repo_url, access_token);
 
         tracing::debug!(
-            "[GitSyncService::pull_repo] starting local_path={:?} branch={branch}",
-            local_path
+            component = "git_sync/service",
+            local_path = %local_path.display(),
+            branch = %branch,
+            "pull_repo.starting"
         );
 
         tokio::task::spawn_blocking(move || {
             let repo = git2::Repository::open(&local_path).map_err(|e| {
                 tracing::error!(
-                    "[GitSyncService::pull_repo] open failed local_path={:?} error={e}",
-                    local_path
+                    component = "git_sync/service",
+                    local_path = %local_path.display(),
+                    error = %e,
+                    "pull_repo.open_failed"
                 );
                 AppError::InternalError(format!("Failed to open repository: {e}"))
             })?;
@@ -345,7 +383,7 @@ impl GitSyncService {
 
             // Set authenticated remote URL for fetch
             repo.remote_set_url("origin", &pull_url).map_err(|e| {
-                tracing::error!("[GitSyncService::pull_repo] set remote URL failed error={e}");
+                tracing::error!(component = "git_sync/service", error = %e, "pull_repo.set_remote_url_failed");
                 AppError::InternalError(format!("Failed to set remote URL: {e}"))
             })?;
 
@@ -356,8 +394,10 @@ impl GitSyncService {
                 .and_then(|mut remote| remote.fetch(&[&branch], Some(&mut fetch_opts), None))
                 .map_err(|e| {
                     tracing::error!(
-                        "[GitSyncService::pull_repo] fetch failed local_path={:?} error={e}",
-                        local_path
+                        component = "git_sync/service",
+                        local_path = %local_path.display(),
+                        error = %e,
+                        "pull_repo.fetch_failed"
                     );
                     AppError::InternalError(format!("Failed to fetch from remote: {e}"))
                 })?;
@@ -385,15 +425,17 @@ impl GitSyncService {
             }
 
             tracing::debug!(
-                "[GitSyncService::pull_repo] completed old_commit={old_commit} \
-                 new_commit={new_commit}"
+                component = "git_sync/service",
+                old_commit = %old_commit,
+                new_commit = %new_commit,
+                "pull_repo.completed"
             );
 
             Ok((old_commit, new_commit))
         })
         .await
         .map_err(|e| {
-            tracing::error!("[GitSyncService::pull_repo] spawn_blocking panicked error={e}");
+            tracing::error!(component = "git_sync/service", error = %e, "pull_repo.spawn_blocking_panicked");
             AppError::InternalError(format!("Pull task failed: {e}"))
         })?
     }
@@ -410,14 +452,16 @@ impl GitSyncService {
         let new_commit = new_commit.to_string();
 
         tracing::debug!(
-            "[GitSyncService::get_changed_files] local_path={:?} \
-             old={old_commit} new={new_commit}",
-            local_path
+            component = "git_sync/service",
+            local_path = %local_path.display(),
+            old_commit = %old_commit,
+            new_commit = %new_commit,
+            "get_changed_files"
         );
 
         tokio::task::spawn_blocking(move || {
             let repo = git2::Repository::open(&local_path).map_err(|e| {
-                tracing::error!("[GitSyncService::get_changed_files] open failed error={e}");
+                tracing::error!(component = "git_sync/service", error = %e, "get_changed_files.open_failed");
                 AppError::InternalError(format!("Failed to open repository: {e}"))
             })?;
 
@@ -462,8 +506,9 @@ impl GitSyncService {
             .map_err(|e| AppError::InternalError(format!("Failed to iterate diff: {e}")))?;
 
             tracing::debug!(
-                "[GitSyncService::get_changed_files] found {} changed .md files",
-                changed_files.len()
+                component = "git_sync/service",
+                count = changed_files.len(),
+                "get_changed_files.found"
             );
 
             Ok(changed_files)
@@ -471,7 +516,9 @@ impl GitSyncService {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitSyncService::get_changed_files] spawn_blocking panicked error={e}"
+                component = "git_sync/service",
+                error = %e,
+                "get_changed_files.spawn_blocking_panicked"
             );
             AppError::InternalError(format!("Diff task failed: {e}"))
         })?
@@ -490,9 +537,10 @@ impl GitSyncService {
         let filter: Option<Vec<String>> = filter.map(|f| f.to_vec());
 
         tracing::debug!(
-            "[GitSyncService::parse_markdown_files] entry dir={:?} filter={}",
-            dir,
-            if filter.is_some() { "provided" } else { "none" }
+            component = "git_sync/service",
+            dir = %dir.display(),
+            filter = if filter.is_some() { "provided" } else { "none" },
+            "parse_markdown_files.entry"
         );
 
         tokio::task::spawn_blocking(move || {
@@ -534,9 +582,10 @@ impl GitSyncService {
                 if let Ok(metadata) = path.metadata() {
                     if metadata.len() > MAX_MD_FILE_SIZE {
                         tracing::warn!(
-                            "[GitSyncService::parse_markdown_files] skipped large file \
-                             path={rel_path} size={}",
-                            metadata.len()
+                            component = "git_sync/service",
+                            file_name = %rel_path,
+                            file_size = metadata.len(),
+                            "parse_markdown_files.skipped_large_file"
                         );
                         skipped += 1;
                         continue;
@@ -550,8 +599,10 @@ impl GitSyncService {
                     }
                     Err(e) => {
                         tracing::warn!(
-                            "[GitSyncService::parse_markdown_files] skipped non-UTF-8 file \
-                             path={rel_path} error={e}"
+                            component = "git_sync/service",
+                            file_name = %rel_path,
+                            error = %e,
+                            "parse_markdown_files.skipped_non_utf8"
                         );
                         skipped += 1;
                         continue;
@@ -560,9 +611,10 @@ impl GitSyncService {
             } // end for loop
 
             tracing::debug!(
-                "[GitSyncService::parse_markdown_files] found {} .md files, skipped {} files",
-                files.len(),
-                skipped
+                component = "git_sync/service",
+                files_found = files.len(),
+                files_skipped = skipped,
+                "parse_markdown_files.completed"
             );
 
             Ok(files)
@@ -570,7 +622,9 @@ impl GitSyncService {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitSyncService::parse_markdown_files] spawn_blocking panicked error={e}"
+                component = "git_sync/service",
+                error = %e,
+                "parse_markdown_files.spawn_blocking_panicked"
             );
             AppError::InternalError(format!("Parse task failed: {e}"))
         })?
@@ -591,9 +645,11 @@ impl GitSyncService {
         files: &[(String, String)],
     ) -> Result<(usize, usize), AppError> {
         tracing::info!(
-            "[GitSyncService::index_chunks] entry collection={collection_name} \
-             repo_id={repo_id} files={}",
-            files.len()
+            component = "git_sync/service",
+            collection = %collection_name,
+            git_repo_id = %repo_id,
+            files_count = files.len(),
+            "index_chunks.entry"
         );
 
         let chroma = ChromaClient::new(&self.chroma_url);
@@ -614,8 +670,12 @@ impl GitSyncService {
                 .await
             {
                 tracing::warn!(
-                    "[GitSyncService::index_chunks] failed to delete old chunks \
-                     doc_id={doc_id} collection={collection_name} repo_id={repo_id} error={e}"
+                    component = "git_sync/service",
+                    doc_id = %doc_id,
+                    collection = %collection_name,
+                    git_repo_id = %repo_id,
+                    error = %e,
+                    "index_chunks.delete_old_chunks_failed"
                 );
             }
 
@@ -634,8 +694,11 @@ impl GitSyncService {
                 .await
                 .map_err(|e| {
                     tracing::error!(
-                        "[GitSyncService::index_chunks] embedding failed repo_id={repo_id} \
-                         file={file_path} error={e}"
+                        component = "git_sync/service",
+                        git_repo_id = %repo_id,
+                        file_name = %file_path,
+                        error = %e,
+                        "index_chunks.embedding_failed"
                     );
                     e
                 })?;
@@ -663,8 +726,10 @@ impl GitSyncService {
         // Send all embeddings to Chroma in one batch
         if !all_ids.is_empty() {
             tracing::debug!(
-                "[GitSyncService::index_chunks] sending {} chunks to Chroma collection={collection_name}",
-                all_ids.len()
+                component = "git_sync/service",
+                chunk_count = all_ids.len(),
+                collection = %collection_name,
+                "index_chunks.sending_to_chroma"
             );
 
             chroma
@@ -672,15 +737,21 @@ impl GitSyncService {
                 .await
                 .map_err(|e| {
                     tracing::error!(
-                        "[GitSyncService::index_chunks] Chroma add_embeddings failed \
-                         collection={collection_name} repo_id={repo_id} error={e}"
+                        component = "git_sync/service",
+                        collection = %collection_name,
+                        git_repo_id = %repo_id,
+                        error = %e,
+                        "index_chunks.chroma_add_failed"
                     );
                     e
                 })?;
         }
 
         tracing::info!(
-            "[GitSyncService::index_chunks] completed files={files_indexed} chunks={chunks_total}"
+            component = "git_sync/service",
+            files_indexed = files_indexed,
+            chunks_total = chunks_total,
+            "index_chunks.completed"
         );
 
         Ok((files_indexed, chunks_total))
@@ -691,28 +762,32 @@ impl GitSyncService {
         let local_path = self.clone_root.join(repo_id.to_string());
 
         tracing::info!(
-            "[GitSyncService::delete_repo_local] deleting local clone repo_id={repo_id} \
-             path={:?}",
-            local_path
+            component = "git_sync/service",
+            git_repo_id = %repo_id,
+            local_path = %local_path.display(),
+            "delete_repo_local.deleting"
         );
 
         tokio::task::spawn_blocking(move || {
             if local_path.exists() {
                 std::fs::remove_dir_all(&local_path).map_err(|e| {
                     tracing::error!(
-                        "[GitSyncService::delete_repo_local] failed repo_id={repo_id} \
-                         path={:?} error={e}",
-                        local_path,
+                        component = "git_sync/service",
+                        git_repo_id = %repo_id,
+                        local_path = %local_path.display(),
+                        error = %e,
+                        "delete_repo_local.failed"
                     );
                     AppError::InternalError(format!("Failed to remove local clone directory: {e}"))
                 })?;
 
-                tracing::debug!("[GitSyncService::delete_repo_local] removed repo_id={repo_id}");
+                tracing::debug!(component = "git_sync/service", git_repo_id = %repo_id, "delete_repo_local.removed");
             } else {
                 tracing::debug!(
-                    "[GitSyncService::delete_repo_local] clone directory not found \
-                     repo_id={repo_id} path={:?}",
-                    local_path
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    local_path = %local_path.display(),
+                    "delete_repo_local.not_found"
                 );
             }
             Ok(())
@@ -720,7 +795,9 @@ impl GitSyncService {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitSyncService::delete_repo_local] spawn_blocking panicked error={e}"
+                component = "git_sync/service",
+                error = %e,
+                "delete_repo_local.spawn_blocking_panicked"
             );
             AppError::InternalError(format!("Delete local repo task failed: {e}"))
         })?
@@ -731,7 +808,7 @@ impl GitSyncService {
     /// Uses Chroma's `where` filter to remove only git-sourced chunks from the
     /// collection, preserving any manually uploaded documents in the same collection.
     pub async fn delete_repo_and_cleanup(&self, repo_id: Uuid) -> Result<(), AppError> {
-        tracing::info!("[GitSyncService::delete_repo_and_cleanup] starting repo_id={repo_id}");
+        tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "delete_repo_and_cleanup.starting");
 
         // Get repo to know the collection name
         let git_repo = self.repo.get_repo(repo_id).await?;
@@ -749,8 +826,11 @@ impl GitSyncService {
         });
         if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
             tracing::warn!(
-                "[GitSyncService::delete_repo_and_cleanup] failed to delete Chroma \
-                             entries for repo_id={repo_id} in collection {collection_name}: {e}"
+                component = "git_sync/service",
+                git_repo_id = %repo_id,
+                collection_name = %collection_name,
+                error = %e,
+                "delete_repo_and_cleanup.chroma_delete_failed"
             );
         }
 
@@ -760,7 +840,7 @@ impl GitSyncService {
         // 3. Delete PostgreSQL row
         self.repo.delete_repo(repo_id).await?;
 
-        tracing::info!("[GitSyncService::delete_repo_and_cleanup] completed repo_id={repo_id}");
+        tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "delete_repo_and_cleanup.completed");
 
         Ok(())
     }
@@ -803,8 +883,9 @@ impl GitSyncService {
 
         if files.is_empty() {
             tracing::info!(
-                "[GitSyncService::full_sync] no .md files found repo_id={}",
-                git_repo.id
+                component = "git_sync/service",
+                git_repo_id = %git_repo.id,
+                "full_sync.no_md_files"
             );
             return Ok((head_commit, 0, 0));
         }
@@ -837,8 +918,9 @@ impl GitSyncService {
         // If no new commits, return early
         if old_commit == new_commit {
             tracing::debug!(
-                "[GitSyncService::incremental_sync] no new commits repo_id={}",
-                git_repo.id
+                component = "git_sync/service",
+                git_repo_id = %git_repo.id,
+                "incremental_sync.no_new_commits"
             );
             return Ok((new_commit, 0, 0));
         }
@@ -850,8 +932,9 @@ impl GitSyncService {
 
         if changed_files.is_empty() {
             tracing::debug!(
-                "[GitSyncService::incremental_sync] no changed .md files repo_id={}",
-                git_repo.id
+                component = "git_sync/service",
+                git_repo_id = %git_repo.id,
+                "incremental_sync.no_changed_files"
             );
             return Ok((new_commit, 0, 0));
         }

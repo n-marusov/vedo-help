@@ -33,14 +33,16 @@ pub async fn create_repo(
     }
 
     tracing::info!(
-        "[handler::create_repo] url={} collection_id={}",
-        &req.url,
-        req.collection_id
+        component = "git_sync/handlers",
+        repo_url = %req.url,
+        collection_id = %req.collection_id,
+        "create_repo.creating"
     );
     tracing::debug!(
-        "[handler::create_repo] branch={:?} has_token={}",
-        req.branch,
-        req.access_token.is_some()
+        component = "git_sync/handlers",
+        branch = %req.branch.as_deref().unwrap_or("none"),
+        has_token = req.access_token.is_some(),
+        "create_repo.params"
     );
 
     let id = Uuid::new_v4();
@@ -67,7 +69,7 @@ pub async fn create_repo(
     };
 
     svc.repo.create_repo(&repo).await.map_err(|e| {
-        tracing::error!("[handler::create_repo] failed repo_id={id} error={e}");
+        tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "create_repo.failed");
         e
     })?;
 
@@ -77,12 +79,15 @@ pub async fn create_repo(
         .await
         .map_err(|e| {
             tracing::error!(
-                "[handler::create_repo] failed to fetch summary repo_id={id} error={e}"
+                component = "git_sync/handlers",
+                git_repo_id = %id,
+                error = %e,
+                "create_repo.fetch_summary.failed"
             );
             e
         })?;
 
-    tracing::info!("[handler::create_repo] created repo_id={id}");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "create_repo.created");
     Ok(Json(summary))
 }
 
@@ -92,18 +97,22 @@ pub async fn create_repo(
 pub async fn list_repos(
     State(svc): State<GitSyncService>,
 ) -> Result<Json<Vec<GitRepoSummary>>, AppError> {
-    tracing::info!("[handler::list_repos]");
+    tracing::info!(component = "git_sync/handlers", "list_repos");
 
     let repos = svc
         .repo
         .list_repos_with_collection_names()
         .await
         .map_err(|e| {
-            tracing::error!("[handler::list_repos] failed error={e}");
+            tracing::error!(component = "git_sync/handlers", error = %e, "list_repos.failed");
             e
         })?;
 
-    tracing::debug!("[handler::list_repos] count={}", repos.len());
+    tracing::debug!(
+        component = "git_sync/handlers",
+        count = repos.len(),
+        "list_repos.result"
+    );
     Ok(Json(repos))
 }
 
@@ -114,14 +123,14 @@ pub async fn get_repo(
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<GitRepoSummary>, AppError> {
-    tracing::info!("[handler::get_repo] repo_id={id}");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "get_repo");
 
     let summary = svc
         .repo
         .get_repo_with_collection_name(id)
         .await
         .map_err(|e| {
-            tracing::error!("[handler::get_repo] failed repo_id={id} error={e}");
+            tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "get_repo.failed");
             e
         })?;
 
@@ -139,18 +148,20 @@ pub async fn trigger_sync(
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<SyncStatusResponse>, AppError> {
-    tracing::info!("[handler::trigger_sync] repo_id={id}");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "trigger_sync");
 
     let response = svc.sync_repo(id).await.map_err(|e| {
-        tracing::error!("[handler::trigger_sync] failed repo_id={id} error={e}");
+        tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "trigger_sync.failed");
         e
     })?;
 
     tracing::info!(
-        "[handler::trigger_sync] completed repo_id={id} status={} files={} chunks={}",
-        response.status,
-        response.files_indexed,
-        response.chunks_total
+        component = "git_sync/handlers",
+        git_repo_id = %id,
+        status = %response.status,
+        files_indexed = response.files_indexed,
+        chunks_total = response.chunks_total,
+        "trigger_sync.completed"
     );
     Ok(Json(response))
 }
@@ -165,17 +176,19 @@ pub async fn get_sync_status(
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<SyncStatusResponse>, AppError> {
-    tracing::info!("[handler::get_sync_status] repo_id={id}");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "get_sync_status");
 
     let repo = svc.repo.get_repo(id).await.map_err(|e| {
-        tracing::error!("[handler::get_sync_status] failed repo_id={id} error={e}");
+        tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "get_sync_status.failed");
         e
     })?;
 
     tracing::debug!(
-        "[handler::get_sync_status] repo_id={id} status={} commit={:?}",
-        repo.status,
-        repo.last_commit_hash
+        component = "git_sync/handlers",
+        git_repo_id = %id,
+        status = %repo.status,
+        commit = %repo.last_commit_hash.as_deref().unwrap_or("none"),
+        "get_sync_status.result"
     );
 
     Ok(Json(SyncStatusResponse {
@@ -198,14 +211,14 @@ pub async fn delete_repo(
     State(svc): State<GitSyncService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!("[handler::delete_repo] repo_id={id}");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "delete_repo");
 
     svc.delete_repo_and_cleanup(id).await.map_err(|e| {
-        tracing::error!("[handler::delete_repo] failed repo_id={id} error={e}");
+        tracing::error!(component = "git_sync/handlers", git_repo_id = %id, error = %e, "delete_repo.failed");
         e
     })?;
 
-    tracing::info!("[handler::delete_repo] deleted repo_id={id}");
+    tracing::info!(component = "git_sync/handlers", git_repo_id = %id, "delete_repo.deleted");
     Ok(Json(json!({"status": "deleted", "id": id})))
 }
 
@@ -222,11 +235,11 @@ pub async fn webhook(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!("[handler::webhook] received event");
+    tracing::info!(component = "git_sync/handlers", "webhook.received");
 
     // Parse the raw body as a generic JSON value first to extract repo_id
     let payload: serde_json::Value = serde_json::from_slice(&body).map_err(|e| {
-        tracing::warn!("[handler::webhook] invalid JSON body: {e}");
+        tracing::warn!(component = "git_sync/handlers", error = %e, "webhook.invalid_json");
         AppError::BadRequest(format!("Invalid JSON body: {e}"))
     })?;
 
@@ -235,12 +248,12 @@ pub async fn webhook(
         .get("repo_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            tracing::warn!("[handler::webhook] missing repo_id in payload");
+            tracing::warn!(component = "git_sync/handlers", "webhook.missing_repo_id");
             AppError::BadRequest("Missing repo_id in payload".to_string())
         })?;
 
     let repo_id: Uuid = repo_id_str.parse().map_err(|e| {
-        tracing::warn!("[handler::webhook] invalid repo_id format: {e}");
+        tracing::warn!(component = "git_sync/handlers", error = %e, "webhook.invalid_repo_id");
         AppError::BadRequest(format!("Invalid repo_id: {e}"))
     })?;
 
@@ -248,7 +261,7 @@ pub async fn webhook(
     let repo = match svc.repo.get_repo(repo_id).await {
         Ok(r) => r,
         Err(AppError::NotFound(_)) => {
-            tracing::warn!("[handler::webhook] repo not found repo_id={repo_id}");
+            tracing::warn!(component = "git_sync/handlers", git_repo_id = %repo_id, "webhook.repo_not_found");
             return Err(AppError::NotFound(format!(
                 "Git repository {repo_id} not found"
             )));
@@ -282,9 +295,10 @@ pub async fn webhook(
 
     if !is_push {
         tracing::debug!(
-            "[handler::webhook] ignored non-push event gh={:?} gl={:?}",
-            gh_event,
-            gl_event
+            component = "git_sync/handlers",
+            gh_event = %gh_event.as_deref().unwrap_or("none"),
+            gl_event = %gl_event.as_deref().unwrap_or("none"),
+            "webhook.non_push_event"
         );
         return Ok(Json(
             json!({"status": "skipped", "reason": "non-push event"}),
@@ -303,7 +317,9 @@ pub async fn webhook(
                 match signature {
                     Some(sig) if !verify_hmac_signature(&body, secret, &sig) => {
                         tracing::warn!(
-                            "[handler::webhook] GitHub HMAC signature mismatch repo_id={repo_id}"
+                            component = "git_sync/handlers",
+                            git_repo_id = %repo_id,
+                            "webhook.github_signature_mismatch"
                         );
                         return Err(AppError::Unauthorized(
                             "Invalid webhook signature".to_string(),
@@ -311,12 +327,16 @@ pub async fn webhook(
                     }
                     Some(_) => {
                         tracing::debug!(
-                            "[handler::webhook] GitHub HMAC signature valid repo_id={repo_id}"
+                            component = "git_sync/handlers",
+                            git_repo_id = %repo_id,
+                            "webhook.github_signature_valid"
                         );
                     }
                     None => {
                         tracing::warn!(
-                            "[handler::webhook] missing X-Hub-Signature-256 repo_id={repo_id}"
+                            component = "git_sync/handlers",
+                            git_repo_id = %repo_id,
+                            "webhook.missing_github_signature"
                         );
                         return Err(AppError::Unauthorized(
                             "Missing webhook signature".to_string(),
@@ -333,16 +353,20 @@ pub async fn webhook(
                 match token {
                     Some(t) if t != *secret => {
                         tracing::warn!(
-                            "[handler::webhook] GitLab token mismatch repo_id={repo_id}"
+                            component = "git_sync/handlers",
+                            git_repo_id = %repo_id,
+                            "webhook.gitlab_token_mismatch"
                         );
                         return Err(AppError::Unauthorized("Invalid webhook token".to_string()));
                     }
                     Some(_) => {
-                        tracing::debug!("[handler::webhook] GitLab token valid repo_id={repo_id}");
+                        tracing::debug!(component = "git_sync/handlers", git_repo_id = %repo_id, "webhook.gitlab_token_valid");
                     }
                     None => {
                         tracing::warn!(
-                            "[handler::webhook] missing X-Gitlab-Token repo_id={repo_id}"
+                            component = "git_sync/handlers",
+                            git_repo_id = %repo_id,
+                            "webhook.missing_gitlab_token"
                         );
                         return Err(AppError::Unauthorized("Missing webhook token".to_string()));
                     }
@@ -350,13 +374,17 @@ pub async fn webhook(
             }
             _ => {
                 tracing::warn!(
-                    "[handler::webhook] unknown event source, accepting raw payload repo_id={repo_id}"
+                    component = "git_sync/handlers",
+                    git_repo_id = %repo_id,
+                    "webhook.unknown_event_source"
                 );
             }
         }
     } else {
         tracing::warn!(
-            "[handler::webhook] no webhook_secret configured repo_id={repo_id}, accepting raw payload"
+            component = "git_sync/handlers",
+            git_repo_id = %repo_id,
+            "webhook.no_secret"
         );
     }
 
@@ -373,8 +401,11 @@ pub async fn webhook(
     // Check if the branch matches the repo's configured branch
     if !ref_branch.is_empty() && ref_branch != repo.branch {
         tracing::info!(
-            "[handler::webhook] branch mismatch repo_id={repo_id} got={ref_branch} expected={}",
-            repo.branch
+            component = "git_sync/handlers",
+            git_repo_id = %repo_id,
+            branch = %ref_branch,
+            expected_branch = %repo.branch,
+            "webhook.branch_mismatch"
         );
         return Ok(Json(json!({
             "status": "skipped",
@@ -383,14 +414,18 @@ pub async fn webhook(
     }
 
     tracing::info!(
-        "[handler::webhook] triggering sync repo_id={repo_id} ref={ref_name} source={event_source}"
+        component = "git_sync/handlers",
+        git_repo_id = %repo_id,
+        ref_name = %ref_name,
+        source = %event_source,
+        "webhook.triggering_sync"
     );
 
     // Spawn async sync task and return 202 Accepted
     let svc_clone = svc.clone();
     tokio::spawn(async move {
         if let Err(e) = svc_clone.sync_repo(repo_id).await {
-            tracing::error!("[handler::webhook] sync failed repo_id={repo_id} error={e}");
+            tracing::error!(component = "git_sync/handlers", git_repo_id = %repo_id, error = %e, "webhook.sync_failed");
         }
     });
 
@@ -405,14 +440,17 @@ fn verify_hmac_signature(body: &[u8], secret: &str, signature_header: &str) -> b
     // Extract the hex digest from the header value (strip "sha256=" prefix)
     let expected_digest = signature_header.strip_prefix("sha256=").unwrap_or("");
     if expected_digest.is_empty() {
-        tracing::warn!("[verify_hmac_signature] invalid signature header format");
+        tracing::warn!(
+            component = "git_sync/handlers",
+            "webhook.verify_hmac.invalid_header_format"
+        );
         return false;
     }
 
     let mut mac = match Hmac::<Sha256>::new_from_slice(secret.as_bytes()) {
         Ok(m) => m,
         Err(e) => {
-            tracing::error!("[verify_hmac_signature] failed to create HMAC: {e}");
+            tracing::error!(component = "git_sync/handlers", error = %e, "webhook.verify_hmac.create_failed");
             return false;
         }
     };
@@ -427,7 +465,7 @@ fn verify_hmac_signature(body: &[u8], secret: &str, signature_header: &str) -> b
     let expected_bytes = match hex::decode(expected_digest) {
         Ok(b) => b,
         Err(e) => {
-            tracing::warn!("[verify_hmac_signature] invalid hex digest: {e}");
+            tracing::warn!(component = "git_sync/handlers", error = %e, "webhook.verify_hmac.invalid_hex_digest");
             return false;
         }
     };

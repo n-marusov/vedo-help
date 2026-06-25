@@ -26,9 +26,10 @@ pub async fn query_handler(
     Json(request): Json<QueryRequest>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
     tracing::info!(
-        "Query handler invoked: collection={}, query_len={}",
-        request.collection_id,
-        request.query.len()
+        component = "query/handlers",
+        collection_id = %request.collection_id,
+        query_length = request.query.len(),
+        "query.handler.invoked"
     );
 
     let event_stream = svc.process_query(request).await?;

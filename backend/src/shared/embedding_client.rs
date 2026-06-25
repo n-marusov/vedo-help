@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use opentelemetry::trace::TraceContextExt;
 use reqwest::Client;
 use serde_json::json;
 
@@ -18,6 +19,24 @@ pub struct EmbeddingClient {
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY_MS: u64 = 500;
 
+/// Inject OpenTelemetry trace context headers into a HeaderMap.
+///
+/// Returns an empty HeaderMap when there is no sampled span context.
+fn inject_trace_headers() -> reqwest::header::HeaderMap {
+    let cx = opentelemetry::Context::current();
+    let span = cx.span();
+    let span_context = span.span_context();
+    if span_context.is_sampled() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        opentelemetry::global::get_text_map_propagator(|propagator| {
+            propagator.inject(&mut opentelemetry_http::HeaderInjector(&mut headers))
+        });
+        headers
+    } else {
+        reqwest::header::HeaderMap::new()
+    }
+}
+
 impl EmbeddingClient {
     /// Create a new embedding client pointing at the given base URL.
     pub fn new(base_url: &str) -> Self {
@@ -26,7 +45,7 @@ impl EmbeddingClient {
             .build()
             .expect("Failed to create HTTP client for embedding service");
 
-        tracing::debug!("Embedding client initialized: url={base_url}");
+        tracing::debug!(component = "embedding_client", url = %base_url, "client.initialized");
 
         Self {
             client,
@@ -39,9 +58,10 @@ impl EmbeddingClient {
     /// Retries on 5xx responses and connection errors up to `MAX_RETRIES` times.
     pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, AppError> {
         tracing::debug!(
-            "Embedding request: count={}, chars={}",
-            texts.len(),
-            texts.iter().map(|t| t.len()).sum::<usize>()
+            component = "embedding_client",
+            text_count = texts.len(),
+            total_chars = texts.iter().map(|t| t.len()).sum::<usize>(),
+            "embed.request"
         );
 
         let body = json!({ "texts": &texts });
@@ -52,15 +72,20 @@ impl EmbeddingClient {
             match self.try_embed(&url, &body).await {
                 Ok(embeddings) => {
                     tracing::debug!(
-                        "Embedding response: count={}, dim={}",
-                        embeddings.len(),
-                        embeddings.first().map(|v| v.len()).unwrap_or(0)
+                        component = "embedding_client",
+                        count = embeddings.len(),
+                        dimension = embeddings.first().map(|v| v.len()).unwrap_or(0),
+                        "embed.response"
                     );
                     return Ok(embeddings);
                 }
                 Err(e) => {
                     tracing::warn!(
-                        "Embedding request failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                        component = "embedding_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "embed.retry"
                     );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
@@ -80,9 +105,16 @@ impl EmbeddingClient {
         url: &str,
         body: &serde_json::Value,
     ) -> Result<Vec<Vec<f32>>, AppError> {
-        let response = self.client.post(url).json(body).send().await.map_err(|e| {
-            AppError::EmbeddingError(format!("Connection to embedding service failed: {e}"))
-        })?;
+        let response = self
+            .client
+            .post(url)
+            .headers(inject_trace_headers())
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| {
+                AppError::EmbeddingError(format!("Connection to embedding service failed: {e}"))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();

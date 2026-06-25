@@ -24,7 +24,7 @@ impl CollectionService {
         &self,
         req: CreateCollectionRequest,
     ) -> Result<CollectionSummary, AppError> {
-        tracing::info!("Creating collection: {}", req.name);
+        tracing::info!(component = "collections/service", collection_name = %req.name, "collection.create");
 
         let name = req.name.trim().to_string();
         if name.is_empty() {
@@ -53,14 +53,12 @@ impl CollectionService {
         let chroma = ChromaClient::new(&self.chroma_url);
         if let Err(e) = chroma.create_collection(&id.to_string()).await {
             // Rollback PostgreSQL creation if Chroma fails
-            tracing::error!(
-                "Failed to create Chroma collection '{name}', rolling back PostgreSQL: {e}"
-            );
+            tracing::error!(component = "collections/service", collection_name = %name, error = %e, "collection.create.chroma_error");
             let _ = self.repo.delete_collection(id).await;
             return Err(e);
         }
 
-        tracing::info!("Collection created successfully: {id} ({name})");
+        tracing::info!(component = "collections/service", collection_id = %id, collection_name = %name, "collection.created");
 
         Ok(CollectionSummary {
             id,
@@ -72,7 +70,7 @@ impl CollectionService {
 
     /// List all collections.
     pub async fn list(&self) -> Result<Vec<CollectionSummary>, AppError> {
-        tracing::debug!("Listing all collections");
+        tracing::debug!(component = "collections/service", "collection.list");
 
         let collections = self.repo.list_collections().await?;
         let summaries: Vec<CollectionSummary> = collections
@@ -85,19 +83,23 @@ impl CollectionService {
             })
             .collect();
 
-        tracing::debug!("Returning {} collection summaries", summaries.len());
+        tracing::debug!(
+            component = "collections/service",
+            count = summaries.len(),
+            "collection.list.return"
+        );
         Ok(summaries)
     }
 
     /// Get a single collection by ID.
     pub async fn get(&self, id: Uuid) -> Result<Collection, AppError> {
-        tracing::debug!("Fetching collection: {id}");
+        tracing::debug!(component = "collections/service", collection_id = %id, "collection.get");
         self.repo.get_collection(id).await
     }
 
     /// Delete a collection. Removes from PostgreSQL and drops the Chroma collection.
     pub async fn delete(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!("Deleting collection: {id}");
+        tracing::info!(component = "collections/service", collection_id = %id, "collection.delete");
 
         // Get the collection first to know the name (for Chroma deletion)
         let collection = self.repo.get_collection(id).await?;
@@ -109,13 +111,10 @@ impl CollectionService {
         let chroma = ChromaClient::new(&self.chroma_url);
         if let Err(e) = chroma.delete_collection(&id.to_string()).await {
             // Log but don't fail — the PostgreSQL data is already cleaned up
-            tracing::warn!(
-                "Chroma collection '{name}' may still exist after PostgreSQL delete: {e}",
-                name = collection.name
-            );
+            tracing::warn!(component = "collections/service", collection_name = %collection.name, error = %e, "collection.delete.chroma_warning");
         }
 
-        tracing::info!("Collection deleted successfully: {id}");
+        tracing::info!(component = "collections/service", collection_id = %id, "collection.deleted");
         Ok(())
     }
 }

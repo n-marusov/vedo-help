@@ -13,7 +13,7 @@ pub async fn create(
     State(svc): State<CollectionService>,
     Json(req): Json<CreateCollectionRequest>,
 ) -> Result<Json<CollectionSummary>, AppError> {
-    tracing::info!("POST /api/collections — name={}", req.name);
+    tracing::info!(component = "collections/handlers", collection_name = %req.name, "collection.create");
     let summary = svc.create(req).await?;
     Ok(Json(summary))
 }
@@ -24,7 +24,7 @@ pub async fn create(
 pub async fn list(
     State(svc): State<CollectionService>,
 ) -> Result<Json<Vec<CollectionSummary>>, AppError> {
-    tracing::info!("GET /api/collections");
+    tracing::info!(component = "collections/handlers", "collection.list");
     let collections = svc.list().await?;
     Ok(Json(collections))
 }
@@ -36,7 +36,7 @@ pub async fn get(
     State(svc): State<CollectionService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Collection>, AppError> {
-    tracing::info!("GET /api/collections/{id}");
+    tracing::info!(component = "collections/handlers", collection_id = %id, "collection.get");
     let collection = svc.get(id).await?;
     Ok(Json(collection))
 }
@@ -48,7 +48,7 @@ pub async fn delete(
     State(svc): State<CollectionService>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    tracing::info!("DELETE /api/collections/{id}");
+    tracing::info!(component = "collections/handlers", collection_id = %id, "collection.delete");
     svc.delete(id).await?;
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
 }

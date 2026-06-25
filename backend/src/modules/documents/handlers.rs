@@ -30,7 +30,7 @@ pub async fn upload(
     State(svc): State<DocumentService>,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<UploadResponse>, AppError> {
-    tracing::info!("Document upload request received");
+    tracing::info!(component = "documents/handlers", "document.upload.request");
 
     let mut collection_id: Option<Uuid> = None;
     let mut filename: Option<String> = None;
@@ -57,10 +57,11 @@ pub async fn upload(
                     .await
                     .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
                 tracing::debug!(
-                    "Uploaded file: {name}, type={ct}, size={}",
-                    data.len(),
-                    name = filename.as_deref().unwrap_or("unknown"),
-                    ct = content_type.as_deref().unwrap_or(""),
+                    component = "documents/handlers",
+                    file_name = %filename.as_deref().unwrap_or("unknown"),
+                    content_type = %content_type.as_deref().unwrap_or(""),
+                    file_size = data.len(),
+                    "document.upload.file.received"
                 );
                 file_data = Some(data.to_vec());
             }
@@ -90,9 +91,10 @@ pub async fn upload(
         .await?;
 
     tracing::info!(
-        "Upload complete: doc_id={}, chunks={}",
-        response.document_id,
-        response.chunks_indexed
+        component = "documents/handlers",
+        document_id = %response.document_id,
+        chunk_count = response.chunks_indexed,
+        "document.upload.complete"
     );
 
     Ok(Json(response))
@@ -129,23 +131,29 @@ pub async fn delete_batch(
     Json(req): Json<BatchDeleteRequest>,
 ) -> Result<Json<BatchDeleteResponse>, AppError> {
     tracing::info!(
-        "[documents.delete_batch] bulk delete request received: count={count}",
-        count = req.ids.len()
+        component = "documents/handlers",
+        request_count = req.ids.len(),
+        "document.batch_delete.request"
     );
     tracing::debug!(
-        "[documents.delete_batch] requested document ids: {:?}",
-        req.ids
+        component = "documents/handlers",
+        document_ids = ?req.ids,
+        "document.batch_delete.ids"
     );
 
     if req.ids.is_empty() {
-        tracing::warn!("[documents.delete_batch] empty document id list rejected");
+        tracing::warn!(
+            component = "documents/handlers",
+            "document.batch_delete.empty_ids"
+        );
         return Err(AppError::BadRequest("No document IDs provided".to_string()));
     }
 
     let response = svc.delete_documents_batch(req.ids).await?;
     tracing::info!(
-        "[documents.delete_batch] bulk delete complete: deleted_count={deleted_count}",
-        deleted_count = response.deleted_count
+        component = "documents/handlers",
+        deleted_count = response.deleted_count,
+        "document.batch_delete.complete"
     );
 
     Ok(Json(response))
@@ -159,7 +167,7 @@ pub async fn reload(
     Path(id): Path<Uuid>,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<UploadResponse>, AppError> {
-    tracing::info!("Document reload request received for document: {id}");
+    tracing::info!(component = "documents/handlers", document_id = %id, "document.reload.request");
 
     let mut filename: Option<String> = None;
     let mut file_data: Option<Vec<u8>> = None;
@@ -177,9 +185,10 @@ pub async fn reload(
                 .await
                 .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
             tracing::debug!(
-                "Reload file: {}, size={}",
-                filename.as_deref().unwrap_or("unknown"),
-                data.len()
+                component = "documents/handlers",
+                file_name = %filename.as_deref().unwrap_or("unknown"),
+                file_size = data.len(),
+                "document.reload.file.received"
             );
             file_data = Some(data.to_vec());
         } else {
@@ -193,9 +202,10 @@ pub async fn reload(
     let response = svc.reload_document(&data, &filename, id).await?;
 
     tracing::info!(
-        "Reload complete: doc_id={}, chunks={}",
-        response.document_id,
-        response.chunks_indexed
+        component = "documents/handlers",
+        document_id = %response.document_id,
+        chunk_count = response.chunks_indexed,
+        "document.reload.complete"
     );
 
     Ok(Json(response))
@@ -208,7 +218,7 @@ pub async fn upload_zip(
     State(svc): State<DocumentService>,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<ZipUploadResponse>, AppError> {
-    tracing::info!("ZIP upload request received");
+    tracing::info!(component = "documents/handlers", "zip.upload.request");
 
     let mut collection_id: Option<Uuid> = None;
     let mut file_data: Option<Vec<u8>> = None;
@@ -225,7 +235,11 @@ pub async fn upload_zip(
                     .bytes()
                     .await
                     .map_err(|e| AppError::BadRequest(format!("Failed to read file data: {e}")))?;
-                tracing::debug!("ZIP file received: {} bytes", data.len());
+                tracing::debug!(
+                    component = "documents/handlers",
+                    file_size = data.len(),
+                    "zip.upload.file.received"
+                );
                 file_data = Some(data.to_vec());
             }
             "collection_id" => {
@@ -248,16 +262,19 @@ pub async fn upload_zip(
     let data = file_data.ok_or_else(|| AppError::BadRequest("No file provided".to_string()))?;
 
     tracing::info!(
-        "Processing ZIP upload for collection {collection_id}: {} bytes",
-        data.len()
+        component = "documents/handlers",
+        collection_id = %collection_id,
+        file_size = data.len(),
+        "zip.upload.processing"
     );
 
     let response = svc.process_zip_upload(&data, collection_id).await?;
 
     tracing::info!(
-        "ZIP upload complete: {processed}/{total} files",
-        processed = response.processed,
-        total = response.total_files
+        component = "documents/handlers",
+        processed_count = response.processed,
+        total_count = response.total_files,
+        "zip.upload.complete"
     );
 
     Ok(Json(response))

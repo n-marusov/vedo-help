@@ -2,11 +2,30 @@ use std::time::Duration;
 
 use futures::stream::{self, Stream};
 use futures::StreamExt;
+use opentelemetry::trace::TraceContextExt;
 use reqwest::Client;
 use serde_json::json;
 
 use crate::config::AppConfig;
 use crate::shared::error::AppError;
+
+/// Inject OpenTelemetry trace context headers into a HeaderMap.
+///
+/// Returns an empty HeaderMap when there is no sampled span context.
+fn inject_trace_headers() -> reqwest::header::HeaderMap {
+    let cx = opentelemetry::Context::current();
+    let span = cx.span();
+    let span_context = span.span_context();
+    if span_context.is_sampled() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        opentelemetry::global::get_text_map_propagator(|propagator| {
+            propagator.inject(&mut opentelemetry_http::HeaderInjector(&mut headers))
+        });
+        headers
+    } else {
+        reqwest::header::HeaderMap::new()
+    }
+}
 
 /// A chunk with document name for source attribution.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -51,7 +70,7 @@ impl LlmClient {
             .build()
             .expect("Failed to create HTTP client for LLM");
 
-        tracing::debug!("LLM client initialized: model={}", config.llm_model);
+        tracing::debug!(component = "llm", model = %config.llm_model, "client.initialized");
 
         Self {
             client,
@@ -84,10 +103,11 @@ impl LlmClient {
         let messages = self.build_messages(&context_str, prompt, conversation_history);
 
         tracing::debug!(
-            "LLM request: {} chunks, model={}, history_messages={}",
-            chunks.len(),
-            self.model,
-            conversation_history.len()
+            component = "llm",
+            chunk_count = chunks.len(),
+            model = %self.model,
+            history_messages = conversation_history.len(),
+            "query_stream.request"
         );
 
         let response = self.send_request_with_retry(&messages, true).await?;
@@ -213,7 +233,12 @@ impl LlmClient {
 
                     if status.as_u16() == 429 || status.is_server_error() {
                         tracing::warn!(
-                            "LLM request failed (attempt {attempt}/{MAX_RETRIES}): status={status}, body={body}"
+                            component = "llm",
+                            attempt = attempt,
+                            max_retries = MAX_RETRIES,
+                            status = %status,
+                            response_body = %body,
+                            "send_request.retry"
                         );
                         last_error = Some(AppError::LlmError(format!(
                             "LLM API returned {status}: {body}"
@@ -228,7 +253,13 @@ impl LlmClient {
                     }
                 }
                 Err(e) => {
-                    tracing::warn!("LLM request failed (attempt {attempt}/{MAX_RETRIES}): {e}");
+                    tracing::warn!(
+                        component = "llm",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "send_request.retry_connection"
+                    );
                     last_error = Some(AppError::LlmError(format!("Request failed: {e}")));
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -260,6 +291,7 @@ impl LlmClient {
             .post(format!("{}/chat/completions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
+            .headers(inject_trace_headers())
             .json(&body)
             .send()
             .await
@@ -288,10 +320,11 @@ impl LlmClient {
         let messages = self.build_messages(&context_str, prompt, conversation_history);
 
         tracing::debug!(
-            "LLM non-streaming request: {} chunks, model={}, history_messages={}",
-            chunks.len(),
-            self.model,
-            conversation_history.len()
+            component = "llm",
+            chunk_count = chunks.len(),
+            model = %self.model,
+            history_messages = conversation_history.len(),
+            "query_non_streaming.request"
         );
 
         let response = self

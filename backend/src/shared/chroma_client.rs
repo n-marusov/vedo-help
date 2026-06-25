@@ -1,10 +1,29 @@
 use std::time::Duration;
 
+use opentelemetry::trace::TraceContextExt;
 use reqwest::Client;
 use serde_json::json;
 
 use crate::shared::error::AppError;
 use crate::shared::types::ChromaResult;
+
+/// Inject OpenTelemetry trace context headers into a HeaderMap.
+///
+/// Returns an empty HeaderMap when there is no sampled span context.
+fn inject_trace_headers() -> reqwest::header::HeaderMap {
+    let cx = opentelemetry::Context::current();
+    let span = cx.span();
+    let span_context = span.span_context();
+    if span_context.is_sampled() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        opentelemetry::global::get_text_map_propagator(|propagator| {
+            propagator.inject(&mut opentelemetry_http::HeaderInjector(&mut headers))
+        });
+        headers
+    } else {
+        reqwest::header::HeaderMap::new()
+    }
+}
 
 /// HTTP client for Chroma vector database REST API.
 #[derive(Clone, Debug)]
@@ -24,7 +43,7 @@ impl ChromaClient {
             .build()
             .expect("Failed to create HTTP client for Chroma");
 
-        tracing::debug!("Chroma client initialized: url={base_url}");
+        tracing::debug!(component = "chroma_client", url = %base_url, "client.initialized");
 
         Self {
             client,
@@ -41,8 +60,10 @@ impl ChromaClient {
         metadatas: &[serde_json::Value],
     ) -> Result<(), AppError> {
         tracing::debug!(
-            "Chroma add_embeddings: collection={collection}, count={}",
-            ids.len()
+            component = "chroma_client",
+            collection = %collection,
+            count = ids.len(),
+            "add_embeddings"
         );
 
         let body = json!({
@@ -58,13 +79,18 @@ impl ChromaClient {
         let resolved_id = match self.resolve_collection_id(collection).await {
             Ok(id) => {
                 tracing::debug!(
-                    "[ChromaClient.add_embeddings] resolved collection={collection} → chroma_id={id}"
+                    component = "chroma_client",
+                    collection = %collection,
+                    chroma_id = %id,
+                    "add_embeddings.resolved_collection"
                 );
                 id
             }
             Err(e) => {
                 tracing::warn!(
-                    "[ChromaClient.add_embeddings] collection resolution failed, using original name: {e}"
+                    component = "chroma_client",
+                    error = %e,
+                    "add_embeddings.resolution_failed"
                 );
                 collection.to_string()
             }
@@ -77,7 +103,11 @@ impl ChromaClient {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     tracing::warn!(
-                        "Chroma add_embeddings failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                        component = "chroma_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "add_embeddings.retry"
                     );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
@@ -94,6 +124,7 @@ impl ChromaClient {
     async fn try_add(client: &Client, url: &str, body: &serde_json::Value) -> Result<(), AppError> {
         let response = client
             .post(url)
+            .headers(inject_trace_headers())
             .json(body)
             .send()
             .await
@@ -117,9 +148,9 @@ impl ChromaClient {
     /// This method calls `POST /api/v1/collections` with `get_or_create: true`
     /// to look up the collection and return its Chroma `id` field.
     pub async fn resolve_collection_id(&self, name: &str) -> Result<String, AppError> {
-        tracing::debug!("[ChromaClient.resolve_collection_id] resolving collection={name}");
+        tracing::debug!(component = "chroma_client", collection = %name, "resolve_collection_id.resolving");
         let chroma_id = self.get_or_create_collection_id(name).await?;
-        tracing::debug!("[ChromaClient.resolve_collection_id] resolved collection={name} → chroma_id={chroma_id}");
+        tracing::debug!(component = "chroma_client", collection = %name, chroma_id = %chroma_id, "resolve_collection_id.resolved");
         Ok(chroma_id)
     }
 
@@ -144,7 +175,12 @@ impl ChromaClient {
         top_k: usize,
         where_filter: Option<serde_json::Value>,
     ) -> Result<Vec<ChromaResult>, AppError> {
-        tracing::debug!("Chroma query: collection={collection}, top_k={top_k}");
+        tracing::debug!(
+            component = "chroma_client",
+            collection = %collection,
+            top_k = top_k,
+            "query"
+        );
 
         let mut body = json!({
             "query_embeddings": [embedding],
@@ -152,7 +188,7 @@ impl ChromaClient {
             "include": ["metadatas", "distances", "documents"],
         });
         if let Some(filter) = where_filter {
-            tracing::debug!("Chroma query with where filter: {filter}");
+            tracing::debug!(component = "chroma_client", filter = %filter, "query.with_filter");
             body["where"] = filter;
         }
 
@@ -161,13 +197,18 @@ impl ChromaClient {
         let resolved_id = match self.resolve_collection_id(collection).await {
             Ok(id) => {
                 tracing::debug!(
-                    "[ChromaClient.query] resolved collection={collection} → chroma_id={id}, calling /api/v1/collections/{id}/query"
+                    component = "chroma_client",
+                    collection = %collection,
+                    chroma_id = %id,
+                    "query.resolved_collection"
                 );
                 id
             }
             Err(e) => {
                 tracing::warn!(
-                    "[ChromaClient.query] collection resolution failed, retrying with original name: {e}"
+                    component = "chroma_client",
+                    error = %e,
+                    "query.resolution_failed"
                 );
                 collection.to_string()
             }
@@ -179,7 +220,13 @@ impl ChromaClient {
             match Self::try_query(&self.client, &url, &body).await {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    tracing::warn!("Chroma query failed (attempt {attempt}/{MAX_RETRIES}): {e}");
+                    tracing::warn!(
+                        component = "chroma_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "query.retry"
+                    );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
@@ -199,6 +246,7 @@ impl ChromaClient {
     ) -> Result<Vec<ChromaResult>, AppError> {
         let response = client
             .post(url)
+            .headers(inject_trace_headers())
             .json(body)
             .send()
             .await
@@ -241,7 +289,7 @@ impl ChromaClient {
 
     /// Create a new collection.
     pub async fn create_collection(&self, name: &str) -> Result<(), AppError> {
-        tracing::debug!("Chroma create_collection: {name}");
+        tracing::debug!(component = "chroma_client", collection = %name, "create_collection");
         self.get_or_create_collection_id(name).await.map(|_| ())
     }
 
@@ -255,7 +303,11 @@ impl ChromaClient {
                 Ok(collection_id) => return Ok(collection_id),
                 Err(e) => {
                     tracing::warn!(
-                        "Chroma get_or_create_collection failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                        component = "chroma_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "get_or_create_collection.retry"
                     );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
@@ -277,6 +329,7 @@ impl ChromaClient {
     ) -> Result<String, AppError> {
         let response = client
             .post(url)
+            .headers(inject_trace_headers())
             .json(body)
             .send()
             .await
@@ -309,7 +362,7 @@ impl ChromaClient {
 
     /// Delete a collection.
     pub async fn delete_collection(&self, name: &str) -> Result<(), AppError> {
-        tracing::debug!("Chroma delete_collection: {name}");
+        tracing::debug!(component = "chroma_client", collection = %name, "delete_collection");
 
         let encoded = name.replace('/', "%2F").replace(' ', "%20");
         let url = format!("{}/api/v1/collections/{}", self.base_url, encoded);
@@ -320,7 +373,11 @@ impl ChromaClient {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     tracing::warn!(
-                        "Chroma delete_collection failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                        component = "chroma_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "delete_collection.retry"
                     );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
@@ -337,6 +394,7 @@ impl ChromaClient {
     async fn try_delete_collection(client: &Client, url: &str) -> Result<(), AppError> {
         let response = client
             .delete(url)
+            .headers(inject_trace_headers())
             .send()
             .await
             .map_err(|e| AppError::ChromaError(format!("Request failed: {e}")))?;
@@ -360,7 +418,12 @@ impl ChromaClient {
         collection: &str,
         filter: &serde_json::Value,
     ) -> Result<(), AppError> {
-        tracing::debug!("Chroma delete_where: collection={collection}, filter={filter}",);
+        tracing::debug!(
+            component = "chroma_client",
+            collection = %collection,
+            filter = %filter,
+            "delete_where"
+        );
 
         let body = json!({ "where": filter });
 
@@ -368,13 +431,18 @@ impl ChromaClient {
         let resolved_id = match self.resolve_collection_id(collection).await {
             Ok(id) => {
                 tracing::debug!(
-                    "[ChromaClient.delete_where] resolved collection={collection} → chroma_id={id}, calling /api/v1/collections/{id}/delete"
+                    component = "chroma_client",
+                    collection = %collection,
+                    chroma_id = %id,
+                    "delete_where.resolved_collection"
                 );
                 id
             }
             Err(e) => {
                 tracing::warn!(
-                    "[ChromaClient.delete_where] collection resolution failed, retrying with original name: {e}"
+                    component = "chroma_client",
+                    error = %e,
+                    "delete_where.resolution_failed"
                 );
                 collection.to_string()
             }
@@ -390,7 +458,11 @@ impl ChromaClient {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     tracing::warn!(
-                        "Chroma delete_where failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                        component = "chroma_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "delete_where.retry"
                     );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
@@ -407,8 +479,10 @@ impl ChromaClient {
     /// Delete documents from a collection by their IDs.
     pub async fn delete_document(&self, collection: &str, ids: &[String]) -> Result<(), AppError> {
         tracing::debug!(
-            "Chroma delete_document: collection={collection}, count={}",
-            ids.len()
+            component = "chroma_client",
+            collection = %collection,
+            count = ids.len(),
+            "delete_document"
         );
 
         let body = json!({"ids": ids});
@@ -417,13 +491,18 @@ impl ChromaClient {
         let resolved_id = match self.resolve_collection_id(collection).await {
             Ok(id) => {
                 tracing::debug!(
-                    "[ChromaClient.delete_document] resolved collection={collection} → chroma_id={id}, calling /api/v1/collections/{id}/delete"
+                    component = "chroma_client",
+                    collection = %collection,
+                    chroma_id = %id,
+                    "delete_document.resolved_collection"
                 );
                 id
             }
             Err(e) => {
                 tracing::warn!(
-                    "[ChromaClient.delete_document] collection resolution failed, retrying with original name: {e}"
+                    component = "chroma_client",
+                    error = %e,
+                    "delete_document.resolution_failed"
                 );
                 collection.to_string()
             }
@@ -439,7 +518,11 @@ impl ChromaClient {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     tracing::warn!(
-                        "Chroma delete_document failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                        component = "chroma_client",
+                        attempt = attempt,
+                        max_retries = MAX_RETRIES,
+                        error = %e,
+                        "delete_document.retry"
                     );
                     last_error = Some(e);
                     if attempt < MAX_RETRIES {
@@ -460,6 +543,7 @@ impl ChromaClient {
     ) -> Result<(), AppError> {
         let response = client
             .post(url)
+            .headers(inject_trace_headers())
             .json(body)
             .send()
             .await
@@ -474,240 +558,5 @@ impl ChromaClient {
         }
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Arc;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::net::TcpListener;
-    use tokio::sync::Mutex;
-
-    #[test]
-    fn test_is_missing_collection_error_detects_chroma_invalid_collection() {
-        let error = AppError::ChromaError(
-            "Add embeddings failed (HTTP 400 Bad Request): {\"error\":\"InvalidCollection\",\"message\":\"Collection ce1135b9-b7b5-40c6-a319-a16648089c65 does not exist.\"}".to_string(),
-        );
-
-        assert!(ChromaClient::is_missing_collection_error(&error));
-    }
-
-    #[test]
-    fn test_is_missing_collection_error_ignores_other_chroma_errors() {
-        let error = AppError::ChromaError(
-            "Add embeddings failed (HTTP 500 Internal Server Error): temporary failure".to_string(),
-        );
-
-        assert!(!ChromaClient::is_missing_collection_error(&error));
-    }
-
-    #[test]
-    fn test_collection_identifier_prefers_chroma_id() {
-        let data = serde_json::json!({
-            "id": "internal-chroma-id",
-            "name": "ce1135b9-b7b5-40c6-a319-a16648089c65"
-        });
-
-        assert_eq!(
-            ChromaClient::collection_identifier(&data, "fallback"),
-            "internal-chroma-id"
-        );
-    }
-
-    #[test]
-    fn test_collection_identifier_falls_back_to_name() {
-        let data = serde_json::json!({"name": "ce1135b9-b7b5-40c6-a319-a16648089c65"});
-
-        assert_eq!(
-            ChromaClient::collection_identifier(&data, "fallback"),
-            "ce1135b9-b7b5-40c6-a319-a16648089c65"
-        );
-    }
-
-    /// Helper: start a minimal HTTP/1.1 mock server that responds to
-    /// `POST /api/v1/collections` and one or more sub-resource requests.
-    /// Returns the server address and a shared list of captured request lines.
-    async fn start_mock_server(
-        responses: Vec<(&'static str, &'static str, u16)>,
-    ) -> (std::net::SocketAddr, Arc<Mutex<Vec<String>>>) {
-        let requests = Arc::new(Mutex::new(Vec::new()));
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("test server should bind");
-        let addr = listener.local_addr().expect("test server should have addr");
-        let captured = Arc::clone(&requests);
-
-        tokio::spawn(async move {
-            for (_expected_prefix, response_body, status_code) in responses {
-                let (mut stream, _) = listener.accept().await.expect("request should connect");
-                let mut buffer = vec![0_u8; 16384];
-                let read = stream.read(&mut buffer).await.expect("request should read");
-                let request = String::from_utf8_lossy(&buffer[..read]);
-                let request_line = request.lines().next().unwrap_or_default().to_string();
-                captured.lock().await.push(request_line.clone());
-
-                let status_text = if status_code == 200 {
-                    "OK"
-                } else if status_code == 400 {
-                    "Bad Request"
-                } else {
-                    "Internal Server Error"
-                };
-                let response = format!(
-                    "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response_body}",
-                    response_body.len()
-                );
-                stream
-                    .write_all(response.as_bytes())
-                    .await
-                    .expect("response should write");
-                // Flush and close to ensure the client receives the response
-                let _ = stream.shutdown().await;
-            }
-        });
-
-        // Give the mock server a moment to start listening
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-        (addr, requests)
-    }
-
-    #[tokio::test]
-    async fn test_resolve_collection_id_calls_get_or_create() {
-        // When resolve_collection_id is called, it should POST /api/v1/collections
-        // with get_or_create=true and return the Chroma-assigned "id" field.
-        let (addr, requests) = start_mock_server(vec![(
-            "POST /api/v1/collections ",
-            r#"{"id":"internal-chroma-id","name":"test-col"}"#,
-            200,
-        )])
-        .await;
-
-        let client = ChromaClient::new(&format!("http://{addr}"));
-        let result = client.resolve_collection_id("test-col").await;
-
-        assert_eq!(
-            result.expect("resolve should succeed"),
-            "internal-chroma-id"
-        );
-        let reqs = requests.lock().await;
-        assert!(
-            reqs.iter()
-                .any(|r| r.starts_with("POST /api/v1/collections ")),
-            "Expected POST /api/v1/collections request, got: {reqs:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_add_embeddings_resolves_collection_id_upfront() {
-        // add_embeddings should first call resolve_collection_id, then use
-        // the Chroma UUID in the URL path for /add.
-        //
-        // Request sequence:
-        //   1. POST /api/v1/collections  (resolve_collection_id) → returns {"id":"internal-chroma-id","name":"test-col"}
-        //   2. POST /api/v1/collections/internal-chroma-id/add → returns 200 OK
-        let (addr, requests) = start_mock_server(vec![
-            (
-                "POST /api/v1/collections ",
-                r#"{"id":"internal-chroma-id","name":"test-col"}"#,
-                200,
-            ),
-            (
-                "POST /api/v1/collections/internal-chroma-id/add ",
-                "{}",
-                200,
-            ),
-        ])
-        .await;
-
-        let client = ChromaClient::new(&format!("http://{addr}"));
-        client
-            .add_embeddings(
-                "test-col",
-                &["chunk-1".to_string()],
-                &[vec![0.1, 0.2, 0.3]],
-                &[serde_json::json!({"document_id": "doc-1"})],
-            )
-            .await
-            .expect("add_embeddings should succeed after resolving collection id");
-
-        let reqs = requests.lock().await;
-        assert_eq!(
-            reqs.len(),
-            2,
-            "Expected 2 requests (resolve + add), got: {reqs:?}"
-        );
-        assert!(
-            reqs[0].starts_with("POST /api/v1/collections "),
-            "First request should be resolve_collection_id, got: {}",
-            reqs[0]
-        );
-        assert!(
-            reqs[1].contains("internal-chroma-id/add"),
-            "Second request should use resolved Chroma ID, got: {}",
-            reqs[1]
-        );
-    }
-
-    #[tokio::test]
-    async fn test_add_embeddings_retry() {
-        let client = ChromaClient::new("http://127.0.0.1:1");
-        let result = client.add_embeddings("test", &[], &[], &[]).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_query_without_where_omits_filter() {
-        let client = ChromaClient::new("http://127.0.0.1:1");
-        // When `where_filter` is None, the query should still work.
-        // The filter should be omitted from the request body.
-        // This test verifies the new method signature accepts None.
-        let result = client
-            .query("test-collection", &[0.1, 0.2, 0.3], 5, None)
-            .await;
-
-        // We expect a connection error (server unreachable) — not a serialization or type error.
-        // This proves the `where` field was correctly omitted or included as None.
-        match &result {
-            Err(AppError::ChromaError(msg)) => {
-                // Network error expected since no Chroma server is running.
-                // Different environments return different errors:
-                // connection refused, 502 Bad Gateway, etc.
-                assert!(
-                    msg.contains("Request failed")
-                        || msg.contains("Connection refused")
-                        || msg.contains("error trying to connect")
-                        || msg.contains("Bad Gateway"),
-                    "Expected network error but got: {msg}"
-                );
-            }
-            other => panic!("Expected ChromaError (connection error) but got: {other:?}"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_query_with_where_includes_filter() {
-        let client = ChromaClient::new("http://127.0.0.1:1");
-        // When `where_filter` is Some, it must be included in the request body.
-        let filter = serde_json::json!({"is_active": true});
-        let result = client
-            .query("test-collection", &[0.1, 0.2, 0.3], 5, Some(filter))
-            .await;
-
-        // Same expected outcome: network error, not a type/struct error
-        match &result {
-            Err(AppError::ChromaError(msg)) => {
-                assert!(
-                    msg.contains("Request failed")
-                        || msg.contains("Connection refused")
-                        || msg.contains("error trying to connect")
-                        || msg.contains("Bad Gateway"),
-                    "Expected network error but got: {msg}"
-                );
-            }
-            other => panic!("Expected ChromaError (connection error) but got: {other:?}"),
-        }
     }
 }

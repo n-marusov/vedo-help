@@ -46,9 +46,10 @@ impl DocumentRepository {
     /// Save a document record to PostgreSQL.
     pub async fn save_document(&self, doc: &Document) -> Result<Uuid, AppError> {
         tracing::debug!(
-            "Saving document: {doc_name} ({size} bytes)",
-            doc_name = doc.name,
-            size = doc.file_size
+            component = "documents/repository",
+            file_name = %doc.name,
+            file_size = doc.file_size,
+            "document.save.started"
         );
 
         sqlx::query(
@@ -67,10 +68,11 @@ impl DocumentRepository {
         .map_err(|e| AppError::InternalError(format!("Failed to save document: {e}")))?;
 
         tracing::info!(
-            "Document saved: {id} ({name}, {size} bytes)",
-            id = doc.id,
-            name = doc.name,
-            size = doc.file_size
+            component = "documents/repository",
+            document_id = %doc.id,
+            file_name = %doc.name,
+            file_size = doc.file_size,
+            "document.saved"
         );
 
         Ok(doc.id)
@@ -78,7 +80,7 @@ impl DocumentRepository {
 
     /// Retrieve a document by its ID.
     pub async fn get_document(&self, id: Uuid) -> Result<Document, AppError> {
-        tracing::debug!("Fetching document: {id}");
+        tracing::debug!(component = "documents/repository", document_id = %id, "document.fetch");
 
         let row = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool)>(
             "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE id = $1",
@@ -102,7 +104,7 @@ impl DocumentRepository {
 
     /// List documents belonging to a collection.
     pub async fn list_documents(&self, collection_id: Uuid) -> Result<Vec<Document>, AppError> {
-        tracing::debug!("Listing documents for collection: {collection_id}");
+        tracing::debug!(component = "documents/repository", collection_id = %collection_id, "document.list");
 
         let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool)>(
             "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active FROM documents WHERE collection_id = $1 AND is_active = TRUE",
@@ -126,8 +128,10 @@ impl DocumentRepository {
             .collect();
 
         tracing::debug!(
-            "Found {} documents in collection {collection_id}",
-            documents.len()
+            component = "documents/repository",
+            collection_id = %collection_id,
+            document_count = documents.len(),
+            "document.list.found"
         );
 
         Ok(documents)
@@ -136,13 +140,17 @@ impl DocumentRepository {
     /// Retrieve documents by their IDs.
     pub async fn get_documents_by_ids(&self, ids: &[Uuid]) -> Result<Vec<Document>, AppError> {
         if ids.is_empty() {
-            tracing::debug!("[DocumentRepository.get_documents_by_ids] no ids supplied");
+            tracing::debug!(
+                component = "documents/repository",
+                "documents.get_by_ids.empty"
+            );
             return Ok(Vec::new());
         }
 
         tracing::debug!(
-            "[DocumentRepository.get_documents_by_ids] fetching documents: count={count}",
-            count = ids.len()
+            component = "documents/repository",
+            request_count = ids.len(),
+            "documents.get_by_ids.start"
         );
 
         let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
@@ -166,9 +174,10 @@ impl DocumentRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         tracing::info!(
-            "[DocumentRepository.get_documents_by_ids] fetched documents: requested={requested}, found={found}",
-            requested = ids.len(),
-            found = documents.len()
+            component = "documents/repository",
+            request_count = ids.len(),
+            found_count = documents.len(),
+            "documents.get_by_ids.found"
         );
 
         Ok(documents)
@@ -178,14 +187,16 @@ impl DocumentRepository {
     pub async fn deactivate_chunks_batch(&self, document_ids: &[Uuid]) -> Result<u64, AppError> {
         if document_ids.is_empty() {
             tracing::debug!(
-                "[DocumentRepository.deactivate_chunks_batch] no document ids supplied"
+                component = "documents/repository",
+                "chunks.deactivate_batch.empty"
             );
             return Ok(0);
         }
 
         tracing::debug!(
-            "[DocumentRepository.deactivate_chunks_batch] deactivating chunks: document_count={count}",
-            count = document_ids.len()
+            component = "documents/repository",
+            document_count = document_ids.len(),
+            "chunks.deactivate_batch.start"
         );
 
         let mut query_builder: QueryBuilder<Postgres> =
@@ -204,13 +215,16 @@ impl DocumentRepository {
 
         if count == 0 {
             tracing::warn!(
-                "[DocumentRepository.deactivate_chunks_batch] no chunks were deactivated: document_count={requested}",
-                requested = document_ids.len()
+                component = "documents/repository",
+                document_count = document_ids.len(),
+                "chunks.deactivate_batch.none_found"
             );
         } else {
             tracing::info!(
-                "[DocumentRepository.deactivate_chunks_batch] deactivated chunks: affected={count}, document_count={requested}",
-                requested = document_ids.len()
+                component = "documents/repository",
+                affected_count = count,
+                document_count = document_ids.len(),
+                "chunks.deactivate_batch.complete"
             );
         }
 
@@ -220,13 +234,17 @@ impl DocumentRepository {
     /// Soft-deactivate all supplied documents.
     pub async fn deactivate_documents_batch(&self, ids: &[Uuid]) -> Result<u64, AppError> {
         if ids.is_empty() {
-            tracing::debug!("[DocumentRepository.deactivate_documents_batch] no ids supplied");
+            tracing::debug!(
+                component = "documents/repository",
+                "documents.deactivate_batch.empty"
+            );
             return Ok(0);
         }
 
         tracing::debug!(
-            "[DocumentRepository.deactivate_documents_batch] deactivating documents: count={count}",
-            count = ids.len()
+            component = "documents/repository",
+            request_count = ids.len(),
+            "documents.deactivate_batch.start"
         );
 
         let mut query_builder: QueryBuilder<Postgres> =
@@ -245,13 +263,16 @@ impl DocumentRepository {
 
         if count == 0 {
             tracing::warn!(
-                "[DocumentRepository.deactivate_documents_batch] no documents were deactivated: requested={requested}",
-                requested = ids.len()
+                component = "documents/repository",
+                request_count = ids.len(),
+                "documents.deactivate_batch.none_found"
             );
         } else {
             tracing::info!(
-                "[DocumentRepository.deactivate_documents_batch] deactivated documents: affected={count}, requested={requested}",
-                requested = ids.len()
+                component = "documents/repository",
+                affected_count = count,
+                request_count = ids.len(),
+                "documents.deactivate_batch.complete"
             );
         }
 
@@ -260,7 +281,7 @@ impl DocumentRepository {
 
     /// Delete a document and its associated chunks.
     pub async fn delete_document(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::debug!("Deleting document: {id}");
+        tracing::debug!(component = "documents/repository", document_id = %id, "document.delete.started");
 
         // Delete chunks first (explicit cascade for clarity)
         sqlx::query("DELETE FROM chunks WHERE document_id = $1")
@@ -280,7 +301,7 @@ impl DocumentRepository {
             return Err(AppError::NotFound(format!("Document {id} not found")));
         }
 
-        tracing::info!("Document deleted: {id}");
+        tracing::info!(component = "documents/repository", document_id = %id, "document.deleted");
 
         Ok(())
     }
@@ -327,7 +348,7 @@ impl DocumentRepository {
     /// Deactivate all chunks belonging to a document.
     /// Sets `is_active = FALSE` for all matching chunks (soft delete).
     pub async fn deactivate_chunks(&self, document_id: Uuid) -> Result<(), AppError> {
-        tracing::debug!("Deactivating chunks for document: {document_id}");
+        tracing::debug!(component = "documents/repository", document_id = %document_id, "chunks.deactivate.started");
 
         let affected = sqlx::query("UPDATE chunks SET is_active = FALSE WHERE document_id = $1")
             .bind(document_id)
@@ -336,14 +357,19 @@ impl DocumentRepository {
             .map_err(|e| AppError::InternalError(format!("Failed to deactivate chunks: {e}")))?;
 
         let count = affected.rows_affected();
-        tracing::debug!("Deactivated {count} chunks for document {document_id}");
+        tracing::debug!(
+            component = "documents/repository",
+            chunk_count = count,
+            document_id = %document_id,
+            "chunks.deactivated"
+        );
 
         Ok(())
     }
 
     /// Deactivate a document (soft delete) without removing the row.
     pub async fn deactivate_document(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::debug!("Deactivating document: {id}");
+        tracing::debug!(component = "documents/repository", document_id = %id, "document.deactivate.started");
 
         let affected = sqlx::query("UPDATE documents SET is_active = FALSE WHERE id = $1")
             .bind(id)
@@ -352,11 +378,11 @@ impl DocumentRepository {
             .map_err(|e| AppError::InternalError(format!("Failed to deactivate document: {e}")))?;
 
         if affected.rows_affected() == 0 {
-            tracing::warn!("Deactivation target not found: document {id}");
+            tracing::warn!(component = "documents/repository", document_id = %id, "document.deactivate.not_found");
             return Err(AppError::NotFound(format!("Document {id} not found")));
         }
 
-        tracing::info!("Document deactivated: {id}");
+        tracing::info!(component = "documents/repository", document_id = %id, "document.deactivated");
 
         Ok(())
     }
@@ -364,13 +390,17 @@ impl DocumentRepository {
     /// Deactivate specific chunks by ID.
     pub async fn deactivate_chunks_by_ids(&self, chunk_ids: &[Uuid]) -> Result<(), AppError> {
         if chunk_ids.is_empty() {
-            tracing::debug!("No chunk ids supplied for targeted deactivation");
+            tracing::debug!(
+                component = "documents/repository",
+                "chunks.deactivate_by_ids.empty"
+            );
             return Ok(());
         }
 
         tracing::debug!(
-            "Deactivating {count} targeted chunks",
-            count = chunk_ids.len()
+            component = "documents/repository",
+            request_count = chunk_ids.len(),
+            "chunks.deactivate_by_ids.start"
         );
 
         let mut affected_total = 0u64;
@@ -386,8 +416,10 @@ impl DocumentRepository {
         }
 
         tracing::debug!(
-            "Deactivated {affected_total} targeted chunks out of {requested}",
-            requested = chunk_ids.len()
+            component = "documents/repository",
+            affected_count = affected_total,
+            request_count = chunk_ids.len(),
+            "chunks.deactivate_by_ids.complete"
         );
 
         Ok(())
@@ -402,7 +434,12 @@ impl DocumentRepository {
         file_size: i64,
     ) -> Result<(), AppError> {
         tracing::debug!(
-            "Updating document metadata: {id}, name={name}, type={file_type}, size={file_size}"
+            component = "documents/repository",
+            document_id = %id,
+            file_name = %name,
+            file_type = %file_type,
+            file_size = file_size,
+            "document.metadata_update.started"
         );
 
         let affected = sqlx::query(
@@ -418,16 +455,16 @@ impl DocumentRepository {
         .map_err(|e| AppError::InternalError(format!("Failed to update document metadata: {e}")))?;
 
         if affected.rows_affected() == 0 {
-            tracing::warn!("Metadata update target not found: document {id}");
+            tracing::warn!(component = "documents/repository", document_id = %id, "document.metadata_update.not_found");
             return Err(AppError::NotFound(format!("Document {id} not found")));
         }
 
-        tracing::info!("Document metadata updated: {id}");
+        tracing::info!(component = "documents/repository", document_id = %id, "document.metadata_updated");
         Ok(())
     }
     /// Retrieve only active chunks for a document, ordered by index.
     pub async fn get_active_chunks(&self, document_id: Uuid) -> Result<Vec<Chunk>, AppError> {
-        tracing::debug!("Fetching active chunks for document: {document_id}");
+        tracing::debug!(component = "documents/repository", document_id = %document_id, "chunks.get_active.started");
 
         let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, i32, String, bool)>(
             r#"SELECT id, document_id, "index", text, is_active FROM chunks
@@ -451,8 +488,10 @@ impl DocumentRepository {
             .collect();
 
         tracing::debug!(
-            "Found {} active chunks for document {document_id}",
-            chunks.len()
+            component = "documents/repository",
+            document_id = %document_id,
+            chunk_count = chunks.len(),
+            "chunks.get_active.found"
         );
 
         Ok(chunks)

@@ -18,7 +18,7 @@ impl ConversationRepository {
 
     /// Insert a new session into PostgreSQL.
     pub async fn create_session(&self, session: &Session) -> Result<Uuid, AppError> {
-        tracing::debug!("Creating session: {}", session.title);
+        tracing::debug!(component = "conversations/repository", session_title = %session.title, "session.create.started");
 
         sqlx::query(
             "INSERT INTO sessions (id, title, collection_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
@@ -32,13 +32,16 @@ impl ConversationRepository {
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to create session: {e}")))?;
 
-        tracing::info!("Session created: {id}", id = session.id);
+        tracing::info!(component = "conversations/repository", session_id = %session.id, "session.created");
         Ok(session.id)
     }
 
     /// List all sessions ordered by most recently updated.
     pub async fn list_sessions(&self) -> Result<Vec<Session>, AppError> {
-        tracing::debug!("Listing all sessions");
+        tracing::debug!(
+            component = "conversations/repository",
+            "session.list.started"
+        );
 
         let rows = sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
             "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions ORDER BY pinned DESC, updated_at DESC",
@@ -62,13 +65,17 @@ impl ConversationRepository {
             });
         }
 
-        tracing::debug!("Found {} sessions", sessions.len());
+        tracing::debug!(
+            component = "conversations/repository",
+            count = sessions.len(),
+            "session.list.found"
+        );
         Ok(sessions)
     }
 
     /// Retrieve a single session by ID.
     pub async fn get_session(&self, id: Uuid) -> Result<Session, AppError> {
-        tracing::debug!("Fetching session: {id}");
+        tracing::debug!(component = "conversations/repository", session_id = %id, "session.get.started");
 
         let row = sqlx::query_as::<
             _,
@@ -104,7 +111,7 @@ impl ConversationRepository {
 
     /// Delete a session and its associated messages.
     pub async fn delete_session(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::debug!("Deleting session: {id}");
+        tracing::debug!(component = "conversations/repository", session_id = %id, "session.delete.started");
 
         // Delete messages first (explicit cascade for clarity)
         sqlx::query("DELETE FROM messages WHERE session_id = $1")
@@ -124,17 +131,13 @@ impl ConversationRepository {
             return Err(AppError::NotFound(format!("Session {id} not found")));
         }
 
-        tracing::info!("Session deleted: {id}");
+        tracing::info!(component = "conversations/repository", session_id = %id, "session.deleted");
         Ok(())
     }
 
     /// Insert a message into PostgreSQL.
     pub async fn add_message(&self, msg: &Message) -> Result<(), AppError> {
-        tracing::debug!(
-            "Adding message to session {}: role={}",
-            msg.session_id,
-            msg.role
-        );
+        tracing::debug!(component = "conversations/repository", session_id = %msg.session_id, role = %msg.role, "message.add.started");
 
         let sources_json = msg
             .sources
@@ -170,13 +173,13 @@ impl ConversationRepository {
                 AppError::InternalError(format!("Failed to update session timestamp: {e}"))
             })?;
 
-        tracing::debug!("Message added to session {}", msg.session_id);
+        tracing::debug!(component = "conversations/repository", session_id = %msg.session_id, "message.added");
         Ok(())
     }
 
     /// Retrieve live (non-deleted) messages for a session, ordered by creation time.
     pub async fn get_messages(&self, session_id: Uuid) -> Result<Vec<Message>, AppError> {
-        tracing::debug!("Fetching messages for session: {session_id}");
+        tracing::debug!(component = "conversations/repository", session_id = %session_id, "message.list.started");
 
         let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
             "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at \
@@ -202,14 +205,14 @@ impl ConversationRepository {
             })
             .collect();
 
-        tracing::debug!("Found {} messages for session {session_id}", messages.len());
+        tracing::debug!(component = "conversations/repository", session_id = %session_id, count = messages.len(), "message.list.found");
         Ok(messages)
     }
 
     /// Retrieve a single message by ID.
     /// Returns NotFound if the message does not exist or is soft-deleted.
     pub async fn get_message(&self, id: Uuid) -> Result<Message, AppError> {
-        tracing::debug!("Fetching message: {id}");
+        tracing::debug!(component = "conversations/repository", message_id = %id, "message.get.started");
 
         let row = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
             "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at \
@@ -242,7 +245,7 @@ impl ConversationRepository {
     /// Update the content of a message. On the first edit, preserves the
     /// original content for audit trail. Sets `edited_at` on every edit.
     pub async fn update_message(&self, id: Uuid, new_content: String) -> Result<Message, AppError> {
-        tracing::debug!("Updating message: {id}");
+        tracing::debug!(component = "conversations/repository", message_id = %id, "message.update.started");
 
         // Fetch current message to get original content if not yet set
         let current = self.get_message(id).await?;
@@ -270,7 +273,7 @@ impl ConversationRepository {
 
     /// Soft-delete a message by setting `deleted_at` to now.
     pub async fn soft_delete_message(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!("Soft-deleting message: {id}");
+        tracing::info!(component = "conversations/repository", message_id = %id, "message.delete.started");
 
         let affected =
             sqlx::query("UPDATE messages SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL")
@@ -288,14 +291,17 @@ impl ConversationRepository {
             )));
         }
 
-        tracing::info!("Message soft-deleted: {id}");
+        tracing::info!(component = "conversations/repository", message_id = %id, "message.deleted");
         Ok(())
     }
 
     /// Delete all sessions and their messages.
     /// Returns the number of sessions deleted.
     pub async fn delete_all_sessions(&self) -> Result<u64, AppError> {
-        tracing::warn!("Deleting all sessions");
+        tracing::warn!(
+            component = "conversations/repository",
+            "session.delete_all.started"
+        );
 
         // Delete all messages first
         sqlx::query("DELETE FROM messages")
@@ -310,7 +316,11 @@ impl ConversationRepository {
             .map_err(|e| AppError::InternalError(format!("Failed to delete sessions: {e}")))?;
 
         let count = result.rows_affected();
-        tracing::info!("Deleted {count} sessions");
+        tracing::info!(
+            component = "conversations/repository",
+            count = count,
+            "session.delete_all.done"
+        );
         Ok(count)
     }
 
@@ -322,7 +332,7 @@ impl ConversationRepository {
         title: Option<String>,
         pinned: Option<bool>,
     ) -> Result<Session, AppError> {
-        tracing::debug!("Updating session: {id}");
+        tracing::debug!(component = "conversations/repository", session_id = %id, "session.update.started");
 
         let current = self.get_session(id).await?;
         let new_title = title.unwrap_or(current.title);
@@ -337,7 +347,7 @@ impl ConversationRepository {
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to update session: {e}")))?;
 
-        tracing::info!("Session updated: {id} title={new_title} pinned={new_pinned}");
+        tracing::info!(component = "conversations/repository", session_id = %id, session_title = %new_title, pinned = new_pinned, "session.updated");
 
         // Re-fetch to get consistent state
         self.get_session(id).await

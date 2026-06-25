@@ -61,8 +61,11 @@ pub fn chunk_document(text: &str) -> Vec<ChunkData> {
     }
 
     tracing::debug!(
-        "Document chunked into {} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})",
-        chunks.len()
+        component = "chunking",
+        chunk_count = chunks.len(),
+        chunk_size = CHUNK_SIZE,
+        chunk_overlap = CHUNK_OVERLAP,
+        "document.chunked"
     );
 
     chunks

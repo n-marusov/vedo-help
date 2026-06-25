@@ -42,7 +42,7 @@ impl ConversationService {
 
         let id = self.repo.create_session(&session).await?;
 
-        tracing::info!("Session created: {id} ({title})", title = session.title);
+        tracing::info!(component = "conversations/service", session_id = %id, session_title = %session.title, "session.created");
 
         Ok(SessionSummary {
             id,
@@ -57,7 +57,7 @@ impl ConversationService {
 
     /// List all sessions, most recently updated first.
     pub async fn list_sessions(&self) -> Result<Vec<SessionSummary>, AppError> {
-        tracing::debug!("Listing all sessions");
+        tracing::debug!(component = "conversations/service", "session.list");
 
         let sessions = self.repo.list_sessions().await?;
         let summaries = sessions
@@ -78,7 +78,7 @@ impl ConversationService {
 
     /// Get a session with its full message history.
     pub async fn get_session_history(&self, id: Uuid) -> Result<(Session, Vec<Message>), AppError> {
-        tracing::debug!("Fetching session history: {id}");
+        tracing::debug!(component = "conversations/service", session_id = %id, "session.get");
 
         let session = self.repo.get_session(id).await?;
         let messages = self.repo.get_messages(id).await?;
@@ -88,14 +88,14 @@ impl ConversationService {
 
     /// Delete a session and its messages.
     pub async fn delete_session(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!("Deleting session: {id}");
+        tracing::info!(component = "conversations/service", session_id = %id, "session.delete");
         self.repo.delete_session(id).await
     }
 
     /// Delete all sessions and their messages.
     /// Returns a JSON response with the count of deleted sessions.
     pub async fn delete_all_sessions(&self) -> Result<serde_json::Value, AppError> {
-        tracing::warn!("Deleting all sessions");
+        tracing::warn!(component = "conversations/service", "session.delete_all");
 
         let count = self.repo.delete_all_sessions().await?;
 
@@ -115,10 +115,7 @@ impl ConversationService {
         msg_id: Uuid,
         req: UpdateMessageRequest,
     ) -> Result<Message, AppError> {
-        tracing::info!(
-            "[conv.update_message] session={session_id} msg={msg_id} new_len={}",
-            req.content.len()
-        );
+        tracing::info!(component = "conversations/service", session_id = %session_id, message_id = %msg_id, new_len = req.content.len(), "message.update");
 
         // Validate content length
         if req.content.is_empty() || req.content.len() > 8000 {
@@ -132,10 +129,7 @@ impl ConversationService {
 
         // Only user messages can be edited
         if msg.role != "user" {
-            tracing::warn!(
-                "[conv.update_message] rejected: not user role session={session_id} msg={msg_id} role={}",
-                msg.role
-            );
+            tracing::warn!(component = "conversations/service", session_id = %session_id, message_id = %msg_id, role = %msg.role, "message.update.rejected_role");
             return Err(AppError::UnprocessableEntity(
                 "Assistant messages cannot be edited".to_string(),
             ));
@@ -144,10 +138,7 @@ impl ConversationService {
         let old_len = msg.content.len();
         let updated = self.repo.update_message(msg_id, req.content).await?;
 
-        tracing::info!(
-            "[conv.update_message] session={session_id} msg={msg_id} role=user old_len={old_len} new_len={}",
-            updated.content.len()
-        );
+        tracing::info!(component = "conversations/service", session_id = %session_id, message_id = %msg_id, old_len = old_len, new_len = updated.content.len(), "message.updated");
 
         Ok(updated)
     }
@@ -158,11 +149,7 @@ impl ConversationService {
         id: Uuid,
         req: UpdateSessionRequest,
     ) -> Result<SessionSummary, AppError> {
-        tracing::info!(
-            "[conv.update_session] session={id} title={:?} pinned={:?}",
-            req.title,
-            req.pinned
-        );
+        tracing::info!(component = "conversations/service", session_id = %id, session_title = ?req.title, pinned = ?req.pinned, "session.update");
 
         let updated = self.repo.update_session(id, req.title, req.pinned).await?;
 
@@ -179,14 +166,14 @@ impl ConversationService {
 
     /// Soft-delete a message.
     pub async fn delete_message(&self, session_id: Uuid, msg_id: Uuid) -> Result<(), AppError> {
-        tracing::info!("[conv.soft_delete] session={session_id} msg={msg_id}");
+        tracing::info!(component = "conversations/service", session_id = %session_id, message_id = %msg_id, "message.delete");
         self.repo.soft_delete_message(msg_id).await
     }
 
     /// Export a session (with messages) as a JSON value.
     /// Soft-deleted messages are excluded.
     pub async fn export_session(&self, id: Uuid) -> Result<serde_json::Value, AppError> {
-        tracing::debug!("Exporting session: {id}");
+        tracing::debug!(component = "conversations/service", session_id = %id, "session.export");
 
         let (session, messages) = self.get_session_history(id).await?;
 
@@ -229,7 +216,7 @@ impl ConversationService {
     /// ---
     /// ```
     pub async fn export_session_markdown(&self, id: Uuid) -> Result<String, AppError> {
-        tracing::info!("[conv.export_session] session={id} format=markdown");
+        tracing::info!(component = "conversations/service", session_id = %id, format = "markdown", "session.export");
 
         let (session, messages) = self.get_session_history(id).await?;
 
@@ -251,10 +238,7 @@ impl ConversationService {
         }
 
         let result = lines.join("\n");
-        tracing::info!(
-            "[conv.export_session] session={id} format=markdown bytes={}",
-            result.len()
-        );
+        tracing::info!(component = "conversations/service", session_id = %id, format = "markdown", bytes = result.len(), "session.exported");
 
         Ok(result)
     }

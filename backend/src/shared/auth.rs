@@ -95,7 +95,7 @@ impl JwtValidator {
         // Refresh JWKS cache if stale.
         if self.jwks.is_none() || self.last_fetch.elapsed() >= Self::JWKS_TTL {
             if let Err(e) = self.fetch_jwks().await {
-                tracing::warn!("JWKS fetch failed (cached keys may be stale): {e}");
+                tracing::warn!(component = "auth", error = %e, "jwks.fetch_failed");
                 // If we have no cached keys at all, bail early.
                 self.jwks.as_ref()?;
             }
@@ -104,7 +104,7 @@ impl JwtValidator {
         let jwks = match self.jwks.as_ref() {
             Some(j) => j,
             None => {
-                tracing::error!("JWKS cache is empty after fetch attempt");
+                tracing::error!(component = "auth", "jwks.cache_empty");
                 return None;
             }
         };
@@ -113,7 +113,7 @@ impl JwtValidator {
         let header = match decode_header(token) {
             Ok(h) => h,
             Err(e) => {
-                tracing::warn!("JWT header decode failed: {e}");
+                tracing::warn!(component = "auth", error = %e, "jwt.header_decode_failed");
                 return None;
             }
         };
@@ -121,7 +121,7 @@ impl JwtValidator {
         let kid = match header.kid {
             Some(ref k) => k.clone(),
             None => {
-                tracing::warn!("JWT header missing 'kid' — cannot resolve signing key");
+                tracing::warn!(component = "auth", "jwt.header_missing_kid");
                 return None;
             }
         };
@@ -130,7 +130,7 @@ impl JwtValidator {
         let jwk = match jwks.find(&kid) {
             Some(k) => k,
             None => {
-                tracing::warn!("No JWK found for kid={kid}");
+                tracing::warn!(component = "auth", kid = %kid, "jwk.not_found");
                 return None;
             }
         };
@@ -141,7 +141,7 @@ impl JwtValidator {
                 match DecodingKey::from_rsa_components(&rsa.n, &rsa.e) {
                     Ok(k) => k,
                     Err(e) => {
-                        tracing::warn!("Failed to construct RSA decoding key: {e}");
+                        tracing::warn!(component = "auth", error = %e, "jwk.rsa_key_construction_failed");
                         return None;
                     }
                 }
@@ -150,13 +150,13 @@ impl JwtValidator {
                 match DecodingKey::from_ec_components(&ec.x, &ec.y) {
                     Ok(k) => k,
                     Err(e) => {
-                        tracing::warn!("Failed to construct EC decoding key: {e}");
+                        tracing::warn!(component = "auth", error = %e, "jwk.ec_key_construction_failed");
                         return None;
                     }
                 }
             }
             other => {
-                tracing::warn!("Unsupported JWK algorithm: {other:?}");
+                tracing::warn!(component = "auth", algorithm = %format!("{:?}", other), "jwk.unsupported_algorithm");
                 return None;
             }
         };
@@ -178,7 +178,7 @@ impl JwtValidator {
         let token_data = match decode::<serde_json::Value>(token, &decoding_key, &validation) {
             Ok(d) => d,
             Err(e) => {
-                tracing::warn!("JWT validation failed: {e}");
+                tracing::warn!(component = "auth", error = %e, "jwt.validation_failed");
                 return None;
             }
         };
@@ -210,9 +210,10 @@ impl JwtValidator {
         };
 
         tracing::debug!(
-            "JWT validation succeeded — sub={}, provider={:?}",
-            auth_user.sub,
-            auth_user.provider,
+            component = "auth",
+            user_id = %auth_user.sub,
+            provider = %auth_user.provider.as_deref().unwrap_or("none"),
+            "jwt.validation_succeeded"
         );
 
         Some(auth_user)
@@ -220,14 +221,14 @@ impl JwtValidator {
 
     /// Fetch the JWKS from the KeyCloak certs endpoint.
     async fn fetch_jwks(&mut self) -> Result<(), String> {
-        tracing::debug!("Fetching JWKS from {}", self.jwks_uri);
+        tracing::debug!(component = "auth", jwks_uri = %self.jwks_uri, "jwks.fetching");
 
         let response = reqwest::get(&self.jwks_uri)
             .await
             .map_err(|e| format!("JWKS endpoint unreachable: {e}"))?;
 
         if !response.status().is_success() {
-            tracing::error!("JWKS endpoint returned HTTP {}", response.status());
+            tracing::error!(component = "auth", status = %response.status(), "jwks.endpoint_http_error");
             return Err(format!("JWKS endpoint returned HTTP {}", response.status()));
         }
 
@@ -236,7 +237,11 @@ impl JwtValidator {
             .await
             .map_err(|e| format!("JWKS parse error: {e}"))?;
 
-        tracing::debug!("JWKS fetched successfully ({} keys)", jwks.keys.len());
+        tracing::debug!(
+            component = "auth",
+            key_count = jwks.keys.len(),
+            "jwks.fetched"
+        );
         self.jwks = Some(jwks);
         self.last_fetch = Instant::now();
 
@@ -273,7 +278,9 @@ pub async fn authenticate_request(
         Some(t) => t,
         None => {
             tracing::warn!(
-                "Unauthorized request from {remote_addr}: missing or malformed auth header"
+                component = "auth",
+                remote_addr = %remote_addr,
+                "auth.missing_or_malformed_header"
             );
             return Err(auth_failure_response());
         }
@@ -283,16 +290,21 @@ pub async fn authenticate_request(
     if let Some(shared) = jwt_validator {
         let mut validator = shared.lock().await;
         if let Some(user) = validator.validate(token).await {
-            tracing::info!("Auth: JWT — sub={}, provider={:?}", user.sub, user.provider);
+            tracing::info!(
+                component = "auth",
+                user_id = %user.sub,
+                provider = %user.provider.as_deref().unwrap_or("none"),
+                "auth.jwt_authenticated"
+            );
             return Ok(AuthInfo { user });
         }
 
-        tracing::warn!("Unauthorized request from {remote_addr}: JWT validation failed");
+        tracing::warn!(component = "auth", remote_addr = %remote_addr, "auth.jwt_validation_failed");
         return Err(auth_failure_response());
     }
 
     // No validator available — cannot validate the token.
-    tracing::warn!("Unauthorized request from {remote_addr}: no JWT validator configured");
+    tracing::warn!(component = "auth", remote_addr = %remote_addr, "auth.no_jwt_validator");
     Err(auth_failure_response())
 }
 
@@ -338,6 +350,9 @@ mod tests {
             git_sync_interval_secs: 0,
             llm_max_history_messages: 20,
             llm_context_token_budget: 6000,
+            otel_endpoint: "http://otel-collector:4317".to_string(),
+            service_name: "vedo-backend-test".to_string(),
+            environment: "test".to_string(),
         };
 
         let validator = JwtValidator::from_config(&config);

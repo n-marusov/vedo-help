@@ -56,23 +56,26 @@ impl DocumentService {
         // 1. Validate file
         let file_type = validate_file(data, filename)?;
         tracing::info!(
-            "Document uploaded: {filename} ({file_type:?}, {size} bytes) -> collection {collection_id}",
-            size = data.len()
+            component = "documents/service",
+            file_name = %filename,
+            file_type = ?file_type,
+            file_size = data.len(),
+            collection_id = %collection_id,
+            "document.upload.started"
         );
 
         // 2. Parse file into text
         let text = parse_file_content(data, filename, &file_type)?;
-        tracing::info!("Document parsed: {filename} -> {} chars", text.len());
+        tracing::info!(component = "documents/service", file_name = %filename, text_length = text.len(), "document.parsed");
 
         // 3. Chunk text
         let chunks = chunk_document(&text);
         tracing::debug!(
-            "Chunk {idx}: {preview}...",
-            idx = if chunks.is_empty() { 0 } else { 1 },
-            preview = chunks
+            component = "documents/service",
+            chunk_index = if chunks.is_empty() { 0 } else { 1 },
+            chunk_preview = chunks
                 .first()
                 .map(|c| {
-                    // Find the last char boundary at or before byte 80
                     let end = c
                         .text
                         .char_indices()
@@ -82,7 +85,8 @@ impl DocumentService {
                         .unwrap_or(0);
                     &c.text[..end]
                 })
-                .unwrap_or("")
+                .unwrap_or(""),
+            "document.chunk_start"
         );
 
         // 4. Create document record
@@ -120,7 +124,10 @@ impl DocumentService {
             .await
         {
             tracing::error!(
-                "Upload indexing failed; deactivating document and chunks: document={doc_id}, error={e}"
+                component = "documents/service",
+                document_id = %doc_id,
+                error = %e,
+                "document.upload.indexing_failed"
             );
             self.repo.deactivate_chunks(doc_id).await?;
             self.repo.deactivate_document(doc_id).await?;
@@ -159,7 +166,7 @@ impl DocumentService {
     /// Rows remain in the database but are excluded from active queries.
     /// Also removes the document's embeddings from Chroma if clients are configured.
     pub async fn delete_document(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!("Soft deleting document: {id}");
+        tracing::info!(component = "documents/service", document_id = %id, "document.delete.soft_start");
 
         // Fetch the document to get collection_id for Chroma cleanup
         let doc = self.repo.get_document(id).await?;
@@ -176,15 +183,26 @@ impl DocumentService {
             let filter = serde_json::json!({"document_id": id.to_string()});
 
             tracing::debug!(
-                "Deleting Chroma embeddings for document {id} in collection {collection_name}"
+                component = "documents/service",
+                document_id = %id,
+                collection_name = %collection_name,
+                "document.delete.chroma_delete_start"
             );
 
             if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
                 // Log but don't fail — database soft delete already succeeded
-                tracing::warn!("Failed to delete Chroma embeddings for document {id}: {e}");
+                tracing::warn!(
+                    component = "documents/service",
+                    document_id = %id,
+                    error = %e,
+                    "document.delete.chroma_delete_failed"
+                );
             } else {
                 tracing::info!(
-                    "Deleted Chroma embeddings for document {id} in collection {collection_name}"
+                    component = "documents/service",
+                    document_id = %id,
+                    collection_name = %collection_name,
+                    "document.delete.chroma_deleted"
                 );
             }
         }
@@ -200,21 +218,30 @@ impl DocumentService {
         ids: Vec<Uuid>,
     ) -> Result<BatchDeleteResponse, AppError> {
         if ids.is_empty() {
-            tracing::warn!("[DocumentService.delete_documents_batch] empty document id list");
+            tracing::warn!(
+                component = "documents/service",
+                "documents.batch_delete.empty_ids"
+            );
             return Err(AppError::BadRequest("No document IDs provided".to_string()));
         }
 
         tracing::info!(
-            "[DocumentService.delete_documents_batch] soft deleting documents: count={count}",
-            count = ids.len()
+            component = "documents/service",
+            request_count = ids.len(),
+            "documents.batch_delete.start"
         );
-        tracing::debug!("[DocumentService.delete_documents_batch] requested document ids: {ids:?}");
+        tracing::debug!(
+            component = "documents/service",
+            document_ids = ?ids,
+            "documents.batch_delete.ids"
+        );
 
         let documents = self.repo.get_documents_by_ids(&ids).await?;
         if documents.is_empty() {
             tracing::warn!(
-                "[DocumentService.delete_documents_batch] no matching documents found: requested={count}",
-                count = ids.len()
+                component = "documents/service",
+                request_count = ids.len(),
+                "documents.batch_delete.no_matches"
             );
             return Err(AppError::NotFound(
                 "No matching documents found".to_string(),
@@ -223,9 +250,10 @@ impl DocumentService {
 
         let document_ids: Vec<Uuid> = documents.iter().map(|doc| doc.id).collect();
         tracing::debug!(
-            "[DocumentService.delete_documents_batch] matched active/inactive documents: requested={requested}, matched={matched}",
-            requested = ids.len(),
-            matched = document_ids.len()
+            component = "documents/service",
+            request_count = ids.len(),
+            matched_count = document_ids.len(),
+            "documents.batch_delete.matched"
         );
 
         self.repo.deactivate_chunks_batch(&document_ids).await?;
@@ -243,32 +271,44 @@ impl DocumentService {
             for (collection_id, collection_doc_ids) in by_collection {
                 let collection_name = collection_id.to_string();
                 tracing::debug!(
-                    "[DocumentService.delete_documents_batch] deleting Chroma embeddings: collection={collection_name}, count={count}",
-                    count = collection_doc_ids.len()
+                    component = "documents/service",
+                    collection_name = %collection_name,
+                    count = collection_doc_ids.len(),
+                    "documents.batch_delete.chroma_delete_start"
                 );
 
                 for document_id in collection_doc_ids {
                     let filter = serde_json::json!({ "document_id": document_id.to_string() });
                     if let Err(e) = chroma.delete_where(&collection_name, &filter).await {
                         tracing::warn!(
-                            "[DocumentService.delete_documents_batch] failed to delete Chroma embeddings: document={document_id}, collection={collection_name}, error={e}"
+                            component = "documents/service",
+                            document_id = %document_id,
+                            collection_name = %collection_name,
+                            error = %e,
+                            "documents.batch_delete.chroma_delete_failed"
                         );
                     } else {
                         tracing::debug!(
-                            "[DocumentService.delete_documents_batch] deleted Chroma embeddings: document={document_id}, collection={collection_name}"
+                            component = "documents/service",
+                            document_id = %document_id,
+                            collection_name = %collection_name,
+                            "documents.batch_delete.chroma_deleted"
                         );
                     }
                 }
             }
         } else {
             tracing::debug!(
-                "[DocumentService.delete_documents_batch] skipping Chroma cleanup: client not configured"
+                component = "documents/service",
+                "documents.batch_delete.chroma_skipped"
             );
         }
 
         tracing::info!(
-            "[DocumentService.delete_documents_batch] completed soft delete: deleted_count={deleted_count}, requested={requested}",
-            requested = ids.len()
+            component = "documents/service",
+            deleted_count = deleted_count,
+            request_count = ids.len(),
+            "documents.batch_delete.complete"
         );
 
         Ok(BatchDeleteResponse {
@@ -286,7 +326,12 @@ impl DocumentService {
         filename: &str,
         document_id: Uuid,
     ) -> Result<UploadResponse, AppError> {
-        tracing::info!("Reloading document: {document_id}, filename: {filename}");
+        tracing::info!(
+            component = "documents/service",
+            document_id = %document_id,
+            file_name = %filename,
+            "document.reload.started"
+        );
 
         // 1. Verify document exists (will error if not found)
         let doc = self.repo.get_document(document_id).await?;
@@ -300,8 +345,10 @@ impl DocumentService {
         let chunks = crate::shared::chunking::chunk_document(&content);
 
         tracing::debug!(
-            "Parsed {new_count} new chunks for document {document_id}",
-            new_count = chunks.len()
+            component = "documents/service",
+            document_id = %document_id,
+            new_chunk_count = chunks.len(),
+            "document.reload.parsed"
         );
 
         // 4. Save new chunks as active, but keep old chunks active until Chroma indexing succeeds.
@@ -327,7 +374,10 @@ impl DocumentService {
         {
             let new_chunk_ids: Vec<Uuid> = chunk_records.iter().map(|c| c.id).collect();
             tracing::error!(
-                "Reload indexing failed; preserving old active chunks and deactivating new chunks: document={document_id}, error={e}"
+                component = "documents/service",
+                document_id = %document_id,
+                error = %e,
+                "document.reload.indexing_failed"
             );
             self.repo.deactivate_chunks_by_ids(&new_chunk_ids).await?;
             return Err(e);
@@ -352,16 +402,27 @@ impl DocumentService {
             let old_ids: Vec<String> = old_chunk_ids.iter().map(Uuid::to_string).collect();
             if let Err(e) = chroma.delete_document(&collection_name, &old_ids).await {
                 tracing::warn!(
-                    "Failed to delete old Chroma embeddings for document {document_id}: {e}"
+                    component = "documents/service",
+                    document_id = %document_id,
+                    error = %e,
+                    "document.reload.old_embeddings_delete_failed"
                 );
             } else {
-                tracing::debug!("Deleted old Chroma embeddings for document {document_id}");
+                tracing::debug!(
+                    component = "documents/service",
+                    document_id = %document_id,
+                    "document.reload.old_embeddings_deleted"
+                );
             }
         }
 
         let new_count = chunks.len();
         tracing::info!(
-            "Reload complete: document={document_id}, old_chunks={old_count}, new_chunks={new_count}"
+            component = "documents/service",
+            document_id = %document_id,
+            old_chunk_count = old_count,
+            new_chunk_count = new_count,
+            "document.reload.complete"
         );
 
         Ok(UploadResponse {
@@ -381,8 +442,10 @@ impl DocumentService {
         use std::io::Read;
 
         tracing::info!(
-            "Processing ZIP upload for collection {collection_id}: {} bytes",
-            data.len()
+            component = "documents/service",
+            collection_id = %collection_id,
+            file_size = data.len(),
+            "zip.upload.started"
         );
 
         // Read all entries into memory synchronously (ZipFile is not Send)
@@ -392,14 +455,19 @@ impl DocumentService {
             let mut archive = zip::ZipArchive::new(reader)
                 .map_err(|e| AppError::FileError(format!("Invalid ZIP file: {e}")))?;
 
-            tracing::debug!("ZIP opened: {} entries found", archive.len());
+            tracing::debug!(
+                component = "documents/service",
+                entry_count = archive.len(),
+                "zip.open"
+            );
 
             // Enforce 10-file limit BEFORE extraction to avoid validating
             // malformed entries when Playwright or other clients send oversized ZIPs.
             if archive.len() > 10 {
                 tracing::info!(
-                    "ZIP has {} entries — exceeds limit of 10, rejecting early",
-                    archive.len()
+                    component = "documents/service",
+                    entry_count = archive.len(),
+                    "zip.too_many_entries"
                 );
                 return Err(AppError::PayloadTooLarge(format!(
                     "ZIP contains more than 10 files (found {})",
@@ -414,7 +482,12 @@ impl DocumentService {
                 let entry = match archive.by_index(idx) {
                     Ok(e) => e,
                     Err(e) => {
-                        tracing::warn!("Failed to read entry at index {idx}: {e}");
+                        tracing::warn!(
+                            component = "documents/service",
+                            entry_index = idx,
+                            error = %e,
+                            "zip.entry.read_failed"
+                        );
                         continue;
                     }
                 };
@@ -429,17 +502,29 @@ impl DocumentService {
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| {
                         let raw = entry.mangled_name().to_string_lossy().to_string();
-                        tracing::warn!("ZIP entry has no valid filename, using raw name: {raw}");
+                        tracing::warn!(
+                            component = "documents/service",
+                            raw_name = %raw,
+                            "zip.entry.no_filename"
+                        );
                         raw
                     });
                 let entry_size = entry.size();
-                tracing::debug!("Extracting: {name} ({entry_size} bytes)");
+                tracing::debug!(
+                    component = "documents/service",
+                    file_name = %name,
+                    entry_size = entry_size,
+                    "zip.entry.extracting"
+                );
 
                 // Guard against zip bombs: reject entries whose declared uncompressed size
                 // exceeds the limit before allocating (prevents Vec::with_capacity OOM).
                 if entry_size > MAX_FILE_SIZE {
                     tracing::warn!(
-                        "File skipped: {name} - declared uncompressed size {entry_size} exceeds limit",
+                        component = "documents/service",
+                        file_name = %name,
+                        entry_size = entry_size,
+                        "zip.entry.size_exceeds_limit"
                     );
                     continue;
                 }
@@ -449,7 +534,11 @@ impl DocumentService {
                 // (a ZIP can advertise a small uncompressed size while expanding to gigabytes).
                 let mut limited = entry.take(MAX_FILE_SIZE + 1);
                 if limited.read_to_end(&mut entry_data).is_err() {
-                    tracing::warn!("File skipped: {name} - failed to read data");
+                    tracing::warn!(
+                        component = "documents/service",
+                        file_name = %name,
+                        "zip.entry.read_failed"
+                    );
                     continue;
                 }
 
@@ -457,8 +546,10 @@ impl DocumentService {
                 // data exceeded the limit and was truncated — reject it.
                 if entry_data.len() as u64 > MAX_FILE_SIZE {
                     tracing::warn!(
-                        "File skipped: {name} - decompressed data exceeds maximum size of {} MB",
-                        MAX_FILE_SIZE / (1024 * 1024),
+                        component = "documents/service",
+                        file_name = %name,
+                        max_size_mb = MAX_FILE_SIZE / (1024 * 1024),
+                        "zip.entry.decompressed_exceeds_limit"
                     );
                     continue;
                 }
@@ -479,13 +570,22 @@ impl DocumentService {
         let mut chroma_metadatas: Vec<serde_json::Value> = Vec::new();
 
         for (name, entry_data) in extracted {
-            tracing::debug!("Processing: {name} ({} bytes)", entry_data.len());
+            tracing::debug!(
+                component = "documents/service",
+                file_name = %name,
+                file_size = entry_data.len(),
+                "zip.entry.processing"
+            );
 
             // Detect inner file type by extension
             let inner_file_type = match crate::shared::types::FileType::from_extension(&name) {
                 Some(ft) => ft,
                 None => {
-                    tracing::warn!("File skipped: {name} - unsupported file extension");
+                    tracing::warn!(
+                        component = "documents/service",
+                        file_name = %name,
+                        "zip.entry.unsupported_extension"
+                    );
                     items.push(ZipUploadItem {
                         filename: name.clone(),
                         status: "skipped".to_string(),
@@ -499,7 +599,12 @@ impl DocumentService {
 
             // Validate via validate_file
             if let Err(e) = validate_file(&entry_data, &name) {
-                tracing::warn!("File skipped: {name} - {e}");
+                tracing::warn!(
+                    component = "documents/service",
+                    file_name = %name,
+                    error = %e,
+                    "zip.entry.validation_failed"
+                );
                 items.push(ZipUploadItem {
                     filename: name.clone(),
                     status: "skipped".to_string(),
@@ -514,7 +619,12 @@ impl DocumentService {
             let text = match parse_file_content(&entry_data, &name, &inner_file_type) {
                 Ok(t) => t,
                 Err(e) => {
-                    tracing::warn!("File skipped: {name} - parse error: {e}");
+                    tracing::warn!(
+                        component = "documents/service",
+                        file_name = %name,
+                        error = %e,
+                        "zip.entry.parse_failed"
+                    );
                     items.push(ZipUploadItem {
                         filename: name.clone(),
                         status: "failed".to_string(),
@@ -528,7 +638,12 @@ impl DocumentService {
 
             // Chunk text
             let chunks = chunk_document(&text);
-            tracing::debug!("File processed: {name} -> {} chunks", chunks.len());
+            tracing::debug!(
+                component = "documents/service",
+                file_name = %name,
+                chunk_count = chunks.len(),
+                "zip.entry.chunked"
+            );
 
             // Create document record
             let doc_id = Uuid::new_v4();
@@ -544,7 +659,12 @@ impl DocumentService {
 
             // Save document (async, no ZipFile borrow)
             if let Err(e) = self.repo.save_document(&doc).await {
-                tracing::warn!("File skipped: {name} - failed to save: {e}");
+                tracing::warn!(
+                    component = "documents/service",
+                    file_name = %name,
+                    error = %e,
+                    "zip.entry.save_failed"
+                );
                 items.push(ZipUploadItem {
                     filename: name.clone(),
                     status: "failed".to_string(),
@@ -568,7 +688,13 @@ impl DocumentService {
                     is_active: true,
                 };
                 if let Err(e) = self.repo.save_chunk(&chunk_record).await {
-                    tracing::warn!("Failed to save chunk {} for {name}: {e}", chunk.index);
+                    tracing::warn!(
+                        component = "documents/service",
+                        chunk_index = chunk.index,
+                        file_name = %name,
+                        error = %e,
+                        "zip.entry.chunk_save_failed"
+                    );
                     save_ok = false;
                     break;
                 }
@@ -635,7 +761,10 @@ impl DocumentService {
 
                 if let Err(e) = index_result {
                     tracing::error!(
-                        "ZIP indexing failed; deactivating processed batch rows: collection={collection_id}, error={e}"
+                        component = "documents/service",
+                        collection_id = %collection_id,
+                        error = %e,
+                        "zip.upload.indexing_failed"
                     );
                     for item in &items {
                         if let Some(document_id) = item.document_id {
@@ -647,16 +776,19 @@ impl DocumentService {
                 }
 
                 tracing::info!(
-                    "Indexed {n} ZIP chunks into Chroma collection {col}",
-                    n = chroma_ids.len(),
-                    col = collection_name
+                    component = "documents/service",
+                    chunk_count = chroma_ids.len(),
+                    collection_name = %collection_name,
+                    "zip.upload.indexed"
                 );
             }
         }
 
         tracing::info!(
-            "ZIP upload complete: {processed}/{total} files processed",
-            total = processed + failed
+            component = "documents/service",
+            processed_count = processed,
+            total_count = processed + failed,
+            "zip.upload.complete"
         );
 
         Ok(ZipUploadResponse {
@@ -674,13 +806,15 @@ impl DocumentService {
         chunks: &[Chunk],
     ) -> Result<(), AppError> {
         if chunks.is_empty() {
-            tracing::debug!("No chunks to index for document {document_id}");
+            tracing::debug!(component = "documents/service", document_id = %document_id, "chunks.index.skipped_empty");
             return Ok(());
         }
 
         let (Some(chroma), Some(embed)) = (&self.chroma_client, &self.embedding_client) else {
             tracing::debug!(
-                "Skipping Chroma indexing for document {document_id}: clients not configured"
+                component = "documents/service",
+                document_id = %document_id,
+                "chunks.index.skipped_no_clients"
             );
             return Ok(());
         };
@@ -688,8 +822,11 @@ impl DocumentService {
         let collection_name = collection_id.to_string();
         let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
         tracing::debug!(
-            "Embedding {count} chunks before Chroma indexing: document={document_id}, collection={collection_name}",
-            count = chunk_texts.len()
+            component = "documents/service",
+            chunk_count = chunk_texts.len(),
+            document_id = %document_id,
+            collection_name = %collection_name,
+            "chunks.index.embedding_start"
         );
         let embeddings = embed.embed(chunk_texts).await?;
 
@@ -713,10 +850,11 @@ impl DocumentService {
             .await?;
 
         tracing::info!(
-            "Indexed {n} chunks into Chroma collection {col} for document {doc}",
-            n = chunks.len(),
-            col = collection_name,
-            doc = document_id
+            component = "documents/service",
+            chunk_count = chunks.len(),
+            collection_name = %collection_name,
+            document_id = %document_id,
+            "chunks.indexed"
         );
 
         Ok(())

@@ -18,7 +18,7 @@ impl QueryRepository {
     /// Create a new QueryRepository with the given database pool and Chroma URL.
     pub fn new(db: PgPool, chroma_url: &str) -> Self {
         let chroma = ChromaClient::new(chroma_url);
-        tracing::debug!("QueryRepository initialized");
+        tracing::debug!(component = "query/repository", "repository.initialized");
         Self { db, chroma }
     }
 
@@ -32,8 +32,11 @@ impl QueryRepository {
         top_k: usize,
     ) -> Result<Vec<ChromaResult>, AppError> {
         tracing::debug!(
-            "Querying Chroma: collection={collection_name}, top_k={top_k}, embedding_dim={}",
-            embedding.len()
+            component = "query/repository",
+            collection_name = %collection_name,
+            top_k = top_k,
+            embedding_dimension = embedding.len(),
+            "chroma.query.start"
         );
 
         let results = self
@@ -47,8 +50,10 @@ impl QueryRepository {
             .await?;
 
         tracing::info!(
-            "Chroma returned {} results for collection={collection_name}",
-            results.len()
+            component = "query/repository",
+            result_count = results.len(),
+            collection_name = %collection_name,
+            "chroma.query.found"
         );
         Ok(results)
     }
@@ -62,7 +67,11 @@ impl QueryRepository {
             return Ok(Vec::new());
         }
 
-        tracing::debug!("Fetching {} chunks from PostgreSQL", ids.len());
+        tracing::debug!(
+            component = "query/repository",
+            request_count = ids.len(),
+            "chunks.fetch_by_ids.start"
+        );
 
         // Build placeholders for the IN clause (PostgreSQL numbered params)
         let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("${i}")).collect();
@@ -92,7 +101,11 @@ impl QueryRepository {
             std::collections::HashMap::new();
         for (chunk_id, index, text, document_name) in rows {
             tracing::trace!(
-                "Fetched chunk: id={chunk_id}, document={document_name}, index={index}"
+                component = "query/repository",
+                chunk_id = %chunk_id,
+                document_name = %document_name,
+                chunk_index = index,
+                "chunk.fetched"
             );
             by_id.insert(
                 chunk_id,
@@ -113,11 +126,19 @@ impl QueryRepository {
             if let Some(chunk) = by_id.remove(&id) {
                 chunks.push(chunk);
             } else {
-                tracing::warn!("Chunk {id} not found in PostgreSQL — Chroma result may be stale");
+                tracing::warn!(
+                    component = "query/repository",
+                    chunk_id = %id,
+                    "chunk.not_found_in_pg"
+                );
             }
         }
 
-        tracing::debug!("Found {} chunks in PostgreSQL", chunks.len());
+        tracing::debug!(
+            component = "query/repository",
+            result_count = chunks.len(),
+            "chunks.fetch_by_ids.found"
+        );
         Ok(chunks)
     }
 

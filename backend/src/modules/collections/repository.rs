@@ -18,7 +18,7 @@ impl CollectionRepository {
 
     /// Insert a new collection into PostgreSQL.
     pub async fn create_collection(&self, collection: &Collection) -> Result<Uuid, AppError> {
-        tracing::debug!("Creating collection: {}", collection.name);
+        tracing::debug!(component = "collections/repository", collection_name = %collection.name, "collection.create.started");
 
         sqlx::query(
             "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
@@ -37,18 +37,17 @@ impl CollectionRepository {
             }
         })?;
 
-        tracing::info!(
-            "Collection created: {id} ({name})",
-            id = collection.id,
-            name = collection.name
-        );
+        tracing::info!(component = "collections/repository", collection_id = %collection.id, collection_name = %collection.name, "collection.created");
 
         Ok(collection.id)
     }
 
     /// List all collections with their document counts.
     pub async fn list_collections(&self) -> Result<Vec<Collection>, AppError> {
-        tracing::debug!("Listing all collections");
+        tracing::debug!(
+            component = "collections/repository",
+            "collection.list.started"
+        );
 
         let rows = sqlx::query_as::<
             _,
@@ -78,13 +77,17 @@ impl CollectionRepository {
             });
         }
 
-        tracing::debug!("Found {} collections", collections.len());
+        tracing::debug!(
+            component = "collections/repository",
+            count = collections.len(),
+            "collection.list.found"
+        );
         Ok(collections)
     }
 
     /// Retrieve a single collection by ID.
     pub async fn get_collection(&self, id: Uuid) -> Result<Collection, AppError> {
-        tracing::debug!("Fetching collection: {id}");
+        tracing::debug!(component = "collections/repository", collection_id = %id, "collection.get.started");
 
         let row =
             sqlx::query_as::<
@@ -115,7 +118,7 @@ impl CollectionRepository {
 
     /// Delete a collection and its associated documents and chunks.
     pub async fn delete_collection(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::debug!("Deleting collection: {id}");
+        tracing::debug!(component = "collections/repository", collection_id = %id, "collection.delete.started");
 
         // Delete chunks for documents in this collection
         sqlx::query(
@@ -151,7 +154,7 @@ impl CollectionRepository {
             return Err(AppError::NotFound(format!("Collection {id} not found")));
         }
 
-        tracing::info!("Collection deleted: {id}");
+        tracing::info!(component = "collections/repository", collection_id = %id, "collection.deleted");
         Ok(())
     }
 

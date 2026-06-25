@@ -101,9 +101,10 @@ impl GitRepoRepository {
     /// Insert a new Git repository record.
     pub async fn create_repo(&self, repo: &GitRepo) -> Result<Uuid, AppError> {
         tracing::debug!(
-            "[GitRepoRepository::create_repo] entry repo_id={} url={}",
-            repo.id,
-            repo.url
+            component = "git_sync/repository",
+            git_repo_id = %repo.id,
+            repo_url = %repo.url,
+            "create_repo.entry"
         );
 
         sqlx::query(
@@ -130,18 +131,21 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::create_repo] SQL error: error={e}, query=INSERT git_repositories"
+                component = "git_sync/repository",
+                error = %e,
+                query = "INSERT git_repositories",
+                "create_repo.sql_error"
             );
             AppError::InternalError(format!("Failed to create git repository: {e}"))
         })?;
 
-        tracing::debug!("[GitRepoRepository::create_repo] exit repo_id={}", repo.id);
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %repo.id, "create_repo.exit");
         Ok(repo.id)
     }
 
     /// List all registered Git repositories.
     pub async fn list_repos(&self) -> Result<Vec<GitRepo>, AppError> {
-        tracing::debug!("[GitRepoRepository::list_repos] entry");
+        tracing::debug!(component = "git_sync/repository", "list_repos.entry");
 
         let rows = sqlx::query_as::<_, GitRepoRow>(
             r#"
@@ -155,7 +159,10 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::list_repos] SQL error: error={e}, query=SELECT git_repositories"
+                component = "git_sync/repository",
+                error = %e,
+                query = "SELECT git_repositories",
+                "list_repos.sql_error"
             );
             AppError::InternalError(format!("Failed to list git repositories: {e}"))
         })?;
@@ -165,7 +172,11 @@ impl GitRepoRepository {
             .map(GitRepo::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
-        tracing::debug!("[GitRepoRepository::list_repos] exit count={}", repos.len());
+        tracing::debug!(
+            component = "git_sync/repository",
+            count = repos.len(),
+            "list_repos.exit"
+        );
         Ok(repos)
     }
 
@@ -173,7 +184,7 @@ impl GitRepoRepository {
     ///
     /// Returns `AppError::NotFound` if no row exists.
     pub async fn get_repo(&self, id: Uuid) -> Result<GitRepo, AppError> {
-        tracing::debug!("[GitRepoRepository::get_repo] entry repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.entry");
 
         let repo = sqlx::query_as::<_, GitRepoRow>(
             r#"
@@ -188,18 +199,21 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::get_repo] SQL error: error={e}, query=SELECT git_repositories WHERE id"
+                component = "git_sync/repository",
+                error = %e,
+                query = "SELECT git_repositories WHERE id",
+                "get_repo.sql_error"
             );
             AppError::InternalError(format!("Database error: {e}"))
         })?
         .ok_or_else(|| {
-            tracing::debug!("[GitRepoRepository::get_repo] not found repo_id={id}");
+            tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.not_found");
             AppError::NotFound(format!("Git repository {id} not found"))
         })?;
 
         let repo = GitRepo::try_from(repo)?;
 
-        tracing::debug!("[GitRepoRepository::get_repo] exit repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo.exit");
         Ok(repo)
     }
 
@@ -208,7 +222,7 @@ impl GitRepoRepository {
         &self,
         id: Uuid,
     ) -> Result<GitRepoSummary, AppError> {
-        tracing::debug!("[GitRepoRepository::get_repo_with_collection_name] entry repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo_with_collection_name.entry");
 
         let summary = sqlx::query_as::<_, GitRepoSummaryRow>(
             r#"
@@ -234,26 +248,34 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::get_repo_with_collection_name] SQL error: error={e}, query=SELECT JOIN"
+                component = "git_sync/repository",
+                error = %e,
+                query = "SELECT JOIN",
+                "get_repo_with_collection_name.sql_error"
             );
             AppError::InternalError(format!("Database error: {e}"))
         })?
         .ok_or_else(|| {
             tracing::debug!(
-                "[GitRepoRepository::get_repo_with_collection_name] not found repo_id={id}"
+                component = "git_sync/repository",
+                git_repo_id = %id,
+                "get_repo_with_collection_name.not_found"
             );
             AppError::NotFound(format!("Git repository {id} not found"))
         })?;
 
         let summary = GitRepoSummary::try_from(summary)?;
 
-        tracing::debug!("[GitRepoRepository::get_repo_with_collection_name] exit repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "get_repo_with_collection_name.exit");
         Ok(summary)
     }
 
     /// List all repos with their resolved collection names.
     pub async fn list_repos_with_collection_names(&self) -> Result<Vec<GitRepoSummary>, AppError> {
-        tracing::debug!("[GitRepoRepository::list_repos_with_collection_names] entry");
+        tracing::debug!(
+            component = "git_sync/repository",
+            "list_repos_with_collection_names.entry"
+        );
 
         let rows = sqlx::query_as::<_, GitRepoSummaryRow>(
             r#"
@@ -278,7 +300,10 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::list_repos_with_collection_names] SQL error: error={e}, query=SELECT JOIN all"
+                component = "git_sync/repository",
+                error = %e,
+                query = "SELECT JOIN all",
+                "list_repos_with_collection_names.sql_error"
             );
             AppError::InternalError(format!("Database error: {e}"))
         })?;
@@ -289,8 +314,9 @@ impl GitRepoRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         tracing::debug!(
-            "[GitRepoRepository::list_repos_with_collection_names] exit count={}",
-            summaries.len()
+            component = "git_sync/repository",
+            count = summaries.len(),
+            "list_repos_with_collection_names.exit"
         );
         Ok(summaries)
     }
@@ -301,7 +327,7 @@ impl GitRepoRepository {
     /// `false` if the repo was already being synced by another caller.
     /// This uses a compare-and-swap pattern to prevent race conditions.
     pub async fn try_acquire_sync_lock(&self, id: Uuid) -> Result<bool, AppError> {
-        tracing::debug!("[GitRepoRepository::try_acquire_sync_lock] entry repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "try_acquire_sync_lock.entry");
 
         let now = Utc::now();
         let result = sqlx::query(
@@ -318,15 +344,20 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::try_acquire_sync_lock] SQL error: error={e}, \
-                 query=UPDATE git_repositories SET status = syncing WHERE id"
+                component = "git_sync/repository",
+                error = %e,
+                query = "UPDATE git_repositories SET status = syncing WHERE id",
+                "try_acquire_sync_lock.sql_error"
             );
             AppError::InternalError(format!("Failed to acquire sync lock: {e}"))
         })?;
 
         let acquired = result.rows_affected() > 0;
         tracing::debug!(
-            "[GitRepoRepository::try_acquire_sync_lock] exit repo_id={id} acquired={acquired}"
+            component = "git_sync/repository",
+            git_repo_id = %id,
+            acquired = acquired,
+            "try_acquire_sync_lock.exit"
         );
         Ok(acquired)
     }
@@ -340,7 +371,10 @@ impl GitRepoRepository {
         status: &str,
     ) -> Result<(), AppError> {
         tracing::debug!(
-            "[GitRepoRepository::update_sync_status] entry repo_id={id} status={status}"
+            component = "git_sync/repository",
+            git_repo_id = %id,
+            status = %status,
+            "update_sync_status.entry"
         );
 
         let now = Utc::now();
@@ -363,8 +397,10 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::update_sync_status] SQL error: error={e}, \
-                 query=UPDATE git_repositories SET status"
+                component = "git_sync/repository",
+                error = %e,
+                query = "UPDATE git_repositories SET status",
+                "update_sync_status.sql_error"
             );
             AppError::InternalError(format!("Failed to update sync status: {e}"))
         })?;
@@ -374,7 +410,10 @@ impl GitRepoRepository {
         }
 
         tracing::debug!(
-            "[GitRepoRepository::update_sync_status] exit repo_id={id} status={status}"
+            component = "git_sync/repository",
+            git_repo_id = %id,
+            status = %status,
+            "update_sync_status.exit"
         );
         Ok(())
     }
@@ -384,7 +423,10 @@ impl GitRepoRepository {
     /// Sets status to `"error"` and logs the error reason for frontend display.
     pub async fn mark_sync_error(&self, id: Uuid, error_message: &str) -> Result<(), AppError> {
         tracing::debug!(
-            "[GitRepoRepository::mark_sync_error] entry repo_id={id} error={error_message}"
+            component = "git_sync/repository",
+            git_repo_id = %id,
+            error = %error_message,
+            "mark_sync_error.entry"
         );
 
         let now = Utc::now();
@@ -402,8 +444,10 @@ impl GitRepoRepository {
         .await
         .map_err(|e| {
             tracing::error!(
-                "[GitRepoRepository::mark_sync_error] SQL error: error={e}, \
-             query=UPDATE git_repositories SET status = error"
+                component = "git_sync/repository",
+                error = %e,
+                query = "UPDATE git_repositories SET status = error",
+                "mark_sync_error.sql_error"
             );
             AppError::InternalError(format!("Failed to mark sync error: {e}"))
         })?;
@@ -412,7 +456,7 @@ impl GitRepoRepository {
             return Err(AppError::NotFound(format!("Git repository {id} not found")));
         }
 
-        tracing::debug!("[GitRepoRepository::mark_sync_error] exit repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "mark_sync_error.exit");
         Ok(())
     }
 
@@ -420,7 +464,7 @@ impl GitRepoRepository {
     ///
     /// Returns `AppError::NotFound` if no row exists.
     pub async fn delete_repo(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::debug!("[GitRepoRepository::delete_repo] entry repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "delete_repo.entry");
 
         let affected = sqlx::query("DELETE FROM git_repositories WHERE id = $1")
             .bind(id)
@@ -428,8 +472,10 @@ impl GitRepoRepository {
             .await
             .map_err(|e| {
                 tracing::error!(
-                    "[GitRepoRepository::delete_repo] SQL error: error={e}, \
-                     query=DELETE git_repositories"
+                    component = "git_sync/repository",
+                    error = %e,
+                    query = "DELETE git_repositories",
+                    "delete_repo.sql_error"
                 );
                 AppError::InternalError(format!("Failed to delete git repository: {e}"))
             })?;
@@ -438,14 +484,16 @@ impl GitRepoRepository {
             return Err(AppError::NotFound(format!("Git repository {id} not found")));
         }
 
-        tracing::debug!("[GitRepoRepository::delete_repo] exit repo_id={id}");
+        tracing::debug!(component = "git_sync/repository", git_repo_id = %id, "delete_repo.exit");
         Ok(())
     }
 
     /// Look up a collection name by its ID.
     pub async fn get_collection_name(&self, collection_id: Uuid) -> Result<String, AppError> {
         tracing::debug!(
-            "[GitRepoRepository::get_collection_name] entry collection_id={collection_id}"
+            component = "git_sync/repository",
+            collection_id = %collection_id,
+            "get_collection_name.entry"
         );
 
         let name: Option<String> = sqlx::query_scalar("SELECT name FROM collections WHERE id = $1")
@@ -453,19 +501,24 @@ impl GitRepoRepository {
             .fetch_optional(&self.db)
             .await
             .map_err(|e| {
-                tracing::error!("[GitRepoRepository::get_collection_name] SQL error: error={e}");
+                tracing::error!(component = "git_sync/repository", error = %e, "get_collection_name.sql_error");
                 AppError::InternalError(format!("Database error: {e}"))
             })?;
 
         let name = name.ok_or_else(|| {
             tracing::debug!(
-                "[GitRepoRepository::get_collection_name] not found collection_id={collection_id}"
+                component = "git_sync/repository",
+                collection_id = %collection_id,
+                "get_collection_name.not_found"
             );
             AppError::NotFound(format!("Collection {collection_id} not found"))
         })?;
 
         tracing::debug!(
-            "[GitRepoRepository::get_collection_name] exit collection_id={collection_id} name={name}"
+            component = "git_sync/repository",
+            collection_id = %collection_id,
+            collection_name = %name,
+            "get_collection_name.exit"
         );
         Ok(name)
     }

@@ -40,7 +40,7 @@ impl QueryService {
         let repo = QueryRepository::new(db.clone(), chroma_url);
         let embedding_client = EmbeddingClient::new(embedding_service_url);
         let conversation_repo = ConversationRepository::new(db);
-        tracing::debug!("QueryService initialized");
+        tracing::debug!(component = "query/service", "service.initialized");
         Self {
             repo,
             llm_client,
@@ -66,31 +66,36 @@ impl QueryService {
         request: QueryRequest,
     ) -> Result<impl Stream<Item = Result<StreamEvent, Infallible>>, AppError> {
         tracing::info!(
-            "Processing query: collection={}, session={:?}, query_len={}",
-            request.collection_id,
-            request.session_id,
-            request.query.len()
+            component = "query/service",
+            collection_id = %request.collection_id,
+            session_id = ?request.session_id,
+            query_length = request.query.len(),
+            "query.process.start"
         );
 
         // 1. Embed the query
-        tracing::debug!("Embedding query text");
+        tracing::debug!(component = "query/service", "query.embed.start");
         let embeddings = self
             .embedding_client
             .embed(vec![request.query.clone()])
             .await
             .map_err(|e| {
-                tracing::error!("Embedding failed: {e}");
+                tracing::error!(component = "query/service", error = %e, "query.embed.failed");
                 e
             })?;
 
         let embedding = embeddings.into_iter().next().ok_or_else(|| {
             let err =
                 AppError::EmbeddingError("Embedding service returned empty result".to_string());
-            tracing::error!("{err}");
+            tracing::error!(component = "query/service", "query.embed.empty_result");
             err
         })?;
 
-        tracing::debug!("Query embedded: dim={}", embedding.len());
+        tracing::debug!(
+            component = "query/service",
+            embedding_dimension = embedding.len(),
+            "query.embedded"
+        );
 
         // 2. Search Chroma for similar chunks
         let collection_name = request.collection_id.to_string();
@@ -99,14 +104,15 @@ impl QueryService {
             .query_chroma(&collection_name, &embedding, 5)
             .await
             .map_err(|e| {
-                tracing::error!("Chroma search failed: {e}");
+                tracing::error!(component = "query/service", error = %e, "query.chroma_search_failed");
                 e
             })?;
 
         if chroma_results.is_empty() {
             tracing::warn!(
-                "No results found for query in collection {} — retrying up to 3 times",
-                request.collection_id
+                component = "query/service",
+                collection_id = %request.collection_id,
+                "query.chroma.empty_results"
             );
             for attempt in 1..=3 {
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
@@ -115,19 +121,23 @@ impl QueryService {
                     .query_chroma(&collection_name, &embedding, 5)
                     .await
                     .map_err(|e| {
-                        tracing::error!("Chroma search failed on retry {attempt}: {e}");
+                        tracing::error!(component = "query/service", retry_attempt = attempt, error = %e, "query.chroma_retry_failed");
                         e
                     })?;
                 if !chroma_results.is_empty() {
                     tracing::info!(
-                        "Chroma results found after retry {attempt} for collection {}",
-                        request.collection_id
+                        component = "query/service",
+                        retry_attempt = attempt,
+                        collection_id = %request.collection_id,
+                        "query.chroma.retry_found"
                     );
                     break;
                 }
                 tracing::warn!(
-                    "Chroma still empty after retry {attempt} for collection {}",
-                    request.collection_id
+                    component = "query/service",
+                    retry_attempt = attempt,
+                    collection_id = %request.collection_id,
+                    "query.chroma.retry_empty"
                 );
             }
         }
@@ -178,7 +188,7 @@ impl QueryService {
                 deleted_at: None,
             };
             self.conversation_repo.add_message(&msg).await?;
-            tracing::info!("[query.process_query] persisted user_message_id={user_msg_id}");
+            tracing::info!(component = "query/service", user_message_id = %user_msg_id, "query.user_message_persisted");
 
             // Auto-name session if title is still the default placeholder
             let session = self.conversation_repo.get_session(session_id).await?;
@@ -192,7 +202,10 @@ impl QueryService {
                     .to_string();
                 if !auto_title.is_empty() {
                     tracing::info!(
-                        "[query.auto_name] session={session_id} auto-title=\"{auto_title}\""
+                        component = "query/service",
+                        session_id = %session_id,
+                        auto_title = %auto_title,
+                        "query.session.auto_named"
                     );
                     self.conversation_repo
                         .update_session(session_id, Some(auto_title), None)
@@ -280,11 +293,15 @@ impl QueryService {
                     };
                     if let Err(e) = repo.add_message(&msg).await {
                         tracing::error!(
-                            "[query.process_query] failed to persist assistant message: {e}"
+                            component = "query/service",
+                            error = %e,
+                            "query.assistant_message_persist_failed"
                         );
                     } else {
                         tracing::info!(
-                            "[query.process_query] persisted assistant_message_id={asst_id_val}"
+                            component = "query/service",
+                            assistant_message_id = %asst_id_val,
+                            "query.assistant_message_persisted"
                         );
                     }
                 }
@@ -306,7 +323,7 @@ impl QueryService {
                     data: json!({"text": text}),
                 }),
                 Err(e) => {
-                    tracing::error!("LLM stream error: {e}");
+                    tracing::error!(component = "query/service", error = %e, "llm.stream_error");
                     Ok(StreamEvent {
                         event_type: "error".to_string(),
                         data: json!({"text": e.to_string()}),
@@ -341,10 +358,15 @@ impl QueryService {
             .sum();
 
         tracing::info!(
-            "[query.trim_history] session={session_id} in={count} out={} dropped={dropped} kept_tokens={kept_tokens} budget={} max_messages={}",
-            trimmed.len(),
-            self.context_token_budget,
-            self.max_history_messages,
+            component = "query/service",
+            session_id = %session_id,
+            history_count = count,
+            trimmed_count = trimmed.len(),
+            dropped_count = dropped,
+            kept_tokens = kept_tokens,
+            token_budget = self.context_token_budget,
+            max_messages = self.max_history_messages,
+            "query.trim_history.result"
         );
 
         Ok(trimmed)
@@ -361,7 +383,7 @@ pub async fn load_conversation_history_rows(
     db: &PgPool,
     session_id: Uuid,
 ) -> Result<Vec<LlmMessage>, AppError> {
-    tracing::debug!("[FIX] Loading conversation history with UUID bind: session={session_id}");
+    tracing::debug!(component = "query/service", session_id = %session_id, "query.load_conversation_history.start");
 
     let rows = sqlx::query_as::<_, MessageRow>(
         "SELECT role, content FROM messages \
@@ -373,14 +395,19 @@ pub async fn load_conversation_history_rows(
     .await
     .map_err(|e| {
         tracing::error!(
-            "[FIX] Failed to load conversation history: session={session_id}, error={e}"
+            component = "query/service",
+            session_id = %session_id,
+            error = %e,
+            "query.load_conversation_history.failed"
         );
         AppError::InternalError(format!("Failed to load history: {e}"))
     })?;
 
     tracing::debug!(
-        "[FIX] Loaded conversation history: session={session_id}, rows={}",
-        rows.len()
+        component = "query/service",
+        session_id = %session_id,
+        row_count = rows.len(),
+        "query.load_conversation_history.found"
     );
 
     Ok(rows
