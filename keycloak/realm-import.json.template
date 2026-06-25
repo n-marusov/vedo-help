@@ -5,8 +5,9 @@
 	"enabled": true,
 	"sslRequired": "external",
 	"loginWithEmailAllowed": true,
-	"registrationAllowed": false,
+	"registrationAllowed": true,
 	"registrationEmailAsUsername": false,
+	"defaultRoles": ["user"],
 	"bruteForceProtected": true,
 	"roles": {
 		"realm": [

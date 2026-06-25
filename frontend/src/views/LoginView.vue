@@ -4,6 +4,7 @@
 // may opt into TypeScript with `lang="ts"` when they validate complex props.
 import LoginButtons from '@/components/LoginButtons.vue';
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
+import { redirectToRegistration } from '@/composables/useOidcAuth';
 import { onMounted } from 'vue';
 
 onMounted(() => {
@@ -30,6 +31,18 @@ onMounted(() => {
 
       <!-- OAuth provider buttons -->
       <LoginButtons />
+
+      <!-- Registration link -->
+      <div class="register-row">
+        <span class="register-text">Don't have an account?</span>
+        <button
+          class="register-link"
+          data-testid="btn-register"
+          @click="redirectToRegistration"
+        >
+          Create one
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -106,5 +119,30 @@ onMounted(() => {
   font-size: var(--font-size-sm);
   color: var(--color-muted-foreground);
   line-height: 1.4;
+}
+
+.register-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted-foreground);
+}
+
+.register-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  transition: opacity var(--transition-fast);
+}
+
+.register-link:hover {
+  opacity: 0.8;
 }
 </style>

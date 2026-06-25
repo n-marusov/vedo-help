@@ -619,12 +619,25 @@ export function restoreSession(): boolean {
 /**
  * Reactive composable for OIDC authentication state and actions.
  */
+/**
+ * Redirect to KeyCloak self-registration page.
+ * Uses the same client_id and redirect_uri as login.
+ */
+export async function redirectToRegistration() {
+  const registrationUrl = `${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/registrations?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid%20profile%20email`;
+
+  console.debug('[OidcAuth] Redirecting to KeyCloak registration');
+  window.location.href = registrationUrl;
+}
+
 export function useOidcAuth() {
   return {
     /** Reactive — whether a valid auth session exists. */
     isAuthenticated,
     /** Redirect to KeyCloak local login. */
     redirectToKeycloak,
+    /** Redirect to KeyCloak self-registration. */
+    redirectToRegistration,
     /** Handle OAuth callback (code exchange). */
     handleCallback,
     /** Log out and redirect to KeyCloak. */

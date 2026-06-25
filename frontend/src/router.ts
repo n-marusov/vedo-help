@@ -1,5 +1,5 @@
 import { restoreSession } from '@/composables/useOidcAuth';
-import { isAuthenticated } from '@/stores/auth';
+import { isAdmin, isAuthenticated } from '@/stores/auth';
 import AdminView from '@/views/AdminView.vue';
 import AvatarPreviewView from '@/views/AvatarPreviewView.vue';
 import CallbackView from '@/views/CallbackView.vue';
@@ -17,6 +17,7 @@ const routes = [
     path: '/admin',
     name: 'admin',
     component: AdminView,
+    meta: { requiresAdmin: true },
   },
   {
     path: '/ui-preview/avatar',
@@ -54,6 +55,13 @@ router.beforeEach((to, _from, next) => {
     if (!isAuthenticated.value) {
       console.debug('[Router] No auth token found, redirecting to login');
       next({ name: 'login' });
+      return;
+    }
+
+    // Admin route guard — requires the 'admin' realm role.
+    if (to.meta.requiresAdmin && !isAdmin.value) {
+      console.warn('[Router] Admin route access denied for non-admin user', to.path);
+      next({ name: 'chat' });
       return;
     }
   }
