@@ -27,6 +27,12 @@ pub struct AppConfig {
     pub git_clone_root: String,
     /// Git sync polling interval in seconds (0 = disabled)
     pub git_sync_interval_secs: u64,
+    /// OpenTelemetry OTLP endpoint (gRPC)
+    pub otel_endpoint: String,
+    /// Service name for OTel resource attributes
+    pub service_name: String,
+    /// Deployment environment (development, staging, production)
+    pub environment: String,
     /// Max history messages to include in LLM context
     pub llm_max_history_messages: usize,
     /// Token budget for LLM context window
@@ -84,6 +90,10 @@ impl AppConfig {
                 .unwrap_or_else(|_| "6000".to_string())
                 .parse()
                 .expect("LLM_CONTEXT_TOKEN_BUDGET must be a valid number"),
+            otel_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+                .unwrap_or_else(|_| "http://otel-collector:4317".to_string()),
+            service_name: env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| String::new()),
+            environment: env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
         }
     }
 }
@@ -99,5 +109,16 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 3000);
         assert!(!config.llm_model.is_empty());
+    }
+
+    #[test]
+    fn test_otel_config_defaults() {
+        let config = AppConfig::from_env();
+        assert!(
+            config.otel_endpoint.contains("otel-collector"),
+            "OTEL endpoint should default to collector service"
+        );
+        assert_eq!(config.service_name, "");
+        assert_eq!(config.environment, "development");
     }
 }
