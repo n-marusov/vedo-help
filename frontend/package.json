@@ -34,7 +34,7 @@
     "@opentelemetry/semantic-conventions": "^1.30.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
+    "@biomejs/biome": "2.5.1",
     "@playwright/test": "^1.61.0",
     "@types/node": "^25.9.3",
     "@vitejs/plugin-vue": "^5.0",
