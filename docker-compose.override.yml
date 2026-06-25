@@ -21,6 +21,7 @@ services:
     environment:
       RUST_LOG: debug
       CARGO_TARGET_DIR: /app/target
+      ENVIRONMENT: development
     # Dev stage (rust:1.96-slim-bookworm) lacks curl — use TCP check instead.
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/3000'"]
@@ -60,6 +61,8 @@ services:
       NODE_ENV: development
       VITE_KEYCLOAK_PROXY_TARGET: http://keycloak:8080
       VITE_API_PROXY_TARGET: http://backend:3000
+      VITE_OTEL_COLLECTOR_URL: http://otel-collector:4318/v1/logs
+      VITE_ENVIRONMENT: development
     # Dev server (Vite) runs on port 5173, not nginx on 80.
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]

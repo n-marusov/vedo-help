@@ -128,6 +128,28 @@ services:
   keycloak:
     ports: []
 
+  otel-collector:
+    <<: *default-security
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+          pids: 50
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    logging: *default-logging
+    ports: []
+    environment:
+      ENVIRONMENT: production
+    depends_on:
+      caddy:
+        condition: service_started
+
 networks:
   internal:
     driver: bridge

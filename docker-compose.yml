@@ -76,6 +76,9 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://vedo:CHANGEME-db-password@db:5432/vedo}
       LLM_MAX_HISTORY_MESSAGES: ${LLM_MAX_HISTORY_MESSAGES:-20}
       LLM_CONTEXT_TOKEN_BUDGET: ${LLM_CONTEXT_TOKEN_BUDGET:-6000}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_SERVICE_NAME: vedo-backend
+      ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     networks:
@@ -208,6 +211,23 @@ services:
       retries: 10
       start_period: 60s
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command:
+      - --config=/etc/otel-collector-config.yaml
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+      - otel_data:/data
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=localhost:4317"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 networks:
   internal:
     driver: bridge
@@ -217,3 +237,4 @@ volumes:
   embedding_cache:
   db_data:
   keycloak_import:
+  otel_data:
