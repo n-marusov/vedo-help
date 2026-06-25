@@ -149,16 +149,18 @@
 
 ---
 
-## Milestone: v0.6 — Multi-user & Security ⏳
+
+
+## Milestone: v0.6 — Multi-user & Security ✅
 
 Аутентификация, multi-tenancy, audit log, security hardening.
 
-- [ ] **User authentication** — JWT, login/register
-- [ ] **Multi-tenancy** — изоляция данных по пользователю
-- [ ] **RBAC** — admin / user роли
-- [ ] **Audit log** — логи всех API-вызовов с user_id + action
-- [ ] **CORS hardening** — строгие origin
-- [ ] **SAST scanning** — зависимостей в CI
+- [x] **User authentication** — JWT, login/register
+- [x] **Multi-tenancy** — изоляция данных по пользователю
+- [x] **RBAC** — admin / user роли
+- [x] **Audit log** — логи всех API-вызовов с user_id + action
+- [x] **CORS hardening** — строгие origin
+- [x] **SAST scanning** — зависимостей в CI
 
 ---
 
@@ -186,7 +188,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.4 — Observability & Reliability | ⏳ 1/7 | Debug view, deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
 | v0.4.2 — Advanced RAG Pipeline | 🔄 0/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization |
 | v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
-| v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
+| v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
 
 **Старт:** 2026-06-14
@@ -196,4 +198,5 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Bulk deletion + VToast + optimistic UX + embedding pipeline:** 2026-06-21
 **v0.3.1 chat rework complete (message edit/delete, context window, chat export, skeletons):** 2026-06-21
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
+**v0.6 — Multi-user & Security complete (all 7 phases):** 2026-06-25
 **Что дальше:** `/aif-implement` — завершение v0.4 (debug view, deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
