@@ -6,6 +6,7 @@ pub mod error;
 pub mod file_validation;
 pub mod llm;
 pub mod rate_limit;
+pub mod rbac;
 pub mod types;
 pub mod user_context;
 

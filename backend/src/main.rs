@@ -40,6 +40,7 @@ use vedo_backend::modules::query::{handlers as query_handlers, service::QuerySer
 use vedo_backend::shared::{
     auth::{authenticate_request, SharedJwtValidator},
     llm::LlmClient,
+    rbac,
 };
 
 /// Initialize OpenTelemetry tracing pipeline with dual output:
@@ -240,8 +241,28 @@ async fn main() {
     // JWT validator — thread-safe, shared across middleware invocations
     let jwt_validator = vedo_backend::shared::auth::JwtValidator::shared(&config);
 
+    // Admin sub-router — all endpoints require the "admin" realm role.
+    // Must be nested into the main /api router BEFORE the auth route_layer
+    // so auth middleware covers it, and placed outside the public-route
+    // guard so admin endpoints are not exposed without auth.
+    let admin_router = Router::new()
+        .route(
+            "/api/admin/collections",
+            get(collections_handlers::admin_list),
+        )
+        .route(
+            "/api/admin/collections/:id",
+            delete(collections_handlers::admin_delete),
+        )
+        .route("/api/admin/audit-log", get(|| async { "placeholder" }));
+
     // Build router
     let app = Router::new()
+        // Admin routes (behind auth + admin role middleware via route_layer)
+        .merge(admin_router.route_layer(middleware::from_fn_with_state(
+            "admin".to_string(),
+            rbac::require_role,
+        )))
         // Auth routes (behind auth middleware via route_layer)
         .route("/api/auth/me", get(auth_handlers::me))
         .route("/api/auth/logout", post(auth_handlers::logout))

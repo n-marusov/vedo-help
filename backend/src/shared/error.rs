@@ -35,6 +35,9 @@ pub enum AppError {
     #[error("Payload too large: {0}")]
     PayloadTooLarge(String),
 
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+
     #[error("Unprocessable entity: {0}")]
     UnprocessableEntity(String),
 }
@@ -52,6 +55,7 @@ impl IntoResponse for AppError {
             AppError::FileError(_) => (StatusCode::UNSUPPORTED_MEDIA_TYPE, "file_error"),
             AppError::RateLimited(_) => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
             AppError::PayloadTooLarge(_) => (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large"),
+            AppError::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
             AppError::UnprocessableEntity(_) => {
                 (StatusCode::UNPROCESSABLE_ENTITY, "unprocessable_entity")
             }

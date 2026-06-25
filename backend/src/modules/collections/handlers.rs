@@ -47,6 +47,31 @@ pub async fn get(
     Ok(Json(collection))
 }
 
+/// Admin-only: list all collections (no user_id scoping).
+///
+/// Endpoint: `GET /api/admin/collections`
+pub async fn admin_list(
+    State(svc): State<CollectionService>,
+    user_ctx: UserContext,
+) -> Result<Json<Vec<CollectionSummary>>, AppError> {
+    tracing::info!(component = "collections/handlers", user_id = %user_ctx.user_id, "admin.collection.list");
+    let collections = svc.list(&user_ctx.user_id, true).await?;
+    Ok(Json(collections))
+}
+
+/// Admin-only: delete any collection by ID (bypasses ownership).
+///
+/// Endpoint: `DELETE /api/admin/collections/:id`
+pub async fn admin_delete(
+    State(svc): State<CollectionService>,
+    user_ctx: UserContext,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    tracing::info!(component = "collections/handlers", collection_id = %id, user_id = %user_ctx.user_id, "admin.collection.delete");
+    svc.delete(id, &user_ctx.user_id, true).await?;
+    Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
+}
+
 /// Delete a collection by ID.
 ///
 /// Endpoint: `DELETE /api/collections/:id`
