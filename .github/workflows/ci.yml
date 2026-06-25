@@ -66,6 +66,11 @@ jobs:
         run: cargo test --lib
         working-directory: backend
 
+      - name: Cargo audit (dependency vulnerabilities)
+        continue-on-error: true
+        run: cargo install cargo-audit --locked && cargo audit
+        working-directory: backend
+
       - name: Integration tests (requires Chroma service)
         run: cargo test --test integration
         env:
@@ -125,4 +130,9 @@ jobs:
 
       - name: Build (type-check + production build)
         run: npm run build
+        working-directory: frontend
+
+      - name: npm audit (dependency vulnerabilities)
+        continue-on-error: true
+        run: npm audit
         working-directory: frontend
