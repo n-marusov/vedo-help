@@ -1,12 +1,12 @@
-import logging
 import os
 from typing import cast, final
 
 import diskcache
+import structlog
 
 from src.service import EmbeddingService
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 DEFAULT_CACHE_DIR = "/data/cache"
 
@@ -43,10 +43,10 @@ class CachedEmbedder:
         value = cast("list[list[float]] | None", self._cache.get(key))
         if value is not None:
             self._hits += 1
-            logger.info("Cache HIT for key=%s (hits=%d, misses=%d)", key, self._hits, self._misses)
+            logger.info("cache.hit", key=key, hits=self._hits, misses=self._misses)
         else:
             self._misses += 1
-            logger.info("Cache MISS for key=%s (hits=%d, misses=%d)", key, self._hits, self._misses)
+            logger.info("cache.miss", key=key, hits=self._hits, misses=self._misses)
         return value
 
     def set(self, key: str, value: list[list[float]]) -> None:
