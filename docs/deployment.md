@@ -12,6 +12,8 @@ graph TB
     Backend --> Chroma
     Backend --> Embedding
     Backend --> SQLite
+    Backend --> OTelCollector
+    Embedding --> OTelCollector
 
     classDef svc fill:#e3f2fd,stroke:#1565c0
     classDef proxy fill:#f3e5f5,stroke:#7b1fa2
@@ -20,6 +22,17 @@ graph TB
     class Backend,Frontend,Embedding svc
     class Chroma,SQLite db
 ```
+
+## Services
+
+The production stack includes:
+
+- **Caddy** — reverse proxy with TLS termination
+- **Backend** (Rust/axum) — REST API
+- **Frontend** (Vue 3/SPA) — static files served by nginx
+- **Embedding** (Python/FastAPI) — text embedding service
+- **Chroma** — vector database
+- **OTel Collector** — OpenTelemetry protocol (OTLP) receiver for logs, traces, and metrics. All services export structured telemetry to the collector via OTLP gRPC (`:4317`) or HTTP (`:4318`). The collector enriches records with deployment environment and batches them for export (debug/stdout).
 
 ## VPS Setup
 
@@ -108,6 +121,7 @@ make check
 |----------|---------|-------------------|
 | `GET /api/health` | Backend | `OK` |
 | `GET /health` | Embedding | `{"status": "ok"}` |
+| gRPC health probe | OTel Collector | `localhost:4317` (via grpc_health_probe) |
 
 Docker Compose uses `restart: unless-stopped` on all services for automatic recovery. Health checks are defined for every service in `docker-compose.yml` and use `depends_on` with `condition: service_healthy`.
 

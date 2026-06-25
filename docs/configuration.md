@@ -27,6 +27,9 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `LLM_MAX_HISTORY_MESSAGES` | Max conversation history messages to include in LLM context | `20` |
 | `LLM_CONTEXT_TOKEN_BUDGET` | Token budget for LLM context window (word-count heuristic) | `6000` |
 | `LLM_API_KEY` | RouterAI API key | _(required)_ |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP gRPC endpoint | `http://otel-collector:4317` |
+| `OTEL_SERVICE_NAME` | Service name for OTel resource attributes | `vedo-backend` |
+| `ENVIRONMENT` | Deployment environment (development, production) | `development` |
 
 ### Embedding Service
 
@@ -34,6 +37,8 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 |----------|-------------|---------|
 | `EMBEDDING_MODEL` | Sentence-transformers model name | `BAAI/bge-small-en-v1.5` |
 | `CACHE_DIR` | Disk cache directory for embeddings | `/data/cache` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP gRPC endpoint | `http://otel-collector:4317` |
+| `ENVIRONMENT` | Deployment environment (development, production) | `development` |
 
 ### Docker Compose
 

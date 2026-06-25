@@ -25,7 +25,8 @@
 
 ## Logging
 
-- **Backend:** `tracing` crate with `tracing-subscriber` (structured, async-aware)
-- **Python:** `logging` module or FastAPI logging middleware
-- **Frontend:** `console` during development
-- **Infrastructure:** Docker journald driver with `vedo-{{.Name}}` tag
+- **Backend:** `tracing` + `tracing-opentelemetry` with OTLP export to OTel Collector. JSON-formatted stdout for Docker. Use structured attributes (not string interpolation) with semantic keys: `component`, `error`, `user_id`, `document_id`, `collection_id`, etc. All calls must include `component = "module/name"`.
+- **Python (Embedding):** `structlog` + `opentelemetry-sdk` with OTLP export. JSON output in production, console output in development. Use structured event names like `"cache.hit"`, `"model.loaded"` with semantic attributes.
+- **Frontend (TypeScript/Vue):** `@opentelemetry/sdk-logs` with OTLP HTTP export (no more `console.*` calls). Use `logger.emit()` with `severityText`, `body`, and `attributes` including `component`.
+- **All services:** Use semantic attribute keys, include `component` attribute, follow event naming conventions (e.g. `"db.connected"`, `"collection.created"`). Trace context propagation adds `trace_id`/`span_id` via OTLP.
+- **Infrastructure:** Docker json-file logging driver with rotation (20m max-size, 5 max-file). OTel Collector scrapes OTLP from all services.
