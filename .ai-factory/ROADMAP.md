@@ -100,12 +100,12 @@
   - Поиск сессий по заголовку, дате, пользователю
   - Выбор сессии из списка → просмотр сообщений с debug-данными
   - 7-шаговая пайплайн-диаграмма для каждого ответа бота (в коллапсируемых секциях):
-    - Шаг 1. **Multi-query** — заглушка (v0.5)
-    - Шаг 2. **HyDE** — заглушка (v0.5)
+    - Шаг 1. **Multi-query** — заглушка (v0.4.2)
+    - Шаг 2. **HyDE** — заглушка (v0.4.2)
     - Шаг 3. **Embedding search** — реальные данные (Chroma, top-k, dimension, latency)
-    - Шаг 4. **Hybrid keyword search** — заглушка (v0.5)
-    - Шаг 5. **Merge & deduplication** — заглушка (v0.5)
-    - Шаг 6. **Reranking** — заглушка (v0.5)
+    - Шаг 4. **Hybrid keyword search** — заглушка (v0.4.2)
+    - Шаг 5. **Merge & deduplication** — заглушка (v0.4.2)
+    - Шаг 6. **Reranking** — заглушка (v0.4.2)
     - Шаг 7. **Final answer** — реальные данные (model, tokens, latency, prompt preview)
   - Бэкенд: сбор DebugData при `debug: true`, хранение в `messages.debug_data`, API поиска сессий `GET /api/admin/sessions?search=&from=&to=`
   - Pencil-дизайн: обновлён `admin.pen` с табами и экраном Session Debug
@@ -117,15 +117,35 @@
 
 ---
 
+## Milestone: v0.4.2 — Advanced RAG Pipeline (Multi-Query, HyDE, Hybrid Search, Reranking) 🔄
+
+Полный 7-шаговый RAG-пайплайн с визуализацией всех шагов в админ-панели (по методичке День 2).
+
+- [ ] **Backend: Config + env vars** — `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`
+- [ ] **Backend: BM25 keyword search module** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, ранжирование по BM25 (через tantivy или ручная реализация)
+- [ ] **Backend: LLM helper для не-streaming вызовов** — `LlmClient::query_single(prompt)` для multi-query, HyDE, reranking (без стриминга, полный ответ)
+- [ ] **Backend: Multi-query** — LLM генерирует 2-3 альтернативные формулировки вопроса + исходный вопрос
+- [ ] **Backend: HyDE (гипотетический документ)** — LLM пишет гипотетический ответ для каждого вопроса; эмбеддинг делается по HyDE-документу, а не по вопросу
+- [ ] **Backend: Hybrid search orchestrator** — объединение результатов Chroma (3 ближайших на HyDE-документ = ~9 чанков) + BM25/keywords (до 2 чанков на ключевое слово = ~6 чанков) + дедупликация по chunk_id
+- [ ] **Backend: LLM Reranking** — для каждого уникального чанка: LLM оценивает (score 1-10, вердикт "брать"/"не брать", комментарий); в финальный LLM идут только "брать"
+- [ ] **Backend: Новые SSE-типы событий** — `pipeline_stage` события для каждого шага: `expanded_questions`, `hyde_docs`, `keyword_matches`, `merged_chunks`, `reranked_chunks`, `pipeline_metric`
+- [ ] **Backend: SourceRef с метаданными этапа** — расширение `SourceRef`: `stage` ("embedding" | "keyword" | "reranked"), `rerank_score`, `rerank_verdict`, `rerank_comment`, `keyword_matches`
+- [ ] **Backend: Ужесточение anti-hallucination промпта** — инструкция: "Если среди переданных чанков нет информации, отвечай ТОЛЬКО фразой: «К сожалению, не нашёл информации по этому вопросу в базе знаний»"
+- [ ] **Frontend: API types** — новые `StreamEvent` типы (`pipeline_stage`), расширенный `SourceRef` со stage/rerank/verdict полями
+- [ ] **Frontend: Pinia debug store** — `stores/ragDebug.ts`: хранение pipeline stage данных отдельно от чата
+- [ ] **Frontend: Debug panel v2** — `MessageBubble.vue`: 7 секций под каждый шаг пайплайна (коллапсируемые), тайминги, токены
+- [ ] **Frontend: Admin RAG Debug tab** — `AdminView.vue`: новая вкладка "RAG Pipeline Debug" с поиском сессий, 7-шаговой диаграммой, просмотром raw debug данных
+
+---
+
 ## Milestone: v0.5 — Advanced RAG ⏳
 
-Улучшение качества ответов: hybrid search, reranker, query expansion.
+Улучшение качества ответов: cross-encoder reranker, multi-turn context, доп. форматы.
 
-- [ ] **Hybrid search** — vector + BM25/FTS fusion
-- [ ] **Cross-encoder reranker** — переранжирование top-k результатов
-- [ ] **Query expansion** — альтернативные формулировки через LLM
-- [ ] **Smarter multi-turn context** — sliding window
+- [ ] **Cross-encoder reranker** — модель-ранжировщик (например, BAAI/bge-reranker-v2-m3) для CPU
+- [ ] **Smarter multi-turn context** — tiktoken-rs для точного подсчёта токенов вместо word-count heuristic
 - [ ] **Additional formats** — CSV, JSON, HTML-to-text
+- [ ] **Hybrid search optimization** — тюнинг BM25 параметров, weighted fusion с векторным поиском
 
 ---
 
@@ -164,7 +184,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
 | v0.4 — Observability & Reliability | ⏳ 1/7 | Debug view, deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
-| v0.5 — Advanced RAG | ⏳ 0/5 | Hybrid search, reranker, query expansion, multi-turn, formats |
+| v0.4.2 — Advanced RAG Pipeline | 🔄 0/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization |
+| v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
 | v0.6 — Multi-user & Security | ⏳ 0/6 | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
 
@@ -175,4 +196,4 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Bulk deletion + VToast + optimistic UX + embedding pipeline:** 2026-06-21
 **v0.3.1 chat rework complete (message edit/delete, context window, chat export, skeletons):** 2026-06-21
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
-**Что дальше:** `/aif-implement` — завершение v0.4 (debug view, deep healthcheck, rate limiting, backup automation)
+**Что дальше:** `/aif-implement` — завершение v0.4 (debug view, deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
