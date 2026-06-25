@@ -23,8 +23,9 @@ impl CollectionService {
     pub async fn create(
         &self,
         req: CreateCollectionRequest,
+        user_id: &str,
     ) -> Result<CollectionSummary, AppError> {
-        tracing::info!(component = "collections/service", collection_name = %req.name, "collection.create");
+        tracing::info!(component = "collections/service", collection_name = %req.name, user_id = %user_id, "collection.create");
 
         let name = req.name.trim().to_string();
         if name.is_empty() {
@@ -42,6 +43,7 @@ impl CollectionService {
             description: req.description,
             created_at: now,
             document_count: 0,
+            user_id: user_id.to_string(),
         };
 
         // Create in PostgreSQL first
@@ -58,7 +60,7 @@ impl CollectionService {
             return Err(e);
         }
 
-        tracing::info!(component = "collections/service", collection_id = %id, collection_name = %name, "collection.created");
+        tracing::info!(component = "collections/service", collection_id = %id, collection_name = %name, user_id = %user_id, "collection.created");
 
         Ok(CollectionSummary {
             id,
@@ -68,11 +70,19 @@ impl CollectionService {
         })
     }
 
-    /// List all collections.
-    pub async fn list(&self) -> Result<Vec<CollectionSummary>, AppError> {
-        tracing::debug!(component = "collections/service", "collection.list");
+    /// List all collections for a user.
+    /// Non-admin users see only their own collections; admin users see all.
+    pub async fn list(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<CollectionSummary>, AppError> {
+        tracing::debug!(component = "collections/service", user_id = %user_id, is_admin = %is_admin, "collection.list");
 
-        let collections = self.repo.list_collections().await?;
+        let collections = self
+            .repo
+            .list_collections_by_user(user_id, is_admin)
+            .await?;
         let summaries: Vec<CollectionSummary> = collections
             .into_iter()
             .map(|c| CollectionSummary {
@@ -91,21 +101,34 @@ impl CollectionService {
         Ok(summaries)
     }
 
-    /// Get a single collection by ID.
-    pub async fn get(&self, id: Uuid) -> Result<Collection, AppError> {
-        tracing::debug!(component = "collections/service", collection_id = %id, "collection.get");
-        self.repo.get_collection(id).await
+    /// Get a single collection by ID with ownership check.
+    pub async fn get(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Collection, AppError> {
+        tracing::debug!(component = "collections/service", collection_id = %id, user_id = %user_id, "collection.get");
+        self.repo
+            .get_collection_for_user(id, user_id, is_admin)
+            .await
     }
 
     /// Delete a collection. Removes from PostgreSQL and drops the Chroma collection.
-    pub async fn delete(&self, id: Uuid) -> Result<(), AppError> {
-        tracing::info!(component = "collections/service", collection_id = %id, "collection.delete");
+    pub async fn delete(&self, id: Uuid, user_id: &str, is_admin: bool) -> Result<(), AppError> {
+        tracing::info!(component = "collections/service", collection_id = %id, user_id = %user_id, "collection.delete");
 
         // Get the collection first to know the name (for Chroma deletion)
-        let collection = self.repo.get_collection(id).await?;
+        // This also verifies ownership
+        let collection = self
+            .repo
+            .get_collection_for_user(id, user_id, is_admin)
+            .await?;
 
-        // Delete from PostgreSQL first (includes cascade to documents/chunks)
-        self.repo.delete_collection(id).await?;
+        // Delete from PostgreSQL with ownership check
+        self.repo
+            .delete_collection_for_user(id, user_id, is_admin)
+            .await?;
 
         // Delete from Chroma — use UUID as collection name (re-derived from id)
         let chroma = ChromaClient::new(&self.chroma_url);

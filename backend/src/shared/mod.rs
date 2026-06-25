@@ -7,6 +7,7 @@ pub mod file_validation;
 pub mod llm;
 pub mod rate_limit;
 pub mod types;
+pub mod user_context;
 
 pub use auth::{AuthUser, JwtValidator};
 pub use chroma_client::ChromaClient;

@@ -10,6 +10,9 @@ pub struct Collection {
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub document_count: i64,
+    /// Owner user ID (KeyCloak sub claim).
+    #[serde(skip_serializing)]
+    pub user_id: String,
 }
 
 /// Request payload for creating a new collection.

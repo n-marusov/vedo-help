@@ -10,6 +10,7 @@ pub fn resolve_user_info(auth_info: &AuthInfo) -> UserInfo {
         email: user.email.clone(),
         preferred_username: user.preferred_username.clone(),
         provider: user.provider.clone(),
+        roles: user.roles.clone(),
     }
 }
 

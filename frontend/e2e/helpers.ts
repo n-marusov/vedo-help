@@ -64,8 +64,9 @@ export async function apiRequest<T>(
   method: 'GET' | 'POST' | 'DELETE',
   path: string,
   body?: unknown,
+  tokenOverride?: string,
 ): Promise<T> {
-  const token = await getTestAccessToken();
+  const token = tokenOverride ?? (await getTestAccessToken());
   const response = await request.fetch(`${API_URL}${path}`, {
     method,
     headers: {

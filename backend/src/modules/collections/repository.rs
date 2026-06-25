@@ -21,11 +21,12 @@ impl CollectionRepository {
         tracing::debug!(component = "collections/repository", collection_name = %collection.name, "collection.create.started");
 
         sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO collections (id, name, description, user_id, created_at) VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(collection.id)
         .bind(&collection.name)
         .bind(&collection.description)
+        .bind(&collection.user_id)
         .bind(collection.created_at)
         .execute(&self.db)
         .await
@@ -42,27 +43,40 @@ impl CollectionRepository {
         Ok(collection.id)
     }
 
-    /// List all collections with their document counts.
-    pub async fn list_collections(&self) -> Result<Vec<Collection>, AppError> {
+    /// List all collections visible to a specific user.
+    /// Non-admin users see only their own collections; admin users see all.
+    pub async fn list_collections_by_user(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Vec<Collection>, AppError> {
         tracing::debug!(
             component = "collections/repository",
             "collection.list.started"
         );
 
-        let rows = sqlx::query_as::<
-            _,
-            (
-                uuid::Uuid,
-                String,
-                Option<String>,
-                chrono::DateTime<chrono::Utc>,
-            ),
-        >(
-            "SELECT id, name, description, created_at FROM collections ORDER BY created_at DESC",
-        )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+        let rows = if is_admin {
+            sqlx::query_as::<
+                _,
+                (uuid::Uuid, String, Option<String>, chrono::DateTime<chrono::Utc>, String),
+            >(
+                "SELECT id, name, description, created_at, user_id FROM collections ORDER BY created_at DESC",
+            )
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        } else {
+            sqlx::query_as::<
+                _,
+                (uuid::Uuid, String, Option<String>, chrono::DateTime<chrono::Utc>, String),
+            >(
+                "SELECT id, name, description, created_at, user_id FROM collections WHERE user_id = $1 ORDER BY created_at DESC",
+            )
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        };
 
         let mut collections = Vec::with_capacity(rows.len());
         for row in rows {
@@ -74,6 +88,7 @@ impl CollectionRepository {
                 description: row.2,
                 created_at: row.3,
                 document_count: count,
+                user_id: row.4,
             });
         }
 
@@ -85,11 +100,22 @@ impl CollectionRepository {
         Ok(collections)
     }
 
-    /// Retrieve a single collection by ID.
-    pub async fn get_collection(&self, id: Uuid) -> Result<Collection, AppError> {
+    /// Legacy alias: list all collections (for backward compat / admin).
+    pub async fn list_collections(&self) -> Result<Vec<Collection>, AppError> {
+        self.list_collections_by_user("", true).await
+    }
+
+    /// Retrieve a single collection by ID and verify user ownership.
+    /// Non-admin users can only access their own collections.
+    pub async fn get_collection_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<Collection, AppError> {
         tracing::debug!(component = "collections/repository", collection_id = %id, "collection.get.started");
 
-        let row =
+        let row = if is_admin {
             sqlx::query_as::<
                 _,
                 (
@@ -97,13 +123,28 @@ impl CollectionRepository {
                     String,
                     Option<String>,
                     chrono::DateTime<chrono::Utc>,
+                    String,
                 ),
-            >("SELECT id, name, description, created_at FROM collections WHERE id = $1")
+            >(
+                "SELECT id, name, description, created_at, user_id FROM collections WHERE id = $1"
+            )
             .bind(id)
             .fetch_optional(&self.db)
             .await
             .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-            .ok_or_else(|| AppError::NotFound(format!("Collection {id} not found")))?;
+            .ok_or_else(|| AppError::NotFound(format!("Collection {id} not found")))?
+        } else {
+            sqlx::query_as::<
+                _,
+                (uuid::Uuid, String, Option<String>, chrono::DateTime<chrono::Utc>, String),
+            >("SELECT id, name, description, created_at, user_id FROM collections WHERE id = $1 AND user_id = $2")
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .ok_or_else(|| AppError::NotFound(format!("Collection {id} not found")))?
+        };
 
         let count = self.get_document_count(id).await.unwrap_or(0);
 
@@ -113,10 +154,50 @@ impl CollectionRepository {
             description: row.2,
             created_at: row.3,
             document_count: count,
+            user_id: row.4,
         })
     }
 
-    /// Delete a collection and its associated documents and chunks.
+    /// Retrieve a single collection by ID (legacy, no ownership check).
+    pub async fn get_collection(&self, id: Uuid) -> Result<Collection, AppError> {
+        self.get_collection_for_user(id, "", true).await
+    }
+
+    /// Find a collection by ID and user, returning None if not found or not owned.
+    pub async fn find_by_id_and_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+    ) -> Result<Option<Collection>, AppError> {
+        tracing::debug!(component = "collections/repository", collection_id = %id, "collection.find_by_user.started");
+
+        let row = sqlx::query_as::<
+            _,
+            (uuid::Uuid, String, Option<String>, chrono::DateTime<chrono::Utc>, String),
+        >("SELECT id, name, description, created_at, user_id FROM collections WHERE id = $1 AND user_id = $2")
+        .bind(id)
+        .bind(user_id)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        match row {
+            Some(r) => {
+                let count = self.get_document_count(id).await.unwrap_or(0);
+                Ok(Some(Collection {
+                    id: r.0,
+                    name: r.1,
+                    description: r.2,
+                    created_at: r.3,
+                    document_count: count,
+                    user_id: r.4,
+                }))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a collection by ID (after ownership verification).
     pub async fn delete_collection(&self, id: Uuid) -> Result<(), AppError> {
         tracing::debug!(component = "collections/repository", collection_id = %id, "collection.delete.started");
 
@@ -156,6 +237,37 @@ impl CollectionRepository {
 
         tracing::info!(component = "collections/repository", collection_id = %id, "collection.deleted");
         Ok(())
+    }
+
+    /// Delete a collection by ID with ownership check.
+    pub async fn delete_collection_for_user(
+        &self,
+        id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<(), AppError> {
+        tracing::debug!(component = "collections/repository", collection_id = %id, "collection.delete_for_user.started");
+
+        if is_admin {
+            return self.delete_collection(id).await;
+        }
+
+        // Ownership check: verify the collection belongs to this user
+        let owned = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM collections WHERE id = $1 AND user_id = $2",
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            > 0;
+
+        if !owned {
+            return Err(AppError::NotFound(format!("Collection {id} not found")));
+        }
+
+        self.delete_collection(id).await
     }
 
     /// Count documents belonging to a collection.

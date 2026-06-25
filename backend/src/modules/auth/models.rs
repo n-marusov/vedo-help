@@ -10,6 +10,9 @@ pub struct UserInfo {
     pub email: Option<String>,
     pub preferred_username: Option<String>,
     pub provider: Option<String>,
+    /// Realm roles extracted from the JWT.
+    #[serde(default)]
+    pub roles: Vec<String>,
 }
 
 /// User context extracted from the current request's auth info.
@@ -32,6 +35,8 @@ pub struct UserContext {
     pub name: Option<String>,
     pub email: Option<String>,
     pub provider: Option<String>,
+    /// Realm roles extracted from the JWT.
+    pub roles: Vec<String>,
 }
 
 impl UserContext {
@@ -43,6 +48,7 @@ impl UserContext {
             name: user.name.clone(),
             email: user.email.clone(),
             provider: user.provider.clone(),
+            roles: user.roles.clone(),
         }
     }
 }

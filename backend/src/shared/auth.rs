@@ -30,6 +30,9 @@ pub struct AuthUser {
     pub preferred_username: Option<String>,
     #[serde(rename = "provider")]
     pub provider: Option<String>,
+    /// Realm roles extracted from the JWT `realm_access.roles` claim.
+    #[serde(default)]
+    pub roles: Vec<String>,
 }
 
 /// The result of JWT token validation — carries the authenticated user's claims.
@@ -185,6 +188,23 @@ impl JwtValidator {
 
         let claims = &token_data.claims;
 
+        let roles = claims
+            .get("realm_access")
+            .and_then(|ra| ra.get("roles"))
+            .and_then(|r| r.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        tracing::debug!(
+            component = "auth",
+            roles = %roles.join(","),
+            "jwt.roles_extracted"
+        );
+
         let auth_user = AuthUser {
             sub: claims
                 .get("sub")
@@ -207,6 +227,7 @@ impl JwtValidator {
                 .get("provider")
                 .and_then(|v| v.as_str())
                 .map(String::from),
+            roles,
         };
 
         tracing::debug!(
@@ -294,6 +315,7 @@ pub async fn authenticate_request(
                 component = "auth",
                 user_id = %user.sub,
                 provider = %user.provider.as_deref().unwrap_or("none"),
+                roles = %user.roles.join(","),
                 "auth.jwt_authenticated"
             );
             return Ok(AuthInfo { user });
