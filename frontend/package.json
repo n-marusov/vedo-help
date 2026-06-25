@@ -26,7 +26,7 @@
     "marked": "^12.0",
     "pinia": "^2.1",
     "vue": "^3.4",
-    "vue-router": "^4.6.4",
+    "vue-router": "^5.1.0",
     "@opentelemetry/api-logs": "^0.57.0",
     "@opentelemetry/sdk-logs": "^0.57.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.57.0",
