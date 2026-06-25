@@ -41,7 +41,9 @@ async fn seed_session(db: &PgPool, title: &str) -> Session {
     let session = Session {
         id: Uuid::new_v4(),
         title: title.to_string(),
+        pinned: false,
         collection_id: None,
+        user_id: "test-user".to_string(),
         created_at: now,
         updated_at: now,
         message_count: 0,
@@ -166,7 +168,7 @@ async fn test_export_markdown_includes_all_live_messages_only() {
 
     let svc = ConversationService::new(repo);
     let md = svc
-        .export_session_markdown(session.id)
+        .export_session_markdown(session.id, "test-user", false)
         .await
         .expect("export_session_markdown (T8)");
     assert!(md.contains("# Md live only"), "H1 session title");

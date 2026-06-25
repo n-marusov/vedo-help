@@ -11,6 +11,7 @@ mod common;
 
 use uuid::Uuid;
 
+use vedo_backend::modules::collections::repository::CollectionRepository;
 use vedo_backend::modules::documents::repository::DocumentRepository;
 use vedo_backend::modules::documents::service::DocumentService;
 use vedo_backend::shared::AppError;
@@ -35,7 +36,8 @@ fn make_zip(files: &[(&str, &str)]) -> Vec<u8> {
 async fn test_process_upload_non_ascii_text() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let cyrillic_content = "Привет, мир! Это тестовый文档 с кириллицей.\n\n".repeat(50);
     let content = format!(
@@ -57,7 +59,14 @@ async fn test_process_upload_non_ascii_text() {
         .expect("Failed to insert collection");
 
     let result = svc
-        .process_upload(data, filename, collection_id, "text/markdown".to_string())
+        .process_upload(
+            data,
+            filename,
+            collection_id,
+            "text/markdown".to_string(),
+            "test-user",
+            true,
+        )
         .await;
 
     assert!(result.is_ok(), "process_upload failed: {:?}", result.err());
@@ -66,7 +75,10 @@ async fn test_process_upload_non_ascii_text() {
     assert_eq!(response.document_name, filename);
 
     // Verify document appears in list
-    let documents = svc.list_documents(collection_id).await.unwrap();
+    let documents = svc
+        .list_documents(collection_id, "test-user", true)
+        .await
+        .unwrap();
     assert_eq!(documents.len(), 1);
     assert_eq!(documents[0].name, filename);
 }
@@ -76,7 +88,8 @@ async fn test_process_upload_non_ascii_text() {
 async fn test_process_upload_emoji_content() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let emoji_line = "😀🚀🌈🧪🔥🎉🎊🎈🎁\n".repeat(30);
     let content = format!("{emoji_line}\nMore emoji text 🎯🎲🎮🕹️🎰.\n");
@@ -94,7 +107,14 @@ async fn test_process_upload_emoji_content() {
         .expect("Failed to insert collection");
 
     let result = svc
-        .process_upload(data, filename, collection_id, "text/markdown".to_string())
+        .process_upload(
+            data,
+            filename,
+            collection_id,
+            "text/markdown".to_string(),
+            "test-user",
+            true,
+        )
         .await;
 
     assert!(
@@ -112,7 +132,8 @@ async fn test_process_upload_emoji_content() {
 async fn test_process_upload_mixed_encoding() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let mixed = "English text. Привет-мир-你好世界😀🚀\n".repeat(40);
     let content = format!("{mixed}\n\nEND");
@@ -130,7 +151,14 @@ async fn test_process_upload_mixed_encoding() {
         .expect("Failed to insert collection");
 
     let result = svc
-        .process_upload(data, filename, collection_id, "text/markdown".to_string())
+        .process_upload(
+            data,
+            filename,
+            collection_id,
+            "text/markdown".to_string(),
+            "test-user",
+            true,
+        )
         .await;
 
     assert!(
@@ -148,7 +176,8 @@ async fn test_process_upload_mixed_encoding() {
 async fn test_process_upload_ascii_regression() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let content =
         "Hello, world!\n\nThis is a test document with ASCII text only.\n\nParagraph three.\n";
@@ -166,7 +195,14 @@ async fn test_process_upload_ascii_regression() {
         .expect("Failed to insert collection");
 
     let result = svc
-        .process_upload(data, filename, collection_id, "text/markdown".to_string())
+        .process_upload(
+            data,
+            filename,
+            collection_id,
+            "text/markdown".to_string(),
+            "test-user",
+            true,
+        )
         .await;
 
     assert!(
@@ -183,7 +219,8 @@ async fn test_process_upload_ascii_regression() {
 async fn test_process_zip_with_5_md_files() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let data = make_zip(&[
         ("file1.md", "# File 1"),
@@ -203,7 +240,9 @@ async fn test_process_zip_with_5_md_files() {
         .await
         .expect("Failed to insert collection");
 
-    let result = svc.process_zip_upload(&data, collection_id).await;
+    let result = svc
+        .process_zip_upload(&data, collection_id, "test-user", true)
+        .await;
     assert!(result.is_ok());
     let response = result.unwrap();
     assert_eq!(response.processed, 5);
@@ -216,12 +255,15 @@ async fn test_process_zip_with_5_md_files() {
 async fn test_process_zip_with_11_files_returns_413() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let names: Vec<String> = (0..11).map(|i| format!("doc-{i}.md")).collect();
     let refs: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "# content")).collect();
     let data = make_zip(&refs);
-    let result = svc.process_zip_upload(&data, Uuid::new_v4()).await;
+    let result = svc
+        .process_zip_upload(&data, Uuid::new_v4(), "test-user", true)
+        .await;
     assert!(result.is_err());
     match result.unwrap_err() {
         AppError::PayloadTooLarge(_) => {}
@@ -234,7 +276,8 @@ async fn test_process_zip_with_11_files_returns_413() {
 async fn test_process_zip_mixed_valid_invalid() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let data = make_zip(&[
         ("valid.md", "# Valid"),
@@ -252,7 +295,9 @@ async fn test_process_zip_mixed_valid_invalid() {
         .await
         .expect("Failed to insert collection");
 
-    let result = svc.process_zip_upload(&data, collection_id).await;
+    let result = svc
+        .process_zip_upload(&data, collection_id, "test-user", true)
+        .await;
     assert!(result.is_ok());
     let response = result.unwrap();
     assert!(response.processed > 0);
@@ -264,10 +309,13 @@ async fn test_process_zip_mixed_valid_invalid() {
 async fn test_process_zip_empty() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let data = make_zip(&[]);
-    let result = svc.process_zip_upload(&data, Uuid::new_v4()).await;
+    let result = svc
+        .process_zip_upload(&data, Uuid::new_v4(), "test-user", true)
+        .await;
     assert!(result.is_ok());
     let response = result.unwrap();
     assert_eq!(response.total_files, 0);
@@ -279,10 +327,13 @@ async fn test_process_zip_empty() {
 async fn test_process_zip_corrupted() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let data = vec![0x00, 0x01, 0x02, 0x03];
-    let result = svc.process_zip_upload(&data, Uuid::new_v4()).await;
+    let result = svc
+        .process_zip_upload(&data, Uuid::new_v4(), "test-user", true)
+        .await;
     assert!(result.is_err());
     match result.unwrap_err() {
         AppError::FileError(_) => {}
@@ -295,7 +346,8 @@ async fn test_process_zip_corrupted() {
 async fn test_process_zip_unsupported_types_skipped() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let data = make_zip(&[
         ("valid.md", "# Valid"),
@@ -313,7 +365,9 @@ async fn test_process_zip_unsupported_types_skipped() {
         .await
         .expect("Failed to insert collection");
 
-    let result = svc.process_zip_upload(&data, collection_id).await;
+    let result = svc
+        .process_zip_upload(&data, collection_id, "test-user", true)
+        .await;
     assert!(result.is_ok());
     let response = result.unwrap();
     assert!(response.processed >= 1);
@@ -326,7 +380,8 @@ async fn test_process_zip_unsupported_types_skipped() {
 async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo.clone());
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo.clone(), collection_repo);
 
     let collection_id = Uuid::new_v4();
 
@@ -347,6 +402,8 @@ async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks
             "test.md",
             collection_id,
             "text/markdown".into(),
+            "test-user",
+            true,
         )
         .await
         .expect("first upload should succeed");
@@ -354,7 +411,7 @@ async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks
 
     // Reload with new content
     let reload_content = b"# Updated version\n\nThis is the reloaded version with different text.";
-    svc.reload_document(reload_content, "test.md", doc_id)
+    svc.reload_document(reload_content, "test.md", doc_id, "test-user", true)
         .await
         .expect("reload should succeed");
 
@@ -396,7 +453,8 @@ async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks
 async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let collection_id = Uuid::new_v4();
 
@@ -417,6 +475,8 @@ async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
             "delete-me.md",
             collection_id,
             "text/markdown".into(),
+            "test-user",
+            true,
         )
         .await
         .expect("upload should succeed");
@@ -424,7 +484,7 @@ async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
 
     // Confirm document is visible in active results
     let docs_before = svc
-        .list_documents(collection_id)
+        .list_documents(collection_id, "test-user", true)
         .await
         .expect("should list documents");
     assert!(
@@ -433,7 +493,7 @@ async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
     );
 
     // Delete the document (soft delete)
-    svc.delete_document(doc_id)
+    svc.delete_document(doc_id, "test-user", true)
         .await
         .expect("soft delete should succeed");
 
@@ -471,7 +531,7 @@ async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
 
     // Assert: document does not appear in active listing
     let docs_after = svc
-        .list_documents(collection_id)
+        .list_documents(collection_id, "test-user", true)
         .await
         .expect("should list documents after delete");
     assert!(
@@ -485,7 +545,8 @@ async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
 async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let collection_id = Uuid::new_v4();
 
@@ -508,6 +569,8 @@ async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
                 &format!("doc-{i}.md"),
                 collection_id,
                 "text/markdown".into(),
+                "test-user",
+                true,
             )
             .await
             .expect("upload should succeed");
@@ -516,7 +579,7 @@ async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
 
     // Confirm all 3 are visible
     let docs_before = svc
-        .list_documents(collection_id)
+        .list_documents(collection_id, "test-user", true)
         .await
         .expect("should list documents");
     assert_eq!(docs_before.len(), 3, "all 3 documents should be visible");
@@ -524,14 +587,14 @@ async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
     // Delete 2 via batch
     let to_delete = vec![doc_ids[0], doc_ids[1]];
     let batch_result = svc
-        .delete_documents_batch(to_delete)
+        .delete_documents_batch(to_delete, "test-user", true)
         .await
         .expect("batch delete should succeed");
     assert_eq!(batch_result.deleted_count, 2);
 
     // Assert: remaining 1 is visible, 2 are invisible
     let docs_after = svc
-        .list_documents(collection_id)
+        .list_documents(collection_id, "test-user", true)
         .await
         .expect("should list documents after batch delete");
     assert_eq!(docs_after.len(), 1, "only 1 document should remain visible");
@@ -558,7 +621,8 @@ async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
 async fn test_batch_delete_with_mixed_collections() {
     let pool = common::setup_test_db().await;
     let repo = DocumentRepository::new(pool.clone());
-    let svc = DocumentService::new(repo);
+    let collection_repo = CollectionRepository::new(pool.clone());
+    let svc = DocumentService::new(repo, collection_repo);
 
     let collection_a = Uuid::new_v4();
     let collection_b = Uuid::new_v4();
@@ -586,6 +650,8 @@ async fn test_batch_delete_with_mixed_collections() {
                 &format!("a-{i}.md"),
                 collection_a,
                 "text/markdown".into(),
+                "test-user",
+                true,
             )
             .await
             .expect("upload to col A should succeed");
@@ -599,6 +665,8 @@ async fn test_batch_delete_with_mixed_collections() {
                 &format!("b-{i}.md"),
                 collection_b,
                 "text/markdown".into(),
+                "test-user",
+                true,
             )
             .await
             .expect("upload to col B should succeed");
@@ -608,14 +676,14 @@ async fn test_batch_delete_with_mixed_collections() {
     // Delete 1 doc from col A + 1 doc from col B in one batch
     let to_delete = vec![col_a_ids[0], col_b_ids[0]];
     let result = svc
-        .delete_documents_batch(to_delete)
+        .delete_documents_batch(to_delete, "test-user", true)
         .await
         .expect("batch delete across collections should succeed");
     assert_eq!(result.deleted_count, 2);
 
     // Assert correct per-collection active state
     let docs_a = svc
-        .list_documents(collection_a)
+        .list_documents(collection_a, "test-user", true)
         .await
         .expect("should list col A");
     assert_eq!(docs_a.len(), 1, "col A should have 1 doc remaining");
@@ -625,7 +693,7 @@ async fn test_batch_delete_with_mixed_collections() {
     );
 
     let docs_b = svc
-        .list_documents(collection_b)
+        .list_documents(collection_b, "test-user", true)
         .await
         .expect("should list col B");
     assert_eq!(docs_b.len(), 1, "col B should have 1 doc remaining");

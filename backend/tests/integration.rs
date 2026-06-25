@@ -781,6 +781,7 @@ async fn test_collection_repo_native_uuid_bind() {
         description: Some("Описание коллекции".to_string()),
         created_at: Utc::now(),
         document_count: 0,
+        user_id: "test-user".to_string(),
     };
 
     let id = repo
@@ -830,6 +831,7 @@ async fn test_conversation_repo_native_uuid_bind() {
         title: "Test Chat".to_string(),
         pinned: false,
         collection_id: None,
+        user_id: "test-user".to_string(),
         created_at: now,
         updated_at: now,
         message_count: 0,
@@ -890,6 +892,7 @@ async fn test_document_repo_native_uuid_bind() {
         description: None,
         created_at: Utc::now(),
         document_count: 0,
+        user_id: "test-user".to_string(),
     };
     col_repo
         .create_collection(&collection)
@@ -905,6 +908,7 @@ async fn test_document_repo_native_uuid_bind() {
         uploaded_at: Utc::now(),
         collection_id: collection.id,
         is_active: true,
+        user_id: "test-user".to_string(),
     };
 
     doc_repo
@@ -956,6 +960,7 @@ async fn test_git_repo_native_uuid_bind() {
         description: None,
         created_at: Utc::now(),
         document_count: 0,
+        user_id: "test-user".to_string(),
     };
     col_repo
         .create_collection(&col)
@@ -974,6 +979,7 @@ async fn test_git_repo_native_uuid_bind() {
         collection_id,
         status: "idle".to_string(),
         webhook_secret: None,
+        user_id: "test-user".to_string(),
         created_at: now,
         updated_at: now,
     };

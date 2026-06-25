@@ -85,7 +85,9 @@ async fn seed_session(db: &PgPool, title: &str) -> Session {
     let session = Session {
         id: Uuid::new_v4(),
         title: title.to_string(),
+        pinned: false,
         collection_id: None,
+        user_id: "test-user".to_string(),
         created_at: now,
         updated_at: now,
         message_count: 0,

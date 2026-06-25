@@ -10,6 +10,7 @@
 /// ```
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -26,72 +27,52 @@ mod common;
 async fn test_create_repo_persists_all_fields() {
     let pool = common::setup_test_db().await;
 
-    // Create git_repositories table (simulating Phase 2 migration)
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS git_repositories (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            branch TEXT NOT NULL DEFAULT 'main',
-            access_token TEXT,
-            local_path TEXT NOT NULL,
-            last_commit_hash TEXT,
-            last_synced_at TEXT,
-            collection_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'idle'
-                CHECK(status IN ('idle','syncing','error')),
-            webhook_secret TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("create git_repositories table");
-
     // Create a test collection first (FK constraint)
+    let coll_id = Uuid::new_v4();
+    let coll_created_at = Utc::now();
+
     sqlx::query(
         "INSERT INTO collections (id, name, description, created_at)
-         VALUES (?1, ?2, ?3, ?4)",
+         VALUES ($1, $2, $3, $4)",
     )
-    .bind("col-test-1")
+    .bind(coll_id)
     .bind("Test Collection")
     .bind("Test collection for unit tests")
-    .bind("2026-06-18T00:00:00Z")
+    .bind(coll_created_at)
     .execute(&pool)
     .await
     .expect("insert test collection");
 
-    let repo_id = "repo-test-001";
+    let repo_id = Uuid::new_v4();
     let url = "https://github.com/user/test-repo.git";
     let branch = "main";
     let access_token = "ghp_secret_token_12345";
     let local_path = "/tmp/clones/repo-test-001";
-    let collection_id = "col-test-1";
     let status = "idle";
-    let created_at = "2026-06-18T12:00:00Z";
-    let updated_at = "2026-06-18T12:00:00Z";
+    let repo_created_at = Utc::now();
+    let updated_at = repo_created_at;
 
     // Insert repo
     sqlx::query(
         "INSERT INTO git_repositories (id, url, branch, access_token, local_path, collection_id, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(repo_id)
     .bind(url)
     .bind(branch)
     .bind(access_token)
     .bind(local_path)
-    .bind(collection_id)
+    .bind(coll_id)
     .bind(status)
-    .bind(created_at)
+    .bind(repo_created_at)
     .bind(updated_at)
     .execute(&pool)
     .await
     .expect("insert repo");
 
     // Retrieve and verify all fields
-    let row = sqlx::query_as::<_, (String, String, String, Option<String>, String, Option<String>, Option<String>, String, String, Option<String>, String, String)>(
-        "SELECT id, url, branch, access_token, local_path, last_commit_hash, last_synced_at, collection_id, status, webhook_secret, created_at, updated_at FROM git_repositories WHERE id = ?1"
+    let row = sqlx::query_as::<_, (Uuid, String, String, Option<String>, String, Option<String>, Option<DateTime<Utc>>, Uuid, String, Option<String>, DateTime<Utc>, DateTime<Utc>)>(
+        "SELECT id, url, branch, access_token, local_path, last_commit_hash, last_synced_at, collection_id, status, webhook_secret, created_at, updated_at FROM git_repositories WHERE id = $1"
     )
     .bind(repo_id)
     .fetch_one(&pool)
@@ -104,24 +85,22 @@ async fn test_create_repo_persists_all_fields() {
     // access_token MUST be in DB
     assert_eq!(row.3, Some(access_token.to_string()));
     assert_eq!(row.4, local_path);
-    assert_eq!(row.7, collection_id);
+    assert_eq!(row.7, coll_id);
     assert_eq!(row.8, status);
-    assert_eq!(row.10, created_at);
+    assert_eq!(row.10, repo_created_at);
 
-    // The access_token field should NOT appear in the serialized GitRepoSummary
-    // This contract test documents: DB stores token, API/Summary does NOT expose it.
-    // Verified by checking raw DB has it; summary serialization will be tested
-    // with actual model Serialize impl in Phase 2.
+    // Contract: access_token, local_path, and webhook_secret are stored in DB
+    // but must NOT appear in API response shapes (verified via manual JSON assertion).
     let summary = json!({
         "id": repo_id,
         "url": url,
         "branch": branch,
-        "collection_id": collection_id,
+        "collection_id": coll_id,
         "status": status,
         // NOTE: access_token is NOT in this summary object
         "files_indexed": 0,
         "last_synced_at": null,
-        "created_at": created_at,
+        "created_at": repo_created_at,
         "updated_at": updated_at,
         "collection_name": "Test Collection"
     });
@@ -146,35 +125,17 @@ async fn test_create_repo_persists_all_fields() {
 async fn test_list_repos_returns_all() {
     let pool = common::setup_test_db().await;
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS git_repositories (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            branch TEXT NOT NULL DEFAULT 'main',
-            access_token TEXT,
-            local_path TEXT NOT NULL,
-            last_commit_hash TEXT,
-            last_synced_at TEXT,
-            collection_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'idle'
-                CHECK(status IN ('idle','syncing','error')),
-            webhook_secret TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("create table");
-
     // Create collection first
+    let coll_id = Uuid::new_v4();
+    let now = Utc::now();
+
     sqlx::query(
-        "INSERT INTO collections (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
     )
-    .bind("col-list")
+    .bind(coll_id)
     .bind("List Test Collection")
     .bind("")
-    .bind("2026-06-18T00:00:00Z")
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert collection");
@@ -183,16 +144,16 @@ async fn test_list_repos_returns_all() {
     for i in 1..=3i32 {
         sqlx::query(
             "INSERT INTO git_repositories (id, url, branch, local_path, collection_id, status, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         )
-        .bind(format!("repo-{i}"))
+        .bind(Uuid::new_v4())
         .bind(format!("https://github.com/user/repo-{i}.git"))
         .bind("main")
         .bind(format!("/tmp/clones/repo-{i}"))
-        .bind("col-list")
+        .bind(coll_id)
         .bind("idle")
-        .bind("2026-06-18T12:00:00Z")
-        .bind("2026-06-18T12:00:00Z")
+        .bind(now)
+        .bind(now)
         .execute(&pool)
         .await
         .expect("insert repo");
@@ -211,34 +172,17 @@ async fn test_list_repos_returns_all() {
 async fn test_update_sync_status_changes_fields() {
     let pool = common::setup_test_db().await;
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS git_repositories (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            branch TEXT NOT NULL DEFAULT 'main',
-            access_token TEXT,
-            local_path TEXT NOT NULL,
-            last_commit_hash TEXT,
-            last_synced_at TEXT,
-            collection_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'idle'
-                CHECK(status IN ('idle','syncing','error')),
-            webhook_secret TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("create table");
+    let coll_id = Uuid::new_v4();
+    let repo_id = Uuid::new_v4();
+    let now = Utc::now();
 
     sqlx::query(
-        "INSERT INTO collections (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
     )
-    .bind("col-status")
+    .bind(coll_id)
     .bind("Status Collection")
     .bind("")
-    .bind("2026-06-18T00:00:00Z")
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert collection");
@@ -246,16 +190,16 @@ async fn test_update_sync_status_changes_fields() {
     // Insert with idle status
     sqlx::query(
         "INSERT INTO git_repositories (id, url, branch, local_path, collection_id, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
-    .bind("repo-status")
+    .bind(repo_id)
     .bind("https://github.com/user/status-test.git")
     .bind("main")
     .bind("/tmp/clones/status-test")
-    .bind("col-status")
+    .bind(coll_id)
     .bind("idle")
-    .bind("2026-06-18T12:00:00Z")
-    .bind("2026-06-18T12:00:00Z")
+    .bind(now)
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert repo");
@@ -263,21 +207,22 @@ async fn test_update_sync_status_changes_fields() {
     // Update sync status
     let new_commit = "abc123def456";
     let new_status = "syncing";
+    let updated_at = Utc::now();
     sqlx::query(
-        "UPDATE git_repositories SET last_commit_hash = ?1, status = ?2, updated_at = ?3 WHERE id = ?4",
+        "UPDATE git_repositories SET last_commit_hash = $1, status = $2, updated_at = $3 WHERE id = $4",
     )
     .bind(new_commit)
     .bind(new_status)
-    .bind("2026-06-18T13:00:00Z")
-    .bind("repo-status")
+    .bind(updated_at)
+    .bind(repo_id)
     .execute(&pool)
     .await
     .expect("update sync status");
 
     // Verify
     let (hash, status): (Option<String>, String) =
-        sqlx::query_as("SELECT last_commit_hash, status FROM git_repositories WHERE id = ?1")
-            .bind("repo-status")
+        sqlx::query_as("SELECT last_commit_hash, status FROM git_repositories WHERE id = $1")
+            .bind(repo_id)
             .fetch_one(&pool)
             .await
             .expect("fetch updated repo");
@@ -286,17 +231,18 @@ async fn test_update_sync_status_changes_fields() {
     assert_eq!(status, new_status);
 
     // Update again with error status
-    sqlx::query("UPDATE git_repositories SET status = ?1, updated_at = ?2 WHERE id = ?3")
+    let updated_at2 = Utc::now();
+    sqlx::query("UPDATE git_repositories SET status = $1, updated_at = $2 WHERE id = $3")
         .bind("error")
-        .bind("2026-06-18T13:05:00Z")
-        .bind("repo-status")
+        .bind(updated_at2)
+        .bind(repo_id)
         .execute(&pool)
         .await
         .expect("update to error");
 
     let status_after: (String,) =
-        sqlx::query_as("SELECT status FROM git_repositories WHERE id = ?1")
-            .bind("repo-status")
+        sqlx::query_as("SELECT status FROM git_repositories WHERE id = $1")
+            .bind(repo_id)
             .fetch_one(&pool)
             .await
             .expect("fetch error status");
@@ -309,73 +255,56 @@ async fn test_update_sync_status_changes_fields() {
 async fn test_delete_repo_removes_row() {
     let pool = common::setup_test_db().await;
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS git_repositories (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            branch TEXT NOT NULL DEFAULT 'main',
-            access_token TEXT,
-            local_path TEXT NOT NULL,
-            last_commit_hash TEXT,
-            last_synced_at TEXT,
-            collection_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'idle'
-                CHECK(status IN ('idle','syncing','error')),
-            webhook_secret TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("create table");
+    let coll_id = Uuid::new_v4();
+    let repo_id = Uuid::new_v4();
+    let now = Utc::now();
 
     sqlx::query(
-        "INSERT INTO collections (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
     )
-    .bind("col-del")
+    .bind(coll_id)
     .bind("Delete Collection")
     .bind("")
-    .bind("2026-06-18T00:00:00Z")
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert collection");
 
     sqlx::query(
         "INSERT INTO git_repositories (id, url, branch, local_path, collection_id, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
-    .bind("repo-del")
+    .bind(repo_id)
     .bind("https://github.com/user/to-delete.git")
     .bind("main")
     .bind("/tmp/clones/to-delete")
-    .bind("col-del")
+    .bind(coll_id)
     .bind("idle")
-    .bind("2026-06-18T12:00:00Z")
-    .bind("2026-06-18T12:00:00Z")
+    .bind(now)
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert repo");
 
     // Verify it exists
     let count_before: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE id = ?1")
-            .bind("repo-del")
+        sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE id = $1")
+            .bind(repo_id)
             .fetch_one(&pool)
             .await
             .expect("count before delete");
     assert_eq!(count_before.0, 1);
 
     // Delete
-    sqlx::query("DELETE FROM git_repositories WHERE id = ?1")
-        .bind("repo-del")
+    sqlx::query("DELETE FROM git_repositories WHERE id = $1")
+        .bind(repo_id)
         .execute(&pool)
         .await
         .expect("delete repo");
 
     // Verify it's gone
-    let count_after: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE id = ?1")
-        .bind("repo-del")
+    let count_after: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE id = $1")
+        .bind(repo_id)
         .fetch_one(&pool)
         .await
         .expect("count after delete");
@@ -387,55 +316,40 @@ async fn test_delete_repo_removes_row() {
 async fn test_create_repo_same_url_allowed() {
     let pool = common::setup_test_db().await;
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS git_repositories (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            branch TEXT NOT NULL DEFAULT 'main',
-            access_token TEXT,
-            local_path TEXT NOT NULL,
-            last_commit_hash TEXT,
-            last_synced_at TEXT,
-            collection_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'idle'
-                CHECK(status IN ('idle','syncing','error')),
-            webhook_secret TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("create table");
+    let coll_a = Uuid::new_v4();
+    let coll_b = Uuid::new_v4();
+    let now = Utc::now();
 
-    for coll_id in &["col-dup-a", "col-dup-b"] {
+    for (coll_id, name) in [(coll_a, "Dup Collection A"), (coll_b, "Dup Collection B")] {
         sqlx::query(
-            "INSERT INTO collections (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO collections (id, name, description, created_at) VALUES ($1, $2, $3, $4)",
         )
-        .bind(*coll_id)
-        .bind(format!("Dup Collection {coll_id}"))
+        .bind(coll_id)
+        .bind(name)
         .bind("")
-        .bind("2026-06-18T00:00:00Z")
+        .bind(now)
         .execute(&pool)
         .await
         .expect("insert collection");
     }
 
     let same_url = "https://github.com/user/shared-repo.git";
+    let repo_a = Uuid::new_v4();
+    let repo_b = Uuid::new_v4();
 
     // Insert first repo
     sqlx::query(
         "INSERT INTO git_repositories (id, url, branch, local_path, collection_id, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
-    .bind("repo-dup-1")
+    .bind(repo_a)
     .bind(same_url)
     .bind("main")
     .bind("/tmp/clones/dup-1")
-    .bind("col-dup-a")
+    .bind(coll_a)
     .bind("idle")
-    .bind("2026-06-18T12:00:00Z")
-    .bind("2026-06-18T12:00:00Z")
+    .bind(now)
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert first repo with URL");
@@ -443,21 +357,21 @@ async fn test_create_repo_same_url_allowed() {
     // Insert second repo (same url, different collection)
     sqlx::query(
         "INSERT INTO git_repositories (id, url, branch, local_path, collection_id, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
-    .bind("repo-dup-2")
+    .bind(repo_b)
     .bind(same_url)
     .bind("develop")
     .bind("/tmp/clones/dup-2")
-    .bind("col-dup-b")
+    .bind(coll_b)
     .bind("idle")
-    .bind("2026-06-18T12:00:00Z")
-    .bind("2026-06-18T12:00:00Z")
+    .bind(now)
+    .bind(now)
     .execute(&pool)
     .await
     .expect("insert second repo with same URL");
 
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE url = ?1")
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE url = $1")
         .bind(same_url)
         .fetch_one(&pool)
         .await
