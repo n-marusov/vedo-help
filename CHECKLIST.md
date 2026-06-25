@@ -82,7 +82,7 @@ cd backend && cargo test --test documents_db_unit -- --test-threads=1
 export DATABASE_URL=postgres://vedo:test-vedo-password@localhost:15432/vedo
 export CHROMA_URL=http://localhost:18000
 export EMBEDDING_SERVICE_URL=http://localhost:18001
-cd backend && cargo test --test integration
+cd backend && cargo test --test integration -- --test-threads=1
 ```
 
 ### Embedding тесты (Python/pytest)

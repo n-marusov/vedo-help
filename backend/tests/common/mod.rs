@@ -34,6 +34,13 @@ pub async fn setup_test_db() -> PgPool {
         .await
         .expect("Failed to connect to test database");
 
+    // Drop stale migration tracking to avoid VersionMismatch when
+    // switching between branches with different migration histories.
+    sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations CASCADE")
+        .execute(&pool)
+        .await
+        .ok();
+
     // Run migrations
     sqlx::migrate!("./migrations")
         .run(&pool)

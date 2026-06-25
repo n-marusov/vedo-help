@@ -22,7 +22,7 @@
 
 ## Tasks
 
-### Phase 1 — Fix `test_process_zip_corrupted` (collection FK precondition)
+- [x] ### Phase 1 — Fix `test_process_zip_corrupted` (collection FK precondition)
 
 **Root cause:** Тест вызывает `process_zip_upload()` с `Uuid::new_v4()` как `collection_id`, но не создаёт коллекцию в БД. Функция первой же строчкой проверяет `get_collection_for_user()`, возвращает `AppError::NotFound` — тест ожидает `AppError::FileError`.
 
@@ -37,7 +37,7 @@
 
 ---
 
-### Phase 2 — Fix integration test race condition (`--test-threads=1`)
+- [x] ### Phase 2 — Fix integration test race condition (`--test-threads=1`)
 
 **Root cause:** Все integration-тесты используют общую БД, а `setup_test_db()` делает `TRUNCATE ... CASCADE`. Без `--test-threads=1` concurrent-тесты затирают данные друг друга, вызывая FK violations. **Доказано:** все 23 теста проходят с `--test-threads=1`.
 
@@ -60,7 +60,7 @@
 
 ---
 
-### Phase 3 — Fix `test_get_chunks_by_ids_unknown_uuid` collection FK precondition
+- [x] ### Phase 3 — Fix `test_get_chunks_by_ids_unknown_uuid` collection FK precondition
 
 **Root cause:** Тест использует hardcoded UUID `eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee` для `collection_id` и делает прямой SQL INSERT в `documents`, но коллекции с таким UUID не существует. При sequential-запуске с `--test-threads=1` тест проходит, потому что ранние тесты создают коллекции, которые потом не затираются. Без `--test-threads=1` коллекция могла быть стёрта concurrent TRUNCATE.
 
@@ -72,7 +72,7 @@
 
 ---
 
-### Phase 4 — Document `_sqlx_migrations` cleanup in test environment docs
+- [x] ### Phase 4 — Document `_sqlx_migrations` cleanup in test environment docs
 
 **Root cause:** `git_sync_unit` тесты падали с `VersionMismatch(1)` когда `_sqlx_migrations` содержала checksum, не совпадающую с текущими файлами миграций. Это состояние возникает при переключении веток с разными версиями миграций.
 
@@ -93,7 +93,7 @@
 
 ---
 
-### Phase 5 — Fix `test_conversation_repo_native_uuid_bind` (side effect of race condition)
+- [x] ### Phase 5 — Fix `test_conversation_repo_native_uuid_bind` (side effect of race condition)
 
 **Root cause:** Аналогично Phase 3 — это жертва race condition. При `--test-threads=1` тест проходит (подтверждено запуском 23/23).
 
@@ -105,9 +105,9 @@
 
 ## Commit Plan
 
-1. `fix(test): add collection FK precondition to test_process_zip_corrupted`
+1. `fix(test): add collection FK precondition to test_process_zip_corrupted` ✅
    - `backend/tests/documents_db_unit.rs`
-2. `fix(test): add _sqlx_migrations cleanup to setup_test_db()`
+2. `fix(test): add _sqlx_migrations cleanup to setup_test_db()` ✅
    - `backend/tests/common/mod.rs`
-3. `fix(docs): add --test-threads=1 for integration/db tests in CHECKLIST.md`
+3. `fix(docs): add --test-threads=1 for integration/db tests in CHECKLIST.md` ✅
    - `CHECKLIST.md`

@@ -330,9 +330,20 @@ async fn test_process_zip_corrupted() {
     let collection_repo = CollectionRepository::new(pool.clone());
     let svc = DocumentService::new(repo, collection_repo);
 
+    let collection_id = Uuid::new_v4();
+
+    // Insert parent collection to satisfy FK constraint
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(collection_id)
+        .bind(format!("test-collection-corrupted-{collection_id}"))
+        .bind("")
+        .execute(&pool)
+        .await
+        .expect("Failed to insert collection");
+
     let data = vec![0x00, 0x01, 0x02, 0x03];
     let result = svc
-        .process_zip_upload(&data, Uuid::new_v4(), "test-user", true)
+        .process_zip_upload(&data, collection_id, "test-user", true)
         .await;
     assert!(result.is_err());
     match result.unwrap_err() {
