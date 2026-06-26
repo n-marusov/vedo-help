@@ -1,3 +1,4 @@
+import { ref } from 'vue';
 import type {
   BatchDeleteResponse,
   CreateRepoRequest,
@@ -13,14 +14,18 @@ import type {
 
 const API_BASE = '/api';
 
-let accessToken: string | null = null;
+/**
+ * Reactive access token that Vue can track for computed dependencies.
+ * Using ref() ensures that components re-evaluate when the token changes.
+ */
+const accessToken = ref<string | null>(null);
 
 export function setAccessToken(token: string | null) {
-  accessToken = token;
+  accessToken.value = token;
 }
 
 export function getAccessToken(): string | null {
-  return accessToken;
+  return accessToken.value;
 }
 
 export class ApiError extends Error {
@@ -36,8 +41,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+  if (accessToken.value) {
+    headers.Authorization = `Bearer ${accessToken.value}`;
   }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
@@ -68,8 +73,8 @@ export const api = {
   deleteGitRepo: (id: string) => api.del<{ status: string; id: string }>(`/git-sync/repos/${id}`),
   upload: <T>(path: string, formData: FormData) => {
     const headers: Record<string, string> = {};
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`;
+    if (accessToken.value) {
+      headers.Authorization = `Bearer ${accessToken.value}`;
     }
     return fetch(`${API_BASE}${path}`, {
       method: 'POST',
@@ -108,8 +113,8 @@ export const api = {
     api.del<Record<string, never>>(`/sessions/${sessionId}/messages/${messageId}`),
   exportSession: (sessionId: string, format: ExportFormat) => {
     const headers: Record<string, string> = {};
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`;
+    if (accessToken.value) {
+      headers.Authorization = `Bearer ${accessToken.value}`;
     }
     return fetch(`${API_BASE}/sessions/${sessionId}/export?format=${format}`, {
       headers,
