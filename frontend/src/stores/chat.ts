@@ -40,7 +40,7 @@ export const useChatStore = defineStore('chat', () => {
   const isLoadingSessions = ref(false);
   const lastCollectionId = ref<string | null>(null);
   const searchQuery = ref('');
-  const sidebarCollapsed = ref(localStorage.getItem('chat_sidebar_collapsed') === 'true');
+  const sidebarCollapsed = ref(false);
 
   const filteredSessions = computed(() => {
     if (!searchQuery.value.trim()) return sessions.value;

@@ -310,7 +310,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
           <button
             class="session-header-btn"
             data-testid="sidebar-collapse-btn"
-            title="Collapse sidebar"
+            :title="
+              chatStore.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+            "
             @click="chatStore.toggleSidebarCollapsed"
           >
             <svg
@@ -322,7 +324,16 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               xmlns="http://www.w3.org/2000/svg"
             >
               <path
+                v-if="!chatStore.sidebarCollapsed"
                 d="M10 3L6 8L10 13"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+              />
+              <path
+                v-else
+                d="M6 3L10 8L6 13"
                 stroke="currentColor"
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -784,6 +795,10 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   gap: var(--space-4);
   padding: var(--space-5);
   overflow: hidden;
+  transition:
+    width var(--transition-normal),
+    min-width var(--transition-normal),
+    padding var(--transition-normal);
 }
 
 .session-header {

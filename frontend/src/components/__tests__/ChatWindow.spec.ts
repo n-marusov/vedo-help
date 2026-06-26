@@ -279,4 +279,113 @@ describe('ChatWindow (ChatView)', () => {
     const exportBtn = wrapper.find('[data-testid="export-btn"]');
     expect(exportBtn.exists()).toBe(true);
   });
+
+  // ==========================================================================
+  // Regression: sidebar expanded by default matching design
+  // ==========================================================================
+
+  it('sidebar starts expanded (not collapsed) by default', async () => {
+    const wrapper = mount(ChatView);
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+    expect(sidebar.exists()).toBe(true);
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(false);
+  });
+
+  it('sidebar shows header with session title when expanded', async () => {
+    const wrapper = mount(ChatView);
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+    expect(sidebar.find('.session-title').exists()).toBe(true);
+    expect(sidebar.find('.session-title').text()).toBe('HISTORY');
+  });
+
+  it('sidebar shows search toggle and collapse buttons in header when expanded', async () => {
+    const wrapper = mount(ChatView);
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+    expect(sidebar.find('[data-testid="session-search-toggle"]').exists()).toBe(true);
+    expect(sidebar.find('[data-testid="sidebar-collapse-btn"]').exists()).toBe(true);
+  });
+
+  it('sidebar shows new session button when expanded', async () => {
+    const wrapper = mount(ChatView);
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+    expect(sidebar.find('[data-testid="btn-new-chat"]').exists()).toBe(true);
+  });
+
+  it('sidebar shows session list when sessions exist and expanded', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const chatStore = useChatStore();
+
+    chatStore.sessions = [
+      {
+        id: 's1',
+        title: 'Test Session',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+    chatStore.isLoadingSessions = false;
+    await nextTick();
+
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+    const items = sidebar.findAll('[data-testid="session-item"]');
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0].text()).toContain('Test Session');
+  });
+
+  it('collapsing sidebar toggles collapsed CSS class', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const chatStore = useChatStore();
+
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+
+    // Starts expanded
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(false);
+
+    // Collapse
+    chatStore.toggleSidebarCollapsed();
+    await nextTick();
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(true);
+
+    // Expand again
+    chatStore.toggleSidebarCollapsed();
+    await nextTick();
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(false);
+  });
+
+  it('collapsed sidebar has narrow CSS width', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const chatStore = useChatStore();
+
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+
+    // Expanded width
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(false);
+
+    // Collapse
+    chatStore.toggleSidebarCollapsed();
+    await nextTick();
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(true);
+  });
+
+  it('collapse button has correct title based on sidebar state', async () => {
+    const wrapper = mount(ChatView);
+    const collapseBtn = wrapper.find('[data-testid="sidebar-collapse-btn"]');
+
+    // Initially expanded
+    expect(collapseBtn.attributes('title')).toBe('Collapse sidebar');
+
+    // Toggle to collapsed
+    await collapseBtn.trigger('click');
+    await nextTick();
+    expect(collapseBtn.attributes('title')).toBe('Expand sidebar');
+
+    // Toggle back to expanded
+    await collapseBtn.trigger('click');
+    await nextTick();
+    expect(collapseBtn.attributes('title')).toBe('Collapse sidebar');
+  });
 });
