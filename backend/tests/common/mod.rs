@@ -36,6 +36,16 @@ pub async fn setup_test_db() -> PgPool {
 
     // Drop stale migration tracking to avoid VersionMismatch when
     // switching between branches with different migration histories.
+    // sqlx stores a checksum (SHA256 of the file content) for each applied
+    // migration. If a migration file is modified (even whitespace) after it
+    // was applied, sqlx will refuse to start with:
+    //   "migration N was previously applied but has been modified"
+    // This DROP forces a fresh migration run on every test invocation,
+    // decoupling tests from the host's sqlx migration state.
+    //
+    // CAVEAT: multiple --test *_unit binaries MUST NOT run concurrently
+    // because they all DROP + re-migrate the shared database. Always use
+    // --test-threads=1 and run each binary separately.
     sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations CASCADE")
         .execute(&pool)
         .await

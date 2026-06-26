@@ -165,6 +165,43 @@ make test-env-down
 
 Останавливает все контейнеры и удаляет volume'ы (`-v`).
 
+> ⚠️ **Важно:** Всегда удаляй volumes перед запуском тестов, если есть сомнения в
+> чистоте БД. Старые volumes содержат таблицу `_sqlx_migrations` с контрольными
+> суммами миграций из предыдущей ветки. Если миграции изменились — sqlx выдаст
+> ошибку при старте backend-контейнера, и все DB round-trip тесты упадут каскадно.
+
+### Проблема «грязной БД» и миграций
+
+**Симптомы:**
+
+- Backend не стартует с ошибкой `migration N was previously applied but has been modified`
+  или `migration N was previously applied but is missing in the resolved migrations`.
+- Все 14 тестов `documents_db_unit` падают с `NotFound("Collection ...")` — это не
+  реальная поломка тестов, а каскадный эффект от битой схемы БД.
+- `git_sync_unit` падает с FK violation `Key is not present in table collections`.
+
+**Причина:**
+
+После смены веток, rebase'а или изменения файлов миграций (даже пробелов/комментариев)
+контрольная сумма в таблице `_sqlx_migrations` перестаёт совпадать с текущим файлом.
+sqlx считает это нарушением целостности и отказывается выполнять миграции.
+
+**Решение:**
+
+```bash
+# 1. Удалить старые volumes
+make test-env-down
+
+# 2. Проверить миграции на stale-изменения
+bash scripts/validate-migrations.sh --git
+
+# 3. Запустить тестовое окружение заново
+make test-env
+```
+
+Если `validate-migrations.sh --git` показывает stale-миграции — надо либо
+восстановить оригинальные файлы, либо создать новую миграцию (не изменять старые).
+
 ### Переменные окружения (.env.test)
 
 Перед запуском тестового окружения необходимо настроить `.env.test` в корне проекта. Обязательные переменные:
@@ -211,16 +248,27 @@ cargo test --lib
 reindex, git sync lock, conversation history). Они находятся в отдельных бинарниках в `tests/`
 и **требуют работающего PostgreSQL**:
 
+> ⚠️ **Важно:** Каждый бинарник запускается **отдельно** — не используй `--test *_unit` (wildcard).
+> Каждый бинарник при старте дропает `_sqlx_migrations` и перезапускает миграции — при
+> параллельном запуске они конфликтуют.
+
 ```bash
 # 1. Запустить тестовое окружение (требуется только PostgreSQL)
 make test-env
 
-# 2. Запустить все DB round-trip тесты (последовательно)
+# 2. Убедиться, что volumes чистые (особенно после смены веток):
+make test-env-down
+make test-env
+
+# 3. Запустить все DB round-trip тесты (последовательно, каждый отдельно)
 cd backend
 cargo test --test git_sync_unit -- --test-threads=1
 cargo test --test documents_db_unit -- --test-threads=1
 cargo test --test conversations_unit -- --test-threads=1
 ```
+
+> **Если тесты падают каскадно (14/14):** это симптом «грязной» БД, а не реальная поломка.
+> Выполни `make test-env-down && make test-env` и перезапусти тесты.
 
 Эти тесты используют `common::setup_test_db()`, которая подключается к PostgreSQL,
 накатывает миграции и чистит таблицы. Они не требуют Chroma, Embedding или других сервисов.

@@ -1,113 +1,83 @@
-# Fix Pre-existing Test Failures
+# Implementation Plan: Fix Pre-existing Test Errors
 
-> План исправления тестов, падающих из-за race condition, незаданных FK- precondition и непоследовательной конфигурации запуска.
-
-## Branch
-
-- **Текущая ветка:** `fix/test-compilation-errors`
-- **Base:** `main`
+Branch: fix/test-compilation-errors
+Created: 2026-06-26
 
 ## Settings
-
-- **Testing:** Да — тесты уже написаны, задача — починить их
-- **Logging:** Standard — только INFO, фиксы тривиальные
-- **Docs:** Нет — изменения только в тестах и CHECKLIST.md
+- Testing: yes (fixing tests is the task)
+- Logging: standard
+- Docs: no
 
 ## Roadmap Linkage
+Milestone: "v0.4 — Observability & Reliability"
+Rationale: Pre-requisite from ROADMAP.md: fix pre-existing test errors before starting v0.4 work
 
-- **Milestone:** `v0.3.1` — Basic Q&A Logic & Chat Rework
-- **Rationale:** Pre-existing test errors отмечены в Roadmap как pre-requisite для v0.4
+## Root Cause Summary
 
----
+После повторной верификации с чистой БД актуальные поломки:
+
+| Область | Сколько падает | Коренная причина |
+|---------|---------------|-----------------|
+| `documents_db_unit` | **2 теста** | `process_zip_upload` проверяет существование collection через `get_collection_for_user`, но тесты используют `Uuid::new_v4()` без вставки коллекции в БД |
+| `git_sync_unit` | **1 тест** | Сравнение `Utc::now()` (наносекунды) с timestamp из PostgreSQL (микросекунды) — расхождение в последних 3 цифрах |
+| `integration` | **0** (при запущенном Chroma) | Падения только когда Chroma/Embedding не запущены — это ожидаемо, тесты требуют полного окружения |
+| `ruff check` | **2 fixable** | Неотсортированные импорты в `embedding/tests/test_main.py` |
+| E2E (Docker) | **инфраструктура** | Docker-контейнер не может достучаться до npm registry |
 
 ## Tasks
 
-- [x] ### Phase 1 — Fix `test_process_zip_corrupted` (collection FK precondition)
+### Phase 1: Fix documents_db_unit ZIP tests
+- [ ] Task 1: Вставить collection в PostgreSQL перед `process_zip_upload` в `test_process_zip_empty` и `test_process_zip_with_11_files_returns_413`
 
-**Root cause:** Тест вызывает `process_zip_upload()` с `Uuid::new_v4()` как `collection_id`, но не создаёт коллекцию в БД. Функция первой же строчкой проверяет `get_collection_for_user()`, возвращает `AppError::NotFound` — тест ожидает `AppError::FileError`.
+  **Логирование:** DEBUG-лог при создании тестовой коллекции
 
-**File:** `backend/tests/documents_db_unit.rs`
+  Файлы: `backend/tests/documents_db_unit.rs` (строки ~253-323)
 
-**Changes:**
-1. Добавить вставку коллекции перед вызовом `process_zip_upload` (аналогично `test_process_zip_mixed_valid_invalid`):
-   - Создать `collection_id = Uuid::new_v4()`
-   - INSERT в `collections` с этим ID, именем, `created_at = NOW()`, `user_id = 'test-user'`
+  **Детали:**
+  - `test_process_zip_empty` (строка 309): добавить `sqlx::query("INSERT INTO collections ...")` перед `process_zip_upload`
+  - `test_process_zip_with_11_files_returns_413` (строка 255): добавить `sqlx::query("INSERT INTO collections ...")` перед `process_zip_upload`. Переиспользовать `collection_id` вместо `Uuid::new_v4()`.
+  - Паттерн уже используется в остальных тестах этого же файла (строки 52-59, 100-107 и т.д.)
 
-**Validation:** `cd backend && cargo test --test documents_db_unit test_process_zip_corrupted -- --test-threads=1`
+### Phase 2: Fix git_sync_unit timestamp assertion
+- [ ] Task 2: Исправить сравнение timestamp в `test_create_repo_persists_all_fields`
 
----
+  **Логирование:** DEBUG-лог с указанием precision mismatch
 
-- [x] ### Phase 2 — Fix integration test race condition (`--test-threads=1`)
+  Файлы: `backend/tests/git_sync_unit.rs` (строка 90)
 
-**Root cause:** Все integration-тесты используют общую БД, а `setup_test_db()` делает `TRUNCATE ... CASCADE`. Без `--test-threads=1` concurrent-тесты затирают данные друг друга, вызывая FK violations. **Доказано:** все 23 теста проходят с `--test-threads=1`.
+  **Детали:**
+  - Заменить `assert_eq!(row.10, repo_created_at)` на сравнение с допуском
+  - Опция A: округлить оба timestamp до микросекунд: `repo_created_at.timestamp_micros()`
+  - Опция B: использовать `chrono::Duration::milliseconds(1)` допуск
+  - Предпочтение: опция A (микросекундное округление), т.к. PostgreSQL хранит `timestamptz` с микросекундной точностью
 
-**Files:**
-- `CHECKLIST.md` — добавить `--test-threads=1` в инструкцию для интеграционных тестов
-- `backend/tests/integration.rs` — все тесты уже имеют `setup_test_db()`, которая явно требует `--test-threads=1` (комментарий в `common/mod.rs`)
+### Phase 3: Fix ruff lint issues
+- [ ] Task 3: Исправить сортировку импортов в embedding тестах
 
-**Changes:**
-1. В `CHECKLIST.md` заменить:
-   ```
-   cd backend && cargo test --test integration
-   ```
-   на:
-   ```
-   cd backend && cargo test --test integration -- --test-threads=1
-   ```
-2. В `CHECKLIST.md` (секция "Backend DB round-trip тесты") убедиться, что `documents_db_unit` тоже указан с `--test-threads=1`.
+  **Логирование:** не требуется (автофикс)
 
-**Validation:** `cd backend && cargo test --test integration -- --test-threads=1` — 23/23 pass.
+  Файлы: `embedding/tests/test_main.py`
 
----
+  **Команда:** `uvx ruff check --fix`
 
-- [x] ### Phase 3 — Fix `test_get_chunks_by_ids_unknown_uuid` collection FK precondition
+### Phase 4: Integration test verification
+- [ ] Task 4: Запустить integration тесты с полным тестовым окружением (Chroma + Embedding) и убедиться, что 0 падений
 
-**Root cause:** Тест использует hardcoded UUID `eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee` для `collection_id` и делает прямой SQL INSERT в `documents`, но коллекции с таким UUID не существует. При sequential-запуске с `--test-threads=1` тест проходит, потому что ранние тесты создают коллекции, которые потом не затираются. Без `--test-threads=1` коллекция могла быть стёрта concurrent TRUNCATE.
+  **Логирование:** INFO при старте тестов
 
-**Note:** Этот тест является жертвой race condition из Phase 2, а не самостоятельной проблемы. После перехода на `--test-threads=1` он проходит.
-
-**Changes:** Нет изменений кода — охраняется Phase 2 (`--test-threads=1`).
-
-**Validation:** `cd backend && cargo test --test integration -- --test-threads=1` — 23/23 pass.
-
----
-
-- [x] ### Phase 4 — Document `_sqlx_migrations` cleanup in test environment docs
-
-**Root cause:** `git_sync_unit` тесты падали с `VersionMismatch(1)` когда `_sqlx_migrations` содержала checksum, не совпадающую с текущими файлами миграций. Это состояние возникает при переключении веток с разными версиями миграций.
-
-**File:** `backend/tests/common/mod.rs`
-
-**Changes:**
-1. Добавить в `setup_test_db()` (в `backend/tests/common/mod.rs`) перед `sqlx::migrate!()`:
-   ```rust
-   // Drop stale migration tracking to avoid VersionMismatch when
-   // switching between branches with different migration histories.
-   sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations CASCADE")
-       .execute(&pool)
-       .await
-       .ok();
-   ```
-
-**Validation:** Переключиться на ветку со старыми миграциями, вернуться — `cargo test --test git_sync_unit -- --test-threads=1` не должен падать с VersionMismatch.
-
----
-
-- [x] ### Phase 5 — Fix `test_conversation_repo_native_uuid_bind` (side effect of race condition)
-
-**Root cause:** Аналогично Phase 3 — это жертва race condition. При `--test-threads=1` тест проходит (подтверждено запуском 23/23).
-
-**Changes:** Нет — охраняется Phase 2.
-
-**Validation:** `cd backend && cargo test --test integration -- --test-threads=1`
-
----
+  **Команда:**
+  ```bash
+  docker compose --env-file .env.test -f docker-compose.test.yml up -d
+  # wait for healthy
+  cd backend && DATABASE_URL=postgres://vedo:test-vedo-password@localhost:15432/vedo CHROMA_URL=http://localhost:18000 EMBEDDING_SERVICE_URL=http://localhost:18001 cargo test --test integration -- --test-threads=1
+  ```
 
 ## Commit Plan
+- **Commit 1** (после Phase 1): "fix: insert collection before zip upload in documents_db_unit tests"
+- **Commit 2** (после Phase 2): "fix: compare timestamps with microsecond tolerance in git_sync_unit test"
+- **Commit 3** (после Phase 3): "style: fix ruff import sorting in embedding tests"
+- **Commit 4** (после Phase 4): "chore: verify integration tests pass with full test env"
 
-1. `fix(test): add collection FK precondition to test_process_zip_corrupted` ✅
-   - `backend/tests/documents_db_unit.rs`
-2. `fix(test): add _sqlx_migrations cleanup to setup_test_db()` ✅
-   - `backend/tests/common/mod.rs`
-3. `fix(docs): add --test-threads=1 for integration/db tests in CHECKLIST.md` ✅
-   - `CHECKLIST.md`
+## Known Infrastructure Issues (не блокируют, но задокументированы)
+1. **E2E Playwright (frontend-tests):** Docker-контейнер не может загрузить npm-зависимости (`Idle timeout`). Требуется настройка сети хоста или mirror registry для `npm ci` внутри контейнера.
+2. **E2E API (на хосте):** 32 теста падают с 401 при запуске с хоста, т.к. рассчитаны на выполнение внутри Docker-сети. Не требуют исправления — это ожидаемое поведение.

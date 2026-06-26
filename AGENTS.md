@@ -179,6 +179,21 @@ vedo-assistant/
 - When calling Chroma API from the backend, never pass user-supplied display names directly to `create_collection` or `delete_collection` — Chroma accepts only ASCII alphanumeric, underscores, and hyphens in collection names. Use the collection UUID (`id.to_string()`) instead. The `QueryService` already uses UUID as the collection name; keep this pattern consistent.
 - Before implementing any feature, reference `.ai-factory/DESCRIPTION.md` and `docs/technical-specification-rag-system.md` for requirements and design decisions.
 - For deployment-related tasks, consult Section 7 of the technical specification.
+- Before running DB round-trip tests (`--test *_unit`) or integration tests, always ensure the test database is in a clean state:
+  ```
+  docker compose --env-file .env.test -f docker-compose.test.yml down -v
+  docker compose --env-file .env.test -f docker-compose.test.yml up -d
+  ```
+  Stale Docker volumes from previous migration states cause cascading failures where all DB tests
+  (`documents_db_unit`, `git_sync_unit`) report `NotFound` or FK violations — these are false
+  positives from a dirty database, not real bugs. If you see 14/14 tests failing unexpectedly,
+  suspect stale volumes first.
+- After modifying any migration file, run `bash scripts/validate-migrations.sh --git` to check
+  for checksum drift. Changing a migration file after it has been applied will cause
+  `migration N was previously applied but has been modified` errors on next startup.
+- Run each `--test *_unit` binary separately — do NOT use `--test *_unit` wildcard.
+  Each binary drops `_sqlx_migrations` and re-runs migrations; concurrent execution causes
+  race conditions on the shared database.
 - Adhere to each service's linter/formatter configuration and run the respective format + lint check before considering any code change complete:
   - **Rust** (`backend/`): `cargo fmt` and `cargo clippy` — rustfmt uses default settings (no custom config).
   - **Python** (`embedding/`): `ruff format` and `ruff check` — configured via `[tool.ruff]` in `embedding/pyproject.toml`.

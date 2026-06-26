@@ -25,13 +25,60 @@
   - Таблица Summary (Tasks total / Tasks done) пересчитана
   - Milestone Status актуален (не начато / в работе / завершено)
 
+## Database & Migration Hygiene
+
+Проблема «грязной БД» возникает когда:
+
+1. **Изменён файл миграции после её применения.** sqlx хранит контрольную сумму каждой
+   миграции в таблице `_sqlx_migrations`. Если файл `.sql` изменился (содержимое,
+   пробелы, комментарии), но версия осталась той же — sqlx откажется запускать backend.
+2. **Старый Docker volume с предыдущей схемой.** При смене веток или после изменения
+   миграций старый volume содержит несовместимую схему.
+
+### Профилактика
+
+```bash
+# Перед запуском тестового окружения — удалить старые volumes
+docker compose --env-file .env.test -f docker-compose.test.yml down -v
+
+# Проверить, что миграции не были изменены после применения:
+bash scripts/validate-migrations.sh --git
+```
+
+### Если backend не стартует с ошибкой миграции
+
+```
+migration N was previously applied but is missing / has been modified
+```
+
+**Что делать:**
+
+1. `docker compose --env-file .env.test -f docker-compose.test.yml down -v` — удалить
+   volumes и пересоздать БД с нуля
+2. Убедиться, что `bash scripts/validate-migrations.sh` проходит
+3. Если ошибка повторяется — проверить, что файлы миграций в `backend/migrations/`
+   соответствуют тому, что ожидает `sqlx::migrate!("./migrations")` (пересобрать
+   backend: `cargo build`)
+
+### Если DB round-trip тесты падают каскадно (14/14)
+
+После смены веток или при stale volumes **все** тесты `documents_db_unit` могут
+упасть с `NotFound("Collection ...")` — это симптом «грязной» БД, а не реальная
+поломка. Решение: удалить volumes (`docker compose ... down -v`) и перезапустить
+окружение.
+
 ## Test environment
 
 Перед любыми тестами запусти тестовое окружение. **Один запуск** — все сервисы
 поднимаются сразу. `--env-file .env.test` обязателен для корректной работы KeyCloak,
 Chroma, embedding и БД.
 
+> ⚠️ **Важно:** Перед запуском убедись, что Docker volumes чистые (см. Database & Migration Hygiene выше).
+
 ```bash
+# Удалить старые volumes (если не делали)
+docker compose --env-file .env.test -f docker-compose.test.yml down -v
+
 # Запустить все сервисы тестового окружения
 docker compose --env-file .env.test -f docker-compose.test.yml up -d
 
@@ -62,11 +109,16 @@ cd backend && cargo test --lib
 Тесты, проверяющие работу с PostgreSQL напрямую (репозитории, сервисы).
 Требуют только PostgreSQL из тестового окружения (`localhost:15432`).
 
+> ⚠️ **Важно:** Каждый `--test *_unit` запускается **отдельно** — не используй `--test *_unit` (wildcard).
+> Каждый бинарник заново подключается к той же БД, дропает `_sqlx_migrations` и
+> перезапускает миграции. При параллельном запуске они конфликтуют.
+
 ```bash
 # Терминал 1: тестовое окружение уже запущено (см. выше)
 # Терминал 2:
 export DATABASE_URL=postgres://vedo:test-vedo-password@localhost:15432/vedo
 cd backend && cargo test --test git_sync_unit -- --test-threads=1
+# После завершения git_sync_unit — запустить documents_db_unit:
 cd backend && cargo test --test documents_db_unit -- --test-threads=1
 ```
 
