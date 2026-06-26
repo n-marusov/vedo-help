@@ -64,7 +64,7 @@ docx-rs = "0.3"
 zip = "2"
 git2 = "0.19"
 walkdir = "2"
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 hex = "0.4"
 
