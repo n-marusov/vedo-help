@@ -258,11 +258,22 @@ async fn test_process_zip_with_11_files_returns_413() {
     let collection_repo = CollectionRepository::new(pool.clone());
     let svc = DocumentService::new(repo, collection_repo);
 
+    let collection_id = Uuid::new_v4();
+
+    // Insert parent collection to satisfy FK constraint
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(collection_id)
+        .bind(format!("test-collection-11zip-{collection_id}"))
+        .bind("")
+        .execute(&pool)
+        .await
+        .expect("Failed to insert collection");
+
     let names: Vec<String> = (0..11).map(|i| format!("doc-{i}.md")).collect();
     let refs: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "# content")).collect();
     let data = make_zip(&refs);
     let result = svc
-        .process_zip_upload(&data, Uuid::new_v4(), "test-user", true)
+        .process_zip_upload(&data, collection_id, "test-user", true)
         .await;
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -312,9 +323,20 @@ async fn test_process_zip_empty() {
     let collection_repo = CollectionRepository::new(pool.clone());
     let svc = DocumentService::new(repo, collection_repo);
 
+    let collection_id = Uuid::new_v4();
+
+    // Insert parent collection to satisfy FK constraint
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(collection_id)
+        .bind(format!("test-collection-empty-{collection_id}"))
+        .bind("")
+        .execute(&pool)
+        .await
+        .expect("Failed to insert collection");
+
     let data = make_zip(&[]);
     let result = svc
-        .process_zip_upload(&data, Uuid::new_v4(), "test-user", true)
+        .process_zip_upload(&data, collection_id, "test-user", true)
         .await;
     assert!(result.is_ok());
     let response = result.unwrap();

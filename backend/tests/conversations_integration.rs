@@ -28,6 +28,7 @@
 mod common;
 
 use axum::body::{to_bytes, Bytes};
+use axum::extract::Extension;
 use axum::http::{Request, StatusCode};
 use axum::routing::{get, patch};
 use axum::Router;
@@ -40,6 +41,7 @@ use vedo_backend::modules::conversations::handlers as conv;
 use vedo_backend::modules::conversations::models::{Message, Session};
 use vedo_backend::modules::conversations::repository::ConversationRepository;
 use vedo_backend::modules::conversations::service::ConversationService;
+use vedo_backend::shared::auth::{AuthInfo, AuthUser};
 
 /// Test harness with a real PostgreSQL pool and a conversation-only router.
 ///
@@ -53,6 +55,17 @@ struct TestApp {
 async fn spawn_app() -> TestApp {
     let db = common::setup_test_db().await;
     let svc = ConversationService::new(ConversationRepository::new(db.clone()));
+
+    let test_auth = AuthInfo {
+        user: AuthUser {
+            sub: "test-user".to_string(),
+            name: Some("Test User".to_string()),
+            email: Some("test@example.com".to_string()),
+            preferred_username: Some("testuser".to_string()),
+            provider: Some("keycloak".to_string()),
+            roles: vec!["admin".to_string()],
+        },
+    };
 
     let router = Router::new()
         // Existing session routes (already implemented).
@@ -73,6 +86,7 @@ async fn spawn_app() -> TestApp {
             "/api/sessions/:sid/messages/:mid",
             patch(conv::patch_message).delete(conv::delete_message),
         )
+        .layer(Extension(test_auth))
         .with_state(svc);
 
     TestApp { router, db }
