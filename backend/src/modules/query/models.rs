@@ -10,6 +10,9 @@ pub struct QueryRequest {
     pub query: String,
     /// Optional session for conversation continuity.
     pub session_id: Option<Uuid>,
+    /// Enable debug data collection (admin users).
+    #[serde(default)]
+    pub debug: bool,
 }
 
 /// A single source reference returned in the SSE "sources" event.

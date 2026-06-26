@@ -5,6 +5,9 @@ import type {
   ExportFormat,
   GitRepoSummary,
   Message,
+  Session,
+  SessionSearchParams,
+  SessionSummary,
   SyncStatusResponse,
 } from './types';
 
@@ -83,7 +86,17 @@ export const api = {
     });
   },
 
-  // ── Conversations (v0.3.1) ──
+  // ── Admin Session Debug ──
+  adminSearchSessions: (params: SessionSearchParams) => {
+    const query = new URLSearchParams();
+    if (params.search) query.set('search', params.search);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    const qs = query.toString();
+    return api.get<SessionSummary[]>(`/admin/sessions${qs ? `?${qs}` : ''}`);
+  },
+  getSessionWithMessages: (id: string) =>
+    api.get<{ session: Session; messages: Message[] }>(`/sessions/${id}`),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, {
       method: 'PATCH',

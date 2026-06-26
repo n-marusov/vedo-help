@@ -30,6 +30,8 @@ pub struct Message {
     pub original_content: Option<String>,
     /// Soft-delete timestamp (NULL = live).
     pub deleted_at: Option<DateTime<Utc>>,
+    /// Debug data JSON blob (admin panel). Populated when query.debug = true.
+    pub debug_data: Option<String>,
 }
 
 /// Request payload for updating a message.

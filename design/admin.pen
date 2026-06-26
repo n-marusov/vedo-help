@@ -28,243 +28,456 @@
           "children": [
             {
               "type": "frame",
-              "id": "adminPanels",
+              "id": "pSzo3",
+              "name": "Admin Tab Bar",
+              "width": "fill_container",
+              "stroke": "$B:border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "strokeAlignment": "inner",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "OOZZC",
+                  "name": "Tab Active — Collections",
+                  "stroke": "$B:primary",
+                  "strokeWidth": {
+                    "bottom": 2
+                  },
+                  "padding": [
+                    10,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hNatH",
+                      "name": "Tab Label",
+                      "fill": "$B:primary",
+                      "content": "Collections & Sources",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ihcPm",
+                  "name": "Tab Inactive — Session Debug",
+                  "stroke": "#00000000",
+                  "strokeWidth": {
+                    "bottom": 2
+                  },
+                  "padding": [
+                    10,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zpQc2",
+                      "name": "Tab Label",
+                      "fill": "$B:muted-foreground",
+                      "content": "Session Debug",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "zl6Xn",
+              "name": "Admin Content Area",
               "width": "fill_container",
               "height": "fill_container",
               "gap": 24,
               "children": [
                 {
                   "type": "frame",
-                  "id": "collectionsPanel",
-                  "width": 380,
+                  "id": "adminPanels",
+                  "width": "fill_container",
                   "height": "fill_container",
-                  "fill": "$B:card",
-                  "cornerRadius": 16,
-                  "stroke": "$B:border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 16,
-                  "padding": 20,
+                  "gap": 24,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "collectionsHeader",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
+                      "id": "collectionsPanel",
+                      "width": 380,
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 16,
+                      "padding": 20,
                       "children": [
                         {
-                          "id": "collectionsTitle",
-                          "type": "ref",
-                          "ref": "B:OWO60",
-                          "descendants": {
-                            "B:Ay8ex": {
-                              "content": "COLLECTIONS"
+                          "type": "frame",
+                          "id": "collectionsHeader",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "collectionsTitle",
+                              "type": "ref",
+                              "ref": "B:OWO60",
+                              "descendants": {
+                                "B:Ay8ex": {
+                                  "content": "COLLECTIONS"
+                                }
+                              }
+                            },
+                            {
+                              "id": "newCollectionBtn",
+                              "type": "ref",
+                              "ref": "B:ahk3w",
+                              "descendants": {
+                                "B:OgZRR": {
+                                  "content": "+ New"
+                                }
+                              }
                             }
-                          }
+                          ]
                         },
                         {
-                          "id": "newCollectionBtn",
-                          "type": "ref",
-                          "ref": "B:ahk3w",
-                          "descendants": {
-                            "B:OgZRR": {
-                              "content": "+ New"
+                          "type": "frame",
+                          "id": "collectionList",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "id": "collectionCardOne",
+                              "type": "ref",
+                              "ref": "B:Nie8I",
+                              "width": "fill_container",
+                              "stroke": "$B:primary",
+                              "gap": 4,
+                              "padding": [
+                                6,
+                                10
+                              ],
+                              "descendants": {
+                                "B:Ap3op": {
+                                  "content": "Technical Docs"
+                                },
+                                "B:kaoPr": {
+                                  "type": "frame",
+                                  "id": "LGm0I",
+                                  "name": "descRow",
+                                  "width": "fill_container",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "T6oUuN",
+                                      "name": "cardDescText",
+                                      "fill": "$B:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Project specifications and development guides · 5 documents",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "QnJrF",
+                                      "name": "deleteIconBtn",
+                                      "width": 24,
+                                      "height": 24,
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "tQHu4",
+                                          "name": "deleteIcon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "trash-2",
+                                          "library": "lucide",
+                                          "fill": "$B:destructive"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "B:0ndYv": {
+                                  "enabled": false
+                                }
+                              }
+                            },
+                            {
+                              "id": "collectionCardTwo",
+                              "type": "ref",
+                              "ref": "B:Nie8I",
+                              "width": "fill_container",
+                              "gap": 4,
+                              "padding": [
+                                6,
+                                10
+                              ],
+                              "descendants": {
+                                "B:Ap3op": {
+                                  "content": "API Reference"
+                                },
+                                "B:kaoPr": {
+                                  "type": "frame",
+                                  "id": "wmGEX",
+                                  "name": "descRow",
+                                  "width": "fill_container",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "QUjIL",
+                                      "name": "cardDescText",
+                                      "fill": "$B:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "OpenAPI specs and endpoint notes · 2 documents",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "F50cH8",
+                                      "name": "deleteIconBtn",
+                                      "width": 24,
+                                      "height": 24,
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "aOlvp",
+                                          "name": "deleteIcon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "trash-2",
+                                          "library": "lucide",
+                                          "fill": "$B:destructive"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "B:0ndYv": {
+                                  "enabled": false
+                                }
+                              }
+                            },
+                            {
+                              "id": "collectionCardThree",
+                              "type": "ref",
+                              "ref": "B:Nie8I",
+                              "width": "fill_container",
+                              "gap": 4,
+                              "padding": [
+                                6,
+                                10
+                              ],
+                              "descendants": {
+                                "B:Ap3op": {
+                                  "content": "Deployment"
+                                },
+                                "B:kaoPr": {
+                                  "type": "frame",
+                                  "id": "H0SPYD",
+                                  "name": "descRow",
+                                  "width": "fill_container",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "V4yJ8",
+                                      "name": "cardDescText",
+                                      "fill": "$B:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Docker Compose, Caddy, VPS runbooks · 4 documents",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "GCEYS",
+                                      "name": "deleteIconBtn",
+                                      "width": 24,
+                                      "height": 24,
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "CkxnA",
+                                          "name": "deleteIcon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "trash-2",
+                                          "library": "lucide",
+                                          "fill": "$B:destructive"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "B:0ndYv": {
+                                  "enabled": false
+                                }
+                              }
                             }
-                          }
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "collectionList",
+                      "id": "documentsPanel",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 12,
+                      "gap": 16,
+                      "padding": 20,
                       "children": [
                         {
-                          "id": "collectionCardOne",
-                          "type": "ref",
-                          "ref": "B:Nie8I",
+                          "type": "frame",
+                          "id": "documentsHeader",
                           "width": "fill_container",
-                          "stroke": "$B:primary",
-                          "descendants": {
-                            "B:Ap3op": {
-                              "content": "Technical Docs"
-                            },
-                            "B:kaoPr": {
-                              "type": "frame",
-                              "name": "descRow",
-                              "layout": "horizontal",
-                              "width": "fill_container",
-                              "alignItems": "center",
-                              "gap": 4,
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "name": "cardDescText",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 12,
-                                  "fill": "$B:muted-foreground",
-                                  "fontWeight": "normal",
-                                  "content": "Project specifications and development guides · 5 documents",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container"
-                                },
-                                {
-                                  "type": "frame",
-                                  "name": "deleteIconBtn",
-                                  "width": 24,
-                                  "height": 24,
-                                  "fill": "#00000000",
-                                  "cornerRadius": 6,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "name": "deleteIcon",
-                                      "library": "lucide",
-                                      "icon": "trash-2",
-                                      "width": 14,
-                                      "height": 14,
-                                      "fill": "$B:destructive"
-                                    }
-                                  ]
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "documentsTitle",
+                              "type": "ref",
+                              "ref": "B:OWO60",
+                              "descendants": {
+                                "B:Ay8ex": {
+                                  "content": "DOCUMENTS"
                                 }
-                              ]
+                              }
                             },
-                            "B:0ndYv": {
-                              "enabled": false
+                            {
+                              "id": "uploadBtn",
+                              "type": "ref",
+                              "ref": "B:3CI7c",
+                              "descendants": {
+                                "B:wMRLg": {
+                                  "content": "📤 Upload"
+                                }
+                              }
                             }
-                          },
-                          "gap": 4,
-                          "padding": [
-                            6,
-                            10
                           ]
                         },
                         {
-                          "id": "collectionCardTwo",
-                          "type": "ref",
-                          "ref": "B:Nie8I",
+                          "type": "frame",
+                          "id": "uploadProgress",
                           "width": "fill_container",
-                          "descendants": {
-                            "B:Ap3op": {
-                              "content": "API Reference"
-                            },
-                            "B:kaoPr": {
+                          "layout": "vertical",
+                          "gap": 8,
+                          "children": [
+                            {
                               "type": "frame",
-                              "name": "descRow",
-                              "layout": "horizontal",
+                              "id": "uploadProgressMeta",
                               "width": "fill_container",
+                              "gap": 24,
+                              "justifyContent": "space_between",
                               "alignItems": "center",
-                              "gap": 4,
                               "children": [
                                 {
                                   "type": "text",
-                                  "name": "cardDescText",
+                                  "id": "uploadName",
+                                  "fill": "$B:foreground",
+                                  "content": "technical-specification-rag-system.md",
                                   "fontFamily": "IBM Plex Mono",
                                   "fontSize": 12,
-                                  "fill": "$B:muted-foreground",
-                                  "fontWeight": "normal",
-                                  "content": "OpenAPI specs and endpoint notes · 2 documents",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container"
+                                  "fontWeight": "normal"
                                 },
                                 {
-                                  "type": "frame",
-                                  "name": "deleteIconBtn",
-                                  "width": 24,
-                                  "height": 24,
-                                  "fill": "#00000000",
-                                  "cornerRadius": 6,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "name": "deleteIcon",
-                                      "library": "lucide",
-                                      "icon": "trash-2",
-                                      "width": 14,
-                                      "height": 14,
-                                      "fill": "$B:destructive"
-                                    }
-                                  ]
+                                  "type": "text",
+                                  "id": "uploadPercent",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "64%",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             },
-                            "B:0ndYv": {
-                              "enabled": false
+                            {
+                              "id": "progressBar",
+                              "type": "ref",
+                              "ref": "B:BJBat",
+                              "width": "fill_container"
                             }
-                          },
-                          "gap": 4,
-                          "padding": [
-                            6,
-                            10
                           ]
                         },
                         {
-                          "id": "collectionCardThree",
-                          "type": "ref",
-                          "ref": "B:Nie8I",
+                          "type": "frame",
+                          "id": "documentList",
                           "width": "fill_container",
-                          "descendants": {
-                            "B:Ap3op": {
-                              "content": "Deployment"
-                            },
-                            "B:kaoPr": {
-                              "type": "frame",
-                              "name": "descRow",
-                              "layout": "horizontal",
+                          "layout": "vertical",
+                          "gap": 10,
+                          "children": [
+                            {
+                              "id": "fileOne",
+                              "type": "ref",
+                              "ref": "B:9RljR",
                               "width": "fill_container",
-                              "alignItems": "center",
-                              "gap": 4,
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "name": "cardDescText",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 12,
-                                  "fill": "$B:muted-foreground",
-                                  "fontWeight": "normal",
-                                  "content": "Docker Compose, Caddy, VPS runbooks · 4 documents",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container"
-                                },
-                                {
-                                  "type": "frame",
-                                  "name": "deleteIconBtn",
-                                  "width": 24,
-                                  "height": 24,
-                                  "fill": "#00000000",
-                                  "cornerRadius": 6,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "name": "deleteIcon",
-                                      "library": "lucide",
-                                      "icon": "trash-2",
-                                      "width": 14,
-                                      "height": 14,
-                                      "fill": "$B:destructive"
-                                    }
-                                  ]
+                              "descendants": {
+                                "B:tFVbx": {
+                                  "content": "📄 spec.pdf (application/pdf, 200 KB) · Jun 14, 2026"
                                 }
-                              ]
+                              }
                             },
-                            "B:0ndYv": {
-                              "enabled": false
+                            {
+                              "id": "fileTwo",
+                              "type": "ref",
+                              "ref": "B:9RljR",
+                              "width": "fill_container",
+                              "descendants": {
+                                "B:tFVbx": {
+                                  "content": "📝 getting-started.md (text/markdown, 12 KB) · Jun 13, 2026"
+                                }
+                              }
+                            },
+                            {
+                              "id": "fileThree",
+                              "type": "ref",
+                              "ref": "B:9RljR",
+                              "width": "fill_container",
+                              "descendants": {
+                                "B:tFVbx": {
+                                  "content": "🌐 architecture.html (text/html, 48 KB) · Jun 12, 2026"
+                                }
+                              }
                             }
-                          },
-                          "gap": 4,
-                          "padding": [
-                            6,
-                            10
                           ]
                         }
                       ]
@@ -273,129 +486,320 @@
                 },
                 {
                   "type": "frame",
-                  "id": "documentsPanel",
-                  "width": "fill_container",
-                  "height": "fill_container",
-                  "fill": "$B:card",
-                  "cornerRadius": 16,
-                  "stroke": "$B:border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 16,
-                  "padding": 20,
+                  "id": "hip3o",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Session Debug Panels",
+                  "enabled": false,
+                  "width": "fill_container(0)",
+                  "height": "fill_container(0)",
+                  "gap": 24,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "documentsHeader",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "id": "documentsTitle",
-                          "type": "ref",
-                          "ref": "B:OWO60",
-                          "descendants": {
-                            "B:Ay8ex": {
-                              "content": "DOCUMENTS"
-                            }
-                          }
-                        },
-                        {
-                          "id": "uploadBtn",
-                          "type": "ref",
-                          "ref": "B:3CI7c",
-                          "descendants": {
-                            "B:wMRLg": {
-                              "content": "📤 Upload"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "uploadProgress",
-                      "width": "fill_container",
+                      "id": "s7xJPk",
+                      "name": "Session List Panel",
+                      "width": 380,
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 8,
+                      "gap": 12,
+                      "padding": 20,
                       "children": [
                         {
                           "type": "frame",
-                          "id": "uploadProgressMeta",
+                          "id": "G65ZU2",
+                          "name": "Search Row",
                           "width": "fill_container",
-                          "gap": 24,
-                          "justifyContent": "space_between",
+                          "gap": 8,
                           "alignItems": "center",
                           "children": [
                             {
                               "type": "text",
-                              "id": "uploadName",
-                              "fill": "$B:foreground",
-                              "content": "technical-specification-rag-system.md",
+                              "id": "hPWVf",
+                              "name": "Search Icon",
+                              "fill": "$B:muted-foreground",
+                              "content": "🔍",
                               "fontFamily": "IBM Plex Mono",
                               "fontSize": 12,
                               "fontWeight": "normal"
                             },
                             {
                               "type": "text",
-                              "id": "uploadPercent",
+                              "id": "Mak3W",
+                              "name": "Search Placeholder",
                               "fill": "$B:muted-foreground",
-                              "content": "64%",
+                              "content": "Search sessions by title or user...",
                               "fontFamily": "IBM Plex Mono",
-                              "fontSize": 12,
+                              "fontSize": 11,
                               "fontWeight": "normal"
                             }
                           ]
                         },
                         {
-                          "id": "progressBar",
-                          "type": "ref",
-                          "ref": "B:BJBat",
-                          "width": "fill_container"
+                          "type": "frame",
+                          "id": "U5vWtZ",
+                          "name": "Date Filter Row",
+                          "width": "fill_container",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Q07rzB",
+                              "name": "From Label",
+                              "fill": "$B:muted-foreground",
+                              "content": "From:",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "dB1tE",
+                              "name": "From Value",
+                              "fill": "$B:muted-foreground",
+                              "content": "YYYY-MM-DD",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "G7C19Y",
+                              "name": "To Label",
+                              "fill": "$B:muted-foreground",
+                              "content": "To:",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "qI6XC",
+                              "name": "To Value",
+                              "fill": "$B:muted-foreground",
+                              "content": "YYYY-MM-DD",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "P0z7uU",
+                          "name": "Session List Items",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "nmxi2",
+                              "name": "Session Item",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "SPl6V",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "Technical Docs Q&A",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Fp213",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 24 · 12 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "C2xFV2",
+                              "name": "Session Item",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "fjlGo",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "Deployment Guide",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "JQDyl",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 23 · 8 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "CPkUu",
+                              "name": "Session Item",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "B3L2o8",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "API Reference Chat",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "oXGsz",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 22 · 3 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fbt92",
+                              "name": "Session Item",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "if3z7",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "Authentication Setup",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "g9Fmuf",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 21 · 15 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "documentList",
+                      "id": "DSz9V",
+                      "name": "Session Detail Panel",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 10,
+                      "gap": 16,
+                      "padding": 20,
                       "children": [
                         {
-                          "id": "fileOne",
-                          "type": "ref",
-                          "ref": "B:9RljR",
+                          "type": "frame",
+                          "id": "aOUUD",
+                          "name": "Empty State",
                           "width": "fill_container",
-                          "descendants": {
-                            "B:tFVbx": {
-                              "content": "📄 spec.pdf (application/pdf, 200 KB) · Jun 14, 2026"
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 8,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "rCHO4",
+                              "name": "Empty Icon",
+                              "fill": "$B:muted-foreground",
+                              "content": "🔍",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 28,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "kz9tM",
+                              "name": "Empty Title",
+                              "fill": "$B:foreground",
+                              "content": "Select a session",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "jIICa",
+                              "name": "Empty Description",
+                              "fill": "$B:muted-foreground",
+                              "content": "Choose a session from the left panel to view messages and debug data.",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
                             }
-                          }
-                        },
-                        {
-                          "id": "fileTwo",
-                          "type": "ref",
-                          "ref": "B:9RljR",
-                          "width": "fill_container",
-                          "descendants": {
-                            "B:tFVbx": {
-                              "content": "📝 getting-started.md (text/markdown, 12 KB) · Jun 13, 2026"
-                            }
-                          }
-                        },
-                        {
-                          "id": "fileThree",
-                          "type": "ref",
-                          "ref": "B:9RljR",
-                          "width": "fill_container",
-                          "descendants": {
-                            "B:tFVbx": {
-                              "content": "🌐 architecture.html (text/html, 48 KB) · Jun 12, 2026"
-                            }
-                          }
+                          ]
                         }
                       ]
                     }
@@ -434,243 +838,456 @@
           "children": [
             {
               "type": "frame",
-              "id": "Nhcv9",
+              "id": "VZAIh",
+              "name": "Admin Tab Bar (Light)",
+              "width": "fill_container",
+              "stroke": "$B:border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "strokeAlignment": "inner",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bMnjz",
+                  "name": "Tab Active — Collections (Light)",
+                  "stroke": "$B:primary",
+                  "strokeWidth": {
+                    "bottom": 2
+                  },
+                  "padding": [
+                    10,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QjFXV",
+                      "name": "Tab Label",
+                      "fill": "$B:primary",
+                      "content": "Collections & Sources",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WxCCK",
+                  "name": "Tab Inactive — Session Debug (Light)",
+                  "stroke": "#00000000",
+                  "strokeWidth": {
+                    "bottom": 2
+                  },
+                  "padding": [
+                    10,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "K4X8pa",
+                      "name": "Tab Label",
+                      "fill": "$B:muted-foreground",
+                      "content": "Session Debug",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jLV2O",
+              "name": "Admin Content Area (Light)",
               "width": "fill_container",
               "height": "fill_container",
               "gap": 24,
               "children": [
                 {
                   "type": "frame",
-                  "id": "KDOUZ",
-                  "width": 380,
+                  "id": "Nhcv9",
+                  "width": "fill_container",
                   "height": "fill_container",
-                  "fill": "$B:card",
-                  "cornerRadius": 16,
-                  "stroke": "$B:border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 16,
-                  "padding": 20,
+                  "gap": 24,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "wtvTO",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
+                      "id": "KDOUZ",
+                      "width": 380,
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 16,
+                      "padding": 20,
                       "children": [
                         {
-                          "id": "m3Jis",
-                          "type": "ref",
-                          "ref": "B:OWO60",
-                          "descendants": {
-                            "B:Ay8ex": {
-                              "content": "COLLECTIONS"
+                          "type": "frame",
+                          "id": "wtvTO",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "m3Jis",
+                              "type": "ref",
+                              "ref": "B:OWO60",
+                              "descendants": {
+                                "B:Ay8ex": {
+                                  "content": "COLLECTIONS"
+                                }
+                              }
+                            },
+                            {
+                              "id": "TTuIw",
+                              "type": "ref",
+                              "ref": "B:ahk3w",
+                              "descendants": {
+                                "B:OgZRR": {
+                                  "content": "+ New"
+                                }
+                              }
                             }
-                          }
+                          ]
                         },
                         {
-                          "id": "TTuIw",
-                          "type": "ref",
-                          "ref": "B:ahk3w",
-                          "descendants": {
-                            "B:OgZRR": {
-                              "content": "+ New"
+                          "type": "frame",
+                          "id": "dH2VJ",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "id": "i2NEB",
+                              "type": "ref",
+                              "ref": "B:Nie8I",
+                              "width": "fill_container",
+                              "stroke": "$B:primary",
+                              "gap": 4,
+                              "padding": [
+                                6,
+                                10
+                              ],
+                              "descendants": {
+                                "B:Ap3op": {
+                                  "content": "Technical Docs"
+                                },
+                                "B:kaoPr": {
+                                  "type": "frame",
+                                  "id": "r2SK1",
+                                  "name": "descRow",
+                                  "width": "fill_container",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "M0Iim",
+                                      "name": "cardDescText",
+                                      "fill": "$B:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Project specifications and development guides · 5 documents",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "lrMJi",
+                                      "name": "deleteIconBtn",
+                                      "width": 24,
+                                      "height": 24,
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "CYQ82",
+                                          "name": "deleteIcon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "trash-2",
+                                          "library": "lucide",
+                                          "fill": "$B:destructive"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "B:0ndYv": {
+                                  "enabled": false
+                                }
+                              }
+                            },
+                            {
+                              "id": "el6C3",
+                              "type": "ref",
+                              "ref": "B:Nie8I",
+                              "width": "fill_container",
+                              "gap": 4,
+                              "padding": [
+                                6,
+                                10
+                              ],
+                              "descendants": {
+                                "B:Ap3op": {
+                                  "content": "API Reference"
+                                },
+                                "B:kaoPr": {
+                                  "type": "frame",
+                                  "id": "W1qP1",
+                                  "name": "descRow",
+                                  "width": "fill_container",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "vcyBG",
+                                      "name": "cardDescText",
+                                      "fill": "$B:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "OpenAPI specs and endpoint notes · 2 documents",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "KOG7y",
+                                      "name": "deleteIconBtn",
+                                      "width": 24,
+                                      "height": 24,
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "N8S8F",
+                                          "name": "deleteIcon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "trash-2",
+                                          "library": "lucide",
+                                          "fill": "$B:destructive"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "B:0ndYv": {
+                                  "enabled": false
+                                }
+                              }
+                            },
+                            {
+                              "id": "R1SXf",
+                              "type": "ref",
+                              "ref": "B:Nie8I",
+                              "width": "fill_container",
+                              "gap": 4,
+                              "padding": [
+                                6,
+                                10
+                              ],
+                              "descendants": {
+                                "B:Ap3op": {
+                                  "content": "Deployment"
+                                },
+                                "B:kaoPr": {
+                                  "type": "frame",
+                                  "id": "VMg0Q",
+                                  "name": "descRow",
+                                  "width": "fill_container",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "N63Ur",
+                                      "name": "cardDescText",
+                                      "fill": "$B:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Docker Compose, Caddy, VPS runbooks · 4 documents",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "x7Fnf",
+                                      "name": "deleteIconBtn",
+                                      "width": 24,
+                                      "height": 24,
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "y4w7Od",
+                                          "name": "deleteIcon",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "trash-2",
+                                          "library": "lucide",
+                                          "fill": "$B:destructive"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "B:0ndYv": {
+                                  "enabled": false
+                                }
+                              }
                             }
-                          }
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "dH2VJ",
+                      "id": "IPbxf",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 12,
+                      "gap": 16,
+                      "padding": 20,
                       "children": [
                         {
-                          "id": "i2NEB",
-                          "type": "ref",
-                          "ref": "B:Nie8I",
+                          "type": "frame",
+                          "id": "ZtEeZ",
                           "width": "fill_container",
-                          "stroke": "$B:primary",
-                          "descendants": {
-                            "B:Ap3op": {
-                              "content": "Technical Docs"
-                            },
-                            "B:kaoPr": {
-                              "type": "frame",
-                              "name": "descRow",
-                              "layout": "horizontal",
-                              "width": "fill_container",
-                              "alignItems": "center",
-                              "gap": 4,
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "name": "cardDescText",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 12,
-                                  "fill": "$B:muted-foreground",
-                                  "fontWeight": "normal",
-                                  "content": "Project specifications and development guides · 5 documents",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container"
-                                },
-                                {
-                                  "type": "frame",
-                                  "name": "deleteIconBtn",
-                                  "width": 24,
-                                  "height": 24,
-                                  "fill": "#00000000",
-                                  "cornerRadius": 6,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "name": "deleteIcon",
-                                      "library": "lucide",
-                                      "icon": "trash-2",
-                                      "width": 14,
-                                      "height": 14,
-                                      "fill": "$B:destructive"
-                                    }
-                                  ]
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "q2bhB",
+                              "type": "ref",
+                              "ref": "B:OWO60",
+                              "descendants": {
+                                "B:Ay8ex": {
+                                  "content": "DOCUMENTS"
                                 }
-                              ]
+                              }
                             },
-                            "B:0ndYv": {
-                              "enabled": false
+                            {
+                              "id": "d8tsVl",
+                              "type": "ref",
+                              "ref": "B:3CI7c",
+                              "descendants": {
+                                "B:wMRLg": {
+                                  "content": "📤 Upload"
+                                }
+                              }
                             }
-                          },
-                          "gap": 4,
-                          "padding": [
-                            6,
-                            10
                           ]
                         },
                         {
-                          "id": "el6C3",
-                          "type": "ref",
-                          "ref": "B:Nie8I",
+                          "type": "frame",
+                          "id": "v9OzT",
                           "width": "fill_container",
-                          "descendants": {
-                            "B:Ap3op": {
-                              "content": "API Reference"
-                            },
-                            "B:kaoPr": {
+                          "layout": "vertical",
+                          "gap": 8,
+                          "children": [
+                            {
                               "type": "frame",
-                              "name": "descRow",
-                              "layout": "horizontal",
+                              "id": "HxiPY",
                               "width": "fill_container",
+                              "gap": 24,
+                              "justifyContent": "space_between",
                               "alignItems": "center",
-                              "gap": 4,
                               "children": [
                                 {
                                   "type": "text",
-                                  "name": "cardDescText",
+                                  "id": "e5GzFS",
+                                  "fill": "$B:foreground",
+                                  "content": "technical-specification-rag-system.md",
                                   "fontFamily": "IBM Plex Mono",
                                   "fontSize": 12,
-                                  "fill": "$B:muted-foreground",
-                                  "fontWeight": "normal",
-                                  "content": "OpenAPI specs and endpoint notes · 2 documents",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container"
+                                  "fontWeight": "normal"
                                 },
                                 {
-                                  "type": "frame",
-                                  "name": "deleteIconBtn",
-                                  "width": 24,
-                                  "height": 24,
-                                  "fill": "#00000000",
-                                  "cornerRadius": 6,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "name": "deleteIcon",
-                                      "library": "lucide",
-                                      "icon": "trash-2",
-                                      "width": 14,
-                                      "height": 14,
-                                      "fill": "$B:destructive"
-                                    }
-                                  ]
+                                  "type": "text",
+                                  "id": "R4pXQo",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "64%",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             },
-                            "B:0ndYv": {
-                              "enabled": false
+                            {
+                              "id": "cd9gL",
+                              "type": "ref",
+                              "ref": "B:BJBat",
+                              "width": "fill_container"
                             }
-                          },
-                          "gap": 4,
-                          "padding": [
-                            6,
-                            10
                           ]
                         },
                         {
-                          "id": "R1SXf",
-                          "type": "ref",
-                          "ref": "B:Nie8I",
+                          "type": "frame",
+                          "id": "O0EA8Y",
                           "width": "fill_container",
-                          "descendants": {
-                            "B:Ap3op": {
-                              "content": "Deployment"
-                            },
-                            "B:kaoPr": {
-                              "type": "frame",
-                              "name": "descRow",
-                              "layout": "horizontal",
+                          "layout": "vertical",
+                          "gap": 10,
+                          "children": [
+                            {
+                              "id": "RmqEo",
+                              "type": "ref",
+                              "ref": "B:9RljR",
                               "width": "fill_container",
-                              "alignItems": "center",
-                              "gap": 4,
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "name": "cardDescText",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 12,
-                                  "fill": "$B:muted-foreground",
-                                  "fontWeight": "normal",
-                                  "content": "Docker Compose, Caddy, VPS runbooks · 4 documents",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container"
-                                },
-                                {
-                                  "type": "frame",
-                                  "name": "deleteIconBtn",
-                                  "width": 24,
-                                  "height": 24,
-                                  "fill": "#00000000",
-                                  "cornerRadius": 6,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "name": "deleteIcon",
-                                      "library": "lucide",
-                                      "icon": "trash-2",
-                                      "width": 14,
-                                      "height": 14,
-                                      "fill": "$B:destructive"
-                                    }
-                                  ]
+                              "descendants": {
+                                "B:tFVbx": {
+                                  "content": "📄 spec.pdf (application/pdf, 200 KB) · Jun 14, 2026"
                                 }
-                              ]
+                              }
                             },
-                            "B:0ndYv": {
-                              "enabled": false
+                            {
+                              "id": "x4jF00",
+                              "type": "ref",
+                              "ref": "B:9RljR",
+                              "width": "fill_container",
+                              "descendants": {
+                                "B:tFVbx": {
+                                  "content": "📝 getting-started.md (text/markdown, 12 KB) · Jun 13, 2026"
+                                }
+                              }
+                            },
+                            {
+                              "id": "a9JcWl",
+                              "type": "ref",
+                              "ref": "B:9RljR",
+                              "width": "fill_container",
+                              "descendants": {
+                                "B:tFVbx": {
+                                  "content": "🌐 architecture.html (text/html, 48 KB) · Jun 12, 2026"
+                                }
+                              }
                             }
-                          },
-                          "gap": 4,
-                          "padding": [
-                            6,
-                            10
                           ]
                         }
                       ]
@@ -679,129 +1296,320 @@
                 },
                 {
                   "type": "frame",
-                  "id": "IPbxf",
-                  "width": "fill_container",
-                  "height": "fill_container",
-                  "fill": "$B:card",
-                  "cornerRadius": 16,
-                  "stroke": "$B:border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "layout": "vertical",
-                  "gap": 16,
-                  "padding": 20,
+                  "id": "Wphv1",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Session Debug Panels (Light)",
+                  "enabled": false,
+                  "width": "fill_container(0)",
+                  "height": "fill_container(0)",
+                  "gap": 24,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "ZtEeZ",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "id": "q2bhB",
-                          "type": "ref",
-                          "ref": "B:OWO60",
-                          "descendants": {
-                            "B:Ay8ex": {
-                              "content": "DOCUMENTS"
-                            }
-                          }
-                        },
-                        {
-                          "id": "d8tsVl",
-                          "type": "ref",
-                          "ref": "B:3CI7c",
-                          "descendants": {
-                            "B:wMRLg": {
-                              "content": "📤 Upload"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "v9OzT",
-                      "width": "fill_container",
+                      "id": "MG00c",
+                      "name": "Session List Panel (Light)",
+                      "width": 380,
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 8,
+                      "gap": 12,
+                      "padding": 20,
                       "children": [
                         {
                           "type": "frame",
-                          "id": "HxiPY",
+                          "id": "U8S6m",
+                          "name": "Search Row (Light)",
                           "width": "fill_container",
-                          "gap": 24,
-                          "justifyContent": "space_between",
+                          "gap": 8,
                           "alignItems": "center",
                           "children": [
                             {
                               "type": "text",
-                              "id": "e5GzFS",
-                              "fill": "$B:foreground",
-                              "content": "technical-specification-rag-system.md",
+                              "id": "p6kL3",
+                              "name": "Search Icon",
+                              "fill": "$B:muted-foreground",
+                              "content": "🔍",
                               "fontFamily": "IBM Plex Mono",
                               "fontSize": 12,
                               "fontWeight": "normal"
                             },
                             {
                               "type": "text",
-                              "id": "R4pXQo",
+                              "id": "jR05X",
+                              "name": "Search Placeholder",
                               "fill": "$B:muted-foreground",
-                              "content": "64%",
+                              "content": "Search sessions...",
                               "fontFamily": "IBM Plex Mono",
-                              "fontSize": 12,
+                              "fontSize": 11,
                               "fontWeight": "normal"
                             }
                           ]
                         },
                         {
-                          "id": "cd9gL",
-                          "type": "ref",
-                          "ref": "B:BJBat",
-                          "width": "fill_container"
+                          "type": "frame",
+                          "id": "j9yjJ",
+                          "name": "Date Filter (Light)",
+                          "width": "fill_container",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "pIl15",
+                              "name": "From",
+                              "fill": "$B:muted-foreground",
+                              "content": "From:",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "PIExV",
+                              "name": "FromVal",
+                              "fill": "$B:muted-foreground",
+                              "content": "YYYY-MM-DD",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "vjWzG",
+                              "name": "To",
+                              "fill": "$B:muted-foreground",
+                              "content": "To:",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "WEMbM",
+                              "name": "ToVal",
+                              "fill": "$B:muted-foreground",
+                              "content": "YYYY-MM-DD",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Dwl8M",
+                          "name": "Session List (Light)",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "BLVAO",
+                              "name": "Session Item (Light)",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "NBOpV",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "Technical Docs Q&A",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "B23OJD",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 24 · 12 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "s6nksu",
+                              "name": "Session Item (Light)",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "XTgwE",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "Deployment Guide",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "M8wLI",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 23 · 8 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "j7LAYq",
+                              "name": "Session Item (Light)",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "wQjo5",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "API Reference Chat",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "vvrIP",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 22 · 3 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "uxiEQ",
+                              "name": "Session Item (Light)",
+                              "width": "fill_container",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                12
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Edjhj",
+                                  "name": "Item Title",
+                                  "fill": "$B:foreground",
+                                  "content": "Authentication Setup",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "zhgxn",
+                                  "name": "Item Meta",
+                                  "fill": "$B:muted-foreground",
+                                  "content": "Jun 21 · 15 msgs",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "O0EA8Y",
+                      "id": "ofvQ0",
+                      "name": "Session Detail (Light)",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$B:card",
+                      "cornerRadius": 16,
+                      "stroke": "$B:border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 10,
+                      "gap": 16,
+                      "padding": 20,
                       "children": [
                         {
-                          "id": "RmqEo",
-                          "type": "ref",
-                          "ref": "B:9RljR",
+                          "type": "frame",
+                          "id": "W5uc1",
+                          "name": "Empty State (Light)",
                           "width": "fill_container",
-                          "descendants": {
-                            "B:tFVbx": {
-                              "content": "📄 spec.pdf (application/pdf, 200 KB) · Jun 14, 2026"
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 8,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "RL8eP",
+                              "name": "Empty Icon",
+                              "fill": "$B:muted-foreground",
+                              "content": "🔍",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 28,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Ydimn",
+                              "name": "Empty Title",
+                              "fill": "$B:foreground",
+                              "content": "Select a session",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "YUnE9",
+                              "name": "Empty Desc",
+                              "fill": "$B:muted-foreground",
+                              "content": "Choose a session to view debug data.",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
                             }
-                          }
-                        },
-                        {
-                          "id": "x4jF00",
-                          "type": "ref",
-                          "ref": "B:9RljR",
-                          "width": "fill_container",
-                          "descendants": {
-                            "B:tFVbx": {
-                              "content": "📝 getting-started.md (text/markdown, 12 KB) · Jun 13, 2026"
-                            }
-                          }
-                        },
-                        {
-                          "id": "a9JcWl",
-                          "type": "ref",
-                          "ref": "B:9RljR",
-                          "width": "fill_container",
-                          "descendants": {
-                            "B:tFVbx": {
-                              "content": "🌐 architecture.html (text/html, 48 KB) · Jun 12, 2026"
-                            }
-                          }
+                          ]
                         }
                       ]
                     }

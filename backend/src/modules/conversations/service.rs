@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::modules::conversations::models::{
@@ -257,5 +258,21 @@ impl ConversationService {
         );
 
         Ok(result)
+    }
+
+    /// Search sessions with optional title filter and date range.
+    pub async fn search_sessions(
+        &self,
+        search: Option<String>,
+        from: Option<DateTime<Utc>>,
+        to: Option<DateTime<Utc>>,
+    ) -> Result<Vec<Session>, AppError> {
+        tracing::info!(
+            "[conv.search_sessions] search={:?} from={:?} to={:?}",
+            search,
+            from,
+            to
+        );
+        self.repo.search_sessions(search, from, to).await
     }
 }

@@ -313,34 +313,30 @@ describe('MessageBubble', () => {
   // Debug info button (admin only)
   // ==========================================================================
 
-  it('renders debug info button when isAdmin is true', async () => {
+  it('debug button is removed from MessageBubble', async () => {
     const wrapper = mount(MessageBubble, {
-      props: { message: createAssistantMessage(), isAdmin: true },
-    });
-    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(true);
-  });
-
-  it('does not render debug info button when isAdmin is false', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createAssistantMessage(), isAdmin: false },
+      props: { message: createAssistantMessage() },
     });
     expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
-  });
-
-  it('does not render debug info button for user messages even when admin', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createUserMessage(), isAdmin: true },
-    });
-    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
-  });
-
-  it('debug button toggles debug panel on click', async () => {
-    const wrapper = mount(MessageBubble, {
-      props: { message: createAssistantMessage(), isAdmin: true },
-    });
     expect(wrapper.find('[data-testid="debug-panel"]').exists()).toBe(false);
-    await wrapper.find('[data-testid="message-debug-btn"]').trigger('click');
-    expect(wrapper.find('[data-testid="debug-panel"]').exists()).toBe(true);
+  });
+
+  // ==========================================================================
+  // Timestamp layout
+  // ==========================================================================
+  it('does not render debug info button for user messages', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
+  });
+
+  it('debug button is removed from MessageBubble', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createAssistantMessage() },
+    });
+    expect(wrapper.find('[data-testid="message-debug-btn"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="debug-panel"]').exists()).toBe(false);
   });
 
   // ==========================================================================

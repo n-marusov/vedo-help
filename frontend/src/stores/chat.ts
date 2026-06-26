@@ -189,6 +189,15 @@ export const useChatStore = defineStore('chat', () => {
           case 'sources':
             sources = JSON.stringify(value.data?.sources || value.sources);
             break;
+          case 'debug': {
+            const lastMsg = messages.value[messages.value.length - 1];
+            if (lastMsg?.role === 'assistant') {
+              lastMsg.debug_data = JSON.stringify(value.data?.debug || value.data);
+              messages.value = [...messages.value];
+            }
+            console.debug('[chat.sendMessage] debug event received');
+            break;
+          }
           case 'error':
             error.value = value.data?.text || value.text || 'An error occurred';
             // Remove the placeholder assistant message

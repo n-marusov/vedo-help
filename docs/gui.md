@@ -146,7 +146,7 @@ The toolbar includes an **Export** button (ghost variant) with a format `<VSelec
 
 ## Admin View (`/admin`)
 
-The admin panel manages collections and documents. On first access, it prompts for the API key.
+The admin panel manages collections, documents, and session debug data. The panel has two top-level tabs: **Collections & Sources** (default) and **Session Debug**.
 
 ### Authentication Gate
 
@@ -244,6 +244,55 @@ Located in the right panel of the admin view.
 4. On success, the document appears in the list with its size and upload timestamp
 5. On failure, an error message is displayed inline
 
+### Git Repository Sync
+
+Located in the right panel of the admin view (Git Repositories tab). Allows connecting git repositories for automatic document indexing.
+
+### Session Debug
+
+The admin panel has a **Session Debug** tab (next to "Collections & Sources") that provides a read-only view of chat sessions with RAG pipeline debug data. Accessible to admin users.
+
+**Layout:**
+
+```
+┌───────────────────┬────────────────────────────────┐
+│  🔍 Search...     │  Session: Technical Docs Q&A   │
+│  From: [  ] To: [ ]│  Jun 24 · 12 messages          │
+│                    ├────────────────────────────────┤
+│  Technical Docs QA │  User: "How do I install..."  │
+│    Jun 24 · 12 msgs│                                │
+│  Deployment Guide  │  Assistant: "To install..."    │
+│    Jun 23 · 8 msgs │  ▶ Debug — Generation Pipeline │
+│  API Reference Chat│    (collapsible 7-step view)  │
+│    Jun 22 · 3 msgs │                                │
+└───────────────────┴────────────────────────────────┘
+```
+
+**Left panel (380px):**
+- **Search input** — filters sessions by title substring
+- **Date range** — From/To date pickers
+- **Session list** — scrollable list showing session title, date, and message count
+
+**Right panel (fill):**
+- **Session header** — title, date, message count
+- **Message list** — read-only view of all messages in the session
+- **Debug toggle** — each assistant message has a "▶ Debug — Generation Pipeline" button that reveals the 7-step RAG pipeline debug view
+
+**7-step pipeline display:**
+| # | Step | Status |
+|---|------|--------|
+| 1 | Multi-query | ⏳ v0.5 |
+| 2 | HyDE | ⏳ v0.5 |
+| 3 | Embedding search | ✅ Active — shows results, dimension, latency |
+| 4 | Hybrid keyword search | ⏳ v0.5 |
+| 5 | Merge & dedup | ⏳ v0.5 |
+| 6 | Reranking | ⏳ v0.5 |
+| 7 | Final answer | ✅ Active — shows model, latency, tokens, prompt preview |
+
+Debug data is collected when `debug: true` is sent with a query (admin users) and persisted in the `messages.debug_data` column.
+
+The debug button and panel were removed from the Chat view — debug data is now only accessible from the admin panel.
+
 ---
 
 ## Design Tokens
@@ -297,7 +346,7 @@ Located in `frontend/src/components/MessageBubble.vue`.
 - `isStreaming?: boolean` — enables streaming state animations
 - `index?: number` — used for staggered entrance animation delay
 
-**Features:**
+**Features:****
 - Markdown rendering via `marked` library (GFM enabled)
 - **Syntax highlighting** — code blocks rendered via `highlight.js` with dark theme, supports Python, Rust, TypeScript, JavaScript, Bash, JSON, SQL, CSS, HTML, Markdown, and plaintext
 - **Language labels** — each code block shows the detected or explicit language name in the header (`code-lang-label`)

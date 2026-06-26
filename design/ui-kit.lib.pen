@@ -6405,56 +6405,6 @@
             },
             {
               "type": "frame",
-              "id": "qorwN",
-              "name": "Component/StreamingIndicator",
-              "reusable": true,
-              "width": "fill_container",
-              "gap": 6,
-              "padding": [
-                8,
-                12
-              ],
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "Fz9NV",
-                  "x": 12,
-                  "y": 8,
-                  "name": "botAvatar",
-                  "enabled": false,
-                  "width": 32,
-                  "height": 32,
-                  "fill": "$primary",
-                  "cornerRadius": 16,
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "PFfbi",
-                      "name": "avatarText",
-                      "fill": "$primary-foreground",
-                      "content": "V",
-                      "fontFamily": "IBM Plex Mono",
-                      "fontSize": 14,
-                      "fontWeight": "700"
-                    }
-                  ]
-                },
-                {
-                  "type": "text",
-                  "id": "o62xW",
-                  "name": "typingIndicator",
-                  "fill": "$muted-foreground",
-                  "content": "Assistant is typing...",
-                  "fontFamily": "IBM Plex Mono",
-                  "fontSize": 13,
-                  "fontWeight": "600"
-                }
-              ]
-            },
-            {
-              "type": "frame",
               "id": "Rup2V",
               "name": "Component/ChatInput",
               "reusable": true,

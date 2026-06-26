@@ -250,6 +250,11 @@ async fn main() {
             patch(conversations_handlers::patch_message)
                 .delete(conversations_handlers::delete_message),
         )
+        // Admin routes (behind auth middleware)
+        .route(
+            "/api/admin/sessions",
+            get(conversations_handlers::admin_list_sessions),
+        )
         // Auth middleware for all /api/* routes (applies to routes defined above)
         .route_layer(middleware::from_fn(auth_middleware))
         // Public routes registered AFTER route_layer so auth middleware does not apply.

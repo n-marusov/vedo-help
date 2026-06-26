@@ -4,7 +4,6 @@ import MessageBubble from '@/components/MessageBubble.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';
-import { isAdmin as checkIsAdmin } from '@/stores/auth';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
@@ -615,7 +614,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               idx === chatStore.messages.length - 1 &&
               msg.role === 'assistant'
             "
-            :is-admin="checkIsAdmin"
             @edit="handleEditMessage"
             @save-edit="handleSaveEdit"
             @cancel-edit="() => {}"
