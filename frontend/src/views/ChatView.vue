@@ -171,8 +171,8 @@ async function handleNewSessionForCollection(collectionId) {
   closeNewSessionDropdown();
   collectionStore.setActiveCollection(collectionId);
   chatStore.clearMessages();
-  console.debug('[ChatView.newSession] creating session collection=%s', collectionId);
-  await chatStore.createSession(collectionId);
+  console.debug('[ChatView.newSession] preparing session with collection=%s', collectionId);
+  // Session will be created on first message send
 }
 
 function handleNewSessionClickOutside(e) {
@@ -1748,7 +1748,8 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .session-sidebar--collapsed .session-header,
 .session-sidebar--collapsed .session-new-wrapper,
-.session-sidebar--collapsed .session-list {
+.session-sidebar--collapsed .session-list,
+.session-sidebar--collapsed .session-empty {
   display: none;
 }
 
