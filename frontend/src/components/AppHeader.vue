@@ -299,13 +299,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
   color: var(--color-muted-foreground);
-  font-size: 14px;
   line-height: 1;
 }
 
@@ -319,21 +313,17 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
   color: var(--color-muted-foreground);
-  font-size: 14px;
   cursor: pointer;
   line-height: 1;
   padding: 0;
-  transition: background var(--transition-fast);
+  background: none;
+  border: none;
+  transition: color var(--transition-fast);
 }
 
 .app-header__user-btn:hover {
-  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 .app-header__user-avatar {
