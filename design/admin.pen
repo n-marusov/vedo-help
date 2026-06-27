@@ -17,6 +17,43 @@
       "layout": "vertical",
       "children": [
         {
+          "id": "adminHeader",
+          "type": "ref",
+          "ref": "B:VedoPageHeader",
+          "width": "fill_container",
+          "descendants": {
+            "B:themeToggle/B:EIYE9": {
+              "content": ""
+            },
+            "B:themeToggle/B:rzq1r": {
+              "children": [
+                {
+                  "type": "text",
+                  "id": "adminThemeIconDark",
+                  "fill": "$B:muted-foreground",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "bold",
+                  "content": "☀️"
+                }
+              ]
+            },
+            "B:userMenu/B:u5zHU": {
+              "children": [
+                {
+                  "type": "text",
+                  "id": "adminUserAvatarDark",
+                  "fill": "$B:muted-foreground",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "bold",
+                  "content": "👤"
+                }
+              ]
+            }
+          }
+        },
+        {
           "type": "frame",
           "id": "adminWorkspace",
           "name": "Admin Workspace",
@@ -826,6 +863,43 @@
       "fill": "$B:background",
       "layout": "vertical",
       "children": [
+        {
+          "id": "adminHeaderLight",
+          "type": "ref",
+          "ref": "B:VedoPageHeader",
+          "width": "fill_container",
+          "descendants": {
+            "B:themeToggle/B:EIYE9": {
+              "content": ""
+            },
+            "B:themeToggle/B:rzq1r": {
+              "children": [
+                {
+                  "type": "text",
+                  "id": "adminThemeIconLight",
+                  "fill": "$B:muted-foreground",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "bold",
+                  "content": "🌙"
+                }
+              ]
+            },
+            "B:userMenu/B:u5zHU": {
+              "children": [
+                {
+                  "type": "text",
+                  "id": "adminUserAvatarLight",
+                  "fill": "$B:muted-foreground",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "bold",
+                  "content": "👤"
+                }
+              ]
+            }
+          }
+        },
         {
           "type": "frame",
           "id": "gPofR",
