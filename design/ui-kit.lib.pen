@@ -7791,7 +7791,7 @@
         "mode": "light"
       },
       "width": 1400,
-      "height": 1250,
+      "height": 1350,
       "fill": "$background",
       "stroke": "$border",
       "layout": "vertical",
