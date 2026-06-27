@@ -4,7 +4,6 @@ import MessageBubble from '@/components/MessageBubble.vue';
 import VBadge from '@/components/ui/VBadge.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
-import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -573,17 +572,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         </div>
       </Teleport>
 
-      <div
-        v-if="chatStore.isLoadingSessions"
-        data-testid="sessions-loading-skeleton"
-      >
-        <VSkeleton variant="card" :rows="5" />
-      </div>
-
-      <div
-        v-else-if="chatStore.filteredSessions.length === 0"
-        class="session-empty"
-      >
+      <div v-if="chatStore.filteredSessions.length === 0" class="session-empty">
         No sessions yet. Start a new chat!
       </div>
 
@@ -800,19 +789,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         class="messages-area"
         data-testid="messages-area"
       >
-        <!-- Loading skeleton (check BEFORE welcome screen so skeleton
-             is visible while loadSession is in flight and
-             activeSessionId is still null) -->
+        <!-- Welcome block (no session selected) -->
         <div
-          v-if="chatStore.isSessionLoading"
-          data-testid="messages-loading-skeleton"
-        >
-          <VSkeleton variant="text" :rows="6" />
-        </div>
-
-        <!-- Welcome block (no session selected, not loading) -->
-        <div
-          v-else-if="!chatStore.activeSessionId"
+          v-if="!chatStore.activeSessionId"
           class="welcome-screen"
           data-testid="welcome-message"
         >
@@ -1746,7 +1725,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   align-items: center;
 }
 
-.session-sidebar--collapsed .session-title,
+.session-sidebar--collapsed .session-header,
 .session-sidebar--collapsed .session-new-wrapper,
 .session-sidebar--collapsed .session-list,
 .session-sidebar--collapsed .session-search {

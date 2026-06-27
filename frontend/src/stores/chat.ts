@@ -427,7 +427,7 @@ export const useChatStore = defineStore('chat', () => {
         activeSessionId.value = null;
         messages.value = [];
       }
-      await fetchSessions();
+      sessions.value = sessions.value.filter((s) => s.id !== sessionId);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
