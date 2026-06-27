@@ -393,6 +393,35 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
       <!-- New session button on collapsed sidebar -->
       <template v-if="chatStore.sidebarCollapsed">
+        <button
+          class="sidebar-search-btn"
+          data-testid="sidebar-search-btn"
+          title="Search sessions"
+          @click="toggleSearchInput"
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="16"
+            viewBox="0 0 16 16"
+            width="16"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="7"
+              cy="7"
+              r="5.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M11 11L14.5 14.5"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.5"
+            />
+          </svg>
+        </button>
         <div class="sidebar-collapsed-sep" />
         <button
           class="sidebar-new-session-btn"
@@ -1018,9 +1047,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: none;
+  background: var(--color-muted);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   color: var(--color-muted-foreground);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1028,8 +1057,8 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .session-header-btn:hover {
   color: var(--color-foreground);
-  background: var(--color-secondary);
-  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: var(--color-primary);
 }
 
 .session-title {
@@ -1619,12 +1648,12 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   margin: 0 auto;
-  background: var(--color-secondary);
+  background: var(--color-muted);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   color: var(--color-muted-foreground);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1632,9 +1661,32 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 }
 
 .sidebar-expand-btn:hover {
-  background: var(--color-border);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-foreground);
   border-color: var(--color-primary);
+}
+
+/* ── Collapsed Sidebar Search Button ── */
+.sidebar-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-search-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 /* ── Collapsed Sidebar Separator ── */
@@ -1655,7 +1707,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   height: 44px;
   margin: 0 auto;
   background: var(--color-muted);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   color: var(--color-muted-foreground);
   cursor: pointer;
