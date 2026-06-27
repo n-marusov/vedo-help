@@ -668,26 +668,34 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         <div class="toolbar-left">
           <div
             v-if="activeSession"
-            class="toolbar-session-tag"
-            data-testid="toolbar-session-tag"
+            class="toolbar-badges"
+            data-testid="toolbar-badges"
           >
-            <span class="toolbar-session-title">{{
-              truncateTitle(activeSession.title, 30)
-            }}</span>
-            <span
+            <VBadge
               v-if="activeCollectionName"
-              class="toolbar-collection-badge"
-              >{{ activeCollectionName }}</span
+              size="sm"
+              variant="info"
+              data-testid="toolbar-collection-badge"
+              >{{ activeCollectionName }}</VBadge
+            >
+            <VBadge
+              size="sm"
+              variant="success"
+              data-testid="toolbar-session-badge"
+              >{{ truncateTitle(activeSession.title, 30) }}</VBadge
             >
           </div>
           <div
             v-else-if="activeCollectionName"
-            class="toolbar-collection-tag"
-            data-testid="toolbar-collection-tag"
+            class="toolbar-badges"
+            data-testid="toolbar-badges"
           >
-            <span class="toolbar-collection-badge">{{
-              activeCollectionName
-            }}</span>
+            <VBadge
+              size="sm"
+              variant="info"
+              data-testid="toolbar-collection-badge"
+              >{{ activeCollectionName }}</VBadge
+            >
           </div>
           <CollectionSelector
             v-else
@@ -1321,6 +1329,13 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 .toolbar-left {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
+}
+
+.toolbar-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .toolbar-right {
