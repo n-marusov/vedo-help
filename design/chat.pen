@@ -962,6 +962,32 @@
                   ]
                 },
                 {
+                  "type": "frame",
+                  "id": "collapsedSearchDark",
+                  "name": "compactSearchBtn",
+                  "width": 44,
+                  "height": 44,
+                  "fill": "$B:muted",
+                  "strokeWidth": 1,
+                  "stroke": "$B:border",
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "searchIconDark",
+                      "name": "searchIcon",
+                      "width": 16,
+                      "height": 16,
+                      "library": "lucide",
+                      "icon": "search",
+                      "fill": "$B:muted-foreground"
+                    }
+                  ]
+                },
+                {
                   "type": "rectangle",
                   "id": "yIHlX",
                   "name": "sep",
@@ -2142,6 +2168,32 @@
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "collapsedSearchLight",
+                  "name": "compactSearchBtn",
+                  "width": 44,
+                  "height": 44,
+                  "fill": "$B:muted",
+                  "strokeWidth": 1,
+                  "stroke": "$B:border",
+                  "strokeAlignment": "inner",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "searchIconLight",
+                      "name": "searchIcon",
+                      "width": 16,
+                      "height": 16,
+                      "library": "lucide",
+                      "icon": "search",
+                      "fill": "$B:muted-foreground"
                     }
                   ]
                 },
