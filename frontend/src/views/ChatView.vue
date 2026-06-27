@@ -1,6 +1,7 @@
 <script setup>
 import CollectionSelector from '@/components/CollectionSelector.vue';
 import MessageBubble from '@/components/MessageBubble.vue';
+import VBadge from '@/components/ui/VBadge.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';

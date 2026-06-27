@@ -171,6 +171,26 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null;
     abortController = new AbortController();
 
+    // Optimistic title: show user query in sidebar and badge immediately
+    const currentSession = activeSessionId.value
+      ? sessions.value.find((s) => s.id === activeSessionId.value)
+      : null;
+    if (
+      currentSession &&
+      (currentSession.title === 'New Chat' || currentSession.title === 'New Session')
+    ) {
+      const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
+      if (idx !== -1) {
+        const tempTitle = query.slice(0, 45).trim();
+        sessions.value[idx] = { ...sessions.value[idx], title: tempTitle };
+        console.debug(
+          '[chat.autoName] optimistic title set session=%s title=%s',
+          activeSessionId.value,
+          tempTitle,
+        );
+      }
+    }
+
     // Add user message optimistically
     const tempUserMsg: Message = {
       id: `temp-${Date.now()}`,
@@ -311,20 +331,31 @@ export const useChatStore = defineStore('chat', () => {
       // Refresh sessions after a new query (might have created a session)
       await fetchSessions();
 
-      // Auto-name session if title is still "New Chat" (v0.3.1 chat polish)
-      if (activeSessionId.value) {
+      // Refine title with condensed summary from the assistant response
+      if (activeSessionId.value && fullContent.trim()) {
         const session = sessions.value.find((s) => s.id === activeSessionId.value);
-        if (session && (session.title === 'New Chat' || session.title === 'New Session')) {
-          const firstMsg = messages.value.find((m) => m.role === 'user');
-          if (firstMsg) {
-            const autoTitle = firstMsg.content.slice(0, 50).trim();
-            if (autoTitle) {
-              console.debug(
-                '[chat.autoName] session=%s auto-title=%s',
-                activeSessionId.value,
-                autoTitle,
-              );
-              await renameSession(activeSessionId.value, autoTitle);
+        if (session) {
+          // Extract first meaningful sentence: take up to 50 chars of the assistant's answer
+          const condensed = fullContent
+            .replace(/\n{2,}/g, ' ')
+            .replace(/^[#*\-\s]+/, '')
+            .slice(0, 50)
+            .trim();
+          if (condensed && condensed.length > 10 && condensed !== session.title) {
+            console.debug(
+              '[chat.refineName] session=%s old=%s new=%s',
+              activeSessionId.value,
+              session.title,
+              condensed,
+            );
+            await renameSession(activeSessionId.value, condensed);
+            // Immediately update local sessions array so sidebar + badge reflect it
+            const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
+            if (idx !== -1) {
+              sessions.value[idx] = {
+                ...sessions.value[idx],
+                title: condensed,
+              };
             }
           }
         }
