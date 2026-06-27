@@ -364,6 +364,32 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         { 'session-sidebar--collapsed': chatStore.sidebarCollapsed },
       ]"
     >
+      <!-- Expand button when sidebar is collapsed -->
+      <button
+        v-if="chatStore.sidebarCollapsed"
+        class="sidebar-expand-btn"
+        data-testid="sidebar-expand-btn"
+        title="Expand sidebar"
+        @click="chatStore.toggleSidebarCollapsed"
+      >
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="18"
+          viewBox="0 0 18 18"
+          width="18"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 4L12 9L7 14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+          />
+        </svg>
+      </button>
+
       <div class="session-header">
         <span class="session-title">HISTORY</span>
         <div class="session-header-actions">
@@ -1529,6 +1555,29 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 .sidebar-toggle:hover {
   background: var(--color-border);
   color: var(--color-foreground);
+}
+
+/* ── Sidebar Collapse/Expand Button ── */
+.sidebar-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-expand-btn:hover {
+  background: var(--color-border);
+  color: var(--color-foreground);
+  border-color: var(--color-primary);
 }
 
 /* ===== Sidebar Overlay (Mobile) ===== */
