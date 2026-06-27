@@ -134,7 +134,7 @@ describe('ChatWindow (ChatView)', () => {
     expect(sidebar.classes('session-sidebar--collapsed')).toBe(true);
   });
 
-  it('session search filters session list by title', async () => {
+  it('session search dialog opens and filters sessions', async () => {
     const wrapper = mount(ChatView);
     const { useChatStore } = await import('@/stores/chat');
     const chatStore = useChatStore();
@@ -159,19 +159,23 @@ describe('ChatWindow (ChatView)', () => {
     chatStore.isLoadingSessions = false;
     await nextTick();
 
-    // Toggle search input first
+    // Open search dialog
     const searchToggle = wrapper.find('[data-testid="session-search-toggle"]');
     await searchToggle.trigger('click');
     await nextTick();
 
-    const searchInput = wrapper.find('[data-testid="session-search-input"]');
-    expect(searchInput.exists()).toBe(true);
-    await searchInput.setValue('Deploy');
+    // VDialog uses Teleport to body, so check in document.body
+    const dialog = document.body.querySelector('[data-testid="confirm-dialog"]');
+    expect(dialog).not.toBeNull();
+
+    // Type a search query into the store directly
+    chatStore.setSearchQuery('Deploy');
     await nextTick();
 
-    const items = wrapper.findAll('.session-item');
+    // Check that only matching sessions show in dialog list
+    const items = document.body.querySelectorAll('[data-testid="search-dialog-item"]');
     expect(items.length).toBe(1);
-    expect(items[0].text()).toContain('Deploy');
+    expect(items[0].textContent).toContain('Deploy');
   });
 
   it('rename session dialog opens', async () => {

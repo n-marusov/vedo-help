@@ -12,7 +12,7 @@ const chatStore = useChatStore();
 const collectionStore = useCollectionStore();
 
 const sidebarOpen = ref(false);
-const showSearchInput = ref(false);
+const searchDialogOpen = ref(false);
 const renameDialogOpen = ref(false);
 const renameSessionTarget = ref(null);
 const renameInput = ref('');
@@ -60,11 +60,14 @@ function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
 }
 
-function toggleSearchInput() {
-  showSearchInput.value = !showSearchInput.value;
-  if (!showSearchInput.value) {
-    chatStore.setSearchQuery('');
-  }
+function openSearchDialog() {
+  searchDialogOpen.value = true;
+  chatStore.setSearchQuery('');
+}
+
+function closeSearchDialog() {
+  searchDialogOpen.value = false;
+  chatStore.setSearchQuery('');
 }
 
 function formatRelativeTime(dateStr) {
@@ -396,7 +399,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
           class="sidebar-search-btn"
           data-testid="sidebar-search-btn"
           title="Search sessions"
-          @click="toggleSearchInput"
+          @click="openSearchDialog"
         >
           <svg
             aria-hidden="true"
@@ -421,7 +424,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             />
           </svg>
         </button>
-        <div class="sidebar-collapsed-sep" />
         <button
           class="sidebar-new-session-btn"
           data-testid="sidebar-new-session-btn"
@@ -439,7 +441,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             class="session-header-btn"
             data-testid="session-search-toggle"
             title="Search sessions"
-            @click="toggleSearchInput"
+            @click="openSearchDialog"
           >
             <svg
               aria-hidden="true"
@@ -499,18 +501,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             </svg>
           </button>
         </div>
-      </div>
-
-      <!-- Search input -->
-      <div v-if="showSearchInput" class="session-search">
-        <input
-          v-model="chatStore.searchQuery"
-          class="session-search-input"
-          data-testid="session-search-input"
-          type="text"
-          placeholder="Search sessions..."
-          @input="chatStore.setSearchQuery($event.target.value)"
-        />
       </div>
 
       <!-- New session button with collection dropdown -->
@@ -971,6 +961,72 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         />
       </div>
     </VDialog>
+
+    <!-- Search sessions dialog -->
+    <VDialog
+      :open="searchDialogOpen"
+      title="Search Sessions"
+      cancelText="Close"
+      @close="closeSearchDialog"
+      @confirm="closeSearchDialog"
+    >
+      <template #actions>
+        <VButton
+          variant="outline"
+          data-testid="btn-dialog-close"
+          @click="closeSearchDialog"
+        >
+          Close
+        </VButton>
+      </template>
+      <div class="search-dialog-body">
+        <input
+          v-model="chatStore.searchQuery"
+          class="search-dialog-input"
+          data-testid="search-dialog-input"
+          type="text"
+          placeholder="Search sessions..."
+          autofocus
+          @input="chatStore.setSearchQuery($event.target.value)"
+        />
+        <div
+          v-if="chatStore.filteredSessions.length === 0"
+          class="search-dialog-empty"
+        >
+          No sessions found
+        </div>
+        <div v-else class="search-dialog-list">
+          <div
+            v-for="session in chatStore.filteredSessions"
+            :key="session.id"
+            class="search-dialog-item"
+            :class="{
+              'search-dialog-item--active':
+                session.id === chatStore.activeSessionId,
+            }"
+            data-testid="search-dialog-item"
+            @click="
+              handleSelectSession(session.id);
+              closeSearchDialog();
+            "
+            role="button"
+            tabindex="0"
+            @keydown.enter="
+              handleSelectSession(session.id);
+              closeSearchDialog();
+            "
+          >
+            <span class="search-dialog-item-title">{{
+              truncateTitle(session.title, 50)
+            }}</span>
+            <span class="search-dialog-item-meta">
+              {{ session.message_count }} msg ·
+              {{ formatRelativeTime(session.updated_at) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </VDialog>
   </div>
 </template>
 
@@ -1046,32 +1102,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   color: var(--color-muted-foreground);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.session-search {
-  flex-shrink: 0;
-}
-
-.session-search-input {
-  width: 100%;
-  padding: 8px 10px;
-  font-size: var(--font-size-xs);
-  font-family: var(--font-family);
-  color: var(--color-foreground);
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color var(--transition-fast);
-}
-
-.session-search-input:focus {
-  border-color: var(--color-primary);
-}
-
-.session-search-input::placeholder {
-  color: var(--color-muted-foreground);
 }
 
 .session-new-wrapper {
@@ -1668,15 +1698,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
-/* ── Collapsed Sidebar Separator ── */
-.sidebar-collapsed-sep {
-  width: 36px;
-  height: 1px;
-  background: var(--color-border);
-  margin: 0 auto;
-  flex-shrink: 0;
-}
-
 /* ── Collapsed Sidebar New Session Button ── */
 .sidebar-new-session-btn {
   display: flex;
@@ -1727,8 +1748,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .session-sidebar--collapsed .session-header,
 .session-sidebar--collapsed .session-new-wrapper,
-.session-sidebar--collapsed .session-list,
-.session-sidebar--collapsed .session-search {
+.session-sidebar--collapsed .session-list {
   display: none;
 }
 
@@ -1752,6 +1772,88 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .rename-dialog-input:focus {
   border-color: var(--color-primary);
+}
+
+/* ===== Search Dialog ===== */
+
+.search-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.search-dialog-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--color-foreground);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.search-dialog-input:focus {
+  border-color: var(--color-primary);
+}
+
+.search-dialog-input::placeholder {
+  color: var(--color-muted-foreground);
+}
+
+.search-dialog-empty {
+  text-align: center;
+  padding: var(--space-6) 0;
+  color: var(--color-muted-foreground);
+  font-size: var(--font-size-sm);
+}
+
+.search-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-dialog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.search-dialog-item:hover {
+  border-color: var(--color-primary);
+  opacity: 0.9;
+}
+
+.search-dialog-item--active {
+  background: var(--color-accent);
+  border-color: var(--color-primary);
+}
+
+.search-dialog-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-dialog-item-meta {
+  font-size: 10px;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== Scrollbar Styling ===== */
