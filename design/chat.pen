@@ -1,5 +1,5 @@
 {
-  "version": "2.13",
+  "version": "2.14",
   "children": [
     {
       "type": "frame",
@@ -136,40 +136,12 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "Z5nUi",
-                  "name": "newSessionRow",
+                  "id": "FxE8Z",
+                  "type": "ref",
+                  "ref": "B:tJaG7",
+                  "name": "newSessionControlDark",
                   "width": "fill_container",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "VOzT9",
-                      "type": "ref",
-                      "ref": "B:K5sXB",
-                      "name": "collectionSelect",
-                      "width": "fill_container",
-                      "descendants": {
-                        "B:SKPVU": {
-                          "content": "All Collections"
-                        },
-                        "B:gz3AQ": {
-                          "enabled": false
-                        }
-                      }
-                    },
-                    {
-                      "id": "qAPUU",
-                      "type": "ref",
-                      "ref": "B:ahk3w",
-                      "name": "newSessionBtn",
-                      "descendants": {
-                        "B:OgZRR": {
-                          "content": "+ New"
-                        }
-                      }
-                    }
-                  ]
+                  "height": "fit_content"
                 },
                 {
                   "type": "frame",
@@ -776,62 +748,48 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "id": "collectionSelect",
-                      "type": "ref",
-                      "ref": "B:K5sXB",
-                      "width": 360,
-                      "enabled": false,
-                      "descendants": {
-                        "B:SKPVU": {
-                          "content": "Technical Documentation"
-                        },
-                        "B:gz3AQ": {
-                          "enabled": false
-                        }
-                      }
-                    },
-                    {
                       "type": "frame",
-                      "id": "XQzpN",
-                      "name": "collectionTag",
-                      "fill": "$B:muted",
-                      "cornerRadius": 8,
-                      "gap": 6,
-                      "padding": [
-                        8,
-                        14
-                      ],
+                      "id": "Hg0pB",
+                      "name": "toolbarBadges",
+                      "fill": "#00000000",
+                      "gap": 8,
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "KI8sV",
-                          "name": "sessionName",
-                          "fill": "$B:foreground",
-                          "content": "New chat",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "600"
+                          "id": "SugO8",
+                          "type": "ref",
+                          "ref": "B:NwwhS",
+                          "name": "collectionBadge",
+                          "fill": "#3b82f633",
+                          "stroke": "#3b82f64D",
+                          "padding": [
+                            2,
+                            10
+                          ],
+                          "descendants": {
+                            "B:TFJjY": {
+                              "content": "Technical Documentation",
+                              "fill": "$B:info"
+                            }
+                          }
                         },
                         {
-                          "type": "text",
-                          "id": "EZ644",
-                          "name": "separator",
-                          "fill": "$B:muted-foreground",
-                          "content": "·",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "XZNFY",
-                          "name": "collectionName",
-                          "fill": "$B:muted-foreground",
-                          "content": "Technical Documentation",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                          "id": "z836x",
+                          "type": "ref",
+                          "ref": "B:NwwhS",
+                          "name": "sessionBadge",
+                          "fill": "#10b98133",
+                          "stroke": "#10b9814D",
+                          "padding": [
+                            2,
+                            10
+                          ],
+                          "descendants": {
+                            "B:TFJjY": {
+                              "content": "New Chat",
+                              "fill": "$B:success"
+                            }
+                          }
                         }
                       ]
                     }
@@ -927,27 +885,6 @@
                         },
                         "B:BINPk": {
                           "content": "2:30 PM"
-                        }
-                      }
-                    },
-                    {
-                      "id": "typingState",
-                      "type": "ref",
-                      "ref": "B:qorwN",
-                      "width": 180,
-                      "descendants": {
-                        "B:Fz9NV": {
-                          "enabled": false
-                        },
-                        "B:NkWfY": {
-                          "type": "text",
-                          "id": "M9jjK",
-                          "name": "typingIndicator",
-                          "fill": "$B:muted-foreground",
-                          "content": "Assistant is typing...",
-                          "fontFamily": "IBM Plex Mono",
-                          "fontSize": 13,
-                          "fontWeight": "600"
                         }
                       }
                     }
@@ -1117,40 +1054,12 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "EE8MT",
-                  "name": "newSessionRow",
+                  "id": "hVvAO",
+                  "type": "ref",
+                  "ref": "B:tJaG7",
+                  "name": "newSessionControlLight",
                   "width": "fill_container",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "Nlbni",
-                      "type": "ref",
-                      "ref": "B:K5sXB",
-                      "name": "collectionSelect",
-                      "width": "fill_container",
-                      "descendants": {
-                        "B:SKPVU": {
-                          "content": "All Collections"
-                        },
-                        "B:gz3AQ": {
-                          "enabled": false
-                        }
-                      }
-                    },
-                    {
-                      "id": "mAXLp",
-                      "type": "ref",
-                      "ref": "B:ahk3w",
-                      "name": "newSessionBtn",
-                      "descendants": {
-                        "B:OgZRR": {
-                          "content": "+ New"
-                        }
-                      }
-                    }
-                  ]
+                  "height": "fit_content"
                 },
                 {
                   "type": "frame",
@@ -1941,62 +1850,48 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "id": "CHtKl",
-                      "type": "ref",
-                      "ref": "B:K5sXB",
-                      "width": 360,
-                      "enabled": false,
-                      "descendants": {
-                        "B:SKPVU": {
-                          "content": "Technical Documentation"
-                        },
-                        "B:gz3AQ": {
-                          "enabled": false
-                        }
-                      }
-                    },
-                    {
                       "type": "frame",
-                      "id": "cbo9m",
-                      "name": "collectionTag",
-                      "fill": "$B:muted",
-                      "cornerRadius": 8,
-                      "gap": 6,
-                      "padding": [
-                        8,
-                        14
-                      ],
+                      "id": "G3JA8f",
+                      "name": "toolbarBadges",
+                      "fill": "#00000000",
+                      "gap": 8,
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "yfO5D",
-                          "name": "sessionName",
-                          "fill": "$B:foreground",
-                          "content": "New chat",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "600"
+                          "id": "IXZZF",
+                          "type": "ref",
+                          "ref": "B:NwwhS",
+                          "name": "collectionBadge",
+                          "fill": "#2563eb26",
+                          "stroke": "#2563eb4D",
+                          "padding": [
+                            2,
+                            10
+                          ],
+                          "descendants": {
+                            "B:TFJjY": {
+                              "content": "Technical Documentation",
+                              "fill": "$B:info"
+                            }
+                          }
                         },
                         {
-                          "type": "text",
-                          "id": "FEtAp",
-                          "name": "separator",
-                          "fill": "$B:muted-foreground",
-                          "content": "·",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "Z6Z4B",
-                          "name": "collectionName",
-                          "fill": "$B:muted-foreground",
-                          "content": "Technical Documentation",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
+                          "id": "S7xEnO",
+                          "type": "ref",
+                          "ref": "B:NwwhS",
+                          "name": "sessionBadge",
+                          "fill": "#05966926",
+                          "stroke": "#0596694D",
+                          "padding": [
+                            2,
+                            10
+                          ],
+                          "descendants": {
+                            "B:TFJjY": {
+                              "content": "New Chat",
+                              "fill": "$B:success"
+                            }
+                          }
                         }
                       ]
                     }
@@ -2092,27 +1987,6 @@
                         },
                         "B:BINPk": {
                           "content": "2:30 PM"
-                        }
-                      }
-                    },
-                    {
-                      "id": "bEqoD",
-                      "type": "ref",
-                      "ref": "B:qorwN",
-                      "width": 180,
-                      "descendants": {
-                        "B:Fz9NV": {
-                          "enabled": false
-                        },
-                        "B:NkWfY": {
-                          "type": "text",
-                          "id": "rg20L",
-                          "name": "typingIndicator",
-                          "fill": "$B:muted-foreground",
-                          "content": "Assistant is typing...",
-                          "fontFamily": "IBM Plex Mono",
-                          "fontSize": 13,
-                          "fontWeight": "600"
                         }
                       }
                     }
@@ -2298,11 +2172,11 @@
               "type": "icon",
               "id": "S7CH9",
               "name": "deleteIcon",
-              "fill": "$B:destructive",
-              "library": "lucide",
-              "icon": "trash-2",
               "width": 14,
-              "height": 14
+              "height": 14,
+              "icon": "trash-2",
+              "library": "lucide",
+              "fill": "$B:destructive"
             },
             {
               "type": "text",
@@ -2486,11 +2360,11 @@
             {
               "type": "icon",
               "id": "pfmkO",
-              "fill": "$B:destructive",
-              "library": "lucide",
-              "icon": "trash-2",
               "width": 14,
-              "height": 14
+              "height": 14,
+              "icon": "trash-2",
+              "library": "lucide",
+              "fill": "$B:destructive"
             },
             {
               "type": "text",
@@ -2527,5 +2401,6 @@
   },
   "imports": {
     "B": "ui-kit.lib.pen"
-  }
+  },
+  "fileToken": "00efc644-5614-4dcd-913c-3bb119dde684"
 }
