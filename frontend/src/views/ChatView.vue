@@ -391,6 +391,19 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         </svg>
       </button>
 
+      <!-- New session button on collapsed sidebar -->
+      <template v-if="chatStore.sidebarCollapsed">
+        <div class="sidebar-collapsed-sep" />
+        <button
+          class="sidebar-new-session-btn"
+          data-testid="sidebar-new-session-btn"
+          title="New session"
+          @click="handleNewChat"
+        >
+          <span class="sidebar-new-session-icon">+</span>
+        </button>
+      </template>
+
       <div class="session-header">
         <span class="session-title">HISTORY</span>
         <div class="session-header-actions">
@@ -1624,6 +1637,45 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   border-color: var(--color-primary);
 }
 
+/* ── Collapsed Sidebar Separator ── */
+.sidebar-collapsed-sep {
+  width: 36px;
+  height: 1px;
+  background: var(--color-border);
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+/* ── Collapsed Sidebar New Session Button ── */
+.sidebar-new-session-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  background: var(--color-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-new-session-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.sidebar-new-session-icon {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+}
+
 /* ===== Sidebar Overlay (Mobile) ===== */
 
 .sidebar-overlay {
@@ -1635,10 +1687,11 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 }
 
 .session-sidebar--collapsed {
-  width: 48px;
-  min-width: 48px;
+  width: 68px;
+  min-width: 68px;
   padding: var(--space-3);
   overflow: hidden;
+  align-items: center;
 }
 
 .session-sidebar--collapsed .session-title,

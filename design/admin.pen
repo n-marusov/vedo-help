@@ -1,6 +1,6 @@
 {
-  "version": "2.13",
-  "children": [
+  "version": "2.14",
+    "children": [
     {
       "type": "frame",
       "id": "adminPageDark",
@@ -1629,6 +1629,6 @@
     ]
   },
   "imports": {
-    "B": "ui-kit.lib.pen"
+    "B": "./ui-kit.lib.pen"
   }
 }

@@ -6032,15 +6032,15 @@
                           "cornerRadius": 6,
                           "children": [
                             {
-                                                          "type": "icon",
-                                                          "library": "lucide",
-                                                          "icon": "copy",
-                                                          "id": "s4rIL5",
-                                                          "name": "copyIcon",
-                                                          "width": 14,
-                                                          "height": 14,
-                                                          "fill": "$muted-foreground"
-                                                        }
+                              "type": "icon",
+                              "id": "s4rIL5",
+                              "name": "copyIcon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "copy",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            }
                           ]
                         },
                         {
@@ -6053,17 +6053,17 @@
                           "cornerRadius": 6,
                           "children": [
                             {
-                                                          "type": "icon",
-                                                          "library": "lucide",
-                                                          "icon": "refresh-cw",
-                                                          "id": "UnXA2",
-                                                          "name": "regenerateIcon",
-                                                          "width": 14,
-                                                          "height": 14,
-                                                          "fill": "$muted-foreground"
-                                                        }
+                              "type": "icon",
+                              "id": "UnXA2",
+                              "name": "regenerateIcon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "refresh-cw",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            }
                           ]
-
+                        }
                       ]
                     }
                   ]
@@ -6140,15 +6140,15 @@
                           "cornerRadius": 6,
                           "children": [
                             {
-                                                          "type": "icon",
-                                                          "library": "lucide",
-                                                          "icon": "copy",
-                                                          "id": "gI1PF",
-                                                          "name": "copyIcon",
-                                                          "width": 14,
-                                                          "height": 14,
-                                                          "fill": "$primary-foreground"
-                                                        }
+                              "type": "icon",
+                              "id": "gI1PF",
+                              "name": "copyIcon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "copy",
+                              "library": "lucide",
+                              "fill": "$primary-foreground"
+                            }
                           ]
                         },
                         {
@@ -6162,15 +6162,15 @@
                           "cornerRadius": 6,
                           "children": [
                             {
-                                                          "type": "icon",
-                                                          "library": "lucide",
-                                                          "icon": "pencil",
-                                                          "id": "Wa4K8",
-                                                          "name": "editIcon",
-                                                          "width": 14,
-                                                          "height": 14,
-                                                          "fill": "$primary-foreground"
-                                                        }
+                              "type": "icon",
+                              "id": "Wa4K8",
+                              "name": "editIcon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "pencil",
+                              "library": "lucide",
+                              "fill": "$primary-foreground"
+                            }
                           ]
                         }
                       ]
@@ -6344,15 +6344,15 @@
                           "cornerRadius": 6,
                           "children": [
                             {
-                                                          "type": "icon",
-                                                          "library": "lucide",
-                                                          "icon": "copy",
-                                                          "id": "TmIvO",
-                                                          "name": "copyIcon",
-                                                          "width": 14,
-                                                          "height": 14,
-                                                          "fill": "$muted-foreground"
-                                                        }
+                              "type": "icon",
+                              "id": "TmIvO",
+                              "name": "copyIcon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "copy",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            }
                           ]
                         },
                         {
@@ -6365,17 +6365,17 @@
                           "cornerRadius": 6,
                           "children": [
                             {
-                                                          "type": "icon",
-                                                          "library": "lucide",
-                                                          "icon": "refresh-cw",
-                                                          "id": "t9ynO",
-                                                          "name": "regenerateIcon",
-                                                          "width": 14,
-                                                          "height": 14,
-                                                          "fill": "$muted-foreground"
-                                                        }
+                              "type": "icon",
+                              "id": "t9ynO",
+                              "name": "regenerateIcon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "refresh-cw",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            }
                           ]
-
+                        }
                       ]
                     }
                   ]

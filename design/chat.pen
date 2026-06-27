@@ -2558,7 +2558,7 @@
     ]
   },
   "imports": {
-    "B": "ui-kit.lib.pen"
+    "B": "./ui-kit.lib.pen"
   },
   "fileToken": "00efc644-5614-4dcd-913c-3bb119dde684"
 }
