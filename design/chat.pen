@@ -914,6 +914,85 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "VHXVF",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0,
+              "name": "Collapsed Sidebar",
+              "theme": {
+                "mode": "dark",
+                "B:mode": "dark"
+              },
+              "width": 68,
+              "height": 972,
+              "fill": "$B:card",
+              "cornerRadius": 16,
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "iOkb6",
+                  "name": "expandBtn",
+                  "width": 44,
+                  "height": 44,
+                  "fill": "$B:muted",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "i3LAzS",
+                      "name": "expandIcon",
+                      "fill": "$B:muted-foreground",
+                      "content": "▶",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "yIHlX",
+                  "name": "sep",
+                  "fill": "$B:border",
+                  "width": 36,
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "vxlRB",
+                  "name": "compactNewSession",
+                  "width": 44,
+                  "height": 44,
+                  "fill": "$B:primary",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "yRD0c",
+                      "name": "plusIcon",
+                      "fill": "$B:primary-foreground",
+                      "content": "+",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 20,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -2012,6 +2091,85 @@
                           "content": "Ask a question about your documents..."
                         }
                       }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "X4p8rM",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0,
+              "name": "Collapsed Sidebar",
+              "theme": {
+                "mode": "light",
+                "B:mode": "light"
+              },
+              "width": 68,
+              "height": 972,
+              "fill": "$B:card",
+              "cornerRadius": 16,
+              "stroke": "$B:border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "n0qlC",
+                  "name": "expandBtn",
+                  "width": 44,
+                  "height": 44,
+                  "fill": "$B:muted",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "MO5fO",
+                      "name": "expandIcon",
+                      "fill": "$B:muted-foreground",
+                      "content": "▶",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "wOMHv",
+                  "name": "sep",
+                  "fill": "$B:border",
+                  "width": 36,
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "c1AQE2",
+                  "name": "compactNewSession",
+                  "width": 44,
+                  "height": 44,
+                  "fill": "$B:primary",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "v028tK",
+                      "name": "plusIcon",
+                      "fill": "$B:primary-foreground",
+                      "content": "+",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 20,
+                      "fontWeight": "500"
                     }
                   ]
                 }
