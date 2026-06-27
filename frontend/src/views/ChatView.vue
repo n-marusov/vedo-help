@@ -6,7 +6,7 @@ import VDialog from '@/components/ui/VDialog.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const chatStore = useChatStore();
 const collectionStore = useCollectionStore();
@@ -20,6 +20,10 @@ const inputText = ref('');
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const exportFormat = ref('md');
+const newSessionDropdownOpen = ref(false);
+const newSessionTriggerRef = ref(null);
+const newSessionDropdownRef = ref(null);
+const newSessionDropdownStyle = ref({});
 
 const exportFormatOptions = [
   { label: 'Markdown', value: 'md' },
@@ -29,6 +33,17 @@ const exportFormatOptions = [
 onMounted(() => {
   chatStore.fetchSessions();
   collectionStore.fetchCollections();
+  document.addEventListener('click', handleNewSessionClickOutside);
+  document.addEventListener('keydown', handleNewSessionKeydown);
+  window.addEventListener('resize', updateNewSessionDropdownPosition);
+  window.addEventListener('scroll', updateNewSessionDropdownPosition, true);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleNewSessionClickOutside);
+  document.removeEventListener('keydown', handleNewSessionKeydown);
+  window.removeEventListener('resize', updateNewSessionDropdownPosition);
+  window.removeEventListener('scroll', updateNewSessionDropdownPosition, true);
 });
 
 // Close sidebar on session select for mobile
@@ -111,11 +126,76 @@ async function togglePin(sessionId) {
   await chatStore.togglePinSession(sessionId);
 }
 
-async function handleNewChat() {
-  chatStore.clearMessages();
-  if (collectionStore.activeCollectionId) {
-    await chatStore.createSession(collectionStore.activeCollectionId);
+function updateNewSessionDropdownPosition() {
+  if (!newSessionDropdownOpen.value || !newSessionTriggerRef.value) return;
+  const rect = newSessionTriggerRef.value.getBoundingClientRect();
+  newSessionDropdownStyle.value = {
+    left: `${rect.left}px`,
+    minWidth: `${rect.width}px`,
+    top: `${rect.bottom + 4}px`,
+  };
+}
+
+async function openNewSessionDropdown() {
+  newSessionDropdownOpen.value = true;
+  await nextTick();
+  updateNewSessionDropdownPosition();
+  console.debug(
+    '[ChatView.newSession] opened collection dropdown count=%d',
+    collectionStore.collections.length,
+  );
+}
+
+function closeNewSessionDropdown() {
+  newSessionDropdownOpen.value = false;
+}
+
+async function toggleNewSessionDropdown() {
+  if (chatStore.isLoading || chatStore.isSessionLoading) return;
+  if (collectionStore.collections.length === 0) {
+    console.debug('[ChatView.newSession] no collections available, clearing active session');
+    chatStore.clearMessages();
+    return;
   }
+  if (newSessionDropdownOpen.value) {
+    closeNewSessionDropdown();
+  } else {
+    await openNewSessionDropdown();
+  }
+}
+
+async function handleNewSessionForCollection(collectionId) {
+  closeNewSessionDropdown();
+  collectionStore.setActiveCollection(collectionId);
+  chatStore.clearMessages();
+  console.debug('[ChatView.newSession] creating session collection=%s', collectionId);
+  await chatStore.createSession(collectionId);
+}
+
+function handleNewSessionClickOutside(e) {
+  if (!newSessionDropdownOpen.value) return;
+  const target = e.target;
+  if (
+    newSessionTriggerRef.value?.contains(target) ||
+    newSessionDropdownRef.value?.contains(target)
+  ) {
+    return;
+  }
+  closeNewSessionDropdown();
+}
+
+function handleNewSessionKeydown(e) {
+  if (e.key === 'Escape') {
+    closeNewSessionDropdown();
+  }
+}
+
+function isNewSessionCollectionActive(collectionId) {
+  return collectionId === collectionStore.activeCollectionId;
+}
+
+async function handleNewChat() {
+  await toggleNewSessionDropdown();
 }
 
 // Message sending logic
@@ -215,6 +295,15 @@ function handleCancel() {
 }
 
 // removed: collectionOptions — replaced by CollectionSelector component
+
+watch(
+  () => collectionStore.collections.length,
+  () => {
+    if (newSessionDropdownOpen.value) {
+      nextTick(() => updateNewSessionDropdownPosition());
+    }
+  },
+);
 
 const activeSession = computed(
   () => chatStore.sessions.find((s) => s.id === chatStore.activeSessionId) || null,
@@ -356,15 +445,64 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         />
       </div>
 
-      <!-- New session button (centered below header) -->
+      <!-- New session button with collection dropdown -->
       <div class="session-new-wrapper">
-        <VButton
-          variant="primary"
+        <button
+          ref="newSessionTriggerRef"
+          class="session-new-trigger"
           data-testid="btn-new-chat"
+          type="button"
+          :aria-expanded="newSessionDropdownOpen"
+          aria-haspopup="listbox"
+          :disabled="chatStore.isLoading || chatStore.isSessionLoading"
           @click="handleNewChat"
-          >+ New Session</VButton
         >
+          <span class="session-new-label-group">
+            <span class="session-new-plus">+</span>
+            <span class="session-new-label">New session</span>
+          </span>
+          <span
+            class="session-new-chevron"
+            :class="{ 'session-new-chevron--open': newSessionDropdownOpen }"
+            >▾</span
+          >
+        </button>
       </div>
+
+      <Teleport to="body">
+        <div
+          v-if="newSessionDropdownOpen"
+          ref="newSessionDropdownRef"
+          class="session-new-dropdown"
+          data-testid="new-session-collection-dropdown"
+          :style="newSessionDropdownStyle"
+        >
+          <div class="session-new-caption">Choose collection</div>
+          <button
+            v-for="collection in collectionStore.collections"
+            :key="collection.id"
+            class="session-new-option"
+            :class="{
+              'session-new-option--selected': isNewSessionCollectionActive(
+                collection.id,
+              ),
+            }"
+            data-testid="new-session-collection-option"
+            type="button"
+            @click="handleNewSessionForCollection(collection.id)"
+          >
+            <span class="session-new-check">{{
+              isNewSessionCollectionActive(collection.id) ? "✓" : ""
+            }}</span>
+            <span class="session-new-option-label">{{ collection.name }}</span>
+            <span
+              v-if="collection.document_count !== undefined"
+              class="session-new-option-count"
+              >{{ collection.document_count }}</span
+            >
+          </button>
+        </div>
+      </Teleport>
 
       <div
         v-if="chatStore.isLoadingSessions"
@@ -870,7 +1008,145 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .session-new-wrapper {
   display: flex;
-  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── New Session Trigger (Pencil Design: Component/NewSessionCollectionControl) ── */
+.session-new-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 36px;
+  padding: 4px 12px;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  color: var(--color-primary-foreground);
+  cursor: pointer;
+  font-family: var(--font-family);
+  transition: all var(--transition-fast);
+  outline: none;
+  user-select: none;
+}
+
+.session-new-trigger:hover {
+  opacity: 0.9;
+}
+
+.session-new-trigger:active {
+  opacity: 0.8;
+}
+
+.session-new-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.session-new-label-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-new-plus {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.session-new-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.session-new-chevron {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+
+.session-new-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ── New Session Dropdown ── */
+.session-new-dropdown {
+  position: fixed;
+  z-index: 1000;
+  background: var(--color-popover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  padding: 6px 0;
+}
+
+.session-new-caption {
+  padding: 4px 12px 8px;
+  font-size: var(--font-size-3xs);
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.session-new-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-foreground);
+  font-family: var(--font-family);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  transition: background var(--transition-fast);
+  min-height: 32px;
+}
+
+.session-new-option:hover {
+  background: var(--color-muted);
+}
+
+.session-new-option--selected {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.session-new-option--selected:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.session-new-check {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.session-new-option--selected .session-new-check {
+  color: var(--color-primary);
+}
+
+.session-new-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-new-option-count {
+  font-size: var(--font-size-2xs);
+  color: var(--color-muted-foreground);
+  opacity: 0.7;
   flex-shrink: 0;
 }
 

@@ -1,5 +1,5 @@
 {
-  "version": "2.13",
+  "version": "2.14",
   "children": [
     {
       "type": "frame",
@@ -1302,6 +1302,7 @@
           "id": "Jd7Eo",
           "name": "Form Controls",
           "width": "fill_container",
+          "height": 511,
           "layout": "vertical",
           "gap": 12,
           "children": [
@@ -1321,6 +1322,7 @@
               "id": "t9QUS",
               "name": "formGrid",
               "width": "fill_container",
+              "height": 485,
               "layout": "vertical",
               "gap": 16,
               "children": [
@@ -1836,6 +1838,24 @@
                           ]
                         }
                       ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "gLshg",
+                  "name": "sessionControlRow",
+                  "width": "fill_container",
+                  "height": 240,
+                  "gap": 24,
+                  "children": [
+                    {
+                      "id": "s70CZ",
+                      "type": "ref",
+                      "ref": "tJaG7",
+                      "name": "sessionControlDark",
+                      "width": 260,
+                      "height": "fit_content"
                     }
                   ]
                 }
@@ -2508,6 +2528,7 @@
       "y": 2065,
       "name": "Molecules",
       "width": 1400,
+      "height": 1386,
       "fill": "$background",
       "stroke": "$border",
       "layout": "vertical",
@@ -6584,6 +6605,225 @@
               ]
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "tJaG7",
+          "name": "Component/NewSessionCollectionControl",
+          "reusable": true,
+          "width": 260,
+          "fill": "#00000000",
+          "layout": "vertical",
+          "gap": 1,
+          "children": [
+            {
+              "type": "frame",
+              "id": "i7zYu",
+              "name": "newSessionTrigger",
+              "width": "fill_container",
+              "height": 36,
+              "fill": "$primary",
+              "stroke": "$primary",
+              "padding": [
+                4,
+                12
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ySf70",
+                  "name": "newSessionLabelGroup",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "U6PdIh",
+                      "name": "newSessionPlus",
+                      "fill": "$primary-foreground",
+                      "content": "+",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "sHy6v",
+                      "name": "newSessionLabel",
+                      "fill": "$primary-foreground",
+                      "content": "New session",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "l65YUB",
+                  "name": "newSessionChevron",
+                  "fill": "$primary-foreground",
+                  "content": "▾",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GjG4T",
+              "name": "collectionDropdown",
+              "width": "fill_container",
+              "fill": "$popover",
+              "stroke": "$border",
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#00000033",
+                "offset": {
+                  "x": 0,
+                  "y": 4
+                },
+                "blur": 12
+              },
+              "layout": "vertical",
+              "padding": [
+                6,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QoslD",
+                  "name": "collectionCaptionRow",
+                  "width": "fill_container",
+                  "padding": [
+                    4,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "WGTPZ",
+                      "name": "collectionCaption",
+                      "fill": "$muted-foreground",
+                      "content": "Choose collection",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": "$font-size-3xs",
+                      "fontWeight": "600",
+                      "letterSpacing": 0.8
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "P7AoB",
+                  "name": "collectionOptionSelected",
+                  "width": "fill_container",
+                  "fill": "#10b98126",
+                  "gap": 8,
+                  "padding": [
+                    6,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SuFSh",
+                      "name": "collectionCheck",
+                      "fill": "$primary",
+                      "content": "✓",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "zDzw3",
+                      "name": "collectionLabel",
+                      "fill": "$foreground",
+                      "content": "Docs / Product",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qoQRL",
+                  "name": "collectionOption",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "gap": 8,
+                  "padding": [
+                    6,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "K6g8w",
+                      "name": "collectionCheck",
+                      "fill": "$muted-foreground",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "tBCpO",
+                      "name": "collectionLabel",
+                      "fill": "$foreground",
+                      "content": "Engineering KB",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "kArlz",
+                  "name": "collectionOption",
+                  "width": "fill_container",
+                  "fill": "#00000000",
+                  "gap": 8,
+                  "padding": [
+                    6,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "tZTR9",
+                      "name": "collectionCheck",
+                      "fill": "$muted-foreground",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PJHtl",
+                      "name": "collectionLabel",
+                      "fill": "$foreground",
+                      "content": "Architecture Notes",
+                      "fontFamily": "IBM Plex Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -7593,6 +7833,7 @@
         "mode": "light"
       },
       "width": 1400,
+      "height": 1250,
       "fill": "$background",
       "stroke": "$border",
       "layout": "vertical",
@@ -7877,6 +8118,7 @@
           "id": "q2MPz",
           "name": "Form Controls",
           "width": "fill_container",
+          "height": 511,
           "layout": "vertical",
           "gap": 12,
           "children": [
@@ -7896,6 +8138,7 @@
               "id": "zdWM0",
               "name": "formGrid",
               "width": "fill_container",
+              "height": 485,
               "layout": "vertical",
               "gap": 16,
               "children": [
@@ -8124,6 +8367,38 @@
                         "pPrFc": {
                           "x": 140,
                           "y": 8
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iQSMW",
+                  "name": "sessionControlRow",
+                  "width": "fill_container",
+                  "height": 240,
+                  "gap": 24,
+                  "children": [
+                    {
+                      "id": "rv0US",
+                      "type": "ref",
+                      "ref": "tJaG7",
+                      "name": "sessionControlLight",
+                      "width": 260,
+                      "height": "fit_content",
+                      "descendants": {
+                        "sHy6v": {
+                          "content": "New session"
+                        },
+                        "zDzw3": {
+                          "content": "Docs / Product"
+                        },
+                        "tBCpO": {
+                          "content": "Support KB"
+                        },
+                        "PJHtl": {
+                          "content": "API Reference"
                         }
                       }
                     }
@@ -15329,5 +15604,6 @@
       "type": "number",
       "value": 9
     }
-  }
+  },
+  "fileToken": "71cacd17-c06b-4e34-a7af-875a20727d03"
 }
