@@ -48,6 +48,64 @@ export const useChatStore = defineStore('chat', () => {
     return sessions.value.filter((s) => s.title.toLowerCase().includes(q));
   });
 
+  function getPeriodLabel(date: Date): { label: string; order: number } {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfDay.getTime() - 86400000);
+    const startOfWeek = new Date(startOfDay.getTime() - 6 * 86400000);
+
+    if (date >= startOfDay) return { label: 'TODAY', order: 1 };
+    if (date >= startOfYesterday) return { label: 'YESTERDAY', order: 2 };
+    if (date >= startOfWeek) return { label: 'WEEK', order: 3 };
+
+    // Same calendar month
+    if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+      return { label: 'MONTH', order: 4 };
+    }
+
+    // Older: format as YYYY-MM
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return { label: `${date.getFullYear()}-${month}`, order: 5 };
+  }
+
+  interface SessionGroup {
+    label: string | null; // null for pinned (no header)
+    sessions: SessionSummary[];
+  }
+
+  const filteredSessionsByPeriod = computed<SessionGroup[]>(() => {
+    const list = searchQuery.value.trim() ? filteredSessions.value : sessions.value;
+
+    const pinned = list.filter((s) => s.pinned);
+    const unpinned = list.filter((s) => !s.pinned);
+
+    const groups: Map<string, { label: string; order: number; sessions: SessionSummary[] }> =
+      new Map();
+
+    // Add pinned as first group (no label shown)
+    const result: SessionGroup[] = [];
+    if (pinned.length > 0) {
+      result.push({ label: null, sessions: pinned });
+    }
+
+    for (const session of unpinned) {
+      const { label, order } = getPeriodLabel(new Date(session.updated_at));
+      const key = `${order}:${label}`;
+      if (!groups.has(key)) {
+        groups.set(key, { label, order, sessions: [] });
+      }
+      groups.get(key)?.sessions.push(session);
+    }
+
+    // Sort groups by order, then add to result
+    const sortedGroups = Array.from(groups.values()).sort((a, b) => a.order - b.order);
+    for (const g of sortedGroups) {
+      result.push({ label: g.label, sessions: g.sessions });
+    }
+
+    return result;
+  });
+
   function setSearchQuery(query: string) {
     searchQuery.value = query;
   }
@@ -556,6 +614,7 @@ export const useChatStore = defineStore('chat', () => {
     searchQuery,
     sidebarCollapsed,
     filteredSessions,
+    filteredSessionsByPeriod,
     lastCollectionId,
     setSearchQuery,
     toggleSidebarCollapsed,

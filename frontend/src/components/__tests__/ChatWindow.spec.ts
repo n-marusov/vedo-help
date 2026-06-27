@@ -222,8 +222,8 @@ describe('ChatWindow (ChatView)', () => {
     collectionStore.setActiveCollection('collection-1');
     await wrapper.vm.$nextTick();
 
-    // When no active session but collection is active: toolbar-collection-tag
-    const tag = wrapper.find('[data-testid="toolbar-collection-tag"]');
+    // When no active session but collection is active: toolbar-collection-badge
+    const tag = wrapper.find('[data-testid="toolbar-collection-badge"]');
     expect(tag.exists()).toBe(true);
     expect(tag.text()).toContain('Technical Docs');
   });
@@ -262,11 +262,18 @@ describe('ChatWindow (ChatView)', () => {
     chatStore.isLoadingSessions = false;
     await nextTick();
 
-    // Session tag should show session title + collection badge
-    const sessionTag = wrapper.find('[data-testid="toolbar-session-tag"]');
-    expect(sessionTag.exists()).toBe(true);
-    expect(sessionTag.text()).toContain('My Chat Session');
-    expect(sessionTag.text()).toContain('Technical Docs');
+    // Session and collection badges should show separately
+    const toolbarBadges = wrapper.find('[data-testid="toolbar-badges"]');
+    expect(toolbarBadges.exists()).toBe(true);
+    expect(toolbarBadges.text()).toContain('My Chat Session');
+
+    const collBadge = wrapper.find('[data-testid="toolbar-collection-badge"]');
+    expect(collBadge.exists()).toBe(true);
+    expect(collBadge.text()).toContain('Technical Docs');
+
+    const sessionBadge = wrapper.find('[data-testid="toolbar-session-badge"]');
+    expect(sessionBadge.exists()).toBe(true);
+    expect(sessionBadge.text()).toContain('My Chat Session');
   });
 
   it('renders export button when session is active', async () => {

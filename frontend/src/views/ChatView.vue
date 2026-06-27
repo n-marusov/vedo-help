@@ -545,112 +545,124 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
       </div>
 
       <div v-else class="session-list">
-        <div
-          v-for="session in chatStore.filteredSessions"
-          :key="session.id"
-          class="session-item"
-          :class="[
-            {
-              'session-item--active': session.id === chatStore.activeSessionId,
-            },
-            { 'session-item--pinned': session.pinned },
-          ]"
-          :data-pinned="session.pinned ? 'true' : 'false'"
-          data-testid="session-item"
-          @click="handleSelectSession(session.id)"
-          role="button"
-          tabindex="0"
-          @keydown.enter="handleSelectSession(session.id)"
+        <template
+          v-for="group in chatStore.filteredSessionsByPeriod"
+          :key="group.label ?? 'pinned'"
         >
-          <div class="session-item-body">
-            <span class="session-item-title">{{
-              truncateTitle(session.title)
-            }}</span>
-            <span class="session-item-meta">
-              {{ session.message_count }} msg ·
-              {{ formatRelativeTime(session.updated_at) }}
-            </span>
+          <span
+            v-if="group.label"
+            class="session-section-header"
+            data-testid="session-section-header"
+            >{{ group.label }}</span
+          >
+          <div
+            v-for="session in group.sessions"
+            :key="session.id"
+            class="session-item"
+            :class="[
+              {
+                'session-item--active':
+                  session.id === chatStore.activeSessionId,
+              },
+              { 'session-item--pinned': session.pinned },
+            ]"
+            :data-pinned="session.pinned ? 'true' : 'false'"
+            data-testid="session-item"
+            @click="handleSelectSession(session.id)"
+            role="button"
+            tabindex="0"
+            @keydown.enter="handleSelectSession(session.id)"
+          >
+            <div class="session-item-body">
+              <span class="session-item-title">{{
+                truncateTitle(session.title)
+              }}</span>
+              <span class="session-item-meta">
+                {{ session.message_count }} msg ·
+                {{ formatRelativeTime(session.updated_at) }}
+              </span>
+            </div>
+            <div class="session-item-actions">
+              <button
+                class="session-action-btn"
+                data-testid="session-pin-btn"
+                title="Pin session"
+                @click.stop="togglePin(session.id)"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  width="12"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M7.5 1L9.5 3L8 4.5L10 7L9 8L6 5L4 10L2 10L3 8L1 7L4 4.5L3 3L5 1L6.5 2.5L7.5 1Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+              <button
+                class="session-action-btn"
+                data-testid="session-rename-btn"
+                title="Rename session"
+                @click.stop="handleRenameSession(session)"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  width="12"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8.5 1L11 3.5L4 10.5L1 11L1.5 8L8.5 1Z"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.2"
+                  />
+                </svg>
+              </button>
+              <button
+                class="session-action-btn session-action-btn--delete"
+                data-testid="session-delete-btn"
+                title="Delete session"
+                @click.stop="handleDeleteSession(session.id, $event)"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  width="12"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 3H10"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.2"
+                  />
+                  <path
+                    d="M4 2H8"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.2"
+                  />
+                  <path
+                    d="M3 4L3.5 9.5C3.5 10.3 4.2 11 5 11H7C7.8 11 8.5 10.3 8.5 9.5L9 4"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.2"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="session-item-actions">
-            <button
-              class="session-action-btn"
-              data-testid="session-pin-btn"
-              title="Pin session"
-              @click.stop="togglePin(session.id)"
-            >
-              <svg
-                aria-hidden="true"
-                fill="none"
-                height="12"
-                viewBox="0 0 12 12"
-                width="12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M7.5 1L9.5 3L8 4.5L10 7L9 8L6 5L4 10L2 10L3 8L1 7L4 4.5L3 3L5 1L6.5 2.5L7.5 1Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
-            <button
-              class="session-action-btn"
-              data-testid="session-rename-btn"
-              title="Rename session"
-              @click.stop="handleRenameSession(session)"
-            >
-              <svg
-                aria-hidden="true"
-                fill="none"
-                height="12"
-                viewBox="0 0 12 12"
-                width="12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M8.5 1L11 3.5L4 10.5L1 11L1.5 8L8.5 1Z"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.2"
-                />
-              </svg>
-            </button>
-            <button
-              class="session-action-btn session-action-btn--delete"
-              data-testid="session-delete-btn"
-              title="Delete session"
-              @click.stop="handleDeleteSession(session.id, $event)"
-            >
-              <svg
-                aria-hidden="true"
-                fill="none"
-                height="12"
-                viewBox="0 0 12 12"
-                width="12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2 3H10"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.2"
-                />
-                <path
-                  d="M4 2H8"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.2"
-                />
-                <path
-                  d="M3 4L3.5 9.5C3.5 10.3 4.2 11 5 11H7C7.8 11 8.5 10.3 8.5 9.5L9 4"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.2"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
+        </template>
       </div>
     </aside>
 
@@ -1197,6 +1209,22 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.session-section-header {
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  padding: var(--space-1) 0 0;
+  margin-top: var(--space-1);
+  user-select: none;
+}
+
+.session-section-header:first-of-type {
+  margin-top: 0;
 }
 
 .session-item {
