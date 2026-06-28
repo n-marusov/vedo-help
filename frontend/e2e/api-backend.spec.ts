@@ -925,3 +925,44 @@ test.describe('Git Sync API', () => {
     expect(response.status()).toBe(401);
   });
 });
+
+test.describe('Deep Healthcheck (public)', () => {
+  test('TC-API-060: GET /api/health/deep returns 200 with valid JSON', async ({ request }) => {
+    const response = await request.get(`${API_URL}/api/health/deep`);
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(body).toHaveProperty('status');
+    expect(body).toHaveProperty('checks');
+    expect(body).toHaveProperty('timestamp');
+  });
+
+  test('TC-API-061: GET /api/health/deep response has valid status value', async ({ request }) => {
+    const response = await request.get(`${API_URL}/api/health/deep`);
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(['healthy', 'degraded', 'unhealthy']).toContain(body.status);
+  });
+
+  test('TC-API-062: GET /api/health/deep checks have required fields', async ({ request }) => {
+    const response = await request.get(`${API_URL}/api/health/deep`);
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(Array.isArray(body.checks)).toBe(true);
+
+    for (const check of body.checks) {
+      expect(check).toHaveProperty('name');
+      expect(check).toHaveProperty('status');
+      expect(check).toHaveProperty('latency_ms');
+    }
+  });
+
+  test('TC-API-063: GET /api/health/deep without auth returns 200 (public endpoint)', async ({
+    request,
+  }) => {
+    const response = await request.get(`${API_URL}/api/health/deep`);
+    expect(response.status()).toBe(200);
+  });
+});

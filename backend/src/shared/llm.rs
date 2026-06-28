@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use async_trait::async_trait;
 use futures::stream::{self, Stream};
 use futures::StreamExt;
 use opentelemetry::trace::TraceContextExt;
@@ -352,6 +353,55 @@ impl LlmClient {
             .to_string();
 
         Ok(content)
+    }
+}
+
+#[async_trait]
+impl super::health::HealthProbe for LlmClient {
+    fn name(&self) -> &'static str {
+        "LLM"
+    }
+
+    async fn probe(&self) -> Result<(), AppError> {
+        self.health().await
+    }
+}
+
+impl LlmClient {
+    /// Quick health check — pings the LLM API base URL.
+    ///
+    /// Single attempt (no retry), 10-second timeout.
+    /// Returns `Ok(())` on any 2xx/3xx/4xx (server reachable),
+    /// `AppError::LlmError` on connection failure.
+    pub async fn health(&self) -> Result<(), AppError> {
+        tracing::debug!(component = "llm", "health.probe_start");
+
+        let health_client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| AppError::LlmError(format!("Failed to build health client: {e}")))?;
+
+        let response = health_client
+            .get(&self.base_url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .headers(inject_trace_headers())
+            .send()
+            .await;
+
+        match response {
+            Ok(_) => {
+                tracing::debug!(component = "llm", "health.probe_ok");
+                Ok(())
+            }
+            Err(e) => {
+                tracing::warn!(
+                    component = "llm",
+                    error = %e,
+                    "health.probe_error"
+                );
+                Err(AppError::LlmError(format!("LLM health check failed: {e}")))
+            }
+        }
     }
 }
 

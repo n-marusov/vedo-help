@@ -5,6 +5,7 @@ import type {
   EditMessageRequest,
   ExportFormat,
   GitRepoSummary,
+  HealthReport,
   Message,
   Session,
   SessionSearchParams,
@@ -125,4 +126,7 @@ export const api = {
       return res.blob();
     });
   },
+
+  // ── Health Check ──
+  getHealthStatus: () => api.get<HealthReport>('/health/deep'),
 };

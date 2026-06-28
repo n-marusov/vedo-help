@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use async_trait::async_trait;
 use opentelemetry::trace::TraceContextExt;
 use reqwest::Client;
 use serde_json::json;
@@ -156,6 +157,57 @@ impl EmbeddingClient {
             .collect::<Result<Vec<Vec<f32>>, AppError>>()?;
 
         Ok(embeddings)
+    }
+}
+
+#[async_trait]
+impl super::health::HealthProbe for EmbeddingClient {
+    fn name(&self) -> &'static str {
+        "Embedding"
+    }
+
+    async fn probe(&self) -> Result<(), AppError> {
+        self.health().await
+    }
+}
+
+impl EmbeddingClient {
+    /// Quick health check — pings the embedding service health endpoint.
+    ///
+    /// Single attempt (no retry), 5-second timeout.
+    /// Returns `Ok(())` on success, `AppError::EmbeddingError` on failure.
+    pub async fn health(&self) -> Result<(), AppError> {
+        tracing::debug!(component = "embedding_client", "health.probe_start");
+
+        let health_client = Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|e| AppError::EmbeddingError(format!("Failed to build health client: {e}")))?;
+
+        let url = format!("{}/health", self.base_url);
+        let response = health_client
+            .get(&url)
+            .headers(inject_trace_headers())
+            .send()
+            .await
+            .map_err(|e| AppError::EmbeddingError(format!("Embedding health check failed: {e}")))?;
+
+        if response.status().is_success() {
+            tracing::debug!(component = "embedding_client", "health.probe_ok");
+            Ok(())
+        } else {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            tracing::warn!(
+                component = "embedding_client",
+                status = %status,
+                body = %text,
+                "health.probe_error"
+            );
+            Err(AppError::EmbeddingError(format!(
+                "Embedding health returned HTTP {status}: {text}"
+            )))
+        }
     }
 }
 

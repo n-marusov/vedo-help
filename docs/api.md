@@ -11,7 +11,7 @@
 
 ## Authentication
 
-All API routes (except `/health`) require a KeyCloak-issued Bearer JWT token:
+All API routes (except `/health` and `/api/health/deep`) require a KeyCloak-issued Bearer JWT token:
 
 ```
 Authorization: Bearer <ACCESS_TOKEN>
@@ -57,6 +57,35 @@ Liveness probe — does not require authentication.
 curl http://localhost:3000/health
 # → OK
 ```
+
+#### `GET /api/health/deep`
+
+Deep healthcheck — probes all downstream dependencies (Chroma, Embedding, LLM, PostgreSQL). Returns aggregated status with per-service latency and error details. Does not require authentication.
+
+**Response `200` (healthy or degraded):**
+
+```json
+{
+  "status": "healthy",
+  "checks": [
+    {
+      "name": "Chroma",
+      "status": "healthy",
+      "latency_ms": 5
+    },
+    {
+      "name": "PostgreSQL",
+      "status": "healthy",
+      "latency_ms": 1
+    }
+  ],
+  "timestamp": "2026-06-28T12:00:00Z"
+}
+```
+
+**Response `503` (unhealthy — critical dependency down):**
+
+Same JSON structure with `"status": "unhealthy"`. Status values: `healthy`, `degraded`, `unhealthy`. Each check has status `healthy`, `degraded`, or `unhealthy` with optional `error` field.
 
 ### Documents
 

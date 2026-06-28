@@ -2,6 +2,7 @@
 import CollectionManager from '@/components/CollectionManager.vue';
 import DocumentList from '@/components/DocumentList.vue';
 import GitRepoManager from '@/components/GitRepoManager.vue';
+import HealthStatus from '@/components/HealthStatus.vue';
 import SessionDebug from '@/components/SessionDebug.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
@@ -38,6 +39,9 @@ watch(
 <template>
   <div class="admin-view" data-testid="admin-view">
     <div class="admin-panel">
+      <!-- Health Status Indicator -->
+      <HealthStatus />
+
       <!-- Top-level Tab Bar -->
       <div class="admin-tabs" data-testid="admin-tabs">
         <button

@@ -5,6 +5,7 @@ pub mod chunking;
 pub mod embedding_client;
 pub mod error;
 pub mod file_validation;
+pub mod health;
 pub mod llm;
 pub mod rate_limit;
 pub mod rbac;

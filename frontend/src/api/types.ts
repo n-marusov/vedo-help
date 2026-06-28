@@ -194,3 +194,18 @@ export interface SessionSearchParams {
   from?: string;
   to?: string;
 }
+
+// ── Health Check Types ──
+
+export interface ServiceCheck {
+  name: string;
+  status: 'healthy' | 'unhealthy' | 'degraded';
+  latency_ms: number;
+  error?: string;
+}
+
+export interface HealthReport {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  checks: ServiceCheck[];
+  timestamp: string;
+}

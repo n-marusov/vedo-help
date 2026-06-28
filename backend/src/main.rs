@@ -2,10 +2,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
-    extract::FromRef,
+    extract::{FromRef, State},
+    http::StatusCode,
     middleware,
     routing::{delete, get, patch, post},
-    Extension, Router,
+    Extension, Json, Router,
 };
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::KeyValue;
@@ -43,6 +44,8 @@ use vedo_backend::modules::query::{handlers as query_handlers, service::QuerySer
 use vedo_backend::shared::{
     audit_middleware,
     auth::{authenticate_request, SharedJwtValidator},
+    error::AppError,
+    health::{HealthProbe, HealthReport, HealthService, HealthStatus},
     llm::LlmClient,
     rbac,
 };
@@ -196,8 +199,126 @@ async fn main() {
         "embedding_client.configured"
     );
 
+    // Startup retry loops for downstream dependencies.
+    // Non-fatal — the app continues in degraded mode if they are unavailable.
+    let chroma_connect_retries: u32 = std::env::var("CHROMA_CONNECT_RETRIES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30);
+    let embedding_connect_retries: u32 = std::env::var("EMBEDDING_CONNECT_RETRIES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30);
+
+    // Chroma startup retry loop
+    tracing::info!(
+        component = "main",
+        max_retries = chroma_connect_retries,
+        "chroma.connect.start"
+    );
+    for attempt in 1..=chroma_connect_retries {
+        match chroma_client.health().await {
+            Ok(()) => {
+                tracing::info!(component = "main", attempt = attempt, "chroma.connected");
+                break;
+            }
+            Err(e) if attempt < chroma_connect_retries => {
+                tracing::warn!(
+                    component = "main",
+                    attempt = attempt,
+                    max_retries = chroma_connect_retries,
+                    error = %e,
+                    "chroma.connect.retry"
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    component = "main",
+                    attempt = attempt,
+                    max_retries = chroma_connect_retries,
+                    error = %e,
+                    "chroma.connect.exhausted"
+                );
+            }
+        }
+    }
+
+    // Embedding startup retry loop
+    tracing::info!(
+        component = "main",
+        max_retries = embedding_connect_retries,
+        "embedding.connect.start"
+    );
+    for attempt in 1..=embedding_connect_retries {
+        match embedding_client.health().await {
+            Ok(()) => {
+                tracing::info!(component = "main", attempt = attempt, "embedding.connected");
+                break;
+            }
+            Err(e) if attempt < embedding_connect_retries => {
+                tracing::warn!(
+                    component = "main",
+                    attempt = attempt,
+                    max_retries = embedding_connect_retries,
+                    error = %e,
+                    "embedding.connect.retry"
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    component = "main",
+                    attempt = attempt,
+                    max_retries = embedding_connect_retries,
+                    error = %e,
+                    "embedding.connect.exhausted"
+                );
+            }
+        }
+    }
+
     // LLM client
     let llm_client = LlmClient::from_config(&config);
+
+    // Health service — register downstream dependency probes
+    let mut health_service = HealthService::new();
+    health_service.register(chroma_client.clone());
+    health_service.register(embedding_client.clone());
+    health_service.register(llm_client.clone());
+
+    // Wrap DB pool as a HealthProbe
+    struct DbProbe {
+        db: sqlx::PgPool,
+    }
+
+    #[async_trait::async_trait]
+    impl HealthProbe for DbProbe {
+        fn name(&self) -> &'static str {
+            "PostgreSQL"
+        }
+
+        async fn probe(&self) -> Result<(), AppError> {
+            tracing::debug!(component = "health", "db.probe_start");
+            sqlx::query("SELECT 1")
+                .execute(&self.db)
+                .await
+                .map(|_| {
+                    tracing::debug!(component = "health", "db.probe_ok");
+                })
+                .map_err(|e| {
+                    AppError::InternalError(format!("PostgreSQL health check failed: {e}"))
+                })
+        }
+    }
+
+    health_service.register(DbProbe { db: db.clone() });
+
+    tracing::info!(
+        component = "main",
+        probe_count = 4,
+        "health_service.configured"
+    );
 
     // Repositories
     let doc_repo = DocumentRepository::new(db.clone());
@@ -352,6 +473,7 @@ async fn main() {
         .route_layer(middleware::from_fn(auth_middleware))
         // Public routes registered AFTER route_layer so auth middleware does not apply.
         .route("/health", get(health_check))
+        .route("/api/health/deep", get(deep_health_check))
         // Webhook endpoint — public, registered AFTER route_layer so auth middleware
         // does not apply. Auth is handled via HMAC signature or webhook token.
         .route("/api/git-sync/webhook", post(git_sync_handlers::webhook))
@@ -397,6 +519,7 @@ async fn main() {
             query_service,
             git_sync_service,
             audit_service,
+            health_service,
         });
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
@@ -431,6 +554,7 @@ pub struct AppState {
     pub query_service: QueryService,
     pub git_sync_service: GitSyncService,
     pub audit_service: AuditService,
+    pub health_service: HealthService,
 }
 
 impl FromRef<AppState> for DocumentService {
@@ -469,6 +593,12 @@ impl FromRef<AppState> for AuditService {
     }
 }
 
+impl FromRef<AppState> for HealthService {
+    fn from_ref(state: &AppState) -> Self {
+        state.health_service.clone()
+    }
+}
+
 /// Auth middleware — validates Bearer JWT token for all /api/* routes.
 async fn auth_middleware(
     axum::extract::Extension(jwt_validator): axum::extract::Extension<SharedJwtValidator>,
@@ -489,6 +619,31 @@ async fn auth_middleware(
 /// Health check endpoint — returns 200 OK.
 async fn health_check() -> &'static str {
     "OK"
+}
+
+/// Deep health check endpoint — probes all downstream dependencies.
+///
+/// Public (registered after `route_layer`), no auth required.
+async fn deep_health_check(
+    State(health_service): State<HealthService>,
+) -> (StatusCode, Json<HealthReport>) {
+    tracing::debug!(component = "health", "deep_health_check.request");
+
+    let report = health_service.check_all().await;
+    let status = match report.status {
+        HealthStatus::Healthy | HealthStatus::Degraded => StatusCode::OK,
+        HealthStatus::Unhealthy => StatusCode::SERVICE_UNAVAILABLE,
+    };
+
+    tracing::info!(
+        component = "health",
+        status = %report.status,
+        checks_total = report.checks.len(),
+        checks_unhealthy = report.checks.iter().filter(|c| matches!(c.status, vedo_backend::shared::health::CheckStatus::Unhealthy)).count(),
+        "deep_health_check.response"
+    );
+
+    (status, Json(report))
 }
 
 /// Wait for SIGINT or SIGTERM to initiate graceful shutdown.

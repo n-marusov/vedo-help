@@ -109,7 +109,7 @@
     - Шаг 7. **Final answer** — реальные данные (model, tokens, latency, prompt preview)
   - [x] Бэкенд: сбор DebugData при `debug: true`, хранение в `messages.debug_data`, API поиска сессий `GET /api/admin/sessions?search=&from=&to=`
   - [x] Pencil-дизайн: обновлён `admin.pen` с табами и экраном Session Debug
-- [ ] **Deep healthcheck** — проверка зависимостей (Chroma, embedding)
+- [x] **Deep healthcheck** — проверка зависимостей (Chroma, embedding)
 - [ ] **Per-route rate limiting** — защита `/api/query`
 - [ ] **Automated backup** — cron-контейнер или host cron для SQLite + Chroma (скрипты backup.sh/restore.sh есть, автоматизации нет)
 - [ ] **Failure notifications** — Telegram / email webhook
