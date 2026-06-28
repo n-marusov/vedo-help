@@ -348,12 +348,23 @@ async fn main() {
     );
     let audit_service = AuditService::new(audit_repo);
 
+    let git_repo_repo_for_locks = git_repo_repo.clone();
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
         chroma_url.clone(),
         embedding_service_url.clone(),
         std::path::PathBuf::from(&config.git_clone_root),
     );
+
+    // Reset stale sync locks left from a previous crash or restart.
+    // Must happen before the scheduler or any handler can start new syncs.
+    if let Err(e) = git_repo_repo_for_locks.reset_stale_sync_locks().await {
+        tracing::error!(
+            component = "main",
+            error = %e,
+            "reset_stale_sync_locks.failed"
+        );
+    }
 
     // Create broadcast channel for shutdown signal
     let (shutdown_tx, shutdown_rx) = broadcast::channel::<()>(1);

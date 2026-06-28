@@ -691,6 +691,54 @@ impl GitRepoRepository {
     }
 
     /// Look up a collection name by its ID.
+    /// Reset stale sync locks left by a previous process crash or restart.
+    ///
+    /// On server startup, any repository with `status = 'syncing'` has a
+    /// stale lock — the process holding it is no longer alive. This method
+    /// resets those repos back to `idle` so they can be retried.
+    pub async fn reset_stale_sync_locks(&self) -> Result<u64, AppError> {
+        tracing::warn!(
+            component = "git_sync/repository",
+            "reset_stale_sync_locks.start"
+        );
+
+        let result = sqlx::query(
+            r#"
+            UPDATE git_repositories
+            SET status = 'idle',
+                updated_at = $1
+            WHERE status = 'syncing'
+            "#,
+        )
+        .bind(Utc::now())
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                component = "git_sync/repository",
+                error = %e,
+                "reset_stale_sync_locks.sql_error"
+            );
+            AppError::InternalError(format!("Failed to reset stale sync locks: {e}"))
+        })?;
+
+        let count = result.rows_affected();
+        if count > 0 {
+            tracing::warn!(
+                component = "git_sync/repository",
+                stale_locks_reset = count,
+                "reset_stale_sync_locks.completed"
+            );
+        } else {
+            tracing::debug!(
+                component = "git_sync/repository",
+                "reset_stale_sync_locks.none_found"
+            );
+        }
+
+        Ok(count)
+    }
+
     pub async fn get_collection_name(&self, collection_id: Uuid) -> Result<String, AppError> {
         tracing::debug!(
             component = "git_sync/repository",
