@@ -26,10 +26,9 @@ OTEL_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 def init_telemetry() -> LoggerProvider | None:
     """Initialize OpenTelemetry logging and structlog.
 
-    Sets up:
-    1. OTel LoggerProvider with Resource attributes and OTLP export
-    2. structlog with JSON console output and OTel forwarding
-    3. stdlib LoggingHandler bridge for libraries using stdlib logging
+    Uses structlog 25.x native API (ProcessorFormatter bridge removed).
+    For OTel export, adds a stdlib LoggingHandler that captures logs from
+    libraries using stdlib logging.
     """
     resource = Resource.create(
         {
@@ -42,7 +41,7 @@ def init_telemetry() -> LoggerProvider | None:
     logger_provider: LoggerProvider | None = None
     env = os.environ.get("ENVIRONMENT", "development")
 
-    shared_processors = [
+    processors = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
@@ -52,8 +51,20 @@ def init_telemetry() -> LoggerProvider | None:
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.dev.set_exc_info,
-        structlog.stdlib.ProcessorFormatter.wrap_for_instrumentation(),
     ]
+
+    if env != "development":
+        processors.append(structlog.processors.JSONRenderer())
+    else:
+        processors.append(structlog.dev.ConsoleRenderer())
+
+    structlog.configure(
+        processors=processors,
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
 
     if OTEL_ENDPOINT:
         logger_provider = LoggerProvider(resource=resource)
@@ -64,27 +75,6 @@ def init_telemetry() -> LoggerProvider | None:
         otel_handler = LoggingHandler(level=None, logger_provider=logger_provider)
         logging.getLogger().addHandler(otel_handler)
 
-        structlog.configure(
-            processors=shared_processors,
-            wrapper_class=structlog.stdlib.BoundLogger,
-            context_class=dict,
-            logger_factory=structlog.stdlib.LoggerFactory(),
-            cache_logger_on_first_use=True,
-        )
-
-        proc_processor = structlog.stdlib.ProcessorFormatter(
-            processor=structlog.processors.JSONRenderer()
-            if env != "development"
-            else structlog.dev.ConsoleRenderer(),
-        )
-        handler = logging.StreamHandler()
-        handler.setFormatter(proc_processor)
-        root_logger = logging.getLogger()
-        root_logger.addHandler(handler)
-        root_logger.setLevel(logging.DEBUG)
-
-        structlog.stdlib.ProcessorFormatter.remove_instrumentation()
-
         structlog.get_logger(__name__).info(
             "otel.initialized",
             endpoint=OTEL_ENDPOINT,
@@ -92,25 +82,11 @@ def init_telemetry() -> LoggerProvider | None:
             environment=env,
         )
     else:
-        # No OTel endpoint — simple structlog console output only
-        structlog.configure(
-            processors=shared_processors,
-            wrapper_class=structlog.stdlib.BoundLogger,
-            context_class=dict,
-            logger_factory=structlog.stdlib.LoggerFactory(),
-            cache_logger_on_first_use=True,
+        structlog.get_logger(__name__).info(
+            "telemetry.initialized",
+            service_name=SERVICE_NAME,
+            environment=env,
         )
-
-        proc_processor = structlog.stdlib.ProcessorFormatter(
-            processor=structlog.dev.ConsoleRenderer(),
-        )
-        handler = logging.StreamHandler()
-        handler.setFormatter(proc_processor)
-        root_logger = logging.getLogger()
-        root_logger.addHandler(handler)
-        root_logger.setLevel(logging.DEBUG)
-
-        structlog.stdlib.ProcessorFormatter.remove_instrumentation()
 
     return logger_provider
 
