@@ -68,6 +68,11 @@ hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
 
+# On Windows, bundle OpenSSL to avoid runtime crashes in libgit2
+# when system OpenSSL is missing or mismatched.
+[target.'cfg(windows)'.dependencies]
+git2 = { version = "0.19", features = ["vendored-openssl"] }
+
 [dev-dependencies]
 mockall = "0.12"
 rstest = "0.18"

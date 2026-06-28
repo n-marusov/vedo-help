@@ -42,6 +42,8 @@ services:
     user: "1001:1001"
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
+    volumes:
+      - git_repos:/app/data/git-repos
     deploy:
       resources:
         limits:
@@ -157,3 +159,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  git_repos:

@@ -74,6 +74,7 @@ services:
       CHROMA_URL: "${CHROMA_URL:-http://chroma:8000}"
       EMBEDDING_SERVICE_URL: "${EMBEDDING_SERVICE_URL:-http://embedding:8001}"
       DATABASE_URL: ${DATABASE_URL:-postgres://vedo:CHANGEME-db-password@db:5432/vedo}
+      GIT_CLONE_ROOT: ${GIT_CLONE_ROOT:-/app/data/git-repos}
       LLM_MAX_HISTORY_MESSAGES: ${LLM_MAX_HISTORY_MESSAGES:-20}
       LLM_CONTEXT_TOKEN_BUDGET: ${LLM_CONTEXT_TOKEN_BUDGET:-6000}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
@@ -81,6 +82,8 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - git_repos:/app/data/git-repos
     networks:
       - internal
     restart: unless-stopped
@@ -238,3 +241,4 @@ volumes:
   db_data:
   keycloak_import:
   otel_data:
+  git_repos:
