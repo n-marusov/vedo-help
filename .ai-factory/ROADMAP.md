@@ -95,11 +95,11 @@
 Централизованное структурированное логгирование (OpenTelemetry), мониторинг, алёртинг, автоматический бэкап, per-route rate limiting.
 
 - [x] **OpenTelemetry: структурированное логгирование** — централизованный OTel Collector, интеграция во все сервисы (Rust/Python/TS), trace propagation, E2E валидация. Детальный план: `.ai-factory/plans/feature-logging-unification-otel.md`.
-- [ ] **Session debug view in admin panel** — отладка вынесена из чата в админ-панель. Вместо кнопки в сообщениях бота — отдельный таб в админке:
-  - Разделение интерфейса админ-панели на два таба: «Collections & Sources» (текущее содержимое) и «Session Debug» (новое)
-  - Поиск сессий по заголовку, дате, пользователю
-  - Выбор сессии из списка → просмотр сообщений с debug-данными
-  - 7-шаговая пайплайн-диаграмма для каждого ответа бота (в коллапсируемых секциях):
+- [x] **Session debug view in admin panel** — отладка вынесена из чата в админ-панель. Вместо кнопки в сообщениях бота — отдельный таб в админке:
+  - [x] Разделение интерфейса админ-панели на два таба: «Collections & Sources» (текущее содержимое) и «Session Debug» (новое)
+  - [x] Поиск сессий по заголовку, дате, пользователю
+  - [x] Выбор сессии из списка → просмотр сообщений с debug-данными
+  - [x] 7-шаговая пайплайн-диаграмма для каждого ответа бота (в коллапсируемых секциях):
     - Шаг 1. **Multi-query** — заглушка (v0.4.2)
     - Шаг 2. **HyDE** — заглушка (v0.4.2)
     - Шаг 3. **Embedding search** — реальные данные (Chroma, top-k, dimension, latency)
@@ -107,8 +107,8 @@
     - Шаг 5. **Merge & deduplication** — заглушка (v0.4.2)
     - Шаг 6. **Reranking** — заглушка (v0.4.2)
     - Шаг 7. **Final answer** — реальные данные (model, tokens, latency, prompt preview)
-  - Бэкенд: сбор DebugData при `debug: true`, хранение в `messages.debug_data`, API поиска сессий `GET /api/admin/sessions?search=&from=&to=`
-  - Pencil-дизайн: обновлён `admin.pen` с табами и экраном Session Debug
+  - [x] Бэкенд: сбор DebugData при `debug: true`, хранение в `messages.debug_data`, API поиска сессий `GET /api/admin/sessions?search=&from=&to=`
+  - [x] Pencil-дизайн: обновлён `admin.pen` с табами и экраном Session Debug
 - [ ] **Deep healthcheck** — проверка зависимостей (Chroma, embedding)
 - [ ] **Per-route rate limiting** — защита `/api/query`
 - [ ] **Automated backup** — cron-контейнер или host cron для SQLite + Chroma (скрипты backup.sh/restore.sh есть, автоматизации нет)
@@ -195,7 +195,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
-| v0.4 — Observability & Reliability | ⏳ 1/7 | Debug view, deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination |
+<<<<<<< HEAD
+| v0.4 — Observability & Reliability | ⏳ 2/6 | Debug view ✅; deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination ❌ |
 | v0.4.2 — Advanced RAG Pipeline | 🔄 0/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization |
 | v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
@@ -209,7 +210,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **v0.3.1 chat rework complete (message edit/delete, context window, chat export, skeletons):** 2026-06-21
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
 **v0.6 — Multi-user & Security complete (all 7 phases):** 2026-06-25
-**Что дальше:** `/aif-implement` — завершение v0.4 (debug view, deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
+**Debug view (v0.4):** 2026-06-26
+**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:
   1. `/aif-plan fix "pre-existing test errors from v0.3.1 chat rework and OTel milestone"`

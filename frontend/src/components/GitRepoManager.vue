@@ -56,7 +56,6 @@ onMounted(() => {
 // ── Data fetching ──
 async function fetchRepos() {
   isLoadingRepos.value = true;
-  console.debug('[GitRepoManager] fetching repos...');
   try {
     repos.value = await api.getGitRepos();
   } catch (err) {
@@ -117,7 +116,6 @@ async function handleConnect() {
     });
     repos.value.push(repo);
     closeConnectDialog();
-    console.debug('[GitRepoManager] repo connected:', repo.id);
   } catch (err) {
     console.error('[GitRepoManager] connect failed:', err);
     connectError.value = err instanceof Error ? err.message : 'Failed to connect repository.';
@@ -132,8 +130,6 @@ async function syncRepo(repo: GitRepoSummary) {
   const idx = repos.value.findIndex((r) => r.id === repo.id);
   if (idx === -1) return;
   repos.value[idx] = { ...repos.value[idx], status: 'syncing' };
-
-  console.debug('[GitRepoManager] triggering sync for repo:', repo.id);
   try {
     const result = await api.triggerSync(repo.id);
     // Update with response data — check for error/syncing status in the response body
@@ -151,7 +147,6 @@ async function syncRepo(repo: GitRepoSummary) {
     } else {
       delete syncErrors.value[repo.id];
     }
-    console.debug('[GitRepoManager] sync result:', result);
   } catch (err) {
     console.error('[GitRepoManager] sync failed:', err);
     repos.value[idx] = {
@@ -173,7 +168,6 @@ async function handleDeleteConfirm() {
   if (!deletingRepo.value) return;
 
   isDeleting.value = true;
-  console.debug('[GitRepoManager] deleting repo:', deletingRepo.value.id);
   try {
     await api.deleteGitRepo(deletingRepo.value.id);
     repos.value = repos.value.filter((r) => r.id !== deletingRepo.value?.id);

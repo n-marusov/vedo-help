@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import type { Message, SourceRef } from '@/api/types';
+import type { Message } from '@/api/types';
 import { decodeCode, renderMarkdown } from '@/utils/markdown';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps<{
   message: Message;
   isStreaming?: boolean;
   index?: number;
-  isAdmin?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -18,7 +17,6 @@ const emit = defineEmits<{
   regenerate: [{ id: string }];
 }>();
 
-const debugExpanded = ref(false);
 const editing = ref(false);
 const draftContent = ref('');
 const copyFeedback = ref(false);
@@ -27,19 +25,6 @@ const renderedContent = computed(() => {
   if (!props.message.content) return '';
   return renderMarkdown(props.message.content);
 });
-
-const parsedSources = computed<SourceRef[]>(() => {
-  if (!props.message.sources) return [];
-  try {
-    return JSON.parse(props.message.sources) as SourceRef[];
-  } catch {
-    return [];
-  }
-});
-
-function toggleDebug() {
-  debugExpanded.value = !debugExpanded.value;
-}
 
 function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
@@ -52,7 +37,6 @@ function handleMarkdownClick(event: MouseEvent) {
     .then(() => {
       const originalText = btn.textContent;
       btn.textContent = 'Copied!';
-      console.info('[MessageBubble] code copied', { length: code.length });
       setTimeout(() => {
         btn.textContent = originalText;
       }, 2000);
@@ -75,25 +59,19 @@ const isPersistedMessage = computed(() => {
 
 function startEdit() {
   if (!isPersistedMessage.value) {
-    console.warn('[FIX:chat-temp-id] edit disabled for pending message', {
-      messageId: props.message.id,
-    });
     return;
   }
-  console.debug('[MessageBubble] enter edit mid=%s', props.message.id);
   draftContent.value = props.message.content;
   editing.value = true;
   emit('edit', { id: props.message.id });
 }
 
 function saveEdit() {
-  console.debug('[MessageBubble] save edit');
   emit('save-edit', { id: props.message.id, content: draftContent.value });
   editing.value = false;
 }
 
 function cancelEdit() {
-  console.debug('[MessageBubble] cancel edit');
   editing.value = false;
   draftContent.value = props.message.content;
 }
@@ -107,38 +85,12 @@ async function handleCopy() {
 }
 
 function handleRegenerate() {
-  console.debug('[MessageBubble] regenerate assist=%s', props.message.id);
   emit('regenerate', { id: props.message.id });
 }
 
 onMounted(() => {
-  console.debug('[MessageBubble] mounted', {
-    role: props.message.role,
-    contentLength: props.message.content?.length || 0,
-    sourcesCount: parsedSources.value.length,
-  });
-
-  if (props.isStreaming) {
-    console.debug('[MessageBubble] streaming started', {
-      messageId: props.message.id,
-    });
-  }
+  // no-op: streaming state handled by the template
 });
-
-watch(
-  () => props.isStreaming,
-  (streaming, wasStreaming) => {
-    if (streaming && !wasStreaming) {
-      console.debug('[MessageBubble] streaming started', {
-        messageId: props.message.id,
-      });
-    } else if (!streaming && wasStreaming) {
-      console.debug('[MessageBubble] streaming ended', {
-        messageId: props.message.id,
-      });
-    }
-  },
-);
 </script>
 
 <template>
@@ -341,34 +293,6 @@ watch(
             </svg>
           </button>
 
-          <!-- Debug button (assistant messages only, admin only) -->
-          <button
-            v-if="message.role === 'assistant' && isAdmin"
-            class="message-action-btn"
-            data-testid="message-debug-btn"
-            :title="debugExpanded ? 'Hide debug info' : 'Show debug info'"
-            @click="toggleDebug"
-          >
-            <svg
-              fill="none"
-              height="14"
-              viewBox="0 0 14 14"
-              width="14"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M5.5 2C4.7 2 4 2.5 3.8 3.2L2.5 7.5C2.2 8.5 3 9.5 4 9.5H10C11 9.5 11.8 8.5 11.5 7.5L10.2 3.2C10 2.5 9.3 2 8.5 2H5.5Z"
-                stroke="currentColor"
-                stroke-width="1.2"
-              />
-              <circle cx="7" cy="6" fill="currentColor" r="1" />
-              <path
-                d="M5 10.5C5 11.3 5.7 12 6.5 12H7.5C8.3 12 9 11.3 9 10.5"
-                stroke="currentColor"
-                stroke-width="1.2"
-              />
-            </svg>
-          </button>
           <!-- Edited badge -->
           <span
             v-if="message.edited_at"
@@ -377,45 +301,6 @@ watch(
           >
             · edited
           </span>
-        </div>
-      </div>
-
-      <!-- Debug panel (admin only, assistant messages) -->
-      <div
-        v-if="debugExpanded && message.role === 'assistant' && isAdmin"
-        class="debug-panel"
-        data-testid="debug-panel"
-      >
-        <div class="debug-section">
-          <span class="debug-section-title">Found keywords (BM25)</span>
-          <p class="debug-placeholder">Waiting for BM25 implementation...</p>
-        </div>
-        <div v-if="parsedSources.length > 0" class="debug-section">
-          <span class="debug-section-title"
-            >Top {{ parsedSources.length }} chunks (embedding search)</span
-          >
-          <div
-            v-for="(source, idx) in parsedSources"
-            :key="idx"
-            class="debug-chunk"
-            data-testid="debug-chunk"
-          >
-            <div class="debug-chunk-header">
-              <span class="debug-chunk-doc" data-testid="debug-chunk-doc">{{
-                source.document_name
-              }}</span>
-              <span class="debug-chunk-score">
-                {{ Math.round(source.relevance * 100) }}%
-              </span>
-            </div>
-            <p class="debug-chunk-text" data-testid="debug-chunk-text">
-              {{ source.text }}
-            </p>
-          </div>
-        </div>
-        <div class="debug-section">
-          <span class="debug-section-title">Chunks by keywords</span>
-          <p class="debug-placeholder">Waiting for BM25 implementation...</p>
         </div>
       </div>
     </div>
@@ -915,84 +800,6 @@ watch(
 .message-edited-badge {
   font-style: italic;
   opacity: 0.7;
-}
-
-/* Debug panel (replaces old sources-section in chat polish) */
-.debug-panel {
-  margin-top: 0.5rem;
-  width: 100%;
-  background: var(--color-muted);
-  border: 1px solid rgba(128, 128, 128, 0.15);
-  border-radius: 8px;
-  padding: 0.625rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-}
-
-.debug-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.debug-section-title {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--color-muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.debug-placeholder {
-  font-size: 0.72rem;
-  color: var(--color-muted-foreground);
-  font-style: italic;
-  margin: 0;
-}
-
-.debug-chunk {
-  padding: 0.375rem 0.5rem;
-  border-radius: 6px;
-  background: var(--color-background);
-  border: 1px solid rgba(128, 128, 128, 0.1);
-  margin-bottom: 0.25rem;
-}
-
-.debug-chunk-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.25rem;
-  gap: 0.5rem;
-}
-
-.debug-chunk-doc {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--color-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.debug-chunk-score {
-  font-size: 0.65rem;
-  color: var(--color-primary);
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.debug-chunk-text {
-  font-size: 0.72rem;
-  line-height: 1.4;
-  color: var(--color-muted-foreground);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin: 0;
 }
 
 /* Role label removed from individual messages, shown as text above content */

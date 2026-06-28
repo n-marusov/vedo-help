@@ -29,7 +29,6 @@ const userInfo = computed(() => {
 });
 
 onMounted(() => {
-  console.debug('[AppHeader] mounted: global header with theme toggle is visible');
   document.addEventListener('click', closeMenuOnOutside);
   window.addEventListener('resize', handleViewportChange);
   window.addEventListener('scroll', handleViewportChange, true);
@@ -53,11 +52,6 @@ function updateUserDropdownPosition() {
     right: `${Math.max(window.innerWidth - rect.right, 8)}px`,
     top: `${rect.bottom + 6}px`,
   };
-  console.debug('[FIX:app-header-user-menu] positioned dropdown', {
-    right: Math.max(window.innerWidth - rect.right, 8),
-    top: rect.bottom + 6,
-    userMenuOpen: userMenuOpen.value,
-  });
 }
 
 function handleViewportChange() {
@@ -82,7 +76,6 @@ function closeMenuOnOutside(e: MouseEvent) {
     const target = e.target as Node;
     if (!userButtonRef.value?.contains(target) && !userDropdownRef.value?.contains(target)) {
       userMenuOpen.value = false;
-      console.debug('[FIX:app-header-user-menu] closed dropdown from outside click');
     }
   }
 }
@@ -97,7 +90,29 @@ onUnmounted(() => {
 <template>
   <header class="app-header" data-testid="app-header">
     <router-link to="/" class="app-header__brand" aria-label="VEDO home">
-      <span class="app-header__logo" aria-hidden="true">💬</span>
+      <span class="app-header__logo" aria-hidden="true">
+        <svg
+          class="app-header__icon app-header__icon--brand"
+          fill="none"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 17 0Z"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+          />
+          <path
+            d="M8.5 12h.01M12 12h.01M15.5 12h.01"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2.2"
+          />
+        </svg>
+      </span>
       <span class="app-header__name">VEDO</span>
     </router-link>
 
@@ -115,7 +130,31 @@ onUnmounted(() => {
           aria-label="Open user menu"
           @click="toggleUserMenu"
         >
-          <span class="app-header__user-avatar">👤</span>
+          <span class="app-header__user-avatar" aria-hidden="true">
+            <svg
+              class="app-header__icon"
+              fill="none"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 21a8 8 0 0 0-16 0"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.8"
+              />
+              <circle
+                cx="12"
+                cy="8"
+                r="4"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.8"
+              />
+            </svg>
+          </span>
         </button>
         <Teleport to="body">
           <div
@@ -150,9 +189,32 @@ onUnmounted(() => {
           </div>
         </Teleport>
       </div>
-      <span v-else class="app-header__user" aria-label="User menu" role="img"
-        >👤</span
-      >
+      <span v-else class="app-header__user" aria-label="User menu" role="img">
+        <svg
+          class="app-header__icon"
+          fill="none"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M20 21a8 8 0 0 0-16 0"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+          />
+          <circle
+            cx="12"
+            cy="8"
+            r="4"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+          />
+        </svg>
+      </span>
     </div>
   </header>
 </template>
@@ -182,11 +244,25 @@ onUnmounted(() => {
 }
 
 .app-header__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   color: var(--color-primary);
-  font-family: var(--font-family);
-  font-size: 18px;
-  font-weight: 700;
   line-height: 1;
+}
+
+.app-header__icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.app-header__icon--brand {
+  width: 18px;
+  height: 18px;
 }
 
 .app-header__brand:hover {
@@ -216,13 +292,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
   color: var(--color-muted-foreground);
-  font-size: 14px;
   line-height: 1;
 }
 
@@ -236,24 +306,23 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
   color: var(--color-muted-foreground);
-  font-size: 14px;
   cursor: pointer;
   line-height: 1;
   padding: 0;
-  transition: background var(--transition-fast);
+  background: none;
+  border: none;
+  transition: color var(--transition-fast);
 }
 
 .app-header__user-btn:hover {
-  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 .app-header__user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
 }
 

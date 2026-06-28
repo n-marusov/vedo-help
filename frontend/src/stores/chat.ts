@@ -40,12 +40,70 @@ export const useChatStore = defineStore('chat', () => {
   const isLoadingSessions = ref(false);
   const lastCollectionId = ref<string | null>(null);
   const searchQuery = ref('');
-  const sidebarCollapsed = ref(localStorage.getItem('chat_sidebar_collapsed') === 'true');
+  const sidebarCollapsed = ref(false);
 
   const filteredSessions = computed(() => {
     if (!searchQuery.value.trim()) return sessions.value;
     const q = searchQuery.value.toLowerCase();
     return sessions.value.filter((s) => s.title.toLowerCase().includes(q));
+  });
+
+  function getPeriodLabel(date: Date): { label: string; order: number } {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfDay.getTime() - 86400000);
+    const startOfWeek = new Date(startOfDay.getTime() - 6 * 86400000);
+
+    if (date >= startOfDay) return { label: 'TODAY', order: 1 };
+    if (date >= startOfYesterday) return { label: 'YESTERDAY', order: 2 };
+    if (date >= startOfWeek) return { label: 'WEEK', order: 3 };
+
+    // Same calendar month
+    if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+      return { label: 'MONTH', order: 4 };
+    }
+
+    // Older: format as YYYY-MM
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return { label: `${date.getFullYear()}-${month}`, order: 5 };
+  }
+
+  interface SessionGroup {
+    label: string | null; // null for pinned (no header)
+    sessions: SessionSummary[];
+  }
+
+  const filteredSessionsByPeriod = computed<SessionGroup[]>(() => {
+    const list = searchQuery.value.trim() ? filteredSessions.value : sessions.value;
+
+    const pinned = list.filter((s) => s.pinned);
+    const unpinned = list.filter((s) => !s.pinned);
+
+    const groups: Map<string, { label: string; order: number; sessions: SessionSummary[] }> =
+      new Map();
+
+    // Add pinned as first group (no label shown)
+    const result: SessionGroup[] = [];
+    if (pinned.length > 0) {
+      result.push({ label: null, sessions: pinned });
+    }
+
+    for (const session of unpinned) {
+      const { label, order } = getPeriodLabel(new Date(session.updated_at));
+      const key = `${order}:${label}`;
+      if (!groups.has(key)) {
+        groups.set(key, { label, order, sessions: [] });
+      }
+      groups.get(key)?.sessions.push(session);
+    }
+
+    // Sort groups by order, then add to result
+    const sortedGroups = Array.from(groups.values()).sort((a, b) => a.order - b.order);
+    for (const g of sortedGroups) {
+      result.push({ label: g.label, sessions: g.sessions });
+    }
+
+    return result;
   });
 
   function setSearchQuery(query: string) {
@@ -58,6 +116,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   let abortController: AbortController | null = null;
+  let loadSessionRequestId = 0;
 
   function parseNDJSON(
     reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -112,6 +171,21 @@ export const useChatStore = defineStore('chat', () => {
     lastCollectionId.value = collectionId;
     error.value = null;
     abortController = new AbortController();
+
+    // Optimistic title: show user query in sidebar and badge immediately
+    const currentSession = activeSessionId.value
+      ? sessions.value.find((s) => s.id === activeSessionId.value)
+      : null;
+    if (
+      currentSession &&
+      (currentSession.title === 'New Chat' || currentSession.title === 'New Session')
+    ) {
+      const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
+      if (idx !== -1) {
+        const tempTitle = query.slice(0, 45).trim();
+        sessions.value[idx] = { ...sessions.value[idx], title: tempTitle };
+      }
+    }
 
     // Add user message optimistically
     const tempUserMsg: Message = {
@@ -189,6 +263,14 @@ export const useChatStore = defineStore('chat', () => {
           case 'sources':
             sources = JSON.stringify(value.data?.sources || value.sources);
             break;
+          case 'debug': {
+            const lastMsg = messages.value[messages.value.length - 1];
+            if (lastMsg?.role === 'assistant') {
+              lastMsg.debug_data = JSON.stringify(value.data?.debug || value.data);
+              messages.value = [...messages.value];
+            }
+            break;
+          }
           case 'error':
             error.value = value.data?.text || value.text || 'An error occurred';
             // Remove the placeholder assistant message
@@ -209,11 +291,6 @@ export const useChatStore = defineStore('chat', () => {
               for (let i = 0; i < messages.value.length; i++) {
                 const msg = messages.value[i];
                 if (msg.role === 'user' && msg.id.startsWith('temp-') && doneData.user_message_id) {
-                  console.debug(
-                    '[chat.sendMessage] reconciled temp IDs user=%s->%s',
-                    msg.id,
-                    doneData.user_message_id,
-                  );
                   messages.value[i] = {
                     ...msg,
                     id: doneData.user_message_id,
@@ -224,11 +301,6 @@ export const useChatStore = defineStore('chat', () => {
                   msg.id.startsWith('temp-assist-') &&
                   doneData.assistant_message_id
                 ) {
-                  console.debug(
-                    '[chat.sendMessage] reconciled temp IDs assist=%s->%s',
-                    msg.id,
-                    doneData.assistant_message_id,
-                  );
                   messages.value[i] = {
                     ...msg,
                     id: doneData.assistant_message_id,
@@ -244,20 +316,25 @@ export const useChatStore = defineStore('chat', () => {
       // Refresh sessions after a new query (might have created a session)
       await fetchSessions();
 
-      // Auto-name session if title is still "New Chat" (v0.3.1 chat polish)
-      if (activeSessionId.value) {
+      // Refine title with condensed summary from the assistant response
+      if (activeSessionId.value && fullContent.trim()) {
         const session = sessions.value.find((s) => s.id === activeSessionId.value);
-        if (session && (session.title === 'New Chat' || session.title === 'New Session')) {
-          const firstMsg = messages.value.find((m) => m.role === 'user');
-          if (firstMsg) {
-            const autoTitle = firstMsg.content.slice(0, 50).trim();
-            if (autoTitle) {
-              console.debug(
-                '[chat.autoName] session=%s auto-title=%s',
-                activeSessionId.value,
-                autoTitle,
-              );
-              await renameSession(activeSessionId.value, autoTitle);
+        if (session) {
+          // Extract first meaningful sentence: take up to 50 chars of the assistant's answer
+          const condensed = fullContent
+            .replace(/\n{2,}/g, ' ')
+            .replace(/^[#*\-\s]+/, '')
+            .slice(0, 50)
+            .trim();
+          if (condensed && condensed.length > 10 && condensed !== session.title) {
+            await renameSession(activeSessionId.value, condensed);
+            // Immediately update local sessions array so sidebar + badge reflect it
+            const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
+            if (idx !== -1) {
+              sessions.value[idx] = {
+                ...sessions.value[idx],
+                title: condensed,
+              };
             }
           }
         }
@@ -295,7 +372,6 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const result = await api.get<SessionSummary[]>('/sessions');
       sessions.value = result;
-      console.debug('[chat.fetchSessions] loaded %d sessions', result.length);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
@@ -329,7 +405,7 @@ export const useChatStore = defineStore('chat', () => {
         activeSessionId.value = null;
         messages.value = [];
       }
-      await fetchSessions();
+      sessions.value = sessions.value.filter((s) => s.id !== sessionId);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
@@ -339,10 +415,15 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadSession(sessionId: string) {
     isSessionLoading.value = true;
+    const requestId = ++loadSessionRequestId;
     try {
       const result = await api.get<{ session: Session; messages: Message[] }>(
         `/sessions/${sessionId}`,
       );
+      // Ignore stale responses from earlier requests
+      if (requestId !== loadSessionRequestId) {
+        return;
+      }
       messages.value = result.messages;
       activeSessionId.value = sessionId;
     } catch (err) {
@@ -355,13 +436,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function editMessage(sessionId: string, messageId: string, content: string) {
-    console.debug('[chat.editMessage] session=%s msg=%s', sessionId, messageId);
     if (!canPersistMessageAction(messageId)) {
-      console.warn(
-        '[FIX:chat-temp-id] skipped edit for pending/non-UUID message id=%s session=%s',
-        messageId,
-        sessionId,
-      );
       return;
     }
 
@@ -381,11 +456,6 @@ export const useChatStore = defineStore('chat', () => {
 
   async function deleteMessage(sessionId: string, messageId: string) {
     if (!canPersistMessageAction(messageId)) {
-      console.warn(
-        '[FIX:chat-temp-id] skipped delete for pending/non-UUID message id=%s session=%s',
-        messageId,
-        sessionId,
-      );
       return;
     }
 
@@ -395,7 +465,6 @@ export const useChatStore = defineStore('chat', () => {
     // Optimistic remove
     const prev = messages.value[idx];
     messages.value.splice(idx, 1);
-    console.debug('[chat.deleteMessage] optimistic remove idx=%d', idx);
 
     try {
       await api.deleteMessage(sessionId, messageId);
@@ -409,7 +478,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function renameSession(sessionId: string, title: string) {
-    console.debug('[chat.renameSession] session=%s title=%s', sessionId, title);
     try {
       await api.patch(`/sessions/${sessionId}`, { title });
       // Update in local sessions list
@@ -425,7 +493,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function togglePinSession(sessionId: string) {
-    console.debug('[chat.togglePinSession] session=%s', sessionId);
     const idx = sessions.value.findIndex((s) => s.id === sessionId);
     if (idx === -1) return;
 
@@ -442,7 +509,6 @@ export const useChatStore = defineStore('chat', () => {
 
   async function exportSession(sessionId: string, format: 'md' | 'json') {
     isExporting.value = true;
-    console.debug('[chat.exportSession] format=%s', format);
     try {
       const blob = await api.exportSession(sessionId, format);
       const url = URL.createObjectURL(blob);
@@ -452,7 +518,6 @@ export const useChatStore = defineStore('chat', () => {
       a.download = `session-${sessionId}.${extension}`;
       a.click();
       URL.revokeObjectURL(url);
-      console.debug('[chat.exportSession] format=%s bytes=%d', format, blob.size);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
@@ -488,12 +553,6 @@ export const useChatStore = defineStore('chat', () => {
       return;
     }
 
-    console.debug(
-      '[chat.regenerateMessage] regenerating for assist=%s query_len=%d',
-      assistantMessageId,
-      userQuery.length,
-    );
-
     // Remove the existing assistant message
     messages.value.splice(idx, 1);
 
@@ -510,7 +569,6 @@ export const useChatStore = defineStore('chat', () => {
     }
     try {
       await navigator.clipboard.writeText(msg.content);
-      console.debug('[chat.copyMessage] copied id=%s len=%d', messageId, msg.content.length);
     } catch (err) {
       console.warn('[chat.copyMessage] clipboard failed id=%s', messageId, err);
     }
@@ -547,6 +605,7 @@ export const useChatStore = defineStore('chat', () => {
     searchQuery,
     sidebarCollapsed,
     filteredSessions,
+    filteredSessionsByPeriod,
     lastCollectionId,
     setSearchQuery,
     toggleSidebarCollapsed,

@@ -40,6 +40,7 @@ export interface Session {
   created_at: string;
   updated_at: string;
   message_count: number;
+  pinned?: boolean;
 }
 
 export interface SessionSummary {
@@ -61,6 +62,7 @@ export interface Message {
   created_at: string;
   edited_at?: string;
   original_content?: string;
+  debug_data?: string;
 }
 
 export interface EditMessageRequest {
@@ -78,10 +80,11 @@ export interface SourceRef {
 }
 
 export interface StreamEvent {
-  type: 'chunk' | 'sources' | 'error' | 'done';
+  type: 'chunk' | 'sources' | 'debug' | 'error' | 'done';
   data?: {
     text?: string;
     sources?: SourceRef[];
+    debug?: unknown;
     user_message_id?: string;
     assistant_message_id?: string;
   };
@@ -140,4 +143,54 @@ export interface SyncStatusResponse {
   chunks_total: number;
   last_commit?: string;
   error?: string;
+}
+
+// ── Session Debug Types (Admin Panel) ──
+
+export interface SearchResultItem {
+  chunk_id: string;
+  document_name: string;
+  chunk_index: number;
+  score: number;
+  text_snippet: string;
+}
+
+export interface EmbeddingSearchStep {
+  query_snippet: string;
+  embedding_dimension: number;
+  latency_ms: number;
+  collection_name: string;
+  top_k: number;
+  result_count: number;
+  retries: number;
+  results: SearchResultItem[];
+}
+
+export interface FinalAnswerStep {
+  model: string;
+  max_retries: number;
+  chunks_in_context: number;
+  history_message_count: number;
+  history_token_estimate: number;
+  token_budget: number;
+  total_tokens_estimate: number;
+  latency_ms: number;
+  prompt_preview: string;
+}
+
+export interface DebugData {
+  query_text: string;
+  multi_query: null | Record<string, unknown>;
+  hyde: null | Record<string, unknown>;
+  embedding_search: EmbeddingSearchStep | null;
+  keyword_search: null | Record<string, unknown>;
+  merge_dedup: null | Record<string, unknown>;
+  reranking: null | Record<string, unknown>;
+  final_answer: FinalAnswerStep | null;
+}
+
+export interface SessionSearchParams {
+  search?: string;
+  from?: string;
+  to?: string;
 }

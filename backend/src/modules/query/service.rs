@@ -197,6 +197,7 @@ impl QueryService {
                 edited_at: None,
                 original_content: None,
                 deleted_at: None,
+                debug_data: None,
             };
             self.conversation_repo.add_message(&msg).await?;
             tracing::info!(component = "query/service", user_message_id = %user_msg_id, "query.user_message_persisted");
@@ -301,6 +302,7 @@ impl QueryService {
                         edited_at: None,
                         original_content: None,
                         deleted_at: None,
+                        debug_data: None,
                     };
                     if let Err(e) = repo.add_message(&msg).await {
                         tracing::error!(

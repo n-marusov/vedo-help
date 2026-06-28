@@ -298,7 +298,6 @@ export async function redirectToKeycloak(): Promise<void> {
 
   const authUrl = `${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/auth?${params.toString()}`;
 
-  console.debug('[OidcAuth] Redirecting to KeyCloak authorization endpoint');
   window.location.href = authUrl;
 }
 
@@ -344,8 +343,6 @@ export async function handleCallback(): Promise<string> {
 
   clearVerifier();
 
-  console.debug('[OidcAuth] Exchanging authorization code for tokens');
-
   const tokenResponse = await fetch(
     `${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/token`,
     {
@@ -375,8 +372,6 @@ export async function handleCallback(): Promise<string> {
   if (!accessToken) {
     throw new Error('No access token in the token response');
   }
-
-  console.debug('[OidcAuth] Token exchange succeeded');
 
   // Store tokens and set on API client
   storeAccessToken(accessToken);
@@ -410,19 +405,15 @@ export async function handleCallback(): Promise<string> {
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getStoredRefreshToken();
   if (!refreshToken) {
-    console.debug('[OidcAuth] No refresh token available, skipping refresh');
     return null;
   }
 
   // Throttle: don't retry more often than MIN_REFRESH_INTERVAL_MS
   const now = Date.now();
   if (now - lastRefreshAttempt < MIN_REFRESH_INTERVAL_MS) {
-    console.debug('[OidcAuth] Refresh throttled, skipping');
     return null;
   }
   lastRefreshAttempt = now;
-
-  console.debug('[OidcAuth] Attempting token refresh');
 
   try {
     const response = await fetch(`${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/token`, {
@@ -443,7 +434,6 @@ async function refreshAccessToken(): Promise<string | null> {
 
       // If the refresh token is invalid/expired (400), clear everything
       if (response.status === 400) {
-        console.debug('[OidcAuth] Refresh token rejected, clearing session');
         clearAllTokens();
         setAccessToken('');
         isAuthenticated.value = false;
@@ -458,8 +448,6 @@ async function refreshAccessToken(): Promise<string | null> {
       console.warn('[OidcAuth] Refresh response missing access_token');
       return null;
     }
-
-    console.debug('[OidcAuth] Token refresh succeeded');
 
     storeAccessToken(newAccessToken);
     if (tokens.refresh_token) {
@@ -498,7 +486,6 @@ function scheduleTokenRefresh(token: string): void {
   const msLeft = msUntilExpiry(token);
   if (msLeft <= 0) {
     // Already expired — attempt an immediate refresh
-    console.debug('[OidcAuth] Token already expired, attempting immediate refresh');
     refreshAccessToken();
     return;
   }
@@ -508,12 +495,10 @@ function scheduleTokenRefresh(token: string): void {
 
   if (delay > 0 && delay < 1000) {
     // Very short delay (< 1s) — just refresh immediately to avoid a tight timer
-    console.debug('[OidcAuth] Token expiring soon, refreshing immediately');
     refreshAccessToken();
     return;
   }
 
-  console.debug('[OidcAuth] Scheduling token refresh in', delay, 'ms');
   refreshTimerHandle = setTimeout(() => {
     refreshAccessToken();
   }, delay);
@@ -538,8 +523,6 @@ export function logout(): void {
     clearTimeout(refreshTimerHandle);
     refreshTimerHandle = null;
   }
-
-  console.debug('[OidcAuth] Logging out');
 
   if (token) {
     const params = new URLSearchParams({
@@ -588,17 +571,14 @@ export function restoreSession(): boolean {
 
   // If the token is already expired or within the refresh margin, try refreshing
   if (isTokenExpired(stored, REFRESH_MARGIN_MS)) {
-    console.debug('[OidcAuth] Stored token expired or expiring soon, attempting refresh');
     clearAllTokens();
     setAccessToken(''); // Clear synchronously before async refresh to avoid stale accessToken
 
     // Fire-and-forget refresh — the caller can check isAuthenticated after a tick
     refreshAccessToken().then((newToken) => {
       if (newToken) {
-        console.debug('[OidcAuth] Session restored via token refresh');
       } else {
         isAuthenticated.value = false;
-        console.debug('[OidcAuth] Token refresh failed after restore — session cleared');
       }
     });
 
@@ -612,7 +592,6 @@ export function restoreSession(): boolean {
   const roles = decoded ? extractRealmRoles(decoded) : [];
   setAuthToken(stored, name || undefined, provider || undefined, roles);
   scheduleTokenRefresh(stored);
-  console.debug('[OidcAuth] Restored session from localStorage');
   return true;
 }
 

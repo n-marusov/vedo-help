@@ -341,6 +341,11 @@ async fn main() {
             patch(conversations_handlers::patch_message)
                 .delete(conversations_handlers::delete_message),
         )
+        // Admin routes (behind auth middleware)
+        .route(
+            "/api/admin/sessions",
+            get(conversations_handlers::admin_list_sessions),
+        )
         // Audit middleware for all /api/* routes (inner — runs after auth).
         .route_layer(middleware::from_fn(audit_middleware::audit_middleware))
         // Auth middleware for all /api/* routes (outer — runs first, inserts AuthInfo).

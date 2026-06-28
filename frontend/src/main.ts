@@ -4,7 +4,6 @@ import './assets/design-tokens.css';
 import './assets/chat-tokens.css';
 import './telemetry';
 import App from './App.vue';
-import { logChatTokenValues } from './chatTokens';
 import router from './router';
 
 import { initTelemetry } from './telemetry';
@@ -16,4 +15,3 @@ app.use(createPinia());
 app.use(router);
 
 app.mount('#app');
-logChatTokenValues();

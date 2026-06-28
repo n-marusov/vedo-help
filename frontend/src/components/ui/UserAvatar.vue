@@ -34,16 +34,16 @@ const ariaLabel = computed(() =>
   props.role === 'assistant' ? 'VEDO assistant avatar' : 'User avatar',
 );
 
-onMounted(() => {
-  console.debug('[UserAvatar] mounted', {
-    role: props.role,
-    size: props.size,
-  });
-});
+onMounted(() => {});
 </script>
 
 <template>
-  <span :aria-label="ariaLabel" :class="avatarClasses" :style="avatarStyle" role="img">
+  <span
+    :aria-label="ariaLabel"
+    :class="avatarClasses"
+    :style="avatarStyle"
+    role="img"
+  >
     <svg
       v-if="role === 'user'"
       aria-hidden="true"

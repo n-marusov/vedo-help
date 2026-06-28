@@ -1,19 +1,18 @@
 <script setup>
 import CollectionSelector from '@/components/CollectionSelector.vue';
 import MessageBubble from '@/components/MessageBubble.vue';
+import VBadge from '@/components/ui/VBadge.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
-import VSkeleton from '@/components/ui/VSkeleton.vue';
-import { isAdmin as checkIsAdmin } from '@/stores/auth';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const chatStore = useChatStore();
 const collectionStore = useCollectionStore();
 
 const sidebarOpen = ref(false);
-const showSearchInput = ref(false);
+const searchDialogOpen = ref(false);
 const renameDialogOpen = ref(false);
 const renameSessionTarget = ref(null);
 const renameInput = ref('');
@@ -21,6 +20,10 @@ const inputText = ref('');
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const exportFormat = ref('md');
+const newSessionDropdownOpen = ref(false);
+const newSessionTriggerRef = ref(null);
+const newSessionDropdownRef = ref(null);
+const newSessionDropdownStyle = ref({});
 
 const exportFormatOptions = [
   { label: 'Markdown', value: 'md' },
@@ -30,6 +33,17 @@ const exportFormatOptions = [
 onMounted(() => {
   chatStore.fetchSessions();
   collectionStore.fetchCollections();
+  document.addEventListener('click', handleNewSessionClickOutside);
+  document.addEventListener('keydown', handleNewSessionKeydown);
+  window.addEventListener('resize', updateNewSessionDropdownPosition);
+  window.addEventListener('scroll', updateNewSessionDropdownPosition, true);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleNewSessionClickOutside);
+  document.removeEventListener('keydown', handleNewSessionKeydown);
+  window.removeEventListener('resize', updateNewSessionDropdownPosition);
+  window.removeEventListener('scroll', updateNewSessionDropdownPosition, true);
 });
 
 // Close sidebar on session select for mobile
@@ -46,11 +60,14 @@ function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
 }
 
-function toggleSearchInput() {
-  showSearchInput.value = !showSearchInput.value;
-  if (!showSearchInput.value) {
-    chatStore.setSearchQuery('');
-  }
+function openSearchDialog() {
+  searchDialogOpen.value = true;
+  chatStore.setSearchQuery('');
+}
+
+function closeSearchDialog() {
+  searchDialogOpen.value = false;
+  chatStore.setSearchQuery('');
 }
 
 function formatRelativeTime(dateStr) {
@@ -112,11 +129,76 @@ async function togglePin(sessionId) {
   await chatStore.togglePinSession(sessionId);
 }
 
-async function handleNewChat() {
-  chatStore.clearMessages();
-  if (collectionStore.activeCollectionId) {
-    await chatStore.createSession(collectionStore.activeCollectionId);
+function updateNewSessionDropdownPosition() {
+  if (!newSessionDropdownOpen.value || !newSessionTriggerRef.value) return;
+  const rect = newSessionTriggerRef.value.getBoundingClientRect();
+  newSessionDropdownStyle.value = {
+    left: `${rect.left}px`,
+    minWidth: `${rect.width}px`,
+    top: `${rect.bottom + 4}px`,
+  };
+}
+
+async function openNewSessionDropdown() {
+  newSessionDropdownOpen.value = true;
+  await nextTick();
+  updateNewSessionDropdownPosition();
+  console.debug(
+    '[ChatView.newSession] opened collection dropdown count=%d',
+    collectionStore.collections.length,
+  );
+}
+
+function closeNewSessionDropdown() {
+  newSessionDropdownOpen.value = false;
+}
+
+async function toggleNewSessionDropdown() {
+  if (chatStore.isLoading || chatStore.isSessionLoading) return;
+  if (collectionStore.collections.length === 0) {
+    console.debug('[ChatView.newSession] no collections available, clearing active session');
+    chatStore.clearMessages();
+    return;
   }
+  if (newSessionDropdownOpen.value) {
+    closeNewSessionDropdown();
+  } else {
+    await openNewSessionDropdown();
+  }
+}
+
+async function handleNewSessionForCollection(collectionId) {
+  closeNewSessionDropdown();
+  collectionStore.setActiveCollection(collectionId);
+  chatStore.clearMessages();
+  console.debug('[ChatView.newSession] preparing session with collection=%s', collectionId);
+  // Session will be created on first message send
+}
+
+function handleNewSessionClickOutside(e) {
+  if (!newSessionDropdownOpen.value) return;
+  const target = e.target;
+  if (
+    newSessionTriggerRef.value?.contains(target) ||
+    newSessionDropdownRef.value?.contains(target)
+  ) {
+    return;
+  }
+  closeNewSessionDropdown();
+}
+
+function handleNewSessionKeydown(e) {
+  if (e.key === 'Escape') {
+    closeNewSessionDropdown();
+  }
+}
+
+function isNewSessionCollectionActive(collectionId) {
+  return collectionId === collectionStore.activeCollectionId;
+}
+
+async function handleNewChat() {
+  await toggleNewSessionDropdown();
 }
 
 // Message sending logic
@@ -217,6 +299,15 @@ function handleCancel() {
 
 // removed: collectionOptions — replaced by CollectionSelector component
 
+watch(
+  () => collectionStore.collections.length,
+  () => {
+    if (newSessionDropdownOpen.value) {
+      nextTick(() => updateNewSessionDropdownPosition());
+    }
+  },
+);
+
 const activeSession = computed(
   () => chatStore.sessions.find((s) => s.id === chatStore.activeSessionId) || null,
 );
@@ -276,6 +367,73 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         { 'session-sidebar--collapsed': chatStore.sidebarCollapsed },
       ]"
     >
+      <!-- Expand button when sidebar is collapsed -->
+      <button
+        v-if="chatStore.sidebarCollapsed"
+        class="sidebar-expand-btn"
+        data-testid="sidebar-expand-btn"
+        title="Expand sidebar"
+        @click="chatStore.toggleSidebarCollapsed"
+      >
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="18"
+          viewBox="0 0 18 18"
+          width="18"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 4L12 9L7 14"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+          />
+        </svg>
+      </button>
+
+      <!-- New session button on collapsed sidebar -->
+      <template v-if="chatStore.sidebarCollapsed">
+        <button
+          class="sidebar-search-btn"
+          data-testid="sidebar-search-btn"
+          title="Search sessions"
+          @click="openSearchDialog"
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="16"
+            viewBox="0 0 16 16"
+            width="16"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="7"
+              cy="7"
+              r="5.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M11 11L14.5 14.5"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.5"
+            />
+          </svg>
+        </button>
+        <button
+          class="sidebar-new-session-btn"
+          data-testid="sidebar-new-session-btn"
+          title="New session"
+          @click="handleNewChat"
+        >
+          <span class="sidebar-new-session-icon">+</span>
+        </button>
+      </template>
+
       <div class="session-header">
         <span class="session-title">HISTORY</span>
         <div class="session-header-actions">
@@ -283,7 +441,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             class="session-header-btn"
             data-testid="session-search-toggle"
             title="Search sessions"
-            @click="toggleSearchInput"
+            @click="openSearchDialog"
           >
             <svg
               aria-hidden="true"
@@ -311,7 +469,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
           <button
             class="session-header-btn"
             data-testid="sidebar-collapse-btn"
-            title="Collapse sidebar"
+            :title="
+              chatStore.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+            "
             @click="chatStore.toggleSidebarCollapsed"
           >
             <svg
@@ -323,7 +483,16 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               xmlns="http://www.w3.org/2000/svg"
             >
               <path
+                v-if="!chatStore.sidebarCollapsed"
                 d="M10 3L6 8L10 13"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+              />
+              <path
+                v-else
+                d="M6 3L10 8L6 13"
                 stroke="currentColor"
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -334,149 +503,188 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         </div>
       </div>
 
-      <!-- Search input -->
-      <div v-if="showSearchInput" class="session-search">
-        <input
-          v-model="chatStore.searchQuery"
-          class="session-search-input"
-          data-testid="session-search-input"
-          type="text"
-          placeholder="Search sessions..."
-          @input="chatStore.setSearchQuery($event.target.value)"
-        />
-      </div>
-
-      <!-- New session button (centered below header) -->
+      <!-- New session button with collection dropdown -->
       <div class="session-new-wrapper">
-        <VButton
-          variant="primary"
+        <button
+          ref="newSessionTriggerRef"
+          class="session-new-trigger"
           data-testid="btn-new-chat"
+          type="button"
+          :aria-expanded="newSessionDropdownOpen"
+          aria-haspopup="listbox"
+          :disabled="chatStore.isLoading || chatStore.isSessionLoading"
           @click="handleNewChat"
-          >+ New Session</VButton
         >
+          <span class="session-new-label-group">
+            <span class="session-new-plus">+</span>
+            <span class="session-new-label">New session</span>
+          </span>
+          <span
+            class="session-new-chevron"
+            :class="{ 'session-new-chevron--open': newSessionDropdownOpen }"
+            >▾</span
+          >
+        </button>
       </div>
 
-      <div
-        v-if="chatStore.isLoadingSessions"
-        data-testid="sessions-loading-skeleton"
-      >
-        <VSkeleton variant="card" :rows="5" />
-      </div>
+      <Teleport to="body">
+        <div
+          v-if="newSessionDropdownOpen"
+          ref="newSessionDropdownRef"
+          class="session-new-dropdown"
+          data-testid="new-session-collection-dropdown"
+          :style="newSessionDropdownStyle"
+        >
+          <div class="session-new-caption">Choose collection</div>
+          <button
+            v-for="collection in collectionStore.collections"
+            :key="collection.id"
+            class="session-new-option"
+            :class="{
+              'session-new-option--selected': isNewSessionCollectionActive(
+                collection.id,
+              ),
+            }"
+            data-testid="new-session-collection-option"
+            type="button"
+            @click="handleNewSessionForCollection(collection.id)"
+          >
+            <span class="session-new-check">{{
+              isNewSessionCollectionActive(collection.id) ? "✓" : ""
+            }}</span>
+            <span class="session-new-option-label">{{ collection.name }}</span>
+            <span
+              v-if="collection.document_count !== undefined"
+              class="session-new-option-count"
+              >{{ collection.document_count }}</span
+            >
+          </button>
+        </div>
+      </Teleport>
 
-      <div
-        v-else-if="chatStore.filteredSessions.length === 0"
-        class="session-empty"
-      >
+      <div v-if="chatStore.filteredSessions.length === 0" class="session-empty">
         No sessions yet. Start a new chat!
       </div>
 
       <div v-else class="session-list">
-        <div
-          v-for="session in chatStore.filteredSessions"
-          :key="session.id"
-          class="session-item"
-          :class="[
-            {
-              'session-item--active': session.id === chatStore.activeSessionId,
-            },
-            { 'session-item--pinned': session.pinned },
-          ]"
-          :data-pinned="session.pinned ? 'true' : 'false'"
-          data-testid="session-item"
-          @click="handleSelectSession(session.id)"
-          role="button"
-          tabindex="0"
-          @keydown.enter="handleSelectSession(session.id)"
+        <template
+          v-for="group in chatStore.filteredSessionsByPeriod"
+          :key="group.label ?? 'pinned'"
         >
-          <div class="session-item-body">
-            <span class="session-item-title">{{
-              truncateTitle(session.title)
-            }}</span>
-            <span class="session-item-meta">
-              {{ session.message_count }} msg ·
-              {{ formatRelativeTime(session.updated_at) }}
-            </span>
+          <span
+            v-if="group.label"
+            class="session-section-header"
+            data-testid="session-section-header"
+            >{{ group.label }}</span
+          >
+          <div
+            v-for="session in group.sessions"
+            :key="session.id"
+            class="session-item"
+            :class="[
+              {
+                'session-item--active':
+                  session.id === chatStore.activeSessionId,
+              },
+              { 'session-item--pinned': session.pinned },
+            ]"
+            :data-pinned="session.pinned ? 'true' : 'false'"
+            data-testid="session-item"
+            @click="handleSelectSession(session.id)"
+            role="button"
+            tabindex="0"
+            @keydown.enter="handleSelectSession(session.id)"
+          >
+            <div class="session-item-body">
+              <span class="session-item-title">{{
+                truncateTitle(session.title)
+              }}</span>
+              <span class="session-item-meta">
+                {{ session.message_count }} msg ·
+                {{ formatRelativeTime(session.updated_at) }}
+              </span>
+            </div>
+            <div class="session-item-actions">
+              <button
+                class="session-action-btn"
+                data-testid="session-pin-btn"
+                title="Pin session"
+                @click.stop="togglePin(session.id)"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  width="12"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M7.5 1L9.5 3L8 4.5L10 7L9 8L6 5L4 10L2 10L3 8L1 7L4 4.5L3 3L5 1L6.5 2.5L7.5 1Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+              <button
+                class="session-action-btn"
+                data-testid="session-rename-btn"
+                title="Rename session"
+                @click.stop="handleRenameSession(session)"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  width="12"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8.5 1L11 3.5L4 10.5L1 11L1.5 8L8.5 1Z"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.2"
+                  />
+                </svg>
+              </button>
+              <button
+                class="session-action-btn session-action-btn--delete"
+                data-testid="session-delete-btn"
+                title="Delete session"
+                @click.stop="handleDeleteSession(session.id, $event)"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  width="12"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 3H10"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.2"
+                  />
+                  <path
+                    d="M4 2H8"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.2"
+                  />
+                  <path
+                    d="M3 4L3.5 9.5C3.5 10.3 4.2 11 5 11H7C7.8 11 8.5 10.3 8.5 9.5L9 4"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.2"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="session-item-actions">
-            <button
-              class="session-action-btn"
-              data-testid="session-pin-btn"
-              title="Pin session"
-              @click.stop="togglePin(session.id)"
-            >
-              <svg
-                aria-hidden="true"
-                fill="none"
-                height="12"
-                viewBox="0 0 12 12"
-                width="12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M7.5 1L9.5 3L8 4.5L10 7L9 8L6 5L4 10L2 10L3 8L1 7L4 4.5L3 3L5 1L6.5 2.5L7.5 1Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
-            <button
-              class="session-action-btn"
-              data-testid="session-rename-btn"
-              title="Rename session"
-              @click.stop="handleRenameSession(session)"
-            >
-              <svg
-                aria-hidden="true"
-                fill="none"
-                height="12"
-                viewBox="0 0 12 12"
-                width="12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M8.5 1L11 3.5L4 10.5L1 11L1.5 8L8.5 1Z"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.2"
-                />
-              </svg>
-            </button>
-            <button
-              class="session-action-btn session-action-btn--delete"
-              data-testid="session-delete-btn"
-              title="Delete session"
-              @click.stop="handleDeleteSession(session.id, $event)"
-            >
-              <svg
-                aria-hidden="true"
-                fill="none"
-                height="12"
-                viewBox="0 0 12 12"
-                width="12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2 3H10"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.2"
-                />
-                <path
-                  d="M4 2H8"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.2"
-                />
-                <path
-                  d="M3 4L3.5 9.5C3.5 10.3 4.2 11 5 11H7C7.8 11 8.5 10.3 8.5 9.5L9 4"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.2"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
+        </template>
       </div>
     </aside>
 
@@ -494,26 +702,34 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         <div class="toolbar-left">
           <div
             v-if="activeSession"
-            class="toolbar-session-tag"
-            data-testid="toolbar-session-tag"
+            class="toolbar-badges"
+            data-testid="toolbar-badges"
           >
-            <span class="toolbar-session-title">{{
-              truncateTitle(activeSession.title, 30)
-            }}</span>
-            <span
+            <VBadge
               v-if="activeCollectionName"
-              class="toolbar-collection-badge"
-              >{{ activeCollectionName }}</span
+              size="sm"
+              variant="info"
+              data-testid="toolbar-collection-badge"
+              >{{ activeCollectionName }}</VBadge
+            >
+            <VBadge
+              size="sm"
+              variant="success"
+              data-testid="toolbar-session-badge"
+              >{{ truncateTitle(activeSession.title, 30) }}</VBadge
             >
           </div>
           <div
             v-else-if="activeCollectionName"
-            class="toolbar-collection-tag"
-            data-testid="toolbar-collection-tag"
+            class="toolbar-badges"
+            data-testid="toolbar-badges"
           >
-            <span class="toolbar-collection-badge">{{
-              activeCollectionName
-            }}</span>
+            <VBadge
+              size="sm"
+              variant="info"
+              data-testid="toolbar-collection-badge"
+              >{{ activeCollectionName }}</VBadge
+            >
           </div>
           <CollectionSelector
             v-else
@@ -563,19 +779,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         class="messages-area"
         data-testid="messages-area"
       >
-        <!-- Loading skeleton (check BEFORE welcome screen so skeleton
-             is visible while loadSession is in flight and
-             activeSessionId is still null) -->
+        <!-- Welcome block (no session selected) -->
         <div
-          v-if="chatStore.isSessionLoading"
-          data-testid="messages-loading-skeleton"
-        >
-          <VSkeleton variant="text" :rows="6" />
-        </div>
-
-        <!-- Welcome block (no session selected, not loading) -->
-        <div
-          v-else-if="!chatStore.activeSessionId"
+          v-if="!chatStore.activeSessionId"
           class="welcome-screen"
           data-testid="welcome-message"
         >
@@ -615,7 +821,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               idx === chatStore.messages.length - 1 &&
               msg.role === 'assistant'
             "
-            :is-admin="checkIsAdmin"
             @edit="handleEditMessage"
             @save-edit="handleSaveEdit"
             @cancel-edit="() => {}"
@@ -756,6 +961,72 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
         />
       </div>
     </VDialog>
+
+    <!-- Search sessions dialog -->
+    <VDialog
+      :open="searchDialogOpen"
+      title="Search Sessions"
+      cancelText="Close"
+      @close="closeSearchDialog"
+      @confirm="closeSearchDialog"
+    >
+      <template #actions>
+        <VButton
+          variant="outline"
+          data-testid="btn-dialog-close"
+          @click="closeSearchDialog"
+        >
+          Close
+        </VButton>
+      </template>
+      <div class="search-dialog-body">
+        <input
+          v-model="chatStore.searchQuery"
+          class="search-dialog-input"
+          data-testid="search-dialog-input"
+          type="text"
+          placeholder="Search sessions..."
+          autofocus
+          @input="chatStore.setSearchQuery($event.target.value)"
+        />
+        <div
+          v-if="chatStore.filteredSessions.length === 0"
+          class="search-dialog-empty"
+        >
+          No sessions found
+        </div>
+        <div v-else class="search-dialog-list">
+          <div
+            v-for="session in chatStore.filteredSessions"
+            :key="session.id"
+            class="search-dialog-item"
+            :class="{
+              'search-dialog-item--active':
+                session.id === chatStore.activeSessionId,
+            }"
+            data-testid="search-dialog-item"
+            @click="
+              handleSelectSession(session.id);
+              closeSearchDialog();
+            "
+            role="button"
+            tabindex="0"
+            @keydown.enter="
+              handleSelectSession(session.id);
+              closeSearchDialog();
+            "
+          >
+            <span class="search-dialog-item-title">{{
+              truncateTitle(session.title, 50)
+            }}</span>
+            <span class="search-dialog-item-meta">
+              {{ session.message_count }} msg ·
+              {{ formatRelativeTime(session.updated_at) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </VDialog>
   </div>
 </template>
 
@@ -786,6 +1057,10 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   gap: var(--space-4);
   padding: var(--space-5);
   overflow: hidden;
+  transition:
+    width var(--transition-normal),
+    min-width var(--transition-normal),
+    padding var(--transition-normal);
 }
 
 .session-header {
@@ -807,9 +1082,9 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: none;
+  background: var(--color-muted);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   color: var(--color-muted-foreground);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -817,8 +1092,8 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .session-header-btn:hover {
   color: var(--color-foreground);
-  background: var(--color-secondary);
-  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: var(--color-primary);
 }
 
 .session-title {
@@ -829,35 +1104,147 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   letter-spacing: 0.05em;
 }
 
-.session-search {
+.session-new-wrapper {
+  display: flex;
   flex-shrink: 0;
 }
 
-.session-search-input {
+/* ── New Session Trigger (Pencil Design: Component/NewSessionCollectionControl) ── */
+.session-new-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  padding: 8px 10px;
-  font-size: var(--font-size-xs);
+  height: 36px;
+  padding: 4px 12px;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  color: var(--color-primary-foreground);
+  cursor: pointer;
   font-family: var(--font-family);
-  color: var(--color-foreground);
-  background: var(--color-background);
+  transition: all var(--transition-fast);
+  outline: none;
+  user-select: none;
+}
+
+.session-new-trigger:hover {
+  opacity: 0.9;
+}
+
+.session-new-trigger:active {
+  opacity: 0.8;
+}
+
+.session-new-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.session-new-label-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-new-plus {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.session-new-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.session-new-chevron {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+
+.session-new-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ── New Session Dropdown ── */
+.session-new-dropdown {
+  position: fixed;
+  z-index: 1000;
+  background: var(--color-popover);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color var(--transition-fast);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  padding: 6px 0;
 }
 
-.session-search-input:focus {
-  border-color: var(--color-primary);
-}
-
-.session-search-input::placeholder {
+.session-new-caption {
+  padding: 4px 12px 8px;
+  font-size: var(--font-size-3xs);
+  font-weight: 600;
   color: var(--color-muted-foreground);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
 }
 
-.session-new-wrapper {
+.session-new-option {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-foreground);
+  font-family: var(--font-family);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  transition: background var(--transition-fast);
+  min-height: 32px;
+}
+
+.session-new-option:hover {
+  background: var(--color-muted);
+}
+
+.session-new-option--selected {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.session-new-option--selected:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.session-new-check {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.session-new-option--selected .session-new-check {
+  color: var(--color-primary);
+}
+
+.session-new-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-new-option-count {
+  font-size: var(--font-size-2xs);
+  color: var(--color-muted-foreground);
+  opacity: 0.7;
   flex-shrink: 0;
 }
 
@@ -874,6 +1261,22 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.session-section-header {
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  padding: var(--space-1) 0 0;
+  margin-top: var(--space-1);
+  user-select: none;
+}
+
+.session-section-header:first-of-type {
+  margin-top: 0;
 }
 
 .session-item {
@@ -1006,6 +1409,13 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 .toolbar-left {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
+}
+
+.toolbar-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .toolbar-right {
@@ -1242,6 +1652,82 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   color: var(--color-foreground);
 }
 
+/* ── Sidebar Collapse/Expand Button ── */
+.sidebar-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-expand-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-foreground);
+  border-color: var(--color-primary);
+}
+
+/* ── Collapsed Sidebar Search Button ── */
+.sidebar-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-search-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+/* ── Collapsed Sidebar New Session Button ── */
+.sidebar-new-session-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-new-session-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.sidebar-new-session-icon {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+}
+
 /* ===== Sidebar Overlay (Mobile) ===== */
 
 .sidebar-overlay {
@@ -1253,16 +1739,17 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 }
 
 .session-sidebar--collapsed {
-  width: 48px;
-  min-width: 48px;
+  width: 68px;
+  min-width: 68px;
   padding: var(--space-3);
   overflow: hidden;
+  align-items: center;
 }
 
-.session-sidebar--collapsed .session-title,
+.session-sidebar--collapsed .session-header,
 .session-sidebar--collapsed .session-new-wrapper,
 .session-sidebar--collapsed .session-list,
-.session-sidebar--collapsed .session-search {
+.session-sidebar--collapsed .session-empty {
   display: none;
 }
 
@@ -1286,6 +1773,88 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .rename-dialog-input:focus {
   border-color: var(--color-primary);
+}
+
+/* ===== Search Dialog ===== */
+
+.search-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.search-dialog-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--color-foreground);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.search-dialog-input:focus {
+  border-color: var(--color-primary);
+}
+
+.search-dialog-input::placeholder {
+  color: var(--color-muted-foreground);
+}
+
+.search-dialog-empty {
+  text-align: center;
+  padding: var(--space-6) 0;
+  color: var(--color-muted-foreground);
+  font-size: var(--font-size-sm);
+}
+
+.search-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-dialog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.search-dialog-item:hover {
+  border-color: var(--color-primary);
+  opacity: 0.9;
+}
+
+.search-dialog-item--active {
+  background: var(--color-accent);
+  border-color: var(--color-primary);
+}
+
+.search-dialog-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-dialog-item-meta {
+  font-size: 10px;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== Scrollbar Styling ===== */

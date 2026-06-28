@@ -1,6 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -10,6 +11,14 @@ use crate::modules::conversations::models::{
 };
 use crate::modules::conversations::service::ConversationService;
 use crate::shared::error::AppError;
+
+/// Query parameters for session search (admin endpoint).
+#[derive(Debug, Deserialize)]
+pub struct AdminSessionSearchQuery {
+    pub search: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+}
 
 /// Query parameters for export endpoint.
 #[derive(Debug, Deserialize)]
@@ -184,4 +193,55 @@ pub async fn delete_message(
     )
     .await?;
     Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+/// Admin: Search sessions with optional filters.
+///
+/// Endpoint: `GET /api/admin/sessions?search=&from=&to=`
+pub async fn admin_list_sessions(
+    State(svc): State<ConversationService>,
+    Query(query): Query<AdminSessionSearchQuery>,
+) -> Result<Json<Vec<SessionSummary>>, AppError> {
+    tracing::info!(
+        "GET /api/admin/sessions search={:?} from={:?} to={:?}",
+        query.search,
+        query.from,
+        query.to
+    );
+
+    let from = if let Some(ref d) = query.from {
+        Some(
+            DateTime::parse_from_rfc3339(d)
+                .map_err(|e| AppError::BadRequest(format!("Invalid from date: {e}")))?
+                .with_timezone(&Utc),
+        )
+    } else {
+        None
+    };
+
+    let to = if let Some(ref d) = query.to {
+        Some(
+            DateTime::parse_from_rfc3339(d)
+                .map_err(|e| AppError::BadRequest(format!("Invalid to date: {e}")))?
+                .with_timezone(&Utc),
+        )
+    } else {
+        None
+    };
+
+    let sessions = svc.search_sessions(query.search, from, to).await?;
+    let summaries = sessions
+        .into_iter()
+        .map(|s| SessionSummary {
+            id: s.id,
+            title: s.title,
+            message_count: s.message_count,
+            pinned: s.pinned,
+            collection_id: s.collection_id,
+            created_at: s.created_at,
+            updated_at: s.updated_at,
+        })
+        .collect();
+
+    Ok(Json(summaries))
 }

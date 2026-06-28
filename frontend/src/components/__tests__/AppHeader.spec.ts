@@ -211,6 +211,37 @@ describe('AppHeader', () => {
     });
   });
 
+  describe('user menu reactivity', () => {
+    it('shows clickable user menu button when token is set after header mount (regression: non-reactive accessToken)', async () => {
+      const { wrapper } = await mountHeader(null);
+
+      // Without a token, the fallback span should be shown (not the button)
+      expect(wrapper.find('.app-header__user-btn').exists()).toBe(false);
+      expect(wrapper.find('.app-header__user').exists()).toBe(true);
+
+      // Simulate restoreSession setting the token AFTER header is mounted
+      // (this was the bug: getAccessToken was a plain let, not a ref,
+      //  so the computed never re-evaluated after mount)
+      const token = makeMockJwt({
+        sub: 'user-react-1',
+        name: 'Reactive User',
+        realm_access: { roles: ['admin'] },
+      });
+      setAuthToken(token, 'Reactive User', 'keycloak');
+      await wrapper.vm.$nextTick();
+
+      // Now the clickable button should appear
+      const button = wrapper.find('.app-header__user-btn');
+      expect(button.exists()).toBe(true);
+      expect(button.attributes('aria-label')).toBe('Open user menu');
+
+      // Click it and verify the dropdown appears
+      await button.trigger('click');
+      const dropdown = getUserDropdown();
+      expect(dropdown.textContent).toContain('Reactive User');
+    });
+  });
+
   describe('user menu positioning', () => {
     it('teleports the dropdown to body and positions it from the user button', async () => {
       const token = makeMockJwt({

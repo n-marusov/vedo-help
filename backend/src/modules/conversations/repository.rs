@@ -234,7 +234,7 @@ impl ConversationRepository {
             .unwrap_or(serde_json::Value::Null);
 
         sqlx::query(
-            "INSERT INTO messages (id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "INSERT INTO messages (id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at, debug_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(msg.id)
         .bind(msg.session_id)
@@ -245,6 +245,7 @@ impl ConversationRepository {
         .bind(msg.edited_at)
         .bind(&msg.original_content)
         .bind(msg.deleted_at)
+        .bind(&msg.debug_data)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to add message: {e}")))?;
@@ -267,8 +268,8 @@ impl ConversationRepository {
     pub async fn get_messages(&self, session_id: Uuid) -> Result<Vec<Message>, AppError> {
         tracing::debug!(component = "conversations/repository", session_id = %session_id, "message.list.started");
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
-            "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at \
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>, Option<String>)>(
+            "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at, debug_data \
              FROM messages WHERE session_id = $1 AND deleted_at IS NULL ORDER BY created_at",
         )
         .bind(session_id)
@@ -288,6 +289,7 @@ impl ConversationRepository {
                 edited_at: row.6,
                 original_content: row.7,
                 deleted_at: row.8,
+                debug_data: row.9,
             })
             .collect();
 
@@ -300,8 +302,8 @@ impl ConversationRepository {
     pub async fn get_message(&self, id: Uuid) -> Result<Message, AppError> {
         tracing::debug!(component = "conversations/repository", message_id = %id, "message.get.started");
 
-        let row = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>)>(
-            "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at \
+        let row = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, String, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, Option<String>, Option<chrono::DateTime<chrono::Utc>>, Option<String>)>(
+            "SELECT id, session_id, role, content, sources, created_at, edited_at, original_content, deleted_at, debug_data \
              FROM messages WHERE id = $1",
         )
         .bind(id)
@@ -325,6 +327,7 @@ impl ConversationRepository {
             edited_at: row.6,
             original_content: row.7,
             deleted_at: row.8,
+            debug_data: row.9,
         })
     }
 
@@ -486,6 +489,82 @@ impl ConversationRepository {
         .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
         Ok(row.0)
+    }
+
+    /// Search sessions by title substring and/or date range.
+    /// All parameters are optional — omitted filters are not applied.
+    pub async fn search_sessions(
+        &self,
+        search: Option<String>,
+        from: Option<chrono::DateTime<chrono::Utc>>,
+        to: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Vec<Session>, AppError> {
+        tracing::debug!(
+            "Searching sessions: search={:?} from={:?} to={:?}",
+            search,
+            from,
+            to
+        );
+
+        let mut sql = String::from(
+            "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions WHERE 1=1"
+        );
+
+        if search.is_some() {
+            sql.push_str(" AND title ILIKE $1");
+        }
+        if from.is_some() {
+            sql.push_str(" AND created_at >= $2");
+        }
+        if to.is_some() {
+            sql.push_str(" AND created_at <= $3");
+        }
+
+        sql.push_str(" ORDER BY updated_at DESC");
+
+        let mut query = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                String,
+                bool,
+                Option<uuid::Uuid>,
+                chrono::DateTime<chrono::Utc>,
+                chrono::DateTime<chrono::Utc>,
+            ),
+        >(&sql);
+
+        if search.is_some() {
+            query = query.bind(format!("%{}%", search.unwrap_or_default()));
+        }
+        if let Some(d) = from {
+            query = query.bind(d);
+        }
+        if let Some(d) = to {
+            query = query.bind(d);
+        }
+
+        let rows = query
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let mut sessions = Vec::with_capacity(rows.len());
+        for row in rows {
+            let count = self.get_message_count(row.0).await.unwrap_or(0);
+            sessions.push(Session {
+                id: row.0,
+                title: row.1,
+                pinned: row.2,
+                collection_id: row.3,
+                created_at: row.4,
+                updated_at: row.5,
+                message_count: count,
+            });
+        }
+
+        tracing::debug!("Found {} sessions matching criteria", sessions.len());
+        Ok(sessions)
     }
 }
 
