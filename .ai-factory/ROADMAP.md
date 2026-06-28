@@ -121,20 +121,12 @@
 
 Полный 7-шаговый RAG-пайплайн с визуализацией всех шагов в админ-панели (по методичке День 2).
 
-- [ ] **Backend: Config + env vars** — `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`
-- [ ] **Backend: BM25 keyword search module** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, ранжирование по BM25 (через tantivy или ручная реализация)
-- [ ] **Backend: LLM helper для не-streaming вызовов** — `LlmClient::query_single(prompt)` для multi-query, HyDE, reranking (без стриминга, полный ответ)
-- [ ] **Backend: Multi-query** — LLM генерирует 2-3 альтернативные формулировки вопроса + исходный вопрос
-- [ ] **Backend: HyDE (гипотетический документ)** — LLM пишет гипотетический ответ для каждого вопроса; эмбеддинг делается по HyDE-документу, а не по вопросу
-- [ ] **Backend: Hybrid search orchestrator** — объединение результатов Chroma (3 ближайших на HyDE-документ = ~9 чанков) + BM25/keywords (до 2 чанков на ключевое слово = ~6 чанков) + дедупликация по chunk_id
-- [ ] **Backend: LLM Reranking** — для каждого уникального чанка: LLM оценивает (score 1-10, вердикт "брать"/"не брать", комментарий); в финальный LLM идут только "брать"
-- [ ] **Backend: Новые SSE-типы событий** — `pipeline_stage` события для каждого шага: `expanded_questions`, `hyde_docs`, `keyword_matches`, `merged_chunks`, `reranked_chunks`, `pipeline_metric`
-- [ ] **Backend: SourceRef с метаданными этапа** — расширение `SourceRef`: `stage` ("embedding" | "keyword" | "reranked"), `rerank_score`, `rerank_verdict`, `rerank_comment`, `keyword_matches`
-- [ ] **Backend: Ужесточение anti-hallucination промпта** — инструкция: "Если среди переданных чанков нет информации, отвечай ТОЛЬКО фразой: «К сожалению, не нашёл информации по этому вопросу в базе знаний»"
-- [ ] **Frontend: API types** — новые `StreamEvent` типы (`pipeline_stage`), расширенный `SourceRef` со stage/rerank/verdict полями
-- [ ] **Frontend: Pinia debug store** — `stores/ragDebug.ts`: хранение pipeline stage данных отдельно от чата
-- [ ] **Frontend: Debug panel v2** — `MessageBubble.vue`: 7 секций под каждый шаг пайплайна (коллапсируемые), тайминги, токены
-- [ ] **Frontend: Admin RAG Debug tab** — `AdminView.vue`: новая вкладка "RAG Pipeline Debug" с поиском сессий, 7-шаговой диаграммой, просмотром raw debug данных
+**Состав:** 4 логические группы (объединено из 14 атомарных задач)
+
+- [ ] **Query Enhancement (Multi-Query + HyDE)** — LLM helper для не-streaming вызовов (`LlmClient::query_single`); LLM генерирует 2-3 альтернативные формулировки вопроса; HyDE: LLM пишет гипотетический ответ для каждого вопроса; эмбеддинг делается по HyDE-документу, а не по вопросу
+- [ ] **Search Infrastructure (BM25 + Hybrid Orchestrator)** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, BM25-ранжирование; `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`; объединение результатов Chroma + BM25/keywords + дедупликация по chunk_id
+- [ ] **LLM Reranking & Pipeline Events** — LLM оценивает каждый уникальный чанк (score 1-10, вердикт, комментарий); новые SSE-типы `pipeline_stage` событий; расширение `SourceRef` с `stage`, `rerank_score`, `rerank_verdict`, `rerank_comment`, `keyword_matches`; ужесточение anti-hallucination промпта
+- [ ] **Frontend: Pipeline Visualization** — новые `StreamEvent` типы; Pinia store `ragDebug.ts` для pipeline stage данных; Debug panel v2 в `MessageBubble.vue` (7 коллапсируемых секций); новая вкладка "RAG Pipeline Debug" в `AdminView.vue`
 
 ---
 
@@ -197,7 +189,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
 <<<<<<< HEAD
 | v0.4 — Observability & Reliability | ⏳ 2/6 | Debug view ✅; deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination ❌ |
-| v0.4.2 — Advanced RAG Pipeline | 🔄 0/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization |
+| v0.4.2 — Advanced RAG Pipeline | 🔄 0/4 | Query Enhancement, Search Infrastructure, Reranking & Events, Frontend Pipeline Visualization |
 | v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
