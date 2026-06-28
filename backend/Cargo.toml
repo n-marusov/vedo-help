@@ -75,7 +75,7 @@ git2 = { version = "0.19", features = ["vendored-openssl"] }
 
 [dev-dependencies]
 mockall = "0.12"
-rstest = "0.18"
+rstest = "0.26"
 serial_test = "3"
 tempfile = "3"
 uuid = { version = "1", features = ["v4"] }
