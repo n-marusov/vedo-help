@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Message, SourceRef } from '@/api/types';
+import type { Message } from '@/api/types';
 import { decodeCode, renderMarkdown } from '@/utils/markdown';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps<{
   message: Message;
@@ -26,27 +26,6 @@ const renderedContent = computed(() => {
   return renderMarkdown(props.message.content);
 });
 
-const parsedSources = computed<SourceRef[]>(() => {
-  if (!props.message.sources) return [];
-  try {
-    const parsed = JSON.parse(props.message.sources) as unknown;
-    if (!Array.isArray(parsed)) {
-      console.debug('[FIX:chat-session-switch] ignored non-array message sources', {
-        messageId: props.message.id,
-        sourcesType: parsed === null ? 'null' : typeof parsed,
-      });
-      return [];
-    }
-    return parsed as SourceRef[];
-  } catch (err) {
-    console.warn('[FIX:chat-session-switch] failed to parse message sources', {
-      messageId: props.message.id,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
-});
-
 function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
   const btn = target.closest('.copy-code-btn') as HTMLElement | null;
@@ -58,7 +37,6 @@ function handleMarkdownClick(event: MouseEvent) {
     .then(() => {
       const originalText = btn.textContent;
       btn.textContent = 'Copied!';
-      console.info('[MessageBubble] code copied', { length: code.length });
       setTimeout(() => {
         btn.textContent = originalText;
       }, 2000);
@@ -81,25 +59,19 @@ const isPersistedMessage = computed(() => {
 
 function startEdit() {
   if (!isPersistedMessage.value) {
-    console.warn('[FIX:chat-temp-id] edit disabled for pending message', {
-      messageId: props.message.id,
-    });
     return;
   }
-  console.debug('[MessageBubble] enter edit mid=%s', props.message.id);
   draftContent.value = props.message.content;
   editing.value = true;
   emit('edit', { id: props.message.id });
 }
 
 function saveEdit() {
-  console.debug('[MessageBubble] save edit');
   emit('save-edit', { id: props.message.id, content: draftContent.value });
   editing.value = false;
 }
 
 function cancelEdit() {
-  console.debug('[MessageBubble] cancel edit');
   editing.value = false;
   draftContent.value = props.message.content;
 }
@@ -113,42 +85,12 @@ async function handleCopy() {
 }
 
 function handleRegenerate() {
-  console.debug('[MessageBubble] regenerate assist=%s', props.message.id);
   emit('regenerate', { id: props.message.id });
 }
 
 onMounted(() => {
-  try {
-    console.debug('[MessageBubble] mounted', {
-      role: props.message.role,
-      contentLength: props.message.content?.length || 0,
-      sourcesCount: parsedSources.value.length,
-    });
-
-    if (props.isStreaming) {
-      console.debug('[MessageBubble] streaming started', {
-        messageId: props.message.id,
-      });
-    }
-  } catch (err) {
-    console.error('[MessageBubble] mounted error (caught)', err);
-  }
+  // no-op: streaming state handled by the template
 });
-
-watch(
-  () => props.isStreaming,
-  (streaming, wasStreaming) => {
-    if (streaming && !wasStreaming) {
-      console.debug('[MessageBubble] streaming started', {
-        messageId: props.message.id,
-      });
-    } else if (!streaming && wasStreaming) {
-      console.debug('[MessageBubble] streaming ended', {
-        messageId: props.message.id,
-      });
-    }
-  },
-);
 </script>
 
 <template>

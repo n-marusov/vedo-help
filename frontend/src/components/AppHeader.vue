@@ -29,7 +29,6 @@ const userInfo = computed(() => {
 });
 
 onMounted(() => {
-  console.debug('[AppHeader] mounted: global header with theme toggle is visible');
   document.addEventListener('click', closeMenuOnOutside);
   window.addEventListener('resize', handleViewportChange);
   window.addEventListener('scroll', handleViewportChange, true);
@@ -53,11 +52,6 @@ function updateUserDropdownPosition() {
     right: `${Math.max(window.innerWidth - rect.right, 8)}px`,
     top: `${rect.bottom + 6}px`,
   };
-  console.debug('[FIX:app-header-user-menu] positioned dropdown', {
-    right: Math.max(window.innerWidth - rect.right, 8),
-    top: rect.bottom + 6,
-    userMenuOpen: userMenuOpen.value,
-  });
 }
 
 function handleViewportChange() {
@@ -82,7 +76,6 @@ function closeMenuOnOutside(e: MouseEvent) {
     const target = e.target as Node;
     if (!userButtonRef.value?.contains(target) && !userDropdownRef.value?.contains(target)) {
       userMenuOpen.value = false;
-      console.debug('[FIX:app-header-user-menu] closed dropdown from outside click');
     }
   }
 }

@@ -13,8 +13,6 @@ const props = withDefaults(
 );
 
 const rowsArray = computed(() => Array.from({ length: props.rows }));
-
-console.debug('[VSkeleton] render variant=%s rows=%d', props.variant, props.rows);
 </script>
 
 <template>
@@ -42,11 +40,7 @@ console.debug('[VSkeleton] render variant=%s rows=%d', props.variant, props.rows
 
     <!-- Card variant: a single block per row -->
     <template v-else-if="variant === 'card'">
-      <div
-        v-for="(_, i) in rowsArray"
-        :key="i"
-        class="skeleton-card-row"
-      />
+      <div v-for="(_, i) in rowsArray" :key="i" class="skeleton-card-row" />
     </template>
   </div>
 </template>

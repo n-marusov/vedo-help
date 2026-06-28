@@ -6,9 +6,7 @@ import { useRoute } from 'vue-router';
 const route = useRoute();
 const showAppHeader = computed(() => route.name !== 'login');
 
-onMounted(() => {
-  console.debug('[App] mounted: root layout initialized with persistent header');
-});
+onMounted(() => {});
 </script>
 
 <template>

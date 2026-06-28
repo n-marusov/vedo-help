@@ -46,12 +46,6 @@ function updateDropdownPosition() {
     minWidth: `${rect.width}px`,
     top: `${rect.bottom + 4}px`,
   };
-  console.debug('[FIX:v-select-dropdown] positioned dropdown', {
-    left: rect.left,
-    optionCount: props.options.length,
-    top: rect.bottom + 4,
-    width: rect.width,
-  });
 }
 
 function handleViewportChange() {

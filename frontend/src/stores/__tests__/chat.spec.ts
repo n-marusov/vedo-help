@@ -70,11 +70,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     expect(apiMock.editMessage).not.toHaveBeenCalled();
     expect(store.messages[0].content).toBe('draft');
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[FIX:chat-temp-id] skipped edit for pending/non-UUID message id=%s session=%s',
-      'temp-1782052621000',
-      'sess-1',
-    );
+    expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 
@@ -96,11 +92,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(apiMock.deleteMessage).not.toHaveBeenCalled();
     expect(store.messages).toHaveLength(1);
     expect(store.messages[0].id).toBe('temp-1782052621000');
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[FIX:chat-temp-id] skipped delete for pending/non-UUID message id=%s session=%s',
-      'temp-1782052621000',
-      'sess-1',
-    );
+    expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 

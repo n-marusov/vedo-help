@@ -184,11 +184,6 @@ export const useChatStore = defineStore('chat', () => {
       if (idx !== -1) {
         const tempTitle = query.slice(0, 45).trim();
         sessions.value[idx] = { ...sessions.value[idx], title: tempTitle };
-        console.debug(
-          '[chat.autoName] optimistic title set session=%s title=%s',
-          activeSessionId.value,
-          tempTitle,
-        );
       }
     }
 
@@ -274,7 +269,6 @@ export const useChatStore = defineStore('chat', () => {
               lastMsg.debug_data = JSON.stringify(value.data?.debug || value.data);
               messages.value = [...messages.value];
             }
-            console.debug('[chat.sendMessage] debug event received');
             break;
           }
           case 'error':
@@ -297,11 +291,6 @@ export const useChatStore = defineStore('chat', () => {
               for (let i = 0; i < messages.value.length; i++) {
                 const msg = messages.value[i];
                 if (msg.role === 'user' && msg.id.startsWith('temp-') && doneData.user_message_id) {
-                  console.debug(
-                    '[chat.sendMessage] reconciled temp IDs user=%s->%s',
-                    msg.id,
-                    doneData.user_message_id,
-                  );
                   messages.value[i] = {
                     ...msg,
                     id: doneData.user_message_id,
@@ -312,11 +301,6 @@ export const useChatStore = defineStore('chat', () => {
                   msg.id.startsWith('temp-assist-') &&
                   doneData.assistant_message_id
                 ) {
-                  console.debug(
-                    '[chat.sendMessage] reconciled temp IDs assist=%s->%s',
-                    msg.id,
-                    doneData.assistant_message_id,
-                  );
                   messages.value[i] = {
                     ...msg,
                     id: doneData.assistant_message_id,
@@ -343,12 +327,6 @@ export const useChatStore = defineStore('chat', () => {
             .slice(0, 50)
             .trim();
           if (condensed && condensed.length > 10 && condensed !== session.title) {
-            console.debug(
-              '[chat.refineName] session=%s old=%s new=%s',
-              activeSessionId.value,
-              session.title,
-              condensed,
-            );
             await renameSession(activeSessionId.value, condensed);
             // Immediately update local sessions array so sidebar + badge reflect it
             const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
@@ -394,7 +372,6 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const result = await api.get<SessionSummary[]>('/sessions');
       sessions.value = result;
-      console.debug('[chat.fetchSessions] loaded %d sessions', result.length);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
@@ -445,11 +422,6 @@ export const useChatStore = defineStore('chat', () => {
       );
       // Ignore stale responses from earlier requests
       if (requestId !== loadSessionRequestId) {
-        console.debug('[FIX:chat-session-switch] ignored stale loadSession response', {
-          sessionId,
-          requestId,
-          currentId: loadSessionRequestId,
-        });
         return;
       }
       messages.value = result.messages;
@@ -464,13 +436,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function editMessage(sessionId: string, messageId: string, content: string) {
-    console.debug('[chat.editMessage] session=%s msg=%s', sessionId, messageId);
     if (!canPersistMessageAction(messageId)) {
-      console.warn(
-        '[FIX:chat-temp-id] skipped edit for pending/non-UUID message id=%s session=%s',
-        messageId,
-        sessionId,
-      );
       return;
     }
 
@@ -490,11 +456,6 @@ export const useChatStore = defineStore('chat', () => {
 
   async function deleteMessage(sessionId: string, messageId: string) {
     if (!canPersistMessageAction(messageId)) {
-      console.warn(
-        '[FIX:chat-temp-id] skipped delete for pending/non-UUID message id=%s session=%s',
-        messageId,
-        sessionId,
-      );
       return;
     }
 
@@ -504,7 +465,6 @@ export const useChatStore = defineStore('chat', () => {
     // Optimistic remove
     const prev = messages.value[idx];
     messages.value.splice(idx, 1);
-    console.debug('[chat.deleteMessage] optimistic remove idx=%d', idx);
 
     try {
       await api.deleteMessage(sessionId, messageId);
@@ -518,7 +478,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function renameSession(sessionId: string, title: string) {
-    console.debug('[chat.renameSession] session=%s title=%s', sessionId, title);
     try {
       await api.patch(`/sessions/${sessionId}`, { title });
       // Update in local sessions list
@@ -534,7 +493,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function togglePinSession(sessionId: string) {
-    console.debug('[chat.togglePinSession] session=%s', sessionId);
     const idx = sessions.value.findIndex((s) => s.id === sessionId);
     if (idx === -1) return;
 
@@ -551,7 +509,6 @@ export const useChatStore = defineStore('chat', () => {
 
   async function exportSession(sessionId: string, format: 'md' | 'json') {
     isExporting.value = true;
-    console.debug('[chat.exportSession] format=%s', format);
     try {
       const blob = await api.exportSession(sessionId, format);
       const url = URL.createObjectURL(blob);
@@ -561,7 +518,6 @@ export const useChatStore = defineStore('chat', () => {
       a.download = `session-${sessionId}.${extension}`;
       a.click();
       URL.revokeObjectURL(url);
-      console.debug('[chat.exportSession] format=%s bytes=%d', format, blob.size);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;
@@ -597,12 +553,6 @@ export const useChatStore = defineStore('chat', () => {
       return;
     }
 
-    console.debug(
-      '[chat.regenerateMessage] regenerating for assist=%s query_len=%d',
-      assistantMessageId,
-      userQuery.length,
-    );
-
     // Remove the existing assistant message
     messages.value.splice(idx, 1);
 
@@ -619,7 +569,6 @@ export const useChatStore = defineStore('chat', () => {
     }
     try {
       await navigator.clipboard.writeText(msg.content);
-      console.debug('[chat.copyMessage] copied id=%s len=%d', messageId, msg.content.length);
     } catch (err) {
       console.warn('[chat.copyMessage] clipboard failed id=%s', messageId, err);
     }

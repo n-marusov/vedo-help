@@ -53,7 +53,7 @@ describe('UserAvatar', () => {
     }
   });
 
-  it('logs role and size in development for debug verification', () => {
+  it('does not log debug info after removing console.debug calls', () => {
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
 
     mount(UserAvatar, {
@@ -63,11 +63,7 @@ describe('UserAvatar', () => {
       },
     });
 
-    expect(debugSpy).toHaveBeenCalledWith('[UserAvatar] mounted', {
-      role: 'assistant',
-      size: 'sm',
-    });
-
+    expect(debugSpy).not.toHaveBeenCalled();
     debugSpy.mockRestore();
   });
 });

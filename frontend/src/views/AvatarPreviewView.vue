@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import UserAvatar from '@/components/ui/UserAvatar.vue';
-
-console.debug('[FIX:avatar-e2e] rendering UserAvatar preview route');
 </script>
 
 <template>
@@ -21,7 +19,11 @@ console.debug('[FIX:avatar-e2e] rendering UserAvatar preview route');
         <span>User medium</span>
       </div>
       <div class="avatar-preview__item">
-        <UserAvatar role="assistant" size="lg" data-testid="avatar-assistant-lg" />
+        <UserAvatar
+          role="assistant"
+          size="lg"
+          data-testid="avatar-assistant-lg"
+        />
         <span>Assistant large</span>
       </div>
     </div>
