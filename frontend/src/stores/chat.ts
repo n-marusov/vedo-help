@@ -116,6 +116,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   let abortController: AbortController | null = null;
+  let loadSessionRequestId = 0;
 
   function parseNDJSON(
     reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -437,10 +438,20 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadSession(sessionId: string) {
     isSessionLoading.value = true;
+    const requestId = ++loadSessionRequestId;
     try {
       const result = await api.get<{ session: Session; messages: Message[] }>(
         `/sessions/${sessionId}`,
       );
+      // Ignore stale responses from earlier requests
+      if (requestId !== loadSessionRequestId) {
+        console.debug('[FIX:chat-session-switch] ignored stale loadSession response', {
+          sessionId,
+          requestId,
+          currentId: loadSessionRequestId,
+        });
+        return;
+      }
       messages.value = result.messages;
       activeSessionId.value = sessionId;
     } catch (err) {

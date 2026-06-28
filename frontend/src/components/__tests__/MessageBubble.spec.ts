@@ -322,6 +322,38 @@ describe('MessageBubble', () => {
   });
 
   // ==========================================================================
+  // Null sources guard (FIX:chat-session-switch)
+  // ==========================================================================
+
+  it('handles sources: "null" string gracefully', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({ sources: 'null' }),
+      },
+    });
+    // Should mount without error — the component exists
+    expect(wrapper.find('[data-testid="message-content"]').exists()).toBe(true);
+  });
+
+  it('handles empty sources JSON gracefully', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({ sources: '[]' }),
+      },
+    });
+    expect(wrapper.find('[data-testid="message-content"]').exists()).toBe(true);
+  });
+
+  it('handles undefined sources gracefully', () => {
+    const wrapper = mount(MessageBubble, {
+      props: {
+        message: createAssistantMessage({ sources: undefined }),
+      },
+    });
+    expect(wrapper.find('[data-testid="message-content"]').exists()).toBe(true);
+  });
+
+  // ==========================================================================
   // Timestamp layout
   // ==========================================================================
   it('does not render debug info button for user messages', async () => {

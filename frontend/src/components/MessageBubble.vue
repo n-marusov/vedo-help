@@ -29,8 +29,20 @@ const renderedContent = computed(() => {
 const parsedSources = computed<SourceRef[]>(() => {
   if (!props.message.sources) return [];
   try {
-    return JSON.parse(props.message.sources) as SourceRef[];
-  } catch {
+    const parsed = JSON.parse(props.message.sources) as unknown;
+    if (!Array.isArray(parsed)) {
+      console.debug('[FIX:chat-session-switch] ignored non-array message sources', {
+        messageId: props.message.id,
+        sourcesType: parsed === null ? 'null' : typeof parsed,
+      });
+      return [];
+    }
+    return parsed as SourceRef[];
+  } catch (err) {
+    console.warn('[FIX:chat-session-switch] failed to parse message sources', {
+      messageId: props.message.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 });
@@ -106,16 +118,20 @@ function handleRegenerate() {
 }
 
 onMounted(() => {
-  console.debug('[MessageBubble] mounted', {
-    role: props.message.role,
-    contentLength: props.message.content?.length || 0,
-    sourcesCount: parsedSources.value.length,
-  });
-
-  if (props.isStreaming) {
-    console.debug('[MessageBubble] streaming started', {
-      messageId: props.message.id,
+  try {
+    console.debug('[MessageBubble] mounted', {
+      role: props.message.role,
+      contentLength: props.message.content?.length || 0,
+      sourcesCount: parsedSources.value.length,
     });
+
+    if (props.isStreaming) {
+      console.debug('[MessageBubble] streaming started', {
+        messageId: props.message.id,
+      });
+    }
+  } catch (err) {
+    console.error('[MessageBubble] mounted error (caught)', err);
   }
 });
 

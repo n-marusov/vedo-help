@@ -399,4 +399,67 @@ describe('ChatWindow (ChatView)', () => {
     await nextTick();
     expect(collapseBtn.attributes('title')).toBe('Collapse sidebar');
   });
+
+  it('sidebar controls remain responsive after selecting a session with null sources', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const chatStore = useChatStore();
+
+    // Wait for onMounted fetch calls to complete
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextTick();
+
+    // Populate sessions
+    chatStore.sessions = [
+      {
+        id: 's1',
+        title: 'Test Session',
+        message_count: 2,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+    chatStore.isLoadingSessions = false;
+    await nextTick();
+
+    // Load session with null sources (simulating backend returning sources: "null")
+    chatStore.messages = [
+      {
+        id: 'm1',
+        session_id: 's1',
+        role: 'user',
+        content: 'Hello',
+        sources: 'null',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+      {
+        id: 'm2',
+        session_id: 's1',
+        role: 'assistant',
+        content: 'Hi!',
+        sources: 'null',
+        created_at: '2026-06-23T00:00:05Z',
+      },
+    ];
+    chatStore.activeSessionId = 's1';
+    await nextTick();
+
+    // Sidebar collapse button should still be visible and enabled
+    const collapseBtn = wrapper.find('[data-testid="sidebar-collapse-btn"]');
+    expect(collapseBtn.exists()).toBe(true);
+    await collapseBtn.trigger('click');
+    await nextTick();
+    const sidebar = wrapper.find('[data-testid="session-sidebar"]');
+    expect(sidebar.classes('session-sidebar--collapsed')).toBe(true);
+
+    // New session button should still be enabled
+    const newSessionBtn = wrapper.find('[data-testid="btn-new-chat"]');
+    expect(newSessionBtn.exists()).toBe(true);
+    expect(newSessionBtn.attributes('disabled')).toBeUndefined();
+
+    // Search toggle should still be visible
+    const searchToggle = wrapper.find('[data-testid="session-search-toggle"]');
+    expect(searchToggle.exists()).toBe(true);
+  });
 });
