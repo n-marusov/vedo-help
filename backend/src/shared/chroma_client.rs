@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use async_trait::async_trait;
 use opentelemetry::trace::TraceContextExt;
 use reqwest::Client;
 use serde_json::json;
@@ -558,5 +559,57 @@ impl ChromaClient {
         }
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl super::health::HealthProbe for ChromaClient {
+    fn name(&self) -> &'static str {
+        "Chroma"
+    }
+
+    async fn probe(&self) -> Result<(), AppError> {
+        self.health().await
+    }
+}
+
+impl ChromaClient {
+    /// Quick health check — pings the Chroma heartbeat endpoint.
+    ///
+    /// Single attempt (no retry), 5-second timeout.
+    /// Returns `Ok(())` on success, `AppError::ChromaError` on failure.
+    pub async fn health(&self) -> Result<(), AppError> {
+        tracing::debug!(component = "chroma_client", "health.probe_start");
+
+        let url = format!("{}/api/v1/heartbeat", self.base_url);
+
+        let health_client = Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|e| AppError::ChromaError(format!("Failed to build health client: {e}")))?;
+
+        let response = health_client
+            .get(&url)
+            .headers(inject_trace_headers())
+            .send()
+            .await
+            .map_err(|e| AppError::ChromaError(format!("Chroma heartbeat failed: {e}")))?;
+
+        if response.status().is_success() {
+            tracing::debug!(component = "chroma_client", "health.probe_ok");
+            Ok(())
+        } else {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            tracing::warn!(
+                component = "chroma_client",
+                status = %status,
+                body = %text,
+                "health.probe_error"
+            );
+            Err(AppError::ChromaError(format!(
+                "Chroma heartbeat returned HTTP {status}: {text}"
+            )))
+        }
     }
 }

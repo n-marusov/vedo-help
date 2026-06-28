@@ -30,6 +30,8 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP gRPC endpoint | `http://otel-collector:4317` |
 | `OTEL_SERVICE_NAME` | Service name for OTel resource attributes | `vedo-backend` |
 | `ENVIRONMENT` | Deployment environment (development, production) | `development` |
+| `CHROMA_CONNECT_RETRIES` | Chroma startup retry count (30 = ~30s wait, 0 = skip) | `30` |
+| `EMBEDDING_CONNECT_RETRIES` | Embedding service startup retry count (30 = ~30s wait, 0 = skip) | `30` |
 
 ### Embedding Service
 

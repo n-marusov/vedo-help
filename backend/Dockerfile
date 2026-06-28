@@ -53,8 +53,10 @@ RUN cargo install cargo-watch
 # Expose the default backend port
 EXPOSE 3000
 
-# Rebuild and restart on every source change
-CMD ["cargo", "watch", "-x", "run"]
+# Rebuild and restart on every source change.
+# The --ignore data/ flag prevents cargo-watch from restarting
+# when git-sync clones a repository into data/git-repos/.
+CMD ["cargo", "watch", "-x", "run", "--ignore", "data/"]
 
 # ====================================================================
 # Production stage – minimal runtime image

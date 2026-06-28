@@ -507,7 +507,7 @@ impl ConversationRepository {
         );
 
         let mut sql = String::from(
-            "SELECT id, title, pinned, collection_id, created_at, updated_at FROM sessions WHERE 1=1"
+            "SELECT id, title, pinned, collection_id, created_at, updated_at, user_id FROM sessions WHERE 1=1"
         );
 
         if search.is_some() {
@@ -531,6 +531,7 @@ impl ConversationRepository {
                 Option<uuid::Uuid>,
                 chrono::DateTime<chrono::Utc>,
                 chrono::DateTime<chrono::Utc>,
+                String,
             ),
         >(&sql);
 
@@ -559,6 +560,7 @@ impl ConversationRepository {
                 collection_id: row.3,
                 created_at: row.4,
                 updated_at: row.5,
+                user_id: row.6,
                 message_count: count,
             });
         }

@@ -32,8 +32,6 @@ exporters:
     verbosity: detailed
     sampling_initial: 5
     sampling_thereafter: 200
-  file:
-    path: /var/log/otel/logs.json
 
 service:
   pipelines:
@@ -46,7 +44,6 @@ service:
         - batch
       exporters:
         - debug
-        - file
     traces:
       receivers:
         - otlp

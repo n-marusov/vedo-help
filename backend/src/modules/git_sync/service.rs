@@ -321,6 +321,22 @@ impl GitSyncService {
 
         let local_path_clone = local_path.clone();
         let cloned_path = tokio::task::spawn_blocking(move || {
+            // Remove any leftover directory from a previous failed clone attempt.
+            // git2::RepoBuilder::clone() refuses to clone into a non-empty directory.
+            if local_path_clone.exists() {
+                tracing::debug!(
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    local_path = %local_path_clone.display(),
+                    "clone_repo.removing_leftover_dir"
+                );
+                std::fs::remove_dir_all(&local_path_clone).map_err(|e| {
+                    AppError::InternalError(format!(
+                        "Failed to remove leftover clone directory: {e}"
+                    ))
+                })?;
+            }
+
             let mut fetch_opts = git2::FetchOptions::new();
             fetch_opts.download_tags(git2::AutotagOption::All);
 

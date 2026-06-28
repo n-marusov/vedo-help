@@ -3,7 +3,7 @@ use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
 /// Unified error type for the application.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum AppError {
     #[error("Not found: {0}")]
     NotFound(String),
