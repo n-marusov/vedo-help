@@ -28,7 +28,7 @@
 
 ### Bind PostgreSQL UUID Columns as `uuid::Uuid`
 **Source**: 2026-06-21-16.15.md, 2026-06-21-16.48.md
-**Rule**: When implementing sqlx queries against PostgreSQL `uuid` columns, bind `uuid::Uuid` directly — never `String`. Parse strings with `Uuid::parse_str()` before binding. PostgreSQL has no implicit `text → uuid` cast in `=` / `IN` comparisons; stringifying a UUID causes `operator does not exist: uuid = text`.
+**Rule**: When implementing sqlx queries against PostgreSQL `uuid` columns, bind `uuid::Uuid` directly — never `String`. Parse strings with `Uuid::parse_str()` before binding. PostgreSQL has no implicit `text → uuid` cast in `=` / `IN` comparisons; stringifying a UUID causes `operator does not exist: uuid = text`. Where possible, prefer `sqlx::query!()` / `query_as!()` macros — their compile-time type checking catches `uuid = text` mismatches before runtime. For dynamic queries, use `Uuid::parse_str()` explicitly before binding.
 
 ### Validation Ordering: Global Checks Before Per-Item
 **Source**: 2026-06-21-14.55.md

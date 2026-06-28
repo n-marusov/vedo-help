@@ -32,7 +32,7 @@
 
 ### Extend DNS Rule to ALL Containers Making Outbound Calls
 **Source**: 2026-06-21-13.05.md (strengthens existing DNS rule)
-**Rule**: Apply `dns: [8.8.8.8, 1.1.1.1]` to EVERY container that makes outbound network calls at startup — not just backend and embedding services. This includes init containers (keycloak-init), downloaders, and any service doing package installation or model downloads at startup.
+**Rule**: Apply `dns: [8.8.8.8, 1.1.1.1]` to EVERY container that makes outbound network calls at startup — not just backend and embedding services, but also init containers (keycloak-init), downloaders, and any service doing package installation or model downloads at startup.
 
 ### Profile-Specific Compose Config Validation
 **Source**: 2026-06-21-13.05.md

@@ -32,7 +32,7 @@
 
 ### LLM-Dependent Test Timeouts and Propagation Waits
 **Source**: 2026-06-21-14.55.md
-**Rule**: For QA scenarios involving LLM responses (OpenRouter), recommend wait timeouts of 20-30s. Include Chroma propagation waits (minimum 2s) after data mutations before querying the vector DB.
+**Rule**: For QA scenarios involving LLM responses (when using OpenRouter or other remote/slow LLM providers), recommend wait timeouts of 20-30s. Include Chroma propagation waits (minimum 2s) after data mutations before querying the vector DB. For local models or fast providers, shorter timeouts may suffice — adjust based on expected latency.
 
 ### Optimistic UI Regression Test Coverage
 **Source**: 2026-06-21-14.41.md

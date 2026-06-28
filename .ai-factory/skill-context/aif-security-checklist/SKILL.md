@@ -48,3 +48,5 @@
 ### Alpine/apk Dependency in Docker Init
 **Source**: 2026-06-24-18.30.md
 **Rule**: Security audits of Docker init containers using Alpine must flag runtime `apk add` calls for critical startup logic. Alpine base images reaching EOL will lose package repository access. Evaluate baking dependencies into the image or replacing with built-in tools (e.g., `sed` over `envsubst`).
+
+*Смотри также правила `/aif-dockerize` («Avoid Runtime apk add in Init Containers») для конкретного механизма замены.*

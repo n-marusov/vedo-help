@@ -56,7 +56,7 @@
 
 ### PostgreSQL UUID ≠ TEXT Binding
 **Source**: 2026-06-21-16.15.md, 2026-06-21-16.48.md
-**Rule**: Any time a `String` parameter is bound to a PostgreSQL `uuid` column, parse to `uuid::Uuid` first with `Uuid::parse_str()`. PostgreSQL has no implicit `text → uuid` cast in `=` / `IN` comparisons. Existing rules cover SQLite TEXT UUID decoding (where columns are TEXT); PostgreSQL uuid columns require the opposite direction.
+**Rule**: Any time a `String` parameter is bound to a PostgreSQL `uuid` column, parse to `uuid::Uuid` first with `Uuid::parse_str()`. PostgreSQL has no implicit `text → uuid` cast in `=` / `IN` comparisons. Existing rules cover SQLite TEXT UUID decoding (where columns are TEXT); PostgreSQL uuid columns require the opposite direction. Where possible, prefer `sqlx::query!()` / `query_as!()` macros — their compile-time type checking catches `uuid = text` mismatches before runtime. For dynamic queries, use `Uuid::parse_str()` explicitly before binding.
 
 ### tokio::sync::Mutex blocking_lock from Async Context
 **Source**: 2026-06-23-09.40.md

@@ -48,11 +48,11 @@
 
 ### Review FastAPI Lifespan vs on_event
 **Source**: 2026-06-21-12.00.md
-**Rule**: For FastAPI changes, flag `@app.on_event("startup")` / `("shutdown")` usage. Require `lifespan` async context manager passed to `FastAPI(lifespan=...)` and `httpx.AsyncClient` with `ASGITransport(app=app)` for tests.
+**Rule**: For FastAPI changes, flag `@app.on_event("startup")` / `("shutdown")` usage. Require `lifespan` async context manager passed to `FastAPI(lifespan=...)` and `httpx.AsyncClient` with `ASGITransport(app=app)` for tests. *(Применимо только если diff затрагивает `embedding/src/`.)*
 
 ### Review Alpine/apk Dependencies in Docker Init
 **Source**: 2026-06-24-18.30.md
-**Rule**: For Docker init containers using Alpine, flag `apk add` commands for runtime package installation at startup. Evaluate whether dependencies could be baked into the image or replaced with built-in alternatives (e.g., `sed` over `envsubst`).
+**Rule**: For Docker init containers using Alpine, flag `apk add` commands for runtime package installation at startup. Evaluate whether dependencies could be baked into the image or replaced with built-in alternatives (e.g., `sed` over `envsubst`). *(Применимо только если diff затрагивает Dockerfile, docker-compose или init-контейнеры.)*
 
 ### Review Vue Reactivity: Shared State Must Be `ref()`
 **Source**: 2026-06-26-16.48.md
