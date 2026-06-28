@@ -49,7 +49,7 @@ thiserror = "1"
 # OpenTelemetry
 tracing-opentelemetry = "0.28"
 opentelemetry = "0.27"
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace"] }
+opentelemetry_sdk = { version = "0.32", features = ["rt-tokio", "trace"] }
 opentelemetry-otlp = { version = "0.27", features = ["trace", "grpc-tonic"] }
 opentelemetry-http = "0.27"
 
