@@ -252,6 +252,55 @@ async fn test_report_serialization_to_json() {
 }
 
 #[tokio::test]
+async fn test_report_serialization_lowercase_json_values() {
+    // Arrange
+    let mut svc = HealthService::new();
+    svc.register(OkProbe { name: "Embedding" })
+        .register(ErrProbe {
+            name: "LLM",
+            error: AppError::InternalError("connection refused".to_string()),
+        });
+
+    // Act
+    let report = svc.check_all().await;
+    let json = serde_json::to_value(&report).expect("Serialization should succeed");
+
+    // Assert — status field must be lowercase for frontend compatibility
+    let status = json["status"].as_str().unwrap();
+    assert!(
+        ["healthy", "degraded", "unhealthy"].contains(&status),
+        "HealthReport.status must be lowercase, got: {status}"
+    );
+    assert_eq!(
+        status, "degraded",
+        "Expected degraded because LLM probe failed"
+    );
+
+    // Assert — each check status must be lowercase
+    let checks = json["checks"].as_array().unwrap();
+    for check in checks {
+        let check_status = check["status"].as_str().unwrap();
+        assert!(
+            ["healthy", "unhealthy"].contains(&check_status),
+            "ServiceCheck.status must be lowercase, got: {check_status}"
+        );
+        // Also check that all letters are indeed lowercase
+        assert_eq!(
+            check_status,
+            check_status.to_lowercase(),
+            "ServiceCheck.status contains uppercase letters: {check_status}"
+        );
+    }
+
+    // Also verify overall status is lowercase
+    assert_eq!(
+        status,
+        status.to_lowercase(),
+        "HealthReport.status contains uppercase letters: {status}"
+    );
+}
+
+#[tokio::test]
 async fn test_concurrent_probe_execution() {
     // Arrange — two probes that each take 100ms.
     // If run concurrently, total < 200ms; if sequential ≥ 200ms.

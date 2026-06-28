@@ -30,6 +30,7 @@ pub trait HealthProbe: Send + Sync {
 ///
 /// Ordering: `Healthy < Degraded < Unhealthy`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum HealthStatus {
     /// All probes passed — the service is fully operational.
     Healthy,
@@ -51,6 +52,7 @@ impl fmt::Display for HealthStatus {
 
 /// Status of a single service check.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum CheckStatus {
     /// The dependency responded successfully.
     Healthy,
