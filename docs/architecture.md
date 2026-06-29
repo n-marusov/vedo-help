@@ -213,15 +213,34 @@ sequenceDiagram
 
     U->>F: Asks a question
     F->>B: POST /api/query
-    B->>E: POST /embed (question text)
-    E-->>B: Question embedding vector
-    B->>C: Query similar chunks
-    C-->>B: Top-k chunks with scores
-    B->>L: POST chat/completions<br/>(context + question + history)
+    alt Simple pipeline
+        B->>E: POST /embed (question text)
+        E-->>B: Question embedding vector
+        B->>C: Query similar chunks
+        C-->>B: Top-k chunks with scores
+    else Advanced pipeline (debug=true, admin)
+        B->>B: Step 1: Multi-query expansion
+        B->>L: Generate query variants
+        L-->>B: 3 variants
+        B->>B: Step 2: HyDE generation
+        B->>L: Generate hypothetical docs
+        L-->>B: Hypothetical documents
+        B->>E: Embed queries + HyDE docs
+        E-->>B: Embedding vectors
+        B->>C: Query Chroma
+        C-->>B: Vector search results
+        B->>B: Step 4: BM25 keyword search
+        B->>B: Step 5: Merge & dedup<br/>(vector + keyword results)
+        B->>L: Step 6: LLM reranking
+        L-->>B: Reranked chunks (score, verdict, comment)
+    end
+    B->>L: Step 7: Final LLM answer<br/>(context + question + history)
     L-->>B: Streaming response
-    B-->>F: SSE stream
+    B-->>F: SSE stream (chunks + pipeline events)
     F-->>U: Rendered answer with citations
 ```
+
+### Simple Pipeline
 
 1. User asks a question in the chat UI
 2. Backend embeds the question via the embedding service
@@ -229,6 +248,56 @@ sequenceDiagram
 4. Backend builds a prompt with context + conversation history
 5. Backend streams the LLM response to the frontend via SSE
 6. Frontend renders the answer inline with source citations
+
+### Advanced RAG Pipeline (v0.4.2)
+
+When `ADVANCED_RAG_ENABLED=true` (default) and `"debug": true` is sent with a query by an admin user, the backend runs a 7-step pipeline before generating the final answer:
+
+| Step | Name | Description |
+|------|------|-------------|
+| 1 | **Multi-query expansion** | Generates query variants via LLM to capture different phrasings of the question |
+| 2 | **HyDE** (Hypothetical Document Embeddings) | Generates a hypothetical ideal document for each query variant via LLM |
+| 3 | **Embedding search** | Embeds all queries + HyDE docs and searches Chroma for relevant chunks |
+| 4 | **BM25 keyword search** | Runs keyword-based search (BM25) on query tokens for lexical matching |
+| 5 | **Merge & dedup** | Merges vector and keyword results, removes duplicates, reports source breakdown |
+| 6 | **LLM reranking** | Reranks merged chunks using an LLM judge (score 1-10, verdict "брать"/"не брать", explanation) |
+| 7 | **Final answer** | Constructs context from accepted chunks and streams the LLM answer with citations |
+
+**Data flow:**
+
+```
+User Query
+    │
+    ├──→ [1] Multi-query ──→ 3 variants
+    │                           │
+    ├──→ [2] HyDE ──────────→ 3 hypothetical docs
+    │                           │
+    ├──→ [3] Embedding ──────→ Vector search (Chroma)
+    │                           │
+    ├──→ [4] BM25 ───────────→ Keyword search (local)
+    │                           │
+    ├──→ [5] Merge & dedup ───→ Combine results
+    │                           │
+    ├──→ [6] Reranking ───────→ LLM judge (accept/reject)
+    │                           │
+    └──→ [7] Final LLM ───────→ Streamed answer + sources
+```
+
+Pipeline stage events are emitted via SSE (`type: "pipeline_stage"`) during processing and collected by the frontend's `ragDebug` Pinia store for real-time visualization in the admin panel's **RAG Pipeline Debug** tab. The full `DebugData` object is persisted in `messages.debug_data` for historical review.
+
+Steps 1-2 (multi-query, HyDE) and steps 4-6 (keyword, merge, rerank) are only active when `ADVANCED_RAG_ENABLED=true` and `debug=true`. When `debug=false` or `ADVANCED_RAG_ENABLED=false`, the pipeline falls back to the simple Chroma search path (embed → search → LLM).
+
+### Configuration
+
+The advanced RAG pipeline is configured via environment variables (see [Configuration](configuration.md) for full details):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADVANCED_RAG_ENABLED` | `true` | Master switch for the advanced pipeline |
+| `MULTI_QUERY_COUNT` | `3` | Number of query variants to generate |
+| `HYBRID_TOP_K` | `3` | Top-K results from BM25 keyword search |
+| `RERANK_TOP_K` | `5` | Top-K chunks after LLM reranking |
+| `LLM_RERANK_MODEL` | _(same as LLM_MODEL)_ | Separate model for the reranking judge
 
 ## See Also
 

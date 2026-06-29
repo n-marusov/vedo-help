@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
-  DebugData,
+  EmbeddingSearchStep,
+  FinalAnswerStep,
   HydeData,
   KeywordSearchData,
   MergeDedupData,
@@ -422,13 +423,14 @@ onMounted(() => {
                     <div class="debug-meta-row">
                       <span class="debug-meta-label">Top K</span>
                       <span class="debug-meta-value">{{
-                        getStepData(step.key).top_k
+                        (getStepData(step.key) as EmbeddingSearchStep).top_k
                       }}</span>
                     </div>
                     <div class="debug-meta-row">
                       <span class="debug-meta-label">Results</span>
                       <span class="debug-meta-value">{{
-                        getStepData(step.key).result_count
+                        (getStepData(step.key) as EmbeddingSearchStep)
+                          .result_count
                       }}</span>
                     </div>
                   </div>
@@ -511,13 +513,15 @@ onMounted(() => {
                     <div class="debug-meta-row">
                       <span class="debug-meta-label">Model</span>
                       <span class="debug-meta-value">{{
-                        getStepData(step.key).model
+                        (getStepData(step.key) as FinalAnswerStep).model
                       }}</span>
                     </div>
                     <div class="debug-meta-row">
                       <span class="debug-meta-label">Latency</span>
                       <span class="debug-meta-value"
-                        >{{ getStepData(step.key).latency_ms }}ms</span
+                        >{{
+                          (getStepData(step.key) as FinalAnswerStep).latency_ms
+                        }}ms</span
                       >
                     </div>
                   </div>

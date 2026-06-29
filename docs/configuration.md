@@ -32,6 +32,11 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `ENVIRONMENT` | Deployment environment (development, production) | `development` |
 | `CHROMA_CONNECT_RETRIES` | Chroma startup retry count (30 = ~30s wait, 0 = skip) | `30` |
 | `EMBEDDING_CONNECT_RETRIES` | Embedding service startup retry count (30 = ~30s wait, 0 = skip) | `30` |
+| `ADVANCED_RAG_ENABLED` | Enable advanced RAG pipeline (multi-query, HyDE, hybrid search, reranking) | `true` |
+| `RERANK_TOP_K` | Top-K chunks to keep after LLM reranking | `5` |
+| `HYBRID_TOP_K` | Top-K results from BM25 keyword search for hybrid merge | `3` |
+| `MULTI_QUERY_COUNT` | Number of query variants to generate in multi-query expansion | `3` |
+| `LLM_RERANK_MODEL` | Separate model for LLM reranking (can be cheaper/faster than main model) | _(same as `LLM_MODEL`)_ |
 
 ### Embedding Service
 

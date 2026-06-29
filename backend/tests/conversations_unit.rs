@@ -65,6 +65,7 @@ async fn seed_message(db: &PgPool, session_id: Uuid, role: &str, content: &str) 
         edited_at: None,
         original_content: None,
         deleted_at: None,
+        debug_data: None,
     };
     repo.add_message(&msg).await.expect("seed message");
     msg

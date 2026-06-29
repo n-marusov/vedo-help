@@ -853,6 +853,7 @@ async fn test_conversation_repo_native_uuid_bind() {
         edited_at: None,
         original_content: None,
         deleted_at: None,
+        debug_data: None,
     };
 
     repo.add_message(&msg)

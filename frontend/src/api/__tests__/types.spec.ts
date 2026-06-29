@@ -129,7 +129,7 @@ describe('PipelineStageEvent shape', () => {
     expect(event.data).not.toBeNull();
 
     // When data holds a MultiQueryData, its shape should be correct
-    const mq = event.data as MultiQueryData;
+    const mq = event.data as unknown as MultiQueryData;
     expect(mq.original_query).toBe('test');
     expect(Array.isArray(mq.variants)).toBe(true);
     expect(mq.variants).toHaveLength(2);
@@ -152,10 +152,10 @@ describe('PipelineStageEvent shape', () => {
     };
 
     expect(event.stage).toBe('hyde_docs');
-    expect(Array.isArray((event.data as HydeData).per_query)).toBe(true);
-    expect((event.data as HydeData).per_query).toHaveLength(1);
-    expect((event.data as HydeData).per_query[0].query).toContain('rate limiting');
-    expect(typeof (event.data as HydeData).per_query[0].latency_ms).toBe('number');
+    expect(Array.isArray((event.data as unknown as HydeData).per_query)).toBe(true);
+    expect((event.data as unknown as HydeData).per_query).toHaveLength(1);
+    expect((event.data as unknown as HydeData).per_query[0].query).toContain('rate limiting');
+    expect(typeof (event.data as unknown as HydeData).per_query[0].latency_ms).toBe('number');
   });
 
   it('handles keyword_matches stage shape', () => {
@@ -179,7 +179,7 @@ describe('PipelineStageEvent shape', () => {
     };
 
     expect(event.stage).toBe('keyword_matches');
-    const kw = event.data as KeywordSearchData;
+    const kw = event.data as unknown as KeywordSearchData;
     expect(kw.query_tokens).toEqual(['rate', 'limiting']);
     expect(kw.total_matches).toBe(5);
     expect(kw.results).toHaveLength(1);
@@ -201,7 +201,7 @@ describe('PipelineStageEvent shape', () => {
     };
 
     expect(event.stage).toBe('merged_chunks');
-    const md = event.data as MergeDedupData;
+    const md = event.data as unknown as MergeDedupData;
     expect(md.input_chunks).toBe(12);
     expect(md.after_dedup).toBe(8);
     expect(md.source_breakdown.vector_chunks).toBe(5);
@@ -228,7 +228,7 @@ describe('PipelineStageEvent shape', () => {
     };
 
     expect(event.stage).toBe('reranked_chunks');
-    const rr = event.data as RerankingData;
+    const rr = event.data as unknown as RerankingData;
     expect(rr.input_count).toBe(8);
     expect(rr.accepted).toBe(5);
     expect(rr.rejected).toBe(3);

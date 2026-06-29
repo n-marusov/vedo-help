@@ -255,7 +255,7 @@ export const useChatStore = defineStore('chat', () => {
             // The event data is itself the PipelineStageEvent
             // (type field discriminates, stage field has the stage name)
             if (value.data) {
-              ragDebugStore.addStage(value.data as PipelineStageEvent);
+              ragDebugStore.addStage(value.data as unknown as PipelineStageEvent);
             }
             break;
           }

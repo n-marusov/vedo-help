@@ -287,7 +287,8 @@ Ask a question. The response streams via SSE.
 {
   "query": "How do I configure the rate limiter?",
   "collection_id": "550e8400-e29b-41d4-a716-446655440000",
-  "session_id": "660e8400-e29b-41d4-a716-446655440000"
+  "session_id": "660e8400-e29b-41d4-a716-446655440000",
+  "debug": true
 }
 ```
 
@@ -296,15 +297,149 @@ Ask a question. The response streams via SSE.
 | `query` | string | Yes | User's question |
 | `collection_id` | string | Yes | Collection to search |
 | `session_id` | string | No | Existing session for conversation history |
+| `debug` | bool | No | Enable debug data collection (admin users, default: `false`) |
 
-**Response:** SSE stream of text chunks, followed by a final event with citations.
+**Response:** SSE stream of text chunks, followed by pipeline stage events (when `debug: true` for admin users), a final sources event, and a done event.
 
+### SSE Events
+
+All events are newline-delimited JSON (`data: <json>\n\n`).
+
+#### `chunk` event
+
+Streamed text fragment from the LLM response.
+
+```json
+{"type": "chunk", "text": "The rate limiter is configured via "}
 ```
-data: {"type": "chunk", "content": "The rate limiter "}
-data: {"type": "chunk", "content": "is configured via "}
-data: {"type": "done", "sources": [
-  {"document": "config-guide.md", "chunk": 2, "score": 0.92}
-]}
+
+#### `sources` event
+
+Final source citations with optional pipeline metadata.
+
+```json
+{
+  "type": "sources",
+  "sources": [
+    {
+      "document_id": "550e8400-e29b-41d4-a716-446655440000",
+      "document_name": "config-guide.md",
+      "chunk_index": 2,
+      "text": "To configure the rate limiter...",
+      "relevance": 0.92,
+      "stage": "reranked",
+      "rerank_score": 8,
+      "rerank_verdict": "брать",
+      "rerank_comment": "Directly answers the question about configuration",
+      "keyword_matches": ["configure", "limiter", "rate"]
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `document_id` | string | UUID of the source document |
+| `document_name` | string | Display name of the source document |
+| `chunk_index` | number | Chunk position within the document |
+| `text` | string | Source chunk text |
+| `relevance` | number | Relevance score (higher = more relevant) |
+| `stage` | string | _Optional._ Pipeline stage that produced this source: `"embedding"`, `"keyword"`, or `"reranked"` |
+| `rerank_score` | number | _Optional._ LLM relevance score (1-10) if reranked |
+| `rerank_verdict` | string | _Optional._ Rerank acceptance verdict: `"брать"` (accept) or `"не брать"` (reject) |
+| `rerank_comment` | string | _Optional._ LLM explanation for the rerank verdict |
+| `keyword_matches` | string[] | _Optional._ Matched BM25 keywords for keyword-stage sources |
+
+#### `pipeline_stage` event
+
+Emitted during the advanced RAG pipeline when `debug: true` is set and the user is an admin. Each event corresponds to one step of the 7-stage pipeline. Stage subtypes:
+
+| Stage | Description | Data payload |
+|-------|-------------|-------------|
+| `expanded_questions` | Multi-query expansion | `{"variants": [...], "count": 3}` |
+| `hyde_docs` | Hypothetical document generation | `{"per_query": [{"query": "...", "hypothetical_doc": "...", "latency_ms": 200}]}` |
+| `keyword_matches` | BM25 keyword search | `{"query_tokens": [...], "total_matches": 10, "results": [...]}` |
+| `merged_chunks` | Merge & dedup of vector + keyword results | `{"input_chunks": 10, "after_dedup": 7, "source_breakdown": {"vector_chunks": 5, "keyword_chunks": 2}}` |
+| `reranked_chunks` | LLM reranking | `{"input_count": 7, "accepted": 3, "rejected": 4, "results": [...]}` |
+| `pipeline_metric` | Aggregated timing summary | `{"total_ms": 2500, "multi_query_ms": 300, ...}` |
+
+```json
+{
+  "type": "pipeline_stage",
+  "data": {
+    "stage": "expanded_questions",
+    "data": {
+      "variants": [
+        "How do I configure the rate limiter?",
+        "What are the steps to set up rate limiting?",
+        "Rate limiter configuration guide"
+      ],
+      "count": 3
+    },
+    "latency_ms": 150
+  }
+}
+```
+
+Pipeline stage events are interleaved with the `chunk` stream: they appear in order as the pipeline progresses, before the final `sources` and `done` events.
+
+#### `debug` event
+
+Full `DebugData` object containing all 7 pipeline steps with detailed timing and results. Emitted after the final `sources` event when `debug: true`. Used by the admin panel to render the 7-step pipeline visualization.
+
+```json
+{
+  "type": "debug",
+  "data": {
+    "query_text": "How do I configure the rate limiter?",
+    "multi_query": {
+      "original_query": "How do I configure the rate limiter?",
+      "variants": ["..."],
+      "latency_ms": 150
+    },
+    "hyde": { "per_query": [...] },
+    "embedding_search": {
+      "query_snippet": "How do I configure...",
+      "embedding_dimension": 384,
+      "latency_ms": 45,
+      "collection_name": "550e8400-...",
+      "top_k": 5,
+      "result_count": 5,
+      "retries": 0,
+      "results": [...]
+    },
+    "keyword_search": { ... },
+    "merge_dedup": { ... },
+    "reranking": { ... },
+    "final_answer": {
+      "model": "anthropic/claude-sonnet-4.6",
+      "max_retries": 3,
+      "chunks_in_context": 5,
+      "latency_ms": 1200,
+      "prompt_preview": "Answer the question based on the context..."
+    }
+  }
+}
+```
+
+#### `error` event
+
+An error occurred during processing.
+
+```json
+{"type": "error", "text": "Embedding service unavailable"}
+```
+
+#### `done` event
+
+Marks the end of the stream. Includes message IDs for temp-ID reconciliation (when a session was provided).
+
+```json
+{
+  "type": "done",
+  "user_message_id": "550e8400-e29b-41d4-a716-446655440000",
+  "assistant_message_id": "660e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 ### Conversations
@@ -374,18 +509,6 @@ Edit a message. Only **user** messages can be edited — editing assistant messa
 Soft-delete a message. The message is hidden from history and export but preserved in the database.
 
 **Response:** `204 No Content`
-
-### SSE Query `done` Event
-
-The `done` SSE event now includes message IDs for temp-ID reconciliation:
-
-```json
-{
-  "type": "done",
-  "user_message_id": "550e8400-e29b-41d4-a716-446655440000",
-  "assistant_message_id": "660e8400-e29b-41d4-a716-446655440000"
-}
-```
 
 ### Auth
 

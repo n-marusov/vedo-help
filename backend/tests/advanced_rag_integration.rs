@@ -137,7 +137,7 @@ async fn test_advanced_rag_pipeline_with_debug() {
     // 7. Collect events
     let mut events: Vec<StreamEvent> = Vec::new();
     while let Some(event) = stream.next().await {
-        events.push(event);
+        events.push(event.unwrap());
     }
 
     // 8. Verify pipeline stages

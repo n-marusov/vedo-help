@@ -117,16 +117,16 @@
 
 ---
 
-## Milestone: v0.4.2 — Advanced RAG Pipeline (Multi-Query, HyDE, Hybrid Search, Reranking) 🔄
+## Milestone: v0.4.2 — Advanced RAG Pipeline (Multi-Query, HyDE, Hybrid Search, Reranking) ✅
 
-Полный 7-шаговый RAG-пайплайн с визуализацией всех шагов в админ-панели (по методичке День 2).
+Полный 7-шаговый RAG-пайплайн с визуализацией всех шагов в админ-панели.
 
 **Состав:** 4 логические группы (объединено из 14 атомарных задач)
 
-- [ ] **Query Enhancement (Multi-Query + HyDE)** — LLM helper для не-streaming вызовов (`LlmClient::query_single`); LLM генерирует 2-3 альтернативные формулировки вопроса; HyDE: LLM пишет гипотетический ответ для каждого вопроса; эмбеддинг делается по HyDE-документу, а не по вопросу
-- [ ] **Search Infrastructure (BM25 + Hybrid Orchestrator)** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, BM25-ранжирование; `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`; объединение результатов Chroma + BM25/keywords + дедупликация по chunk_id
-- [ ] **LLM Reranking & Pipeline Events** — LLM оценивает каждый уникальный чанк (score 1-10, вердикт, комментарий); новые SSE-типы `pipeline_stage` событий; расширение `SourceRef` с `stage`, `rerank_score`, `rerank_verdict`, `rerank_comment`, `keyword_matches`; ужесточение anti-hallucination промпта
-- [x] **Frontend: Pipeline Visualization** — новые `StreamEvent` типы; Pinia store `ragDebug.ts` для pipeline stage данных; Debug panel v2 в `MessageBubble.vue` (7 коллапсируемых секций); новая вкладка "RAG Pipeline Debug" в `AdminView.vue`
+- [x] **Query Enhancement (Multi-Query + HyDE)** — LLM helper для не-streaming вызовов (`LlmClient::query_single`); LLM генерирует 2-3 альтернативные формулировки вопроса; HyDE: LLM пишет гипотетический ответ для каждого вопроса
+- [x] **Search Infrastructure (BM25 + Hybrid Orchestrator)** — `shared/bm25.rs`: инвертированный индекс, BM25-ранжирование; конфигурация в `config.rs`; объединение Chroma + BM25 + дедупликация
+- [x] **LLM Reranking & Pipeline Events** — LLM оценивает каждый уникальный чанк (score 1-10, вердикт, комментарий); новые SSE-типы `pipeline_stage`; расширение `SourceRef`; anti-hallucination промпт
+- [x] **Frontend: Pipeline Visualization** — Pinia store `ragDebug.ts`; Debug panel v2; вкладка "RAG Pipeline Debug" в админ-панели
 
 ---
 
@@ -187,9 +187,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
-<<<<<<< HEAD
 | v0.4 — Observability & Reliability | ⏳ 2/6 | Debug view ✅; deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination ❌ |
-| v0.4.2 — Advanced RAG Pipeline | 🔄 0/4 | Query Enhancement, Search Infrastructure, Reranking & Events, Frontend Pipeline Visualization |
+| v0.4.2 — Advanced RAG Pipeline | ✅ **4/4** | Query Enhancement, Search Infrastructure, Reranking & Events, Frontend Pipeline Visualization |
 | v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
@@ -203,7 +202,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
 **v0.6 — Multi-user & Security complete (all 7 phases):** 2026-06-25
 **Debug view (v0.4):** 2026-06-26
-**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
+**v0.4.2 — Advanced RAG Pipeline complete (all 38 tasks, 7 phases):** 2026-06-29
+**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation)
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:
   1. `/aif-plan fix "pre-existing test errors from v0.3.1 chat rework and OTel milestone"`

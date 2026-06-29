@@ -278,20 +278,91 @@ The admin panel has a **Session Debug** tab (next to "Collections & Sources") th
 - **Message list** — read-only view of all messages in the session
 - **Debug toggle** — each assistant message has a "▶ Debug — Generation Pipeline" button that reveals the 7-step RAG pipeline debug view
 
-**7-step pipeline display:**
-| # | Step | Status |
-|---|------|--------|
-| 1 | Multi-query | ⏳ v0.5 |
-| 2 | HyDE | ⏳ v0.5 |
-| 3 | Embedding search | ✅ Active — shows results, dimension, latency |
-| 4 | Hybrid keyword search | ⏳ v0.5 |
-| 5 | Merge & dedup | ⏳ v0.5 |
-| 6 | Reranking | ⏳ v0.5 |
-| 7 | Final answer | ✅ Active — shows model, latency, tokens, prompt preview |
+**7-step pipeline display (v0.4.2):**
 
-Debug data is collected when `debug: true` is sent with a query (admin users) and persisted in the `messages.debug_data` column.
+All 7 steps are now fully active in v0.4.2:
 
-The debug button and panel were removed from the Chat view — debug data is now only accessible from the admin panel.
+| # | Step | Data shown |
+|---|------|-----------|
+| 1 | Multi-query | Original query, generated variants, latency |
+| 2 | HyDE | Per-variant hypothetical documents with latency |
+| 3 | Embedding search | Query snippet, collection name, top-k results with scores |
+| 4 | Hybrid keyword search | Query tokens, total matches, BM25 results with scores |
+| 5 | Merge & dedup | Input chunks, after-dedup count, vector/keyword source breakdown |
+| 6 | Reranking | Input count, accepted/rejected counts, LLM scores and verdicts |
+| 7 | Final answer | Model name, retries, chunks in context, latency, prompt preview |
+
+### RAG Pipeline Debug (Admin Tab)
+
+The admin panel now has a dedicated **RAG Pipeline Debug** tab (third tab, next to "Session Debug") that provides a real-time view of the 7-step pipeline across all sessions.
+
+**Layout:**
+
+```
+┌───────────────────┬────────────────────────────────────┐
+│  🔍 Search...     │  Pipeline Visualization            │
+│  From: [  ] To: [ ]│  Session: Technical Docs Q&A        │
+│                    │  Latency: 2.5s total               │
+│  Technical Docs QA ├────────────────────────────────────┤
+│    Jun 24 · 12 msgs│  ┌─ Step 1: Multi-query ─────────┐ │
+│  Deployment Guide  │  │ ✓ 3 variants generated       │ │
+│    Jun 23 · 8 msgs │  │   Latency: 150ms              │ │
+│  API Reference Chat│  └────────────────────────────────┘ │
+│    Jun 22 · 3 msgs │  ┌─ Step 2: HyDE ───────────────┐ │
+│                    │  │ ✓ 3 hypothetical docs        │ │
+│                    │  │   Latency: 600ms              │ │
+│                    │  └────────────────────────────────┘ │
+│                    │  ┌─ Step 3: Embedding Search ───┐ │
+│                    │  │ ✓ 5 results (top-k: 5)       │ │
+│                    │  │   Dimension: 384 · 45ms      │ │
+│                    │  └────────────────────────────────┘ │
+│                    │  ┌─ Step 4: Keyword Search ─────┐ │
+│                    │  │ ✓ 3 tokens · 10 total matches│ │
+│                    │  │   Latency: 25ms               │ │
+│                    │  └────────────────────────────────┘ │
+│                    │  ┌─ Step 5: Merge & Dedup ──────┐ │
+│                    │  │ ✓ Input: 10 · After: 7       │ │
+│                    │  │   Vector: 5 · Keyword: 2     │ │
+│                    │  └────────────────────────────────┘ │
+│                    │  ┌─ Step 6: Reranking ──────────┐ │
+│                    │  │ ✓ Accepted: 3 / 7            │ │
+│                    │  │   Latency: 800ms              │ │
+│                    │  └────────────────────────────────┘ │
+│                    │  ┌─ Step 7: Final Answer ───────┐ │
+│                    │  │ ✓ Model: claude-sonnet-4.6   │ │
+│                    │  │   Latency: 1.2s              │ │
+│                    │  └────────────────────────────────┘ │
+└───────────────────┴────────────────────────────────────┘
+```
+
+**Features:**
+- **Session search bar** — find sessions by title
+- **Date range filter** — filter by creation date
+- **Session selection** — click a session to view its pipeline visualization
+- **Per-step collapsible cards** — each pipeline step shows relevant metadata:
+  - Step number and stage name
+  - Checkmark indicator showing the step completed
+  - Timing information (latency_ms)
+  - Step-specific data (query variants, search results, scores, verdicts)
+- **Latency summary** — total pipeline time displayed at the top
+
+**How debug data is collected:**
+1. Send `POST /api/query` with `"debug": true` (admin users only)
+2. The backend emits `pipeline_stage` SSE events for each step in real-time
+3. After the stream completes, the full `DebugData` is persisted in `messages.debug_data`
+4. The RAG Pipeline Debug tab reads persisted data via `GET /api/sessions/{id}`
+
+The frontend uses a `ragDebug` Pinia store to collect pipeline stage events during an active streaming session. The debug button and panel are only accessible from the admin panel — they were removed from the Chat view.
+
+**Screenshot instructions:**
+
+To capture screenshots for documentation:
+1. Log in as an admin user
+2. Navigate to **Admin → RAG Pipeline Debug**
+3. Select a session with debug data
+4. Each step card is collapsible — expand the ones you want to show
+5. Capture the full pipeline view (all 7 steps)
+6. Optionally capture individual expanded steps for detailed views
 
 ---
 
