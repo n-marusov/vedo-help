@@ -156,6 +156,7 @@ impl ChromaClient {
     }
 
     #[cfg(test)]
+    #[allow(dead_code)]
     fn is_missing_collection_error(error: &AppError) -> bool {
         match error {
             AppError::ChromaError(message) => {
