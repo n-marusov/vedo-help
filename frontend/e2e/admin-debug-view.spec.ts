@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Admin Debug View', () => {
-  test('TC-ADEBUG-001: Admin panel shows tabs', async ({ page }) => {
+  test('TC-ADEBUG-001: Admin panel shows 3 tabs', async ({ page }) => {
     await page.goto('/admin');
     await expect(page.locator('[data-testid="admin-tabs"]')).toBeVisible();
     await expect(page.locator('[data-testid="admin-tab-sources"]')).toBeVisible();
     await expect(page.locator('[data-testid="admin-tab-debug"]')).toBeVisible();
+    await expect(page.locator('[data-testid="admin-tab-pipeline"]')).toBeVisible();
   });
 
   test('TC-ADEBUG-002: Clicking Debug tab shows session search', async ({ page }) => {

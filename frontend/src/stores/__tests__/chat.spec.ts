@@ -606,3 +606,275 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.filteredSessions).toHaveLength(1);
   });
 });
+
+// ── Pipeline stage event handling (v0.4.2) ──
+
+import { useRagDebugStore } from '@/stores/ragDebug';
+
+describe('chat store — pipeline_stage event handling', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  function mockFetchStream(events: Record<string, unknown>[]): void {
+    const encoder = new TextEncoder();
+    const lines = events.map((e) => `data: ${JSON.stringify(e)}\n`).join('');
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(lines));
+          controller.close();
+        },
+      }),
+    });
+  }
+
+  it('pipeline_stage events are forwarded to ragDebug store', async () => {
+    const chatStore = useChatStore();
+    const ragStore = useRagDebugStore();
+    chatStore.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    mockFetchStream([
+      {
+        type: 'pipeline_stage',
+        data: {
+          stage: 'expanded_questions',
+          data: {
+            original_query: 'test',
+            variants: ['q1', 'q2'],
+            latency_ms: 100,
+          },
+          latency_ms: 100,
+        },
+      },
+      {
+        type: 'pipeline_stage',
+        data: {
+          stage: 'hyde_docs',
+          data: { per_query: [] },
+          latency_ms: 800,
+        },
+      },
+      {
+        type: 'done',
+        data: { user_message_id: 'uid-1', assistant_message_id: 'aid-1' },
+      },
+    ]);
+
+    await chatStore.sendMessage('col-1', 'my query');
+
+    // ragDebug store should have received both stages
+    expect(ragStore.stages).toHaveLength(2);
+    expect(ragStore.stages[0].stage).toBe('expanded_questions');
+    expect(ragStore.stages[1].stage).toBe('hyde_docs');
+  });
+
+  it('pipeline_stage events do not mutate messages array', async () => {
+    const chatStore = useChatStore();
+    const ragStore = useRagDebugStore();
+    chatStore.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    mockFetchStream([
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'expanded_questions', data: {}, latency_ms: 50 },
+      },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'hyde_docs', data: {}, latency_ms: 100 },
+      },
+      { type: 'done', data: {} },
+    ]);
+
+    await chatStore.sendMessage('col-1', 'my query');
+
+    // Messages should only contain user + assistant messages
+    expect(chatStore.messages).toHaveLength(2);
+    expect(chatStore.messages[0].role).toBe('user');
+    expect(chatStore.messages[1].role).toBe('assistant');
+
+    // ragDebug store has stages, not messages
+    expect(ragStore.stages).toHaveLength(2);
+  });
+
+  it('normal chunk/sources/done flow still works alongside pipeline_stage', async () => {
+    const chatStore = useChatStore();
+    chatStore.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    const encoder = new TextEncoder();
+    const events = [
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'expanded_questions', data: {}, latency_ms: 50 },
+      },
+      { type: 'chunk', data: { text: 'Hello' } },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'hyde_docs', data: {}, latency_ms: 100 },
+      },
+      { type: 'chunk', data: { text: ' world' } },
+      {
+        type: 'sources',
+        data: {
+          sources: [
+            {
+              document_id: 'doc-1',
+              document_name: 'test.md',
+              chunk_index: 0,
+              text: 'src',
+              relevance: 0.9,
+            },
+          ],
+        },
+      },
+      {
+        type: 'done',
+        data: { user_message_id: 'uid-1', assistant_message_id: 'aid-1' },
+      },
+    ];
+    const lines = events.map((e) => `data: ${JSON.stringify(e)}\n`).join('');
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(lines));
+          controller.close();
+        },
+      }),
+    });
+
+    await chatStore.sendMessage('col-1', 'my query');
+
+    // Assistant message should have full concatenated content
+    const asstMsg = chatStore.messages.find((m) => m.role === 'assistant');
+    expect(asstMsg).toBeDefined();
+    expect(asstMsg?.content).toBe('Hello world');
+    // Sources should be set
+    expect(asstMsg?.sources).toBeDefined();
+  });
+
+  it('pipeline_stage event before any chunk works (edge case)', async () => {
+    const chatStore = useChatStore();
+    const ragStore = useRagDebugStore();
+    chatStore.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    mockFetchStream([
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'expanded_questions', data: {}, latency_ms: 50 },
+      },
+      { type: 'chunk', data: { text: 'Result' } },
+      { type: 'done', data: {} },
+    ]);
+
+    await chatStore.sendMessage('col-1', 'my query');
+
+    // pipeline_stage was received before any chunk
+    expect(ragStore.stages).toHaveLength(1);
+    expect(ragStore.stages[0].stage).toBe('expanded_questions');
+    // Assistant message still contains the chunk
+    const asstMsg = chatStore.messages.find((m) => m.role === 'assistant');
+    expect(asstMsg?.content).toBe('Result');
+  });
+
+  it('multiple pipeline_stage events in rapid succession', async () => {
+    const chatStore = useChatStore();
+    const ragStore = useRagDebugStore();
+    chatStore.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    mockFetchStream([
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'expanded_questions', data: {}, latency_ms: 50 },
+      },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'hyde_docs', data: {}, latency_ms: 200 },
+      },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'keyword_matches', data: {}, latency_ms: 10 },
+      },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'merged_chunks', data: {}, latency_ms: 5 },
+      },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'reranked_chunks', data: {}, latency_ms: 1500 },
+      },
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'pipeline_metric', data: {}, latency_ms: 0 },
+      },
+      { type: 'chunk', data: { text: 'Final answer' } },
+      { type: 'done', data: {} },
+    ]);
+
+    await chatStore.sendMessage('col-1', 'my query');
+
+    // All 6 pipeline stages received
+    expect(ragStore.stages).toHaveLength(6);
+    expect(ragStore.stages.map((s) => s.stage)).toEqual([
+      'expanded_questions',
+      'hyde_docs',
+      'keyword_matches',
+      'merged_chunks',
+      'reranked_chunks',
+      'pipeline_metric',
+    ]);
+
+    // Messages still correct
+    expect(chatStore.messages).toHaveLength(2);
+    const asstMsg = chatStore.messages.find((m) => m.role === 'assistant');
+    expect(asstMsg?.content).toBe('Final answer');
+  });
+
+  it('debug events still work alongside pipeline_stage events', async () => {
+    const chatStore = useChatStore();
+    chatStore.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    const encoder = new TextEncoder();
+    const events = [
+      {
+        type: 'pipeline_stage',
+        data: { stage: 'expanded_questions', data: {}, latency_ms: 50 },
+      },
+      { type: 'chunk', data: { text: 'Answer' } },
+      {
+        type: 'debug',
+        data: { debug: { query_text: 'test', embedding_search: null } },
+      },
+      {
+        type: 'done',
+        data: { user_message_id: 'uid-1', assistant_message_id: 'aid-1' },
+      },
+    ];
+    const lines = events.map((e) => `data: ${JSON.stringify(e)}\n`).join('');
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(lines));
+          controller.close();
+        },
+      }),
+    });
+
+    await chatStore.sendMessage('col-1', 'my query');
+
+    const asstMsg = chatStore.messages.find((m) => m.role === 'assistant');
+    expect(asstMsg?.debug_data).toBeDefined();
+    expect(asstMsg?.debug_data).toContain('query_text');
+    // Content should still be correct
+    expect(asstMsg?.content).toBe('Answer');
+  });
+});
