@@ -1,7 +1,7 @@
-/// Query enhancement module for the advanced RAG pipeline.
-///
-/// Provides multi-query expansion and HyDE (Hypothetical Document Embeddings)
-/// generation. Implementation follows in Phase 4.
+//! Query enhancement module for the advanced RAG pipeline.
+//!
+//! Provides multi-query expansion and HyDE (Hypothetical Document Embeddings)
+//! generation. Implementation follows in Phase 4.
 
 /// Parsed result of multi-query expansion.
 #[derive(Debug, Clone)]

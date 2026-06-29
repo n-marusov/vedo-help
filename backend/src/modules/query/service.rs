@@ -19,7 +19,9 @@ use crate::shared::llm::{LlmClient, Message as LlmMessage};
 
 /// Service for processing RAG queries with streaming responses.
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct QueryService {
+    // Fields: some are used now, others will be used in Phases 4-5.
     repo: QueryRepository,
     llm_client: LlmClient,
     embedding_client: EmbeddingClient,
@@ -36,6 +38,7 @@ pub struct QueryService {
 
 impl QueryService {
     /// Create a new QueryService.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: PgPool,
         chroma_url: &str,
