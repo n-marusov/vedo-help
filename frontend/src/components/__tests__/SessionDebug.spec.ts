@@ -359,9 +359,11 @@ describe('SessionDebug', () => {
     }
     await flushPromises();
 
-    // Steps 1,2,4,5,6 should show v0.5 badge
+    // All 7 steps are now active (status flipped from future)
     const futureBadges = wrapper.findAll('[data-testid="debug-step-future"]');
-    expect(futureBadges.length).toBe(5);
+    expect(futureBadges.length).toBe(0);
+    const activeBadges = wrapper.findAll('.debug-step-badge--active');
+    expect(activeBadges.length).toBe(7);
   });
 
   it('renders empty state when no session selected', async () => {

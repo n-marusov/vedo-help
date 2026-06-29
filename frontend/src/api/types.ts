@@ -77,20 +77,38 @@ export interface SourceRef {
   chunk_index: number;
   text: string;
   relevance: number;
+  stage?: string;
+  rerank_score?: number;
+  rerank_verdict?: string;
+  rerank_comment?: string;
+  keyword_matches?: string[];
+}
+
+export interface PipelineStageEvent {
+  stage: string;
+  data: Record<string, unknown>;
+  latency_ms: number;
+}
+
+export interface PipelineMetric {
+  total_latency_ms: number;
+  step_timings: Record<string, number>;
 }
 
 export interface StreamEvent {
-  type: 'chunk' | 'sources' | 'debug' | 'error' | 'done';
+  type: 'chunk' | 'sources' | 'pipeline_stage' | 'debug' | 'error' | 'done';
   data?: {
     text?: string;
     sources?: SourceRef[];
     debug?: unknown;
+    stage?: PipelineStageEvent;
     user_message_id?: string;
     assistant_message_id?: string;
   };
   // Legacy fallback — some events may have fields at top level
   text?: string;
   sources?: SourceRef[];
+  stage?: PipelineStageEvent;
   user_message_id?: string;
   assistant_message_id?: string;
 }
@@ -178,14 +196,62 @@ export interface FinalAnswerStep {
   prompt_preview: string;
 }
 
+export interface MultiQueryData {
+  original_query: string;
+  variants: string[];
+  latency_ms: number;
+}
+
+export interface HydeResult {
+  query: string;
+  hypothetical_doc: string;
+  latency_ms: number;
+}
+
+export interface HydeData {
+  per_query: HydeResult[];
+}
+
+export interface KeywordSearchData {
+  query_tokens: string[];
+  total_matches: number;
+  results: SearchResultItem[];
+  latency_ms: number;
+}
+
+export interface MergeSourceBreakdown {
+  vector_chunks: number;
+  keyword_chunks: number;
+}
+
+export interface MergeDedupData {
+  input_chunks: number;
+  after_dedup: number;
+  source_breakdown: MergeSourceBreakdown;
+}
+
+export interface RerankResult {
+  chunk_id: string;
+  score: number;
+  verdict: string;
+  comment: string;
+}
+
+export interface RerankingData {
+  input_count: number;
+  accepted: number;
+  rejected: number;
+  results: RerankResult[];
+}
+
 export interface DebugData {
   query_text: string;
-  multi_query: null | Record<string, unknown>;
-  hyde: null | Record<string, unknown>;
+  multi_query: MultiQueryData | null;
+  hyde: HydeData | null;
   embedding_search: EmbeddingSearchStep | null;
-  keyword_search: null | Record<string, unknown>;
-  merge_dedup: null | Record<string, unknown>;
-  reranking: null | Record<string, unknown>;
+  keyword_search: KeywordSearchData | null;
+  merge_dedup: MergeDedupData | null;
+  reranking: RerankingData | null;
   final_answer: FinalAnswerStep | null;
 }
 

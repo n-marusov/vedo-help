@@ -126,7 +126,7 @@
 - [ ] **Query Enhancement (Multi-Query + HyDE)** — LLM helper для не-streaming вызовов (`LlmClient::query_single`); LLM генерирует 2-3 альтернативные формулировки вопроса; HyDE: LLM пишет гипотетический ответ для каждого вопроса; эмбеддинг делается по HyDE-документу, а не по вопросу
 - [ ] **Search Infrastructure (BM25 + Hybrid Orchestrator)** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, BM25-ранжирование; `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`; объединение результатов Chroma + BM25/keywords + дедупликация по chunk_id
 - [ ] **LLM Reranking & Pipeline Events** — LLM оценивает каждый уникальный чанк (score 1-10, вердикт, комментарий); новые SSE-типы `pipeline_stage` событий; расширение `SourceRef` с `stage`, `rerank_score`, `rerank_verdict`, `rerank_comment`, `keyword_matches`; ужесточение anti-hallucination промпта
-- [ ] **Frontend: Pipeline Visualization** — новые `StreamEvent` типы; Pinia store `ragDebug.ts` для pipeline stage данных; Debug panel v2 в `MessageBubble.vue` (7 коллапсируемых секций); новая вкладка "RAG Pipeline Debug" в `AdminView.vue`
+- [x] **Frontend: Pipeline Visualization** — новые `StreamEvent` типы; Pinia store `ragDebug.ts` для pipeline stage данных; Debug panel v2 в `MessageBubble.vue` (7 коллапсируемых секций); новая вкладка "RAG Pipeline Debug" в `AdminView.vue`
 
 ---
 

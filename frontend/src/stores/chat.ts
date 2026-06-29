@@ -2,10 +2,12 @@ import { ApiError, api, getAccessToken } from '@/api/client';
 import type {
   EditMessageRequest,
   Message,
+  PipelineStageEvent,
   Session,
   SessionSummary,
   StreamEvent,
 } from '@/api/types';
+import { useRagDebugStore } from '@/stores/ragDebug';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
@@ -248,6 +250,15 @@ export const useChatStore = defineStore('chat', () => {
         if (done) break;
 
         switch (value.type) {
+          case 'pipeline_stage': {
+            const ragDebugStore = useRagDebugStore();
+            // The event data is itself the PipelineStageEvent
+            // (type field discriminates, stage field has the stage name)
+            if (value.data) {
+              ragDebugStore.addStage(value.data as PipelineStageEvent);
+            }
+            break;
+          }
           case 'chunk': {
             const chunkText = value.data?.text || value.text || '';
             fullContent += chunkText;

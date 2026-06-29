@@ -1,12 +1,28 @@
 <script setup lang="ts">
-import type { Message } from '@/api/types';
+import type {
+  DebugData,
+  HydeData,
+  KeywordSearchData,
+  MergeDedupData,
+  Message,
+  MultiQueryData,
+  RerankingData,
+} from '@/api/types';
 import { decodeCode, renderMarkdown } from '@/utils/markdown';
 import { computed, onMounted, ref } from 'vue';
+
+interface PipelineStep {
+  id: number;
+  name: string;
+  key: string;
+  status: 'active' | 'future';
+}
 
 const props = defineProps<{
   message: Message;
   isStreaming?: boolean;
   index?: number;
+  showDebug?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,6 +41,35 @@ const renderedContent = computed(() => {
   if (!props.message.content) return '';
   return renderMarkdown(props.message.content);
 });
+
+const parsedDebug = computed<Record<string, unknown> | null>(() => {
+  if (!props.message.debug_data) return null;
+  try {
+    return JSON.parse(props.message.debug_data) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+});
+
+function getStepData(key: string): unknown {
+  if (!parsedDebug.value) return null;
+  return (parsedDebug.value as Record<string, unknown>)[key] || null;
+}
+
+const pipelineSteps: PipelineStep[] = [
+  { id: 1, name: 'Multi-query', key: 'multi_query', status: 'active' },
+  { id: 2, name: 'HyDE', key: 'hyde', status: 'active' },
+  {
+    id: 3,
+    name: 'Embedding search',
+    key: 'embedding_search',
+    status: 'active',
+  },
+  { id: 4, name: 'Keyword search', key: 'keyword_search', status: 'active' },
+  { id: 5, name: 'Merge & dedup', key: 'merge_dedup', status: 'active' },
+  { id: 6, name: 'Reranking', key: 'reranking', status: 'active' },
+  { id: 7, name: 'Final answer', key: 'final_answer', status: 'active' },
+];
 
 function handleMarkdownClick(event: MouseEvent) {
   const target = event.target as HTMLElement;
@@ -301,6 +346,186 @@ onMounted(() => {
           >
             · edited
           </span>
+        </div>
+
+        <!-- Debug Panel v2 (admin context only) -->
+        <div v-if="showDebug && message.debug_data" class="debug-pipeline">
+          <div
+            v-for="step in pipelineSteps"
+            :key="step.id"
+            class="debug-pipeline-step"
+          >
+            <details class="debug-pipeline-details">
+              <summary class="debug-pipeline-summary">
+                <span class="debug-pipeline-number">{{ step.id }}</span>
+                <span class="debug-pipeline-name">{{ step.name }}</span>
+                <span
+                  class="debug-pipeline-badge"
+                  :class="`debug-pipeline-badge--${step.status}`"
+                >
+                  {{ step.status === "active" ? "✓" : "○" }}
+                </span>
+              </summary>
+              <div class="debug-pipeline-body">
+                <template v-if="step.id === 1">
+                  <div v-if="getStepData(step.key)">
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Original query</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as MultiQueryData).original_query
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Variants</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as MultiQueryData).variants
+                          .length
+                      }}</span>
+                    </div>
+                    <div
+                      v-for="(v, vi) in (
+                        getStepData(step.key) as MultiQueryData
+                      ).variants"
+                      :key="vi"
+                    >
+                      <code class="debug-pipeline-code">{{ v }}</code>
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+
+                <template v-if="step.id === 2">
+                  <div v-if="getStepData(step.key)">
+                    <div
+                      v-for="(hr, hi) in (getStepData(step.key) as HydeData)
+                        .per_query"
+                      :key="hi"
+                      class="debug-hyde-item"
+                    >
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">Query</span>
+                        <span class="debug-meta-value">{{ hr.query }}</span>
+                      </div>
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">Hypothetical doc</span>
+                        <span class="debug-meta-value"
+                          >{{ hr.hypothetical_doc.slice(0, 120) }}...</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+
+                <template v-if="step.id === 3">
+                  <div v-if="getStepData(step.key)">
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Top K</span>
+                      <span class="debug-meta-value">{{
+                        getStepData(step.key).top_k
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Results</span>
+                      <span class="debug-meta-value">{{
+                        getStepData(step.key).result_count
+                      }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+
+                <template v-if="step.id === 4">
+                  <div v-if="getStepData(step.key)">
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Tokens</span>
+                      <span class="debug-meta-value">{{
+                        (
+                          getStepData(step.key) as KeywordSearchData
+                        ).query_tokens.join(", ")
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Matches</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as KeywordSearchData)
+                          .total_matches
+                      }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+
+                <template v-if="step.id === 5">
+                  <div v-if="getStepData(step.key)">
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Input chunks</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as MergeDedupData).input_chunks
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">After dedup</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as MergeDedupData).after_dedup
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Vector/Keyword</span>
+                      <span class="debug-meta-value"
+                        >{{
+                          (getStepData(step.key) as MergeDedupData)
+                            .source_breakdown.vector_chunks
+                        }}
+                        /
+                        {{
+                          (getStepData(step.key) as MergeDedupData)
+                            .source_breakdown.keyword_chunks
+                        }}</span
+                      >
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+
+                <template v-if="step.id === 6">
+                  <div v-if="getStepData(step.key)">
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Accepted</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as RerankingData).accepted
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Rejected</span>
+                      <span class="debug-meta-value">{{
+                        (getStepData(step.key) as RerankingData).rejected
+                      }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+
+                <template v-if="step.id === 7">
+                  <div v-if="getStepData(step.key)">
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Model</span>
+                      <span class="debug-meta-value">{{
+                        getStepData(step.key).model
+                      }}</span>
+                    </div>
+                    <div class="debug-meta-row">
+                      <span class="debug-meta-label">Latency</span>
+                      <span class="debug-meta-value"
+                        >{{ getStepData(step.key).latency_ms }}ms</span
+                      >
+                    </div>
+                  </div>
+                  <p v-else class="debug-pipeline-na">No data</p>
+                </template>
+              </div>
+            </details>
+          </div>
         </div>
       </div>
     </div>
@@ -829,5 +1054,113 @@ onMounted(() => {
   .message-enter {
     animation: none;
   }
+}
+
+/* ── Debug Pipeline v2 ── */
+.debug-pipeline {
+  margin-top: 12px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.debug-pipeline-step {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.debug-pipeline-details {
+  font-size: var(--font-size-xs, 12px);
+}
+
+.debug-pipeline-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.debug-pipeline-number {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.debug-pipeline-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.debug-pipeline-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.debug-pipeline-badge--active {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.debug-pipeline-body {
+  padding: 10px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.debug-pipeline-na {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-muted-foreground);
+  font-style: italic;
+  margin: 0;
+}
+
+.debug-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.debug-meta-label {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-muted-foreground);
+  font-weight: 500;
+}
+
+.debug-meta-value {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+.debug-pipeline-code {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin: 2px 0;
+}
+
+.debug-hyde-item {
+  padding: 4px 0;
 }
 </style>

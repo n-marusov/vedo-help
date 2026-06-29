@@ -3,6 +3,7 @@ import CollectionManager from '@/components/CollectionManager.vue';
 import DocumentList from '@/components/DocumentList.vue';
 import GitRepoManager from '@/components/GitRepoManager.vue';
 import HealthStatus from '@/components/HealthStatus.vue';
+import RagPipelineDebug from '@/components/RagPipelineDebug.vue';
 import SessionDebug from '@/components/SessionDebug.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
@@ -11,7 +12,7 @@ import { onMounted, ref, watch } from 'vue';
 const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
-const activeTab = ref<'sources' | 'debug'>('sources');
+const activeTab = ref<'sources' | 'debug' | 'pipeline'>('sources');
 const activeSourceTab = ref<'documents' | 'git'>('documents');
 
 onMounted(() => {
@@ -60,6 +61,14 @@ watch(
         >
           Session Debug
         </button>
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeTab === 'pipeline' }"
+          data-testid="admin-tab-pipeline"
+          @click="activeTab = 'pipeline'"
+        >
+          RAG Pipeline Debug
+        </button>
       </div>
 
       <div class="admin-content">
@@ -95,6 +104,11 @@ watch(
         <!-- Session Debug Tab Content -->
         <template v-if="activeTab === 'debug'">
           <SessionDebug />
+        </template>
+
+        <!-- RAG Pipeline Debug Tab Content -->
+        <template v-if="activeTab === 'pipeline'">
+          <RagPipelineDebug />
         </template>
       </div>
     </div>

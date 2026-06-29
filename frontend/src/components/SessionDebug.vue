@@ -17,14 +17,14 @@ const steps = [
     id: 1,
     name: 'Multi-query',
     key: 'multi_query',
-    status: 'future',
+    status: 'active',
     desc: 'Question → 3 variants',
   },
   {
     id: 2,
     name: 'HyDE',
     key: 'hyde',
-    status: 'future',
+    status: 'active',
     desc: 'Hypothetical document per query',
   },
   {
@@ -38,21 +38,21 @@ const steps = [
     id: 4,
     name: 'Hybrid keyword search',
     key: 'keyword_search',
-    status: 'future',
+    status: 'active',
     desc: 'Keywords → chunks',
   },
   {
     id: 5,
     name: 'Merge & dedup',
     key: 'merge_dedup',
-    status: 'future',
+    status: 'active',
     desc: '~15-19 chunks → unique set',
   },
   {
     id: 6,
     name: 'Reranking',
     key: 'reranking',
-    status: 'future',
+    status: 'active',
     desc: 'LLM scores each chunk',
   },
   {
@@ -260,119 +260,332 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                       >v0.5</span
                     >
                   </summary>
-                  <div
-                    v-if="step.status === 'active'"
-                    class="debug-step-body"
-                    data-testid="debug-step-data"
-                  >
-                    <template v-if="step.id === 3">
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Query snippet</span
-                        ><span class="debug-meta-value">{{
+                  <div class="debug-step-body" data-testid="debug-step-data">
+                    <!-- Step 1: Multi-query -->
+                    <template v-if="step.id === 1">
+                      <div
+                        v-if="
                           getStepData(
                             parseDebugData(msg) || ({} as DebugData),
-                            "embedding_search",
-                          )?.query_snippet
-                        }}</span>
-                      </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Dimension</span
-                        ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "embedding_search",
-                          )?.embedding_dimension
-                        }}</span>
-                      </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Latency</span
-                        ><span class="debug-meta-value"
-                          >{{
+                            'multi_query',
+                          )
+                        "
+                      >
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Original query</span>
+                          <span class="debug-meta-value">{{
                             getStepData(
                               parseDebugData(msg) || ({} as DebugData),
-                              "embedding_search",
-                            )?.latency_ms
-                          }}ms</span
+                              "multi_query",
+                            )?.original_query
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Variants</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "multi_query",
+                            )?.variants?.length
+                          }}</span>
+                        </div>
+                        <div
+                          v-for="(variant, vi) in getStepData(
+                            parseDebugData(msg) || ({} as DebugData),
+                            'multi_query',
+                          )?.variants || []"
+                          :key="vi"
+                          class="debug-variant-item"
                         >
+                          <code>{{ variant }}</code>
+                        </div>
                       </div>
+                      <p v-else class="debug-step-placeholder">No data</p>
+                    </template>
+
+                    <!-- Step 2: HyDE -->
+                    <template v-if="step.id === 2">
+                      <div
+                        v-if="
+                          getStepData(
+                            parseDebugData(msg) || ({} as DebugData),
+                            'hyde',
+                          )
+                        "
+                      >
+                        <div
+                          v-for="(hr, hi) in getStepData(
+                            parseDebugData(msg) || ({} as DebugData),
+                            'hyde',
+                          )?.per_query || []"
+                          :key="hi"
+                          class="debug-hyde-item"
+                        >
+                          <div class="debug-meta-row">
+                            <span class="debug-meta-label">Query</span>
+                            <span class="debug-meta-value">{{ hr.query }}</span>
+                          </div>
+                          <div class="debug-meta-row">
+                            <span class="debug-meta-label"
+                              >Hypothetical doc</span
+                            >
+                            <span class="debug-meta-value"
+                              >{{ hr.hypothetical_doc?.slice(0, 120) }}...</span
+                            >
+                          </div>
+                        </div>
+                      </div>
+                      <p v-else class="debug-step-placeholder">No data</p>
+                    </template>
+
+                    <!-- Step 3: Embedding search -->
+                    <template v-if="step.id === 3">
                       <div
                         v-if="
                           getStepData(
                             parseDebugData(msg) || ({} as DebugData),
                             'embedding_search',
-                          )?.results?.length
+                          )
                         "
-                        class="debug-results"
                       >
-                        <div
-                          v-for="(r, i) in getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'embedding_search',
-                          )?.results"
-                          :key="i"
-                          class="debug-result-item"
-                        >
-                          <span class="debug-result-doc">{{
-                            r.document_name
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Query snippet</span
+                          ><span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "embedding_search",
+                            )?.query_snippet
                           }}</span>
-                          <span class="debug-result-score"
-                            >{{ Math.round(r.score * 100) }}%</span
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Dimension</span
+                          ><span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "embedding_search",
+                            )?.embedding_dimension
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Latency</span
+                          ><span class="debug-meta-value"
+                            >{{
+                              getStepData(
+                                parseDebugData(msg) || ({} as DebugData),
+                                "embedding_search",
+                              )?.latency_ms
+                            }}ms</span
+                          >
+                        </div>
+                        <div
+                          v-if="
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              'embedding_search',
+                            )?.results?.length
+                          "
+                          class="debug-results"
+                        >
+                          <div
+                            v-for="(r, i) in getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              'embedding_search',
+                            )?.results"
+                            :key="i"
+                            class="debug-result-item"
+                          >
+                            <span class="debug-result-doc">{{
+                              r.document_name
+                            }}</span>
+                            <span class="debug-result-score"
+                              >{{
+                                Math.round(r.score * 100)
+
+
+                              }}%</span
+                            >
+                          </div>
+                        </div>
+                      </div>
+                      <p v-else class="debug-step-placeholder">No data</p>
+                    </template>
+
+                    <!-- Step 4: Keyword search -->
+                    <template v-if="step.id === 4">
+                      <div
+                        v-if="
+                          getStepData(
+                            parseDebugData(msg) || ({} as DebugData),
+                            'keyword_search',
+                          )
+                        "
+                      >
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Tokens</span>
+                          <span class="debug-meta-value">{{
+                            (
+                              getStepData(
+                                parseDebugData(msg) || ({} as DebugData),
+                                "keyword_search",
+                              )?.query_tokens || []
+                            ).join(", ")
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Matches</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "keyword_search",
+                            )?.total_matches
+                          }}</span>
+                        </div>
+                      </div>
+                      <p v-else class="debug-step-placeholder">No data</p>
+                    </template>
+
+                    <!-- Step 5: Merge & dedup -->
+                    <template v-if="step.id === 5">
+                      <div
+                        v-if="
+                          getStepData(
+                            parseDebugData(msg) || ({} as DebugData),
+                            'merge_dedup',
+                          )
+                        "
+                      >
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Input chunks</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "merge_dedup",
+                            )?.input_chunks
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">After dedup</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "merge_dedup",
+                            )?.after_dedup
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Vector/Keyword</span>
+                          <span class="debug-meta-value"
+                            >{{
+                              getStepData(
+                                parseDebugData(msg) || ({} as DebugData),
+                                "merge_dedup",
+                              )?.source_breakdown?.vector_chunks
+                            }}
+                            /
+                            {{
+                              getStepData(
+                                parseDebugData(msg) || ({} as DebugData),
+                                "merge_dedup",
+                              )?.source_breakdown?.keyword_chunks
+                            }}</span
                           >
                         </div>
                       </div>
+                      <p v-else class="debug-step-placeholder">No data</p>
                     </template>
+
+                    <!-- Step 6: Reranking -->
+                    <template v-if="step.id === 6">
+                      <div
+                        v-if="
+                          getStepData(
+                            parseDebugData(msg) || ({} as DebugData),
+                            'reranking',
+                          )
+                        "
+                      >
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Accepted</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "reranking",
+                            )?.accepted
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Rejected</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "reranking",
+                            )?.rejected
+                          }}</span>
+                        </div>
+                      </div>
+                      <p v-else class="debug-step-placeholder">No data</p>
+                    </template>
+
+                    <!-- Step 7: Final answer -->
                     <template v-if="step.id === 7">
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Model</span
-                        ><span class="debug-meta-value">{{
+                      <div
+                        v-if="
                           getStepData(
                             parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.model
-                        }}</span>
-                      </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Chunks in context</span
-                        ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.chunks_in_context
-                        }}</span>
-                      </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Latency</span
-                        ><span class="debug-meta-value"
-                          >{{
+                            'final_answer',
+                          )
+                        "
+                      >
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Model</span
+                          ><span class="debug-meta-value">{{
                             getStepData(
                               parseDebugData(msg) || ({} as DebugData),
                               "final_answer",
-                            )?.latency_ms
-                          }}ms</span
-                        >
+                            )?.model
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Chunks in context</span
+                          ><span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "final_answer",
+                            )?.chunks_in_context
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Latency</span
+                          ><span class="debug-meta-value"
+                            >{{
+                              getStepData(
+                                parseDebugData(msg) || ({} as DebugData),
+                                "final_answer",
+                              )?.latency_ms
+                            }}ms</span
+                          >
+                        </div>
+                        <div class="debug-meta-row">
+                          <span class="debug-meta-label">Tokens</span
+                          ><span class="debug-meta-value">{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "final_answer",
+                            )?.total_tokens_estimate
+                          }}</span>
+                        </div>
+                        <details class="debug-prompt-preview">
+                          <summary>Prompt preview</summary>
+                          <pre>{{
+                            getStepData(
+                              parseDebugData(msg) || ({} as DebugData),
+                              "final_answer",
+                            )?.prompt_preview
+                          }}</pre>
+                        </details>
                       </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Tokens</span
-                        ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.total_tokens_estimate
-                        }}</span>
-                      </div>
-                      <details class="debug-prompt-preview">
-                        <summary>Prompt preview</summary>
-                        <pre>{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.prompt_preview
-                        }}</pre>
-                      </details>
+                      <p v-else class="debug-step-placeholder">No data</p>
                     </template>
-                  </div>
-                  <div v-else class="debug-step-body">
-                    <p class="debug-step-placeholder">{{ step.desc }}</p>
                   </div>
                 </details>
               </div>
