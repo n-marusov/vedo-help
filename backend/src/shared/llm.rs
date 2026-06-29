@@ -57,7 +57,10 @@ pub struct LlmClient {
 pub const SYSTEM_PROMPT: &str = "You are a helpful technical documentation assistant. \
 Answer questions based solely on the provided context. \
 If the context doesn't contain enough information, say so clearly. \
-Always cite the source document name and chunk when referencing specific information.";
+Always cite the source document name and chunk when referencing specific information.\n\n\
+Если среди переданных чанков нет информации, отвечай ТОЛЬКО фразой: \
+«К сожалению, не нашёл информации по этому вопросу в базе знаний»\n\n\
+Не упоминай chunk_id, chunk_index или другие internal идентификаторы в ответе пользователю.";
 
 pub const PRIMARY_MODEL: &str = "anthropic/claude-sonnet-4.6";
 pub const MAX_RETRIES: u32 = 3;
@@ -230,10 +233,21 @@ impl LlmClient {
         messages: &[serde_json::Value],
         stream: bool,
     ) -> Result<reqwest::Response, AppError> {
+        self.send_request_with_retry_model(messages, stream, &self.model)
+            .await
+    }
+
+    /// Send a request with retry, using the specified model.
+    async fn send_request_with_retry_model(
+        &self,
+        messages: &[serde_json::Value],
+        stream: bool,
+        model: &str,
+    ) -> Result<reqwest::Response, AppError> {
         let mut last_error = None;
 
         for attempt in 1..=MAX_RETRIES {
-            match self.send_request(messages, stream).await {
+            match self.send_request_with_model(messages, stream, model).await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
@@ -294,6 +308,29 @@ impl LlmClient {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let body = json!({
             "model": self.model,
+            "messages": messages,
+            "stream": stream,
+        });
+
+        self.client
+            .post(format!("{}/chat/completions", self.base_url))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .headers(inject_trace_headers())
+            .json(&body)
+            .send()
+            .await
+    }
+
+    /// Send a single request with a specific model override.
+    async fn send_request_with_model(
+        &self,
+        messages: &[serde_json::Value],
+        stream: bool,
+        model: &str,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let body = json!({
+            "model": model,
             "messages": messages,
             "stream": stream,
         });
@@ -388,6 +425,20 @@ impl LlmClient {
         system_prompt: &str,
         user_prompt: &str,
     ) -> Result<String, AppError> {
+        self.query_single_with_model(system_prompt, user_prompt, &self.model)
+            .await
+    }
+
+    /// Query the LLM with a specific model override.
+    ///
+    /// Same as `query_single` but uses the provided `model` instead of `self.model`.
+    /// Used by the reranking pipeline which may use a different model.
+    pub async fn query_single_with_model(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        model: &str,
+    ) -> Result<String, AppError> {
         let messages = vec![
             json!({"role": "system", "content": system_prompt}),
             json!({"role": "user", "content": user_prompt}),
@@ -395,13 +446,15 @@ impl LlmClient {
 
         tracing::debug!(
             component = "llm",
-            model = %self.model,
+            model = %model,
             system_len = system_prompt.len(),
             user_len = user_prompt.len(),
             "query_single.request"
         );
 
-        let response = self.send_request_with_retry(&messages, false).await?;
+        let response = self
+            .send_request_with_retry_model(&messages, false, model)
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();

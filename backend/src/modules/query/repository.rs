@@ -1,6 +1,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::shared::bm25::{build_index, Bm25Index, Bm25Result};
 use crate::shared::error::AppError;
 use crate::shared::llm::CrateChunkData;
 use crate::shared::types::ChromaResult;
@@ -140,6 +141,49 @@ impl QueryRepository {
             "chunks.fetch_by_ids.found"
         );
         Ok(chunks)
+    }
+
+    /// Perform BM25 keyword search on a set of pre-fetched chunks.
+    ///
+    /// Builds a temporary BM25 index from the chunk texts and searches it
+    /// for the given query. Returns up to `top_k` results ranked by BM25 score.
+    pub fn bm25_search(chunks: &[CrateChunkData], query: &str, top_k: usize) -> Vec<Bm25Result> {
+        if chunks.is_empty() || query.is_empty() {
+            tracing::debug!(
+                component = "query/repository",
+                chunk_count = chunks.len(),
+                query_empty = query.is_empty(),
+                "bm25_search.skipped"
+            );
+            return vec![];
+        }
+
+        // Build (chunk_id, text) pairs using the chunk index as a stable identifier
+        let docs: Vec<(String, String)> = chunks
+            .iter()
+            .map(|c| (c.index.to_string(), c.text.clone()))
+            .collect();
+
+        let index: Bm25Index = build_index(&docs);
+
+        tracing::debug!(
+            component = "query/repository",
+            doc_count = docs.len(),
+            query_length = query.len(),
+            top_k,
+            "bm25_search.searching"
+        );
+
+        let results = index.search(query, top_k);
+
+        tracing::debug!(
+            component = "query/repository",
+            result_count = results.len(),
+            top_score = results.first().map(|r| r.score),
+            "bm25_search.found"
+        );
+
+        results
     }
 
     /// Access the underlying PostgreSQL pool (for conversation history, etc.).
