@@ -1,20 +1,21 @@
 use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
 
 /// 7-step RAG pipeline debug data.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DebugData {
     pub query_text: String,
-    /// v0.5 — not yet active
+    /// Multi-query expansion step
     pub multi_query: Option<MultiQueryStep>,
-    /// v0.5 — not yet active
+    /// Hypothetical Document Embeddings step
     pub hyde: Option<HydeStep>,
     /// Active step — embedding/vector search results
     pub embedding_search: Option<EmbeddingSearchStep>,
-    /// v0.5 — not yet active
+    /// Keyword/BM25 search step
     pub keyword_search: Option<KeywordSearchStep>,
-    /// v0.5 — not yet active
+    /// Merge and deduplication step
     pub merge_dedup: Option<MergeDedupStep>,
-    /// v0.5 — not yet active
+    /// Re-ranking step
     pub reranking: Option<RerankingStep>,
     /// Active step — final LLM answer metadata
     pub final_answer: Option<FinalAnswerStep>,
@@ -24,32 +25,210 @@ impl DebugData {
     /// Create a new DebugData with the given query text.
     /// All steps default to `None`.
     pub fn new(query_text: impl Into<String>) -> Self {
+        let qt = query_text.into();
+        debug!(
+            component = "query/debug_models",
+            query_text = %qt,
+            "Constructing DebugData"
+        );
         Self {
-            query_text: query_text.into(),
+            query_text: qt,
             ..Default::default()
         }
     }
 }
 
-/// Multi-query expansion step (v0.5 — placeholder).
+/// Multi-query expansion step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MultiQueryStep;
+pub struct MultiQueryStep {
+    pub original_query: String,
+    pub variants: Vec<String>,
+    pub latency_ms: u64,
+}
 
-/// Hypothetical Document Embeddings step (v0.5 — placeholder).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HydeStep;
+impl MultiQueryStep {
+    pub fn new(original_query: String, variants: Vec<String>, latency_ms: u64) -> Self {
+        debug!(
+            component = "query/debug_models",
+            variant_count = variants.len(),
+            latency_ms,
+            "Constructing MultiQueryStep"
+        );
+        Self {
+            original_query,
+            variants,
+            latency_ms,
+        }
+    }
+}
 
-/// Keyword/BM25 search step (v0.5 — placeholder).
+/// Hypothetical Document Embeddings step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeywordSearchStep;
+pub struct HydeStep {
+    pub per_query: Vec<HydeResult>,
+}
 
-/// Merge and deduplication step (v0.5 — placeholder).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MergeDedupStep;
+impl HydeStep {
+    pub fn new(per_query: Vec<HydeResult>) -> Self {
+        debug!(
+            component = "query/debug_models",
+            result_count = per_query.len(),
+            "Constructing HydeStep"
+        );
+        Self { per_query }
+    }
+}
 
-/// Re-ranking step (v0.5 — placeholder).
+/// A single HyDE result for one query variant.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RerankingStep;
+pub struct HydeResult {
+    pub query: String,
+    pub hypothetical_doc: String,
+    pub latency_ms: u64,
+}
+
+/// Keyword/BM25 search step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeywordSearchStep {
+    pub query_tokens: Vec<String>,
+    pub total_matches: usize,
+    pub results: Vec<SearchResultItem>,
+    pub latency_ms: u64,
+}
+
+impl KeywordSearchStep {
+    pub fn new(
+        query_tokens: Vec<String>,
+        total_matches: usize,
+        results: Vec<SearchResultItem>,
+        latency_ms: u64,
+    ) -> Self {
+        debug!(
+            component = "query/debug_models",
+            token_count = query_tokens.len(),
+            total_matches,
+            result_count = results.len(),
+            latency_ms,
+            "Constructing KeywordSearchStep"
+        );
+        Self {
+            query_tokens,
+            total_matches,
+            results,
+            latency_ms,
+        }
+    }
+}
+
+/// Merge and deduplication step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeDedupStep {
+    pub input_chunks: usize,
+    pub after_dedup: usize,
+    pub source_breakdown: MergeSourceBreakdown,
+}
+
+impl MergeDedupStep {
+    pub fn new(
+        input_chunks: usize,
+        after_dedup: usize,
+        source_breakdown: MergeSourceBreakdown,
+    ) -> Self {
+        debug!(
+            component = "query/debug_models",
+            input_chunks,
+            after_dedup,
+            dedup_removed = input_chunks.saturating_sub(after_dedup),
+            "Constructing MergeDedupStep"
+        );
+        Self {
+            input_chunks,
+            after_dedup,
+            source_breakdown,
+        }
+    }
+}
+
+/// Breakdown of which sources contributed to the merged result set.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeSourceBreakdown {
+    pub vector_chunks: usize,
+    pub keyword_chunks: usize,
+}
+
+/// Re-ranking step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RerankingStep {
+    pub input_count: usize,
+    pub accepted: usize,
+    pub rejected: usize,
+    pub results: Vec<RerankResult>,
+}
+
+impl RerankingStep {
+    pub fn new(
+        input_count: usize,
+        accepted: usize,
+        rejected: usize,
+        results: Vec<RerankResult>,
+    ) -> Self {
+        debug!(
+            component = "query/debug_models",
+            input_count, accepted, rejected, "Constructing RerankingStep"
+        );
+        Self {
+            input_count,
+            accepted,
+            rejected,
+            results,
+        }
+    }
+}
+
+/// A single reranking result with LLM verdict.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RerankResult {
+    pub chunk_id: String,
+    pub score: u32,
+    pub verdict: String,
+    pub comment: String,
+}
+
+impl RerankResult {
+    pub fn new(chunk_id: String, score: u32, verdict: String, comment: String) -> Self {
+        if !(1..=10).contains(&score) {
+            warn!(
+                component = "query/debug_models",
+                chunk_id = %chunk_id,
+                score,
+                "RerankResult score is outside 1-10 range"
+            );
+        }
+        let clamped_score = score.clamp(1, 10);
+        if clamped_score != score {
+            warn!(
+                component = "query/debug_models",
+                original_score = score,
+                clamped_score,
+                chunk_id = %chunk_id,
+                "RerankResult score clamped to 1-10 range"
+            );
+        }
+        debug!(
+            component = "query/debug_models",
+            chunk_id = %chunk_id,
+            score = clamped_score,
+            verdict = %verdict,
+            "Constructing RerankResult"
+        );
+        Self {
+            chunk_id,
+            score: clamped_score,
+            verdict,
+            comment,
+        }
+    }
+}
 
 /// Embedding/vector search step — active, shows real results.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,5 +397,109 @@ mod tests {
         assert!(dd.merge_dedup.is_none());
         assert!(dd.reranking.is_none());
         assert!(dd.final_answer.is_none());
+    }
+
+    #[test]
+    fn multi_query_step_constructs() {
+        let step = MultiQueryStep::new(
+            "how to install".to_string(),
+            vec![
+                "how to install".to_string(),
+                "installation guide".to_string(),
+                "setup instructions".to_string(),
+            ],
+            150,
+        );
+        assert_eq!(step.original_query, "how to install");
+        assert_eq!(step.variants.len(), 3);
+        assert_eq!(step.latency_ms, 150);
+    }
+
+    #[test]
+    fn hyde_step_constructs() {
+        let step = HydeStep::new(vec![HydeResult {
+            query: "how to install".to_string(),
+            hypothetical_doc: "To install the software, run...".to_string(),
+            latency_ms: 200,
+        }]);
+        assert_eq!(step.per_query.len(), 1);
+        assert_eq!(step.per_query[0].query, "how to install");
+    }
+
+    #[test]
+    fn keyword_search_step_constructs() {
+        let step = KeywordSearchStep::new(
+            vec!["how".to_string(), "install".to_string()],
+            10,
+            vec![SearchResultItem {
+                chunk_id: "chunk-1".to_string(),
+                document_name: "docs.pdf".to_string(),
+                chunk_index: 1,
+                score: 2.5,
+                text_snippet: "Install guide".to_string(),
+            }],
+            50,
+        );
+        assert_eq!(step.query_tokens.len(), 2);
+        assert_eq!(step.total_matches, 10);
+        assert_eq!(step.latency_ms, 50);
+    }
+
+    #[test]
+    fn merge_dedup_step_constructs() {
+        let step = MergeDedupStep::new(
+            10,
+            7,
+            MergeSourceBreakdown {
+                vector_chunks: 5,
+                keyword_chunks: 2,
+            },
+        );
+        assert_eq!(step.input_chunks, 10);
+        assert_eq!(step.after_dedup, 7);
+        assert_eq!(step.source_breakdown.vector_chunks, 5);
+        assert_eq!(step.source_breakdown.keyword_chunks, 2);
+    }
+
+    #[test]
+    fn reranking_step_constructs() {
+        let step = RerankingStep::new(
+            7,
+            3,
+            4,
+            vec![RerankResult::new(
+                "chunk-1".to_string(),
+                8,
+                "брать".to_string(),
+                "highly relevant".to_string(),
+            )],
+        );
+        assert_eq!(step.input_count, 7);
+        assert_eq!(step.accepted, 3);
+        assert_eq!(step.rejected, 4);
+        assert_eq!(step.results.len(), 1);
+        assert_eq!(step.results[0].score, 8);
+    }
+
+    #[test]
+    fn rerank_result_clamps_score() {
+        let result = RerankResult::new(
+            "chunk-1".to_string(),
+            15,
+            "брать".to_string(),
+            "too high".to_string(),
+        );
+        assert_eq!(result.score, 10);
+    }
+
+    #[test]
+    fn rerank_result_default_score_ok() {
+        let result = RerankResult::new(
+            "chunk-1".to_string(),
+            5,
+            "брать".to_string(),
+            "ok".to_string(),
+        );
+        assert_eq!(result.score, 5);
     }
 }

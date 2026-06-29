@@ -27,6 +27,11 @@ pub struct QueryService {
     conversation_repo: ConversationRepository,
     max_history_messages: usize,
     context_token_budget: usize,
+    advanced_rag_enabled: bool,
+    rerank_top_k: usize,
+    hybrid_top_k: usize,
+    multi_query_count: usize,
+    llm_rerank_model: String,
 }
 
 impl QueryService {
@@ -39,11 +44,23 @@ impl QueryService {
         collection_repo: CollectionRepository,
         max_history_messages: usize,
         context_token_budget: usize,
+        advanced_rag_enabled: bool,
+        rerank_top_k: usize,
+        hybrid_top_k: usize,
+        multi_query_count: usize,
+        llm_rerank_model: String,
     ) -> Self {
         let repo = QueryRepository::new(db.clone(), chroma_url);
         let embedding_client = EmbeddingClient::new(embedding_service_url);
         let conversation_repo = ConversationRepository::new(db);
-        tracing::debug!(component = "query/service", "service.initialized");
+        tracing::debug!(
+            component = "query/service",
+            advanced_rag_enabled,
+            rerank_top_k,
+            hybrid_top_k,
+            multi_query_count,
+            "service.initialized"
+        );
         Self {
             repo,
             llm_client,
@@ -52,6 +69,11 @@ impl QueryService {
             conversation_repo,
             max_history_messages,
             context_token_budget,
+            advanced_rag_enabled,
+            rerank_top_k,
+            hybrid_top_k,
+            multi_query_count,
+            llm_rerank_model,
         }
     }
 
@@ -173,6 +195,11 @@ impl QueryService {
                     chunk_index: r.chunk_index,
                     text: r.text.clone(),
                     relevance: r.score,
+                    stage: None,
+                    rerank_score: None,
+                    rerank_verdict: None,
+                    rerank_comment: None,
+                    keyword_matches: None,
                 }
             })
             .collect();

@@ -345,6 +345,11 @@ async fn main() {
         collection_repo.clone(),
         config.llm_max_history_messages,
         config.llm_context_token_budget,
+        config.advanced_rag_enabled,
+        config.rerank_top_k,
+        config.hybrid_top_k,
+        config.multi_query_count,
+        config.llm_rerank_model.clone(),
     );
     let audit_service = AuditService::new(audit_repo);
 

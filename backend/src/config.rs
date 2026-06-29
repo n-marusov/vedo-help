@@ -1,4 +1,5 @@
 use std::env;
+use tracing::info;
 
 /// Application configuration loaded from environment variables.
 #[derive(Clone, Debug)]
@@ -37,6 +38,16 @@ pub struct AppConfig {
     pub llm_max_history_messages: usize,
     /// Token budget for LLM context window
     pub llm_context_token_budget: usize,
+    /// Enable advanced RAG pipeline (multi-query, HyDE, hybrid search, reranking)
+    pub advanced_rag_enabled: bool,
+    /// Top-K chunks to keep after LLM reranking
+    pub rerank_top_k: usize,
+    /// Top-K results from BM25 keyword search for hybrid merge
+    pub hybrid_top_k: usize,
+    /// Number of query variants to generate in multi-query expansion
+    pub multi_query_count: usize,
+    /// Separate model for LLM reranking (can be cheaper/faster than main model)
+    pub llm_rerank_model: String,
 }
 
 impl AppConfig {
@@ -49,7 +60,7 @@ impl AppConfig {
             .or_else(|_| env::var("KEYCLOAK_INTERNAL_URL"))
             .unwrap_or_else(|_| keycloak_url.clone());
 
-        Self {
+        let config = Self {
             database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
                 "postgres://vedo:CHANGEME-db-password@localhost:5432/vedo".to_string()
             }),
@@ -60,8 +71,11 @@ impl AppConfig {
             llm_api_key: env::var("LLM_API_KEY").unwrap_or_else(|_| String::new()),
             llm_base_url: env::var("LLM_BASE_URL")
                 .unwrap_or_else(|_| "https://routerai.ru/api/v1".to_string()),
-            llm_model: env::var("LLM_MODEL")
-                .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string()),
+            llm_model: {
+                let model = env::var("LLM_MODEL")
+                    .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string());
+                model
+            },
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             port: env::var("PORT")
                 .unwrap_or_else(|_| "3000".to_string())
@@ -94,7 +108,46 @@ impl AppConfig {
                 .unwrap_or_else(|_| "http://otel-collector:4317".to_string()),
             service_name: env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| String::new()),
             environment: env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+            advanced_rag_enabled: env::var("ADVANCED_RAG_ENABLED")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse::<bool>()
+                .expect("ADVANCED_RAG_ENABLED must be 'true' or 'false'"),
+            rerank_top_k: env::var("RERANK_TOP_K")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .expect("RERANK_TOP_K must be a valid number"),
+            hybrid_top_k: env::var("HYBRID_TOP_K")
+                .unwrap_or_else(|_| "3".to_string())
+                .parse()
+                .expect("HYBRID_TOP_K must be a valid number"),
+            multi_query_count: env::var("MULTI_QUERY_COUNT")
+                .unwrap_or_else(|_| "3".to_string())
+                .parse()
+                .expect("MULTI_QUERY_COUNT must be a valid number"),
+            llm_rerank_model: env::var("LLM_RERANK_MODEL").unwrap_or_else(|_| {
+                // Default to the main LLM model if no separate rerank model is configured
+                env::var("LLM_MODEL").unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string())
+            }),
+        };
+
+        info!(
+            component = "config",
+            advanced_rag_enabled = config.advanced_rag_enabled,
+            rerank_top_k = config.rerank_top_k,
+            hybrid_top_k = config.hybrid_top_k,
+            multi_query_count = config.multi_query_count,
+            llm_rerank_model = %config.llm_rerank_model,
+            "Advanced RAG configuration loaded"
+        );
+
+        if !config.advanced_rag_enabled {
+            info!(
+                component = "config",
+                "ADVANCED_RAG_ENABLED is false; advanced pipeline features disabled"
+            );
         }
+
+        config
     }
 }
 

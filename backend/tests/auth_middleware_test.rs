@@ -68,6 +68,11 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
         collection_repo,
         20,
         6000,
+        true,
+        5,
+        3,
+        3,
+        "test-model".to_string(),
     );
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
