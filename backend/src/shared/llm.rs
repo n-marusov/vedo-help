@@ -81,6 +81,16 @@ impl LlmClient {
         }
     }
 
+    /// Create a new LLM client with a custom HTTP client (for testing with mocks).
+    pub fn with_client(client: Client, api_key: &str, base_url: &str, model: &str) -> Self {
+        Self {
+            client,
+            api_key: api_key.to_string(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            model: model.to_string(),
+        }
+    }
+
     /// Query the LLM with context and conversation history, returning a streaming response.
     ///
     /// The stream yields text chunks as `String`. On error, the stream terminates with `AppError`.
@@ -368,6 +378,69 @@ impl super::health::HealthProbe for LlmClient {
 }
 
 impl LlmClient {
+    /// Query the LLM with a single non-streaming request using system + user prompts.
+    ///
+    /// Useful for auxiliary calls like multi-query expansion, HyDE generation,
+    /// and LLM reranking within the advanced RAG pipeline.
+    /// Uses `send_request_with_retry` (3 retries, 1s delay).
+    pub async fn query_single(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String, AppError> {
+        let messages = vec![
+            json!({"role": "system", "content": system_prompt}),
+            json!({"role": "user", "content": user_prompt}),
+        ];
+
+        tracing::debug!(
+            component = "llm",
+            model = %self.model,
+            system_len = system_prompt.len(),
+            user_len = user_prompt.len(),
+            "query_single.request"
+        );
+
+        let response = self.send_request_with_retry(&messages, false).await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                component = "llm",
+                status = %status,
+                response_body = %body,
+                "query_single.http_error"
+            );
+            return Err(AppError::LlmError(format!(
+                "LLM API returned {status}: {body}"
+            )));
+        }
+
+        let data: serde_json::Value = response.json().await.map_err(|e| {
+            tracing::error!(
+                component = "llm",
+                error = %e,
+                "query_single.parse_error"
+            );
+            AppError::LlmError(format!("Failed to parse response: {e}"))
+        })?;
+
+        let content = data["choices"]
+            .get(0)
+            .and_then(|c| c["message"]["content"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        tracing::debug!(
+            component = "llm",
+            response_len = content.len(),
+            "query_single.response"
+        );
+
+        Ok(content)
+    }
+
     /// Quick health check — pings the LLM API base URL.
     ///
     /// Single attempt (no retry), 10-second timeout.
@@ -408,6 +481,48 @@ impl LlmClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    /// Start a mock HTTP server that returns a canned JSON response.
+    /// Returns (url, shutdown_tx) where url is the server's base URL.
+    async fn start_mock_server(
+        status_code: u16,
+        response_body: &'static str,
+    ) -> (String, tokio::sync::oneshot::Sender<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let url = format!("http://{}:{}", addr.ip(), addr.port());
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = &mut shutdown_rx => break,
+                    result = listener.accept() => {
+                        if let Ok((mut stream, _)) = result {
+                            let mut buf = [0; 4096];
+                            let _ = stream.read(&mut buf).await;
+                            let response = format!(
+                                "HTTP/1.1 {status_code} OK\r\n\
+                                 Content-Type: application/json\r\n\
+                                 Content-Length: {}\r\n\
+                                 Connection: close\r\n\
+                                 \r\n\
+                                 {}",
+                                response_body.len(),
+                                response_body
+                            );
+                            let _ = stream.write_all(response.as_bytes()).await;
+                            let _ = stream.flush().await;
+                        }
+                    }
+                }
+            }
+        });
+
+        (url, shutdown_tx)
+    }
 
     #[test]
     fn test_build_messages_with_history() {
@@ -452,5 +567,47 @@ mod tests {
             messages[2]["content"],
             "[USER_QUERY]Tell me more[/USER_QUERY]"
         );
+    }
+
+    #[tokio::test]
+    async fn test_query_single_returns_content() {
+        let body = r#"{"choices":[{"message":{"content":"test answer"}}]}"#;
+        let (url, _shutdown) = start_mock_server(200, body).await;
+        let client = LlmClient::with_client(reqwest::Client::new(), "test-key", &url, "test-model");
+        let result = client
+            .query_single("You are a test bot", "What is Rust?")
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "test answer");
+    }
+
+    #[tokio::test]
+    async fn test_query_single_empty_response() {
+        let body = r#"{"choices":[]}"#;
+        let (url, _shutdown) = start_mock_server(200, body).await;
+        let client = LlmClient::with_client(reqwest::Client::new(), "test-key", &url, "test-model");
+        let result = client
+            .query_single("You are a test bot", "What is Rust?")
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
+    }
+
+    #[tokio::test]
+    async fn test_query_single_http_error() {
+        let body = r#"{"error":"server error"}"#;
+        let (url, _shutdown) = start_mock_server(500, body).await;
+        let client = LlmClient::with_client(reqwest::Client::new(), "test-key", &url, "test-model");
+        let result = client
+            .query_single("You are a test bot", "What is Rust?")
+            .await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::LlmError(msg) => assert!(
+                msg.contains("500") || msg.contains("LLM API"),
+                "Expected LLM error with 500, got: {msg}"
+            ),
+            other => panic!("Expected LlmError, got: {other:?}"),
+        }
     }
 }

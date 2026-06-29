@@ -1,6 +1,9 @@
 pub mod context_window;
 pub mod debug_models;
 pub mod handlers;
+pub mod hybrid_service;
 pub mod models;
+pub mod query_enhancer;
 pub mod repository;
+pub mod reranker;
 pub mod service;

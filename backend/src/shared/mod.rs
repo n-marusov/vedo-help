@@ -1,5 +1,6 @@
 pub mod audit_middleware;
 pub mod auth;
+pub mod bm25;
 pub mod chroma_client;
 pub mod chunking;
 pub mod embedding_client;
