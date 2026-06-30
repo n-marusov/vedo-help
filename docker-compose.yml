@@ -39,6 +39,7 @@ services:
     environment:
       - EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
       - CACHE_DIR=/data/cache
+      - HF_TOKEN=${HF_TOKEN}
     volumes:
       - embedding_cache:/data/cache
     networks:

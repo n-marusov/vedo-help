@@ -23,6 +23,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev
 
+# Pre-download the embedding model at build time so it is cached in the image.
+# Without this, SentenceTransformer downloads the model on first startup,
+# which can hang the lifespan phase (especially without HF_TOKEN).
+ENV HF_HOME=/tmp/hf-cache
+RUN uv run python <<EOF
+from sentence_transformers import SentenceTransformer
+SentenceTransformer('BAAI/bge-small-en-v1.5')
+EOF
+
 # --- Development ---
 FROM python:3.11-slim AS development
 
@@ -37,6 +46,13 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
+
+# Pre-download the embedding model at build time for development.
+ENV HF_HOME=/app/hf-cache
+RUN uv run python <<EOF
+from sentence_transformers import SentenceTransformer
+SentenceTransformer('BAAI/bge-small-en-v1.5')
+EOF
 
 COPY src/ ./src/
 RUN mkdir -p /data/cache && chown -R vedo:vedo /app /data
@@ -61,7 +77,9 @@ RUN apt-get update && \
         && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /tmp/hf-cache /app/hf-cache
 ENV PATH=/app/.venv/bin:$PATH
+ENV HF_HOME=/app/hf-cache
 
 COPY src/ ./src/
 RUN mkdir -p /data/cache && chown -R vedo:vedo /data
