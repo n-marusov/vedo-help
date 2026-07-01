@@ -11,8 +11,9 @@ WORKDIR /app
 # Copy dependency manifests
 COPY package.json package-lock.json ./
 
-# Install only production dependencies (for caching)
-RUN npm ci --omit=dev
+# Install only production dependencies (for caching) with BuildKit cache
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
 
 # ====================================================================
 # Builder stage – full install + build
@@ -23,7 +24,8 @@ WORKDIR /app
 
 # Copy manifests and install all dependencies (including devDependencies)
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Copy the rest of the source
 COPY . .
@@ -40,7 +42,8 @@ WORKDIR /app
 
 # Copy manifests and install all dependencies
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Copy the source (so bind-mounts are optional)
 COPY . .
