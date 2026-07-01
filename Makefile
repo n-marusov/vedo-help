@@ -1,5 +1,7 @@
 .PHONY: test test-env test-env-down test-e2e lint format check coverage ci-backend ci-embedding ci-frontend help
 .PHONY: dev-up dev-down prod-up prod-down docker-logs docker-health docker-shell
+.PHONY: dev-build dev-build-backend dev-build-frontend dev-build-embedding build-all
+.PHONY: prod-build prod-build-backend prod-build-frontend prod-build-embedding
 
 # VEDO hub RAG Assistant — Makefile
 
@@ -11,8 +13,8 @@ smoke: ## Run smoke tests (start services via Docker Compose and verify health)
 
 # === Docker Development ===
 
-dev-up: ## Start development environment
-	docker compose up -d
+dev-up: ## Start development environment (parallel build)
+	docker compose up -d --parallel
 
 dev-down: ## Stop development environment
 	docker compose down
@@ -28,8 +30,32 @@ prod-up: ## Start production environment
 prod-down: ## Stop production environment
 	docker compose -f docker-compose.yml -f docker-compose.production.yml down
 
-prod-build: ## Build production images
-	docker compose -f docker-compose.yml -f docker-compose.production.yml build
+prod-build: ## Build all production images (parallel)
+	docker compose -f docker-compose.yml -f docker-compose.production.yml build --parallel
+
+build-all: ## Build all development images (parallel)
+	docker compose build --parallel
+
+dev-build: ## Build all development images (alias for build-all)
+	docker compose build --parallel
+
+dev-build-backend: ## Build only backend (development)
+	docker compose build backend
+
+dev-build-frontend: ## Build only frontend (development)
+	docker compose build frontend
+
+dev-build-embedding: ## Build only embedding service (development)
+	docker compose build embedding
+
+prod-build-backend: ## Build only backend (production)
+	docker compose -f docker-compose.yml -f docker-compose.production.yml build backend
+
+prod-build-frontend: ## Build only frontend (production)
+	docker compose -f docker-compose.yml -f docker-compose.production.yml build frontend
+
+prod-build-embedding: ## Build only embedding service (production)
+	docker compose -f docker-compose.yml -f docker-compose.production.yml build embedding
 
 # === Docker Utilities ===
 
