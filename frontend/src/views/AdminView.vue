@@ -12,7 +12,7 @@ import { onMounted, ref, watch } from 'vue';
 const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
-const activeTab = ref<'sources' | 'debug' | 'pipeline'>('sources');
+const activeTab = ref<'sources' | 'debug' | 'pipeline' | 'health'>('sources');
 const activeSourceTab = ref<'documents' | 'git'>('documents');
 
 onMounted(() => {
@@ -40,9 +40,6 @@ watch(
 <template>
   <div class="admin-view" data-testid="admin-view">
     <div class="admin-panel">
-      <!-- Health Status Indicator -->
-      <HealthStatus />
-
       <!-- Top-level Tab Bar -->
       <div class="admin-tabs" data-testid="admin-tabs">
         <button
@@ -68,6 +65,14 @@ watch(
           @click="activeTab = 'pipeline'"
         >
           RAG Pipeline Debug
+        </button>
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeTab === 'health' }"
+          data-testid="admin-tab-health"
+          @click="activeTab = 'health'"
+        >
+          Service Health
         </button>
       </div>
 
@@ -109,6 +114,11 @@ watch(
         <!-- RAG Pipeline Debug Tab Content -->
         <template v-if="activeTab === 'pipeline'">
           <RagPipelineDebug />
+        </template>
+
+        <!-- Service Health Tab Content -->
+        <template v-if="activeTab === 'health'">
+          <HealthStatus />
         </template>
       </div>
     </div>
