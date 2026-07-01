@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { api } from '@/api/client';
-import type { DebugData, Message, SessionSummary } from '@/api/types';
+import type {
+  DebugData,
+  HydeData,
+  KeywordSearchData,
+  MergeDedupData,
+  Message,
+  MultiQueryData,
+  RerankingData,
+  SessionSummary,
+} from '@/api/types';
 import { computed, ref } from 'vue';
 
 const sessions = ref<SessionSummary[]>([]);
@@ -10,56 +19,55 @@ const searchQuery = ref('');
 const dateFrom = ref('');
 const dateTo = ref('');
 const isLoading = ref(false);
-const expandedDebug = ref<Record<string, boolean>>({});
 
 const steps = [
   {
     id: 1,
     name: 'Multi-query',
-    key: 'multi_query',
-    status: 'active',
+    key: 'multi_query' as const,
+    status: 'active' as const,
     desc: 'Question → 3 variants',
   },
   {
     id: 2,
     name: 'HyDE',
-    key: 'hyde',
-    status: 'active',
+    key: 'hyde' as const,
+    status: 'active' as const,
     desc: 'Hypothetical document per query',
   },
   {
     id: 3,
     name: 'Embedding search',
-    key: 'embedding_search',
-    status: 'active',
+    key: 'embedding_search' as const,
+    status: 'active' as const,
     desc: 'Chroma nearest neighbor search',
   },
   {
     id: 4,
     name: 'Hybrid keyword search',
-    key: 'keyword_search',
-    status: 'active',
+    key: 'keyword_search' as const,
+    status: 'active' as const,
     desc: 'Keywords → chunks',
   },
   {
     id: 5,
     name: 'Merge & dedup',
-    key: 'merge_dedup',
-    status: 'active',
+    key: 'merge_dedup' as const,
+    status: 'active' as const,
     desc: '~15-19 chunks → unique set',
   },
   {
     id: 6,
     name: 'Reranking',
-    key: 'reranking',
-    status: 'active',
+    key: 'reranking' as const,
+    status: 'active' as const,
     desc: 'LLM scores each chunk',
   },
   {
     id: 7,
     name: 'Final answer',
-    key: 'final_answer',
-    status: 'active',
+    key: 'final_answer' as const,
+    status: 'active' as const,
     desc: 'Selected chunks → response',
   },
 ];
@@ -88,10 +96,6 @@ async function loadSession(id: string) {
   } catch (err) {
     console.error('[SessionDebug] load failed', err);
   }
-}
-
-function toggleDebug(msgId: string) {
-  expandedDebug.value[msgId] = !expandedDebug.value[msgId];
 }
 
 function parseDebugData(msg: Message): DebugData | null {
@@ -217,30 +221,20 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
             </div>
             <div class="debug-msg-content">{{ msg.content }}</div>
 
-            <!-- Debug toggle (assistant only) -->
-            <button
-              v-if="msg.role === 'assistant' && msg.debug_data"
-              class="debug-toggle-btn"
-              data-testid="session-debug-toggle"
-              @click="toggleDebug(msg.id)"
-            >
-              {{ expandedDebug[msg.id] ? "▼" : "▶" }} Debug — Generation
-              Pipeline
-            </button>
-
-            <!-- Debug panel -->
+            <!-- Pipeline debug panel (assistant messages only) -->
             <div
-              v-if="expandedDebug[msg.id] && msg.debug_data"
+              v-if="msg.role === 'assistant' && msg.debug_data"
               class="debug-panel-inner"
               data-testid="debug-panel"
             >
+              <div class="debug-panel-steps-label">RAG Pipeline</div>
               <div
                 v-for="step in steps"
                 :key="step.id"
                 class="debug-step"
                 data-testid="debug-step"
               >
-                <details class="debug-step-details">
+                <details class="debug-step-details" open>
                   <summary class="debug-step-summary">
                     <span class="debug-step-number">{{ step.id }}.</span>
                     <span
@@ -249,15 +243,17 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                       >{{ step.name }}</span
                     >
                     <span
-                      v-if="step.status === 'active'"
+                      v-if="
+                        parseDebugData(msg) &&
+                        getStepData(parseDebugData(msg)!, step.key)
+                      "
                       class="debug-step-badge debug-step-badge--active"
-                      >v0.1</span
+                      >✓</span
                     >
                     <span
                       v-else
                       class="debug-step-badge debug-step-badge--future"
-                      data-testid="debug-step-future"
-                      >v0.5</span
+                      >○</span
                     >
                   </summary>
                   <div class="debug-step-body" data-testid="debug-step-data">
@@ -265,35 +261,39 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 1">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'multi_query',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div class="debug-meta-row">
                           <span class="debug-meta-label">Original query</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "multi_query",
-                            )?.original_query
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as MultiQueryData
+                            ).original_query
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
                           <span class="debug-meta-label">Variants</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "multi_query",
-                            )?.variants?.length
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as MultiQueryData
+                            ).variants.length
                           }}</span>
                         </div>
                         <div
-                          v-for="(variant, vi) in getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'multi_query',
-                          )?.variants || []"
+                          v-for="(variant, vi) in (
+                            getStepData(
+                              parseDebugData(msg)!,
+                              step.key,
+                            ) as MultiQueryData
+                          ).variants"
                           :key="vi"
                           class="debug-variant-item"
                         >
@@ -307,17 +307,17 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 2">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'hyde',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div
-                          v-for="(hr, hi) in getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'hyde',
-                          )?.per_query || []"
+                          v-for="(hr, hi) in (
+                            getStepData(
+                              parseDebugData(msg)!,
+                              step.key,
+                            ) as HydeData
+                          ).per_query"
                           :key="hi"
                           class="debug-hyde-item"
                         >
@@ -330,7 +330,7 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                               >Hypothetical doc</span
                             >
                             <span class="debug-meta-value"
-                              >{{ hr.hypothetical_doc?.slice(0, 120) }}...</span
+                              >{{ hr.hypothetical_doc?.slice(0, 150) }}...</span
                             >
                           </div>
                         </div>
@@ -342,68 +342,47 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 3">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'embedding_search',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Query snippet</span
-                          ><span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "embedding_search",
-                            )?.query_snippet
+                          <span class="debug-meta-label">Top K</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(parseDebugData(msg)!, step.key).top_k
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Dimension</span
-                          ><span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "embedding_search",
-                            )?.embedding_dimension
+                          <span class="debug-meta-label">Query snippet</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(parseDebugData(msg)!, step.key)
+                              .query_snippet
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Latency</span
-                          ><span class="debug-meta-value"
+                          <span class="debug-meta-label">Latency</span>
+                          <span class="debug-meta-value"
                             >{{
-                              getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
-                                "embedding_search",
-                              )?.latency_ms
+                              getStepData(parseDebugData(msg)!, step.key)
+                                .latency_ms
                             }}ms</span
                           >
                         </div>
-                        <div
-                          v-if="
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              'embedding_search',
-                            )?.results?.length
-                          "
-                          class="debug-results"
-                        >
+                        <div class="debug-results">
                           <div
                             v-for="(r, i) in getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              'embedding_search',
-                            )?.results"
+                              parseDebugData(msg)!,
+                              step.key,
+                            ).results"
                             :key="i"
                             class="debug-result-item"
                           >
                             <span class="debug-result-doc">{{
                               r.document_name
                             }}</span>
-                            <span class="debug-result-score"
-                              >{{
-                                Math.round(r.score * 100)
-
-
-                              }}%</span
-                            >
+                            <span class="debug-result-score">{{
+                              r.score.toFixed(4)
+                            }}</span>
                           </div>
                         </div>
                       </div>
@@ -414,10 +393,8 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 4">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'keyword_search',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div class="debug-meta-row">
@@ -425,20 +402,41 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                           <span class="debug-meta-value">{{
                             (
                               getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
-                                "keyword_search",
-                              )?.query_tokens || []
-                            ).join(", ")
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as KeywordSearchData
+                            ).query_tokens.join(", ")
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
                           <span class="debug-meta-label">Matches</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "keyword_search",
-                            )?.total_matches
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as KeywordSearchData
+                            ).total_matches
                           }}</span>
+                        </div>
+                        <div class="debug-results">
+                          <div
+                            v-for="(result, ri) in (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as KeywordSearchData
+                            ).results"
+                            :key="ri"
+                            class="debug-result-item"
+                          >
+                            <span class="debug-result-doc">{{
+                              result.document_name
+                            }}</span>
+                            <span class="debug-result-score">{{
+                              result.score.toFixed(2)
+                            }}</span>
+                          </div>
                         </div>
                       </div>
                       <p v-else class="debug-step-placeholder">No data</p>
@@ -448,45 +446,51 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 5">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'merge_dedup',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div class="debug-meta-row">
                           <span class="debug-meta-label">Input chunks</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "merge_dedup",
-                            )?.input_chunks
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as MergeDedupData
+                            ).input_chunks
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
                           <span class="debug-meta-label">After dedup</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "merge_dedup",
-                            )?.after_dedup
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as MergeDedupData
+                            ).after_dedup
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Vector/Keyword</span>
+                          <span class="debug-meta-label">Vector / Keyword</span>
                           <span class="debug-meta-value"
                             >{{
-                              getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
-                                "merge_dedup",
-                              )?.source_breakdown?.vector_chunks
+                              (
+                                getStepData(
+                                  parseDebugData(msg)!,
+                                  step.key,
+                                ) as MergeDedupData
+                              ).source_breakdown.vector_chunks
                             }}
                             /
                             {{
-                              getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
-                                "merge_dedup",
-                              )?.source_breakdown?.keyword_chunks
+                              (
+                                getStepData(
+                                  parseDebugData(msg)!,
+                                  step.key,
+                                ) as MergeDedupData
+                              ).source_breakdown.keyword_chunks
                             }}</span
                           >
                         </div>
@@ -498,29 +502,69 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 6">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'reranking',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div class="debug-meta-row">
+                          <span class="debug-meta-label">Input</span>
+                          <span class="debug-meta-value">{{
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as RerankingData
+                            ).input_count
+                          }}</span>
+                        </div>
+                        <div class="debug-meta-row">
                           <span class="debug-meta-label">Accepted</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "reranking",
-                            )?.accepted
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as RerankingData
+                            ).accepted
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
                           <span class="debug-meta-label">Rejected</span>
                           <span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "reranking",
-                            )?.rejected
+                            (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as RerankingData
+                            ).rejected
                           }}</span>
+                        </div>
+                        <div class="debug-results">
+                          <div
+                            v-for="(result, ri) in (
+                              getStepData(
+                                parseDebugData(msg)!,
+                                step.key,
+                              ) as RerankingData
+                            ).results"
+                            :key="ri"
+                            class="debug-result-item"
+                          >
+                            <span class="debug-result-doc">{{
+                              result.verdict
+                            }}</span>
+                            <span
+                              class="debug-result-score"
+                              :class="{
+                                'debug-result-score--accepted':
+                                  result.verdict === 'брать',
+                                'debug-result-score--rejected':
+                                  result.verdict === 'не брать',
+                              }"
+                            >
+                              {{ result.score }}/10
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <p v-else class="debug-step-placeholder">No data</p>
@@ -530,57 +574,39 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
                     <template v-if="step.id === 7">
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'final_answer',
-                          )
+                          parseDebugData(msg) &&
+                          getStepData(parseDebugData(msg)!, step.key)
                         "
                       >
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Model</span
-                          ><span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "final_answer",
-                            )?.model
+                          <span class="debug-meta-label">Model</span>
+                          <span class="debug-meta-value">{{
+                            getStepData(parseDebugData(msg)!, step.key).model
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Chunks in context</span
-                          ><span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "final_answer",
-                            )?.chunks_in_context
+                          <span class="debug-meta-label"
+                            >Chunks in context</span
+                          >
+                          <span class="debug-meta-value">{{
+                            getStepData(parseDebugData(msg)!, step.key)
+                              .chunks_in_context
                           }}</span>
                         </div>
                         <div class="debug-meta-row">
-                          <span class="debug-meta-label">Latency</span
-                          ><span class="debug-meta-value"
+                          <span class="debug-meta-label">Latency</span>
+                          <span class="debug-meta-value"
                             >{{
-                              getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
-                                "final_answer",
-                              )?.latency_ms
+                              getStepData(parseDebugData(msg)!, step.key)
+                                .latency_ms
                             }}ms</span
                           >
-                        </div>
-                        <div class="debug-meta-row">
-                          <span class="debug-meta-label">Tokens</span
-                          ><span class="debug-meta-value">{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "final_answer",
-                            )?.total_tokens_estimate
-                          }}</span>
                         </div>
                         <details class="debug-prompt-preview">
                           <summary>Prompt preview</summary>
                           <pre>{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "final_answer",
-                            )?.prompt_preview
+                            getStepData(parseDebugData(msg)!, step.key)
+                              .prompt_preview
                           }}</pre>
                         </details>
                       </div>
@@ -846,6 +872,15 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
   border-radius: 8px;
 }
 
+.debug-panel-steps-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+  padding-bottom: 4px;
+}
+
 .debug-step {
   border-radius: 6px;
   background: var(--color-background);
@@ -942,6 +977,33 @@ const hasActiveSession = computed(() => selectedSession.value !== null);
 
 .debug-result-score {
   color: var(--color-primary);
+}
+
+.debug-result-score--accepted {
+  color: var(--color-success, #22c55e);
+}
+
+.debug-result-score--rejected {
+  color: var(--color-error, #ef4444);
+}
+
+.debug-variant-item {
+  padding: 2px 0;
+}
+
+.debug-variant-item code {
+  font-size: 9px;
+  color: var(--color-primary);
+  background: var(--color-primary-bg, rgba(99, 102, 241, 0.06));
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.debug-hyde-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
 }
 
 .debug-prompt-preview {

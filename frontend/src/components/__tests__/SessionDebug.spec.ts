@@ -178,7 +178,7 @@ describe('SessionDebug', () => {
     );
   });
 
-  it('assistant message shows debug button', async () => {
+  it('assistant message shows pipeline panel', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
     vi.mocked(api.getSessionWithMessages).mockResolvedValue({
       session: {
@@ -215,9 +215,9 @@ describe('SessionDebug', () => {
     }
     await flushPromises();
 
-    // Check assistant messages have debug toggle button
-    const debugBtns = wrapper.findAll('[data-testid="session-debug-toggle"]');
-    expect(debugBtns.length).toBeGreaterThanOrEqual(1);
+    // Check assistant messages have pipeline debug panel (always visible, no toggle needed)
+    const debugPanels = wrapper.findAll('[data-testid="debug-panel"]');
+    expect(debugPanels.length).toBeGreaterThanOrEqual(1);
   });
 
   it('debug panel shows 7 steps', async () => {
@@ -257,14 +257,7 @@ describe('SessionDebug', () => {
     }
     await flushPromises();
 
-    // Click debug toggle on first assistant message
-    const debugToggle = wrapper.find('[data-testid="session-debug-toggle"]');
-    if (debugToggle.exists()) {
-      await debugToggle.trigger('click');
-    }
-    await flushPromises();
-
-    // Verify all 7 step titles visible
+    // Verify all 7 step titles visible (pipeline is always shown, no toggle needed)
     const stepTitles = wrapper.findAll('[data-testid="debug-step-title"]');
     expect(stepTitles.length).toBe(7);
   });
@@ -306,18 +299,15 @@ describe('SessionDebug', () => {
     }
     await flushPromises();
 
-    const debugToggle = wrapper.find('[data-testid="session-debug-toggle"]');
-    if (debugToggle.exists()) {
-      await debugToggle.trigger('click');
-    }
     await flushPromises();
 
     // Step 3 (embedding search) and step 7 (final answer) should have data
+    // Pipeline is always shown, no toggle needed
     const stepData = wrapper.findAll('[data-testid="debug-step-data"]');
     expect(stepData.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('future steps show placeholder badge', async () => {
+  it('badge reflects available debug data', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
     vi.mocked(api.getSessionWithMessages).mockResolvedValue({
       session: {
@@ -353,17 +343,14 @@ describe('SessionDebug', () => {
     }
     await flushPromises();
 
-    const debugToggle = wrapper.find('[data-testid="session-debug-toggle"]');
-    if (debugToggle.exists()) {
-      await debugToggle.trigger('click');
-    }
     await flushPromises();
 
-    // All 7 steps are now active (status flipped from future)
-    const futureBadges = wrapper.findAll('[data-testid="debug-step-future"]');
-    expect(futureBadges.length).toBe(0);
+    // Steps with data (embedding_search, final_answer) have active badge ✓
+    // Steps without data have future badge ○
+    const futureBadges = wrapper.findAll('.debug-step-badge--future');
     const activeBadges = wrapper.findAll('.debug-step-badge--active');
-    expect(activeBadges.length).toBe(7);
+    expect(futureBadges.length).toBeGreaterThan(0);
+    expect(activeBadges.length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders empty state when no session selected', async () => {
@@ -379,7 +366,7 @@ describe('SessionDebug', () => {
     expect(emptyState.exists()).toBe(true);
   });
 
-  it('debug button not shown for user messages', async () => {
+  it('pipeline panel shown only for assistant messages', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
     vi.mocked(api.getSessionWithMessages).mockResolvedValue({
       session: {
@@ -415,18 +402,14 @@ describe('SessionDebug', () => {
     }
     await flushPromises();
 
-    // Debug toggle buttons should only be on assistant messages
-    const allMsgs = wrapper.findAll('[data-testid="session-msg"]');
-    const debugToggles = wrapper.findAll('[data-testid="session-debug-toggle"]');
-    expect(debugToggles.length).toBeGreaterThanOrEqual(1);
-    // Every message with a debug toggle should be assistant role
-    for (let i = 0; i < allMsgs.length; i++) {
-      const msgText = allMsgs[i].text();
-      const hasToggle = msgText.includes('Debug') || msgText.includes('Generation Pipeline');
-      const isUser = msgText.includes('How do I install') || msgText.includes('What are system');
-      if (isUser) {
-        expect(hasToggle).toBe(false);
-      }
-    }
+    // Pipeline panel should only appear on assistant messages with debug_data
+    const debugPanels = wrapper.findAll('[data-testid="debug-panel"]');
+    expect(debugPanels.length).toBeGreaterThanOrEqual(1);
+    // Assistant message (msg-2) should have debug panel
+    // User messages (msg-1, msg-3) should have pipeline as children but
+    // they don't have debug_data so no panel renders
+    // Check that the debug panel count matches assistant messages with debug_data
+    const assistantWithDebug = mockMessages.filter((m) => m.role === 'assistant' && m.debug_data);
+    expect(debugPanels.length).toBe(assistantWithDebug.length);
   });
 });

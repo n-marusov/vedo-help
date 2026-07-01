@@ -141,18 +141,18 @@ test.describe('RAG Flow: pipeline stage events', () => {
     const assistant = page.locator('[data-testid="message-assistant"]').first();
     await expect(assistant).toBeVisible({ timeout: 30000 });
 
-    // Now navigate to admin pipeline tab
+    // Now navigate to admin debug tab (merged pipeline + session debug)
     await page.goto('/admin');
     await expect(page.locator('[data-testid="admin-view"]')).toBeVisible({
       timeout: 10000,
     });
-    await page.locator('[data-testid="admin-tab-pipeline"]').click();
-    await expect(page.locator('[data-testid="rag-pipeline-debug-view"]')).toBeVisible();
+    await page.locator('[data-testid="admin-tab-debug"]').click();
+    await expect(page.locator('[data-testid="session-debug-view"]')).toBeVisible();
 
     // Search and verify sessions appear
-    await page.locator('[data-testid="rag-pipeline-search"]').fill('debug');
+    await page.locator('[data-testid="session-debug-search"]').fill('debug');
     await page.waitForTimeout(1000);
-    const sessionItems = page.locator('[data-testid="pipeline-session-item"]');
+    const sessionItems = page.locator('[data-testid="session-list-item"]');
     await expect(sessionItems.first()).toBeVisible({ timeout: 5000 });
   });
 });
