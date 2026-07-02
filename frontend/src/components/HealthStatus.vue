@@ -6,7 +6,6 @@ import { onMounted, ref } from 'vue';
 const health = ref<HealthReport | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const expanded = ref(false);
 
 async function fetchHealth() {
   loading.value = true;
@@ -60,12 +59,8 @@ onMounted(fetchHealth);
 
 <template>
   <div class="health-status" data-testid="health-status">
-    <!-- Summary bar -->
-    <button
-      class="health-summary"
-      :class="{ 'health-summary--loading': loading }"
-      @click="expanded = !expanded"
-    >
+    <!-- Summary header -->
+    <div class="health-header" :class="{ 'health-header--loading': loading }">
       <template v-if="loading">
         <span
           class="health-dot"
@@ -100,20 +95,13 @@ onMounted(fetchHealth);
         />
         <span class="health-text">Unknown</span>
       </template>
-      <span
-        class="health-refresh-btn"
-        title="Refresh"
-        @click.stop="fetchHealth()"
+      <span class="health-refresh-btn" title="Refresh" @click="fetchHealth()"
         >↻</span
       >
-    </button>
+    </div>
 
-    <!-- Expanded per-service table -->
-    <div
-      v-if="expanded && health"
-      class="health-detail"
-      data-testid="health-detail"
-    >
+    <!-- Per-service table (always visible) -->
+    <div v-if="health" class="health-detail" data-testid="health-detail">
       <table class="health-table">
         <thead>
           <tr>
@@ -150,28 +138,23 @@ onMounted(fetchHealth);
 .health-status {
   font-family: var(--font-family, ui-sans-serif, system-ui, sans-serif);
   font-size: var(--font-size-xs, 12px);
+  padding: 20px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl, 16px);
 }
 
-.health-summary {
+.health-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg, 8px);
-  cursor: pointer;
   color: var(--color-foreground);
-  transition: border-color var(--transition-fast);
-  width: 100%;
-  text-align: left;
+  margin-bottom: 12px;
 }
 
-.health-summary:hover {
-  border-color: var(--color-primary);
-}
-
-.health-summary--loading {
+.health-header--loading {
   opacity: 0.7;
 }
 
@@ -211,6 +194,7 @@ onMounted(fetchHealth);
   opacity: 0.6;
   font-size: 14px;
   padding: 0 2px;
+  margin-left: 8px;
 }
 
 .health-refresh-btn:hover {
@@ -218,8 +202,7 @@ onMounted(fetchHealth);
 }
 
 .health-detail {
-  margin-top: 8px;
-  background: var(--color-card);
+  background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg, 8px);
   overflow: hidden;
@@ -238,7 +221,7 @@ onMounted(fetchHealth);
   text-transform: uppercase;
   color: var(--color-muted-foreground);
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-background);
+  background: var(--color-card);
 }
 
 .health-table td {
