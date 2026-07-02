@@ -94,7 +94,7 @@ test-env-down: ## Stop and clean test environment
 test: ## Run all tests (backend + frontend + embedding)
 	cd backend && cargo test --lib
 	cd backend && cargo test --test integration -- --test-threads=1
-	cd frontend && npm test
+	cd frontend && pnpm test
 	cd embedding && pytest tests/ -v
 
 test-e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
@@ -106,14 +106,14 @@ test:keycloak-template: ## Validate keycloak realm template substitution (no Doc
 
 lint: ## Run all linters
 	cd backend && cargo clippy -- -D warnings
-	cd frontend && npm run lint:ci
+	cd frontend && pnpm run lint:ci
 	cd embedding && ruff check src/
 
 # === Formatting ===
 
 format: ## Format all code
 	cd backend && cargo fmt
-	cd frontend && npm run format
+	cd frontend && pnpm run format
 	cd embedding && ruff format src/
 
 # === Full check ===
@@ -141,7 +141,7 @@ ci-embedding: ## Embedding CI (format + lint + test)
 	cd embedding && uv run ruff format src/ --check && uv run ruff check src/ && uv run pytest tests/ -v --cov=src --cov-report=term
 
 ci-frontend: ## Frontend CI (lint + format check + test + build)
-	cd frontend && npm run lint:ci && npm run format:check && npm run test -- --run && npm run build
+	cd frontend && pnpm run lint:ci && pnpm run format:check && pnpm run test -- --run && pnpm run build
 
 smoke-dns: ## Run DNS smoke test (check embedding DNS resolution independent of host VPN)
 	@echo "Running DNS smoke test..."

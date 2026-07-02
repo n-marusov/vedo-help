@@ -8,12 +8,15 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@10 --activate
+
 # Copy dependency manifests
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install only production dependencies (for caching) with BuildKit cache
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prod
 
 # ====================================================================
 # Builder stage – full install + build
@@ -22,16 +25,19 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@10 --activate
+
 # Copy manifests and install all dependencies (including devDependencies)
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Copy the rest of the source
 COPY . .
 
 # Build the production bundle
-RUN npm run build
+RUN pnpm run build
 
 # ====================================================================
 # Development stage – Vite dev server with hot-reload
@@ -40,10 +46,13 @@ FROM node:22-alpine AS development
 
 WORKDIR /app
 
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@10 --activate
+
 # Copy manifests and install all dependencies
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Copy the source (so bind-mounts are optional)
 COPY . .
@@ -51,7 +60,7 @@ COPY . .
 EXPOSE 5173
 
 # Run the Vite dev server on all interfaces
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # ====================================================================
 # Production stage – nginx serving the SPA
