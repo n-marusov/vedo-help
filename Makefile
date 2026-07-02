@@ -65,6 +65,9 @@ docker-logs: ## View container logs (usage: make docker-logs ARGS="backend")
 docker-health: ## Check container health status
 	docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
 
+docker-health-check: ## Verify all containers are healthy (exit 0 only if all healthy)
+	@bash scripts/check-container-health.sh docker-compose.yml docker-compose.override.yml
+
 docker-validate: ## Validate Docker Compose config for common service URL misconfigurations
 	@bash scripts/validate-docker-compose.sh
 

@@ -7,6 +7,7 @@
 - `uvx ruff check --fix` — exit 0
 - `bash scripts/validate-migrations.sh` — exit 0
 - `bash scripts/validate-migrations.sh --git` — exit 0 (если origin/main доступен)
+- `bash scripts/check-container-health.sh` — exit 0 (все контейнеры healthy)
 
 ## Contract
 - Типы в `src/api/types.ts` 1:1 соответствуют `workflow/task-manager/openapi.yaml` (envelope-обёртки, имена полей)
