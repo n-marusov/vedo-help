@@ -59,8 +59,8 @@ COPY . .
 
 EXPOSE 5173
 
-# Run the Vite dev server on all interfaces
-CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Run the Vite dev server on all interfaces (--host 0.0.0.0 in package.json)
+CMD ["pnpm", "run", "dev"]
 
 # ====================================================================
 # Production stage – nginx serving the SPA
