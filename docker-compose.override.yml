@@ -64,12 +64,19 @@ services:
       VITE_OTEL_COLLECTOR_URL: http://otel-collector:4318/v1/logs
       VITE_ENVIRONMENT: development
     # Dev server (Vite) runs on port 5173, not nginx on 80.
+    # Use node -e for healthcheck since node:22-alpine lacks wget/curl.
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]
-      interval: 30s
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:5173/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 30s
 
   db:
     ports:
