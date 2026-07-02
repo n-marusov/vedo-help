@@ -173,6 +173,60 @@ The `docker-compose.production.yml` overlay applies:
 - **Log rotation** (20 MB per file, 5 files max)
 - **Caddy reverse proxy** with Let's Encrypt auto TLS
 
+## Docker Build Optimizations
+
+To speed up repeated Docker image builds during development and CI:
+
+### NPM/Pnpm Cache Mounts
+
+All `npm ci` / `pnpm install` commands in `frontend/Dockerfile` use BuildKit cache mounts:
+
+- **npm:** `--mount=type=cache,target=/root/.npm` (caches tarballs locally)
+- **pnpm:** `--mount=type=cache,target=/root/.local/share/pnpm/store` (caches content-addressable store)
+
+First build downloads all packages. Subsequent builds reuse cached tarballs instead of re-fetching them.
+
+### Parallel Builds
+
+`docker compose build` supports `--parallel` to build independent services concurrently:
+
+```bash
+# Build all services in parallel (development)
+docker compose build --parallel
+
+# Build all services in parallel (production)
+docker compose -f docker-compose.yml -f docker-compose.production.yml build --parallel
+```
+
+### Selective Builds
+
+When only one service changed, build only that service instead of rebuilding everything:
+
+```bash
+make dev-build-backend     # Build only backend
+make dev-build-frontend    # Build only frontend
+make dev-build-embedding   # Build only embedding
+
+# Production variants
+make prod-build-backend
+make prod-build-frontend
+make prod-build-embedding
+```
+
+### Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `dev-up` | Start dev environment (parallel build) |
+| `build-all` | Build all dev images (parallel) |
+| `dev-build-backend` | Build only backend (dev) |
+| `dev-build-frontend` | Build only frontend (dev) |
+| `dev-build-embedding` | Build only embedding (dev) |
+| `prod-build` | Build all production images (parallel) |
+| `prod-build-backend` | Build only backend (prod) |
+| `prod-build-frontend` | Build only frontend (prod) |
+| `prod-build-embedding` | Build only embedding (prod) |
+
 ## See Also
 
 - [Configuration](configuration.md) — environment variables reference
