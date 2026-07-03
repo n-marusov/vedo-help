@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 
 logger = structlog.get_logger(__name__)
 
-DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+DEFAULT_MODEL = "all-MiniLM-L6-v2"
 
 
 class EmbeddingService:

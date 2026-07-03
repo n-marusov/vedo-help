@@ -46,6 +46,7 @@ services:
     environment:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
       - CACHE_DIR=/data/cache
+      - HF_TOKEN=${HF_TOKEN:-}
     volumes:
       - test_embedding_cache:/data/cache
     ports:
@@ -290,7 +291,8 @@ services:
       - /bin/sh
       - -c
       - |
-        npm ci
+        npm install -g pnpm 2>/dev/null
+        pnpm install --frozen-lockfile 2>/dev/null || npm install --no-audit --no-fund
         npm run test:e2e
 
 networks:

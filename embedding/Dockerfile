@@ -23,6 +23,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev
 
+# Pre-cache the sentence-transformers model (avoids download on first start)
+ENV EMBEDDING_MODEL=all-MiniLM-L6-v2
+RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${EMBEDDING_MODEL}')"
+
 # --- Development ---
 FROM python:3.11-slim AS development
 
@@ -39,9 +43,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
 
 COPY src/ ./src/
-RUN mkdir -p /data/cache && chown -R vedo:vedo /app /data
+RUN mkdir -p /data/cache && chown -R vedo:vedo /app /data /home/vedo
 
 USER vedo
+
+# Pre-cache the sentence-transformers model for development (as the vedo user,
+# so the cache lands in ~/.cache/huggingface where the runtime user can find it)
+ENV EMBEDDING_MODEL=all-MiniLM-L6-v2
+RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${EMBEDDING_MODEL}')"
 
 EXPOSE 8001
 
@@ -65,6 +74,9 @@ ENV PATH=/app/.venv/bin:$PATH
 
 COPY src/ ./src/
 RUN mkdir -p /data/cache && chown -R vedo:vedo /data
+
+# Copy pre-cached HuggingFace model from builder
+COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 
 USER vedo
 
