@@ -765,8 +765,11 @@ async fn make_git_sync_service(
     pool: &sqlx::PgPool,
 ) -> vedo_backend::modules::git_sync::service::GitSyncService {
     let repo = vedo_backend::modules::git_sync::repository::GitRepoRepository::new(pool.clone());
+    let doc_repo =
+        vedo_backend::modules::documents::repository::DocumentRepository::new(pool.clone());
     vedo_backend::modules::git_sync::service::GitSyncService::new(
         repo,
+        doc_repo,
         "http://chroma:8000".to_string(),
         "http://embedding:8001".to_string(),
         PathBuf::from("/tmp/vedo-test-git"),
@@ -873,7 +876,15 @@ async fn test_index_chunks_includes_is_active_in_metadata() {
     ];
 
     // Act: index chunks
-    let result = svc.index_chunks(collection_name, repo_id, &files).await;
+    let result = svc
+        .index_chunks(
+            collection_name,
+            Uuid::new_v4(),
+            repo_id,
+            "test-user",
+            &files,
+        )
+        .await;
 
     // We expect a connection error (Chroma/embedding not available in unit test)
     // But the important behavior to verify: the method should attempt to
@@ -910,7 +921,15 @@ async fn test_index_chunks_cleans_up_old_chunks_before_adding() {
     )];
 
     // Act: index chunks (this should call delete_where for each file's doc_id)
-    let result = svc.index_chunks(collection_name, repo_id, &files).await;
+    let result = svc
+        .index_chunks(
+            collection_name,
+            Uuid::new_v4(),
+            repo_id,
+            "test-user",
+            &files,
+        )
+        .await;
 
     // Once T8.1 is implemented, index_chunks will:
     //   1. Compute doc_id = format!("git-{repo_id}-{}", file_path.replace("/", "-"))

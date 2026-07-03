@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VBadge from '@/components/ui/VBadge.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VProgressBar from '@/components/ui/VProgressBar.vue';
@@ -338,7 +339,16 @@ watch(
           </label>
           <span class="dl-item__icon">{{ getFileIcon(doc.file_type) }}</span>
           <div class="dl-item__info">
-            <span class="dl-item__name">{{ doc.name }}</span>
+            <div class="dl-item__name-row">
+              <span class="dl-item__name">{{ doc.name }}</span>
+              <VBadge
+                v-if="doc.source"
+                :variant="doc.source === 'git' ? 'success' : 'info'"
+                size="xs"
+              >
+                {{ doc.source === "git" ? "Git" : "Upload" }}
+              </VBadge>
+            </div>
             <span class="dl-item__meta">
               {{ formatFileType(doc.file_type) }},
               {{ formatFileSize(doc.file_size) }} ·
@@ -608,6 +618,12 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+
+.dl-item__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .dl-item__name {

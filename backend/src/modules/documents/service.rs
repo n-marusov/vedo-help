@@ -112,6 +112,7 @@ impl DocumentService {
             uploaded_at: chrono::Utc::now(),
             collection_id,
             is_active: true,
+            source: "upload".to_string(),
             user_id: user_id.to_string(),
         };
 
@@ -181,6 +182,7 @@ impl DocumentService {
                 uploaded_at: d.uploaded_at,
                 collection_id: d.collection_id,
                 is_active: d.is_active,
+                source: d.source,
             })
             .collect();
         Ok(summaries)
@@ -717,6 +719,7 @@ impl DocumentService {
                 uploaded_at: chrono::Utc::now(),
                 collection_id,
                 is_active: true,
+                source: "upload".to_string(),
                 user_id: user_id.to_string(),
             };
 

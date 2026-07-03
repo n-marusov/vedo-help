@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import ChunkBrowser from '@/components/ChunkBrowser.vue';
 import CollectionManager from '@/components/CollectionManager.vue';
 import DocumentList from '@/components/DocumentList.vue';
 import GitRepoManager from '@/components/GitRepoManager.vue';
 import HealthStatus from '@/components/HealthStatus.vue';
 import SessionDebug from '@/components/SessionDebug.vue';
+import StatsPanel from '@/components/StatsPanel.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
 import { onMounted, ref, watch } from 'vue';
@@ -11,7 +13,7 @@ import { onMounted, ref, watch } from 'vue';
 const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
-const activeTab = ref<'sources' | 'debug' | 'status'>('sources');
+const activeTab = ref<'sources' | 'debug' | 'status' | 'stats'>('sources');
 const activeSourceTab = ref<'documents' | 'git'>('documents');
 
 onMounted(() => {
@@ -65,6 +67,14 @@ watch(
         >
           Health Status
         </button>
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeTab === 'stats' }"
+          data-testid="admin-tab-stats"
+          @click="activeTab = 'stats'"
+        >
+          Statistics
+        </button>
       </div>
 
       <div class="admin-content">
@@ -105,6 +115,16 @@ watch(
         <!-- Health Status Tab Content -->
         <template v-if="activeTab === 'status'">
           <HealthStatus />
+        </template>
+
+        <!-- Statistics Tab Content -->
+        <template v-if="activeTab === 'stats'">
+          <aside class="stats-left-panel">
+            <StatsPanel />
+          </aside>
+          <main class="stats-right-panel">
+            <ChunkBrowser />
+          </main>
         </template>
       </div>
     </div>
@@ -261,6 +281,41 @@ watch(
     width: 100%;
     min-width: 100%;
     max-height: 280px;
+  }
+}
+
+/* ── Statistics Panel Layout ── */
+.stats-left-panel {
+  width: 340px;
+  min-width: 340px;
+  flex-shrink: 0;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl, 16px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.stats-right-panel {
+  flex: 1;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl, 16px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .stats-left-panel,
+  .stats-right-panel {
+    width: 100%;
+    min-width: 100%;
   }
 }
 </style>

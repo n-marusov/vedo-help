@@ -13,6 +13,7 @@ use crate::modules::conversations::models::Message;
 use crate::modules::conversations::repository::ConversationRepository;
 use crate::modules::query::models::{QueryRequest, SourceRef, StreamEvent};
 use crate::modules::query::repository::QueryRepository;
+use crate::shared::chunk_search;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 use crate::shared::llm::{LlmClient, Message as LlmMessage};
@@ -108,39 +109,50 @@ impl QueryService {
             "query.embedded"
         );
 
-        // 2. Search Chroma for similar chunks
-        let collection_name = request.collection_id.to_string();
-        let mut chroma_results = self
-            .repo
-            .query_chroma(&collection_name, &embedding, 5)
-            .await
-            .map_err(|e| {
-                tracing::error!(component = "query/service", error = %e, "query.chroma_search_failed");
-                e
-            })?;
+        // 2. Search chunks using shared chunk_search module (semantic)
+        let mut chunk_search_results = chunk_search::search_chunks_semantic(
+            self.repo.chroma(),
+            &self.embedding_client,
+            self.repo.db(),
+            request.collection_id,
+            &request.query,
+            None,
+            5,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!(component = "query/service", error = %e, "query.chunk_search_failed");
+            e
+        })?;
 
-        if chroma_results.is_empty() {
+        if chunk_search_results.is_empty() {
             tracing::warn!(
                 component = "query/service",
                 collection_id = %request.collection_id,
-                "query.chroma.empty_results"
+                "query.chunk_search.empty_results"
             );
             for attempt in 1..=3 {
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                chroma_results = self
-                    .repo
-                    .query_chroma(&collection_name, &embedding, 5)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!(component = "query/service", retry_attempt = attempt, error = %e, "query.chroma_retry_failed");
-                        e
-                    })?;
-                if !chroma_results.is_empty() {
+                chunk_search_results = chunk_search::search_chunks_semantic(
+                    self.repo.chroma(),
+                    &self.embedding_client,
+                    self.repo.db(),
+                    request.collection_id,
+                    &request.query,
+                    None,
+                    5,
+                )
+                .await
+                .map_err(|e| {
+                    tracing::error!(component = "query/service", retry_attempt = attempt, error = %e, "query.chunk_search_retry_failed");
+                    e
+                })?;
+                if !chunk_search_results.is_empty() {
                     tracing::info!(
                         component = "query/service",
                         retry_attempt = attempt,
                         collection_id = %request.collection_id,
-                        "query.chroma.retry_found"
+                        "query.chunk_search.retry_found"
                     );
                     break;
                 }
@@ -148,33 +160,35 @@ impl QueryService {
                     component = "query/service",
                     retry_attempt = attempt,
                     collection_id = %request.collection_id,
-                    "query.chroma.retry_empty"
+                    "query.chunk_search.retry_empty"
                 );
             }
         }
 
-        // 3. Fetch chunk text + document names from PostgreSQL
-        let chunk_ids: Vec<String> = chroma_results.iter().map(|r| r.id.clone()).collect();
-        let chunks = self.repo.get_chunks_by_ids(&chunk_ids).await?;
-
-        // Build SourceRefs for the sources SSE event
-        let source_refs: Vec<SourceRef> = chroma_results
+        // Build chunks for LLM context (CrateChunkData) and SourceRefs from search results
+        let chunks: Vec<crate::shared::llm::CrateChunkData> = chunk_search_results
             .iter()
-            .map(|r| {
-                let doc_id = Uuid::parse_str(&r.document_id).unwrap_or_default();
-                let doc_name = chunks
-                    .iter()
-                    .find(|c| c.index == r.chunk_index)
-                    .map(|c| c.document_name.clone())
-                    .unwrap_or_default();
-                SourceRef {
-                    document_id: doc_id,
-                    document_name: doc_name,
-                    chunk_index: r.chunk_index,
-                    text: r.text.clone(),
-                    relevance: r.score,
-                }
+            .map(|r| crate::shared::llm::CrateChunkData {
+                text: r.text.clone(),
+                index: r.chunk_index,
+                document_name: r.document_name.clone(),
             })
+            .collect();
+
+        let source_refs: Vec<SourceRef> = chunk_search_results
+            .iter()
+            .map(|r| SourceRef {
+                document_id: r.document_id,
+                document_name: r.document_name.clone(),
+                chunk_index: r.chunk_index,
+                text: r.text.clone(),
+                relevance: r.score.unwrap_or(0.0),
+            })
+            .collect();
+
+        let chunk_ids: Vec<String> = chunk_search_results
+            .iter()
+            .map(|r| r.chunk_id.to_string())
             .collect();
 
         // 4. Load conversation history if session is present

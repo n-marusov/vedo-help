@@ -12,6 +12,8 @@ pub struct Document {
     pub uploaded_at: DateTime<Utc>,
     pub collection_id: Uuid,
     pub is_active: bool,
+    /// Source of the document: "upload" (via file upload) or "git" (via git sync).
+    pub source: String,
     /// The user who uploaded this document.
     /// Skipped in serialization to avoid leaking user IDs in API responses.
     #[serde(skip_serializing)]
@@ -36,6 +38,7 @@ pub struct DocumentSummary {
     pub uploaded_at: DateTime<Utc>,
     pub collection_id: Uuid,
     pub is_active: bool,
+    pub source: String,
 }
 
 /// A chunk of text extracted from a document.

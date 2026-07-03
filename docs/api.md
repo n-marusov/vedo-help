@@ -277,6 +277,95 @@ Get a single collection.
 
 Delete a collection and all its documents.
 
+#### `GET /api/collections/{id}/stats`
+
+Get comprehensive statistics for a collection, including document/chunk counts by source, file size, and file type breakdown.
+
+```bash
+curl http://localhost:3000/api/collections/550e8400-e29b-41d4-a716-446655440000/stats \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "total_documents": 10,
+  "total_chunks": 156,
+  "total_git_repos": 2,
+  "upload_documents": 7,
+  "git_documents": 3,
+  "upload_chunks": 112,
+  "git_chunks": 44,
+  "total_file_size_bytes": 2048000,
+  "document_types": {
+    "markdown": 5,
+    "pdf": 3,
+    "docx": 2
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_documents` | number | Total active documents |
+| `total_chunks` | number | Total active chunks |
+| `total_git_repos` | number | Registered git repositories |
+| `upload_documents` | number | Documents uploaded manually |
+| `git_documents` | number | Documents synced from git |
+| `upload_chunks` | number | Chunks from uploaded documents |
+| `git_chunks` | number | Chunks from git-synced documents |
+| `total_file_size_bytes` | number | Total file size in bytes |
+| `document_types` | object | File type → count map |
+
+#### `GET /api/collections/{id}/chunks`
+
+Search chunks within a collection. Supports text search (PostgreSQL ILIKE) and semantic search (Chroma vector search).
+
+```bash
+curl "http://localhost:3000/api/collections/550e8400-e29b-41d4-a716-446655440000/chunks?q=rate+limit&search_type=text&source=upload&limit=20&offset=0" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `q` | string | — | Search query (text or semantic) |
+| `search_type` | string | `text` | `text` (PG ILIKE) or `semantic` (Chroma) |
+| `source` | string | — | Filter by source: `upload` or `git` |
+| `limit` | number | `20` | Max results (text search) |
+| `offset` | number | `0` | Pagination offset (text search) |
+| `top_k` | number | `20` | Max results (semantic search) |
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "chunk_id": "660e8400-e29b-41d4-a716-446655440001",
+    "document_id": "550e8400-e29b-41d4-a716-446655440000",
+    "document_name": "config-guide.md",
+    "chunk_index": 2,
+    "text": "Rate limiting is configured via the RATE_LIMIT env var.",
+    "source": "upload",
+    "score": null,
+    "file_path": null
+  }
+]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `chunk_id` | string | Chunk UUID |
+| `document_id` | string | Parent document UUID |
+| `document_name` | string | Document name |
+| `chunk_index` | number | Chunk position within document |
+| `text` | string | Chunk content |
+| `source` | string | `upload` or `git` |
+| `score` | number |null` | Relevance score (semantic only) |
+| `file_path` | string |null` | Original repo path (git docs only) |
+
 ### Query
 
 #### `POST /api/query`

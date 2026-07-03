@@ -7,6 +7,7 @@ export interface Document {
   file_size: number;
   uploaded_at: string;
   collection_id: string;
+  source?: string;
 }
 
 export interface BatchDeleteResponse {
@@ -208,4 +209,51 @@ export interface HealthReport {
   status: 'healthy' | 'degraded' | 'unhealthy';
   checks: ServiceCheck[];
   timestamp: string;
+}
+
+// ── Document Summary (with source) ──
+
+export interface DocumentSummary {
+  id: string;
+  name: string;
+  file_type: string;
+  file_size: number;
+  uploaded_at: string;
+  collection_id: string;
+  is_active: boolean;
+  source: string;
+}
+
+// ── Collection Stats & Chunk Search Types ──
+
+export interface CollectionStats {
+  total_documents: number;
+  total_chunks: number;
+  total_git_repos: number;
+  upload_documents: number;
+  git_documents: number;
+  upload_chunks: number;
+  git_chunks: number;
+  total_file_size_bytes: number;
+  document_types: Record<string, number>;
+}
+
+export interface ChunkSearchResult {
+  chunk_id: string;
+  document_id: string;
+  document_name: string;
+  chunk_index: number;
+  text: string;
+  source: string;
+  score: number | null;
+  file_path: string | null;
+}
+
+export interface ChunkSearchParams {
+  q?: string;
+  search_type?: 'text' | 'semantic';
+  source?: 'upload' | 'git';
+  limit?: number;
+  offset?: number;
+  top_k?: number;
 }

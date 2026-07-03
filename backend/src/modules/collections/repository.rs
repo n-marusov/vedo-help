@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::modules::collections::models::Collection;
+use crate::modules::collections::models::{Collection, CollectionStats};
 use crate::shared::error::AppError;
 
 /// Repository for collection data access.
@@ -280,6 +280,123 @@ impl CollectionRepository {
                 .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
         Ok(row.0)
+    }
+
+    /// Access the underlying PostgreSQL pool.
+    pub fn db(&self) -> &PgPool {
+        &self.db
+    }
+
+    /// Get comprehensive statistics for a collection.
+    pub async fn get_collection_stats(
+        &self,
+        collection_id: Uuid,
+    ) -> Result<CollectionStats, AppError> {
+        tracing::debug!(component = "collections/repository", collection_id = %collection_id, "collection.stats.fetch");
+
+        // Total documents
+        let (total_documents,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM documents WHERE collection_id = $1 AND is_active = TRUE",
+        )
+        .bind(collection_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        // Documents by source
+        let by_source: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT source, COUNT(*) FROM documents WHERE collection_id = $1 AND is_active = TRUE GROUP BY source",
+        )
+        .bind(collection_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let mut upload_documents = 0i64;
+        let mut git_documents = 0i64;
+        for (source, count) in &by_source {
+            match source.as_str() {
+                "upload" => upload_documents = *count,
+                "git" => git_documents = *count,
+                _ => {}
+            }
+        }
+
+        // Total chunks
+        let (total_chunks,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM chunks c JOIN documents d ON c.document_id = d.id WHERE d.collection_id = $1 AND c.is_active = TRUE AND d.is_active = TRUE",
+        )
+        .bind(collection_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        // Chunks by source
+        let chunks_by_source: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT d.source, COUNT(*) FROM chunks c JOIN documents d ON c.document_id = d.id WHERE d.collection_id = $1 AND c.is_active = TRUE AND d.is_active = TRUE GROUP BY d.source",
+        )
+        .bind(collection_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let mut upload_chunks = 0i64;
+        let mut git_chunks = 0i64;
+        for (source, count) in &chunks_by_source {
+            match source.as_str() {
+                "upload" => upload_chunks = *count,
+                "git" => git_chunks = *count,
+                _ => {}
+            }
+        }
+
+        // Total file size
+        let (total_file_size_bytes,): (Option<i64>,) = sqlx::query_as(
+            "SELECT COALESCE(SUM(file_size), 0) FROM documents WHERE collection_id = $1 AND is_active = TRUE",
+        )
+        .bind(collection_id)
+        .fetch_one(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        // File type breakdown
+        let document_types: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT file_type, COUNT(*) FROM documents WHERE collection_id = $1 AND is_active = TRUE GROUP BY file_type",
+        )
+        .bind(collection_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        // Git repos count
+        let (total_git_repos,): (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE collection_id = $1")
+                .bind(collection_id)
+                .fetch_one(&self.db)
+                .await
+                .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let stats = CollectionStats {
+            total_documents,
+            total_chunks,
+            total_git_repos,
+            upload_documents,
+            git_documents,
+            upload_chunks,
+            git_chunks,
+            total_file_size_bytes: total_file_size_bytes.unwrap_or(0),
+            document_types: document_types.into_iter().collect(),
+        };
+
+        tracing::debug!(
+            component = "collections/repository",
+            collection_id = %collection_id,
+            total_documents = stats.total_documents,
+            total_chunks = stats.total_chunks,
+            "collection.stats.fetched"
+        );
+
+        Ok(stats)
     }
 }
 

@@ -14,6 +14,7 @@ struct DocumentRow {
     collection_id: uuid::Uuid,
     is_active: bool,
     user_id: String,
+    source: String,
 }
 
 impl TryFrom<DocumentRow> for Document {
@@ -29,6 +30,7 @@ impl TryFrom<DocumentRow> for Document {
             collection_id: row.collection_id,
             is_active: row.is_active,
             user_id: row.user_id,
+            source: row.source,
         })
     }
 }
@@ -55,17 +57,18 @@ impl DocumentRepository {
         );
 
         sqlx::query(
-            "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        )
-        .bind(doc.id)
-        .bind(&doc.name)
-        .bind(&doc.file_type)
-        .bind(doc.file_size)
-        .bind(doc.uploaded_at)
-        .bind(doc.collection_id)
-        .bind(doc.is_active)
-        .bind(&doc.user_id)
+                    "INSERT INTO documents (id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                )
+                .bind(doc.id)
+                .bind(&doc.name)
+                .bind(&doc.file_type)
+                .bind(doc.file_size)
+                .bind(doc.uploaded_at)
+                .bind(doc.collection_id)
+                .bind(doc.is_active)
+                .bind(&doc.user_id)
+                .bind(&doc.source)
         .execute(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to save document: {e}")))?;
@@ -85,14 +88,14 @@ impl DocumentRepository {
     pub async fn get_document(&self, id: Uuid) -> Result<Document, AppError> {
         tracing::debug!(component = "documents/repository", document_id = %id, "document.fetch");
 
-        let row = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-        .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?;
+        let row = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String, String)>(
+                    "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE id = $1",
+                )
+                .bind(id)
+                .fetch_optional(&self.db)
+                .await
+                .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+                .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?;
 
         Ok(Document {
             id: row.0,
@@ -103,6 +106,7 @@ impl DocumentRepository {
             collection_id: row.5,
             is_active: row.6,
             user_id: row.7,
+            source: row.8,
         })
     }
 
@@ -117,24 +121,24 @@ impl DocumentRepository {
         tracing::debug!(component = "documents/repository", document_id = %id, "document.fetch_for_user");
 
         let row = if is_admin {
-            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
-                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id = $1",
-            )
-            .bind(id)
-            .fetch_optional(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-            .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String, String)>(
+                        "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE id = $1",
+                    )
+                    .bind(id)
+                    .fetch_optional(&self.db)
+                    .await
+                    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+                    .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?
         } else {
-            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
-                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id = $1 AND user_id = $2",
-            )
-            .bind(id)
-            .bind(user_id)
-            .fetch_optional(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-            .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String, String)>(
+                        "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE id = $1 AND user_id = $2",
+                    )
+                    .bind(id)
+                    .bind(user_id)
+                    .fetch_optional(&self.db)
+                    .await
+                    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+                    .ok_or_else(|| AppError::NotFound(format!("Document {id} not found")))?
         };
 
         Ok(Document {
@@ -146,6 +150,7 @@ impl DocumentRepository {
             collection_id: row.5,
             is_active: row.6,
             user_id: row.7,
+            source: row.8,
         })
     }
 
@@ -153,13 +158,13 @@ impl DocumentRepository {
     pub async fn list_documents(&self, collection_id: Uuid) -> Result<Vec<Document>, AppError> {
         tracing::debug!(component = "documents/repository", collection_id = %collection_id, "document.list");
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE collection_id = $1 AND is_active = TRUE",
-        )
-        .bind(collection_id)
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String, String)>(
+                    "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE collection_id = $1 AND is_active = TRUE",
+                )
+                .bind(collection_id)
+                .fetch_all(&self.db)
+                .await
+                .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
         let documents: Vec<Document> = rows
             .into_iter()
@@ -172,6 +177,7 @@ impl DocumentRepository {
                 collection_id: row.5,
                 is_active: row.6,
                 user_id: row.7,
+                source: row.8,
             })
             .collect();
 
@@ -196,22 +202,22 @@ impl DocumentRepository {
         tracing::debug!(component = "documents/repository", collection_id = %collection_id, "document.list_for_user");
 
         let rows = if is_admin {
-            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
-                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE collection_id = $1 AND is_active = TRUE",
-            )
-            .bind(collection_id)
-            .fetch_all(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String, String)>(
+                        "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE collection_id = $1 AND is_active = TRUE",
+                    )
+                    .bind(collection_id)
+                    .fetch_all(&self.db)
+                    .await
+                    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
         } else {
-            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String)>(
-                "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE collection_id = $1 AND is_active = TRUE AND user_id = $2",
-            )
-            .bind(collection_id)
-            .bind(user_id)
-            .fetch_all(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            sqlx::query_as::<_, (uuid::Uuid, String, String, i64, chrono::DateTime<chrono::Utc>, uuid::Uuid, bool, String, String)>(
+                        "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE collection_id = $1 AND is_active = TRUE AND user_id = $2",
+                    )
+                    .bind(collection_id)
+                    .bind(user_id)
+                    .fetch_all(&self.db)
+                    .await
+                    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
         };
 
         let documents: Vec<Document> = rows
@@ -225,6 +231,7 @@ impl DocumentRepository {
                 collection_id: row.5,
                 is_active: row.6,
                 user_id: row.7,
+                source: row.8,
             })
             .collect();
 
@@ -255,7 +262,7 @@ impl DocumentRepository {
         );
 
         let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id FROM documents WHERE id IN ("
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source FROM documents WHERE id IN ("
         );
         let mut separated = query_builder.separated(", ");
         for id in ids {
@@ -650,6 +657,92 @@ impl DocumentRepository {
     #[cfg(test)]
     pub fn db_pool(&self) -> &PgPool {
         &self.db
+    }
+
+    /// Find an active git document by collection ID and name (file path).
+    pub async fn get_active_git_document_by_name(
+        &self,
+        collection_id: Uuid,
+        name: &str,
+    ) -> Result<Option<Document>, AppError> {
+        tracing::debug!(
+            component = "documents/repository",
+            collection_id = %collection_id,
+            document_name = %name,
+            "document.get_active_git"
+        );
+
+        let row = sqlx::query_as::<_, DocumentRow>(
+            "SELECT id, name, file_type, file_size, uploaded_at, collection_id, is_active, user_id, source
+             FROM documents
+             WHERE collection_id = $1 AND name = $2 AND source = 'git' AND is_active = TRUE",
+        )
+        .bind(collection_id)
+        .bind(name)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        row.map(Document::try_from).transpose()
+    }
+
+    /// Soft-deactivate all git-sourced documents (and their chunks) in a collection.
+    /// Returns the number of documents deactivated.
+    pub async fn deactivate_git_documents_for_collection(
+        &self,
+        collection_id: Uuid,
+    ) -> Result<u64, AppError> {
+        tracing::debug!(
+            component = "documents/repository",
+            collection_id = %collection_id,
+            "documents.deactivate_git_for_collection"
+        );
+
+        // First deactivate chunks for all git documents
+        let doc_ids: Vec<Uuid> = sqlx::query_as::<_, (Uuid,)>(
+            "SELECT id FROM documents WHERE collection_id = $1 AND source = 'git' AND is_active = TRUE"
+        )
+        .bind(collection_id)
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+        .into_iter()
+        .map(|(id,)| id)
+        .collect();
+
+        if !doc_ids.is_empty() {
+            self.deactivate_chunks_batch(&doc_ids).await?;
+        }
+
+        // Then deactivate the documents themselves
+        let affected = if doc_ids.is_empty() {
+            0
+        } else {
+            let mut query_builder: QueryBuilder<Postgres> =
+                QueryBuilder::new("UPDATE documents SET is_active = FALSE WHERE id IN (");
+            let mut separated = query_builder.separated(", ");
+            for id in &doc_ids {
+                separated.push_bind(id);
+            }
+            separated.push_unseparated(")");
+            query_builder
+                .build()
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    AppError::InternalError(format!("Failed to deactivate git documents: {e}"))
+                })?
+                .rows_affected()
+        };
+
+        tracing::info!(
+            component = "documents/repository",
+            collection_id = %collection_id,
+            deactivated_count = affected,
+            "documents.deactivate_git_for_collection.complete"
+        );
+
+        Ok(affected)
     }
 }
 

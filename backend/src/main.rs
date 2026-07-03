@@ -330,12 +330,16 @@ async fn main() {
 
     // Services
     let doc_service = DocumentService::with_clients(
-        doc_repo,
+        doc_repo.clone(),
         collection_repo.clone(),
         chroma_client,
         embedding_client,
     );
-    let collection_service = CollectionService::new(collection_repo.clone(), chroma_url.clone());
+    let collection_service = CollectionService::new(
+        collection_repo.clone(),
+        chroma_url.clone(),
+        embedding_service_url.clone(),
+    );
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service = QueryService::new(
         db.clone(),
@@ -351,6 +355,7 @@ async fn main() {
     let git_repo_repo_for_locks = git_repo_repo.clone();
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
+        doc_repo.clone(),
         chroma_url.clone(),
         embedding_service_url.clone(),
         std::path::PathBuf::from(&config.git_clone_root),
@@ -427,6 +432,14 @@ async fn main() {
         .route("/api/collections", get(collections_handlers::list))
         .route("/api/collections/:id", get(collections_handlers::get))
         .route("/api/collections/:id", delete(collections_handlers::delete))
+        .route(
+            "/api/collections/:id/stats",
+            get(collections_handlers::get_collection_stats),
+        )
+        .route(
+            "/api/collections/:id/chunks",
+            get(collections_handlers::search_collection_chunks),
+        )
         // Git sync routes
         .route("/api/git-sync/repos", post(git_sync_handlers::create_repo))
         .route("/api/git-sync/repos", get(git_sync_handlers::list_repos))

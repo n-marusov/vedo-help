@@ -16,7 +16,46 @@ use vedo_backend::modules::documents::repository::DocumentRepository;
 use vedo_backend::modules::documents::service::DocumentService;
 use vedo_backend::shared::AppError;
 
-/// Helper: create an in-memory ZIP with given (filename, content) pairs.
+/// Test: save a document with source='git', then list returns it with the correct source.
+#[tokio::test]
+async fn test_save_document_with_git_source_roundtrip() {
+    let pool = common::setup_test_db().await;
+    let repo = DocumentRepository::new(pool.clone());
+
+    let collection_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(collection_id)
+        .bind(format!("test-collection-git-{collection_id}"))
+        .bind("")
+        .execute(&pool)
+        .await
+        .expect("Failed to insert collection");
+
+    let doc_id = Uuid::new_v4();
+    let doc = vedo_backend::modules::documents::models::Document {
+        id: doc_id,
+        name: "docs/readme.md".to_string(),
+        file_type: "text/markdown".to_string(),
+        file_size: 2048,
+        uploaded_at: chrono::Utc::now(),
+        collection_id,
+        is_active: true,
+        source: "git".to_string(),
+        user_id: "test-user".to_string(),
+    };
+
+    repo.save_document(&doc)
+        .await
+        .expect("save_document with source='git' should succeed");
+
+    let docs = repo
+        .list_documents(collection_id)
+        .await
+        .expect("list_documents should succeed");
+    assert_eq!(docs.len(), 1, "should return exactly one document");
+    assert_eq!(docs[0].id, doc_id, "document ID should match");
+    assert_eq!(docs[0].source, "git", "document source should be 'git'");
+}
 fn make_zip(files: &[(&str, &str)]) -> Vec<u8> {
     use std::io::Write;
     let buf = std::io::Cursor::new(Vec::new());

@@ -71,6 +71,9 @@ fn make_doc(id: Uuid, collection_id: Uuid, name: &str) -> Document {
         file_size: 1024,
         uploaded_at: chrono::Utc::now(),
         collection_id,
+        is_active: true,
+        source: "upload".to_string(),
+        user_id: String::new(),
     }
 }
 

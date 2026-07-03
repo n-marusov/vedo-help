@@ -1,6 +1,9 @@
 import { ref } from 'vue';
 import type {
   BatchDeleteResponse,
+  ChunkSearchParams,
+  ChunkSearchResult,
+  CollectionStats,
   CreateRepoRequest,
   EditMessageRequest,
   ExportFormat,
@@ -129,4 +132,19 @@ export const api = {
 
   // ── Health Check ──
   getHealthStatus: () => api.get<HealthReport>('/health/deep'),
+
+  // ── Collection Stats ──
+  getCollectionStats: (id: string) => api.get<CollectionStats>(`/collections/${id}/stats`),
+
+  // ── Chunk Search ──
+  searchChunks: (collectionId: string, params: ChunkSearchParams) => {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.search_type) query.set('search_type', params.search_type);
+    if (params.source) query.set('source', params.source);
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    if (params.offset !== undefined) query.set('offset', String(params.offset));
+    if (params.top_k !== undefined) query.set('top_k', String(params.top_k));
+    return api.get<ChunkSearchResult[]>(`/collections/${collectionId}/chunks?${query.toString()}`);
+  },
 };

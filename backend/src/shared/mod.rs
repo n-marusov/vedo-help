@@ -1,6 +1,7 @@
 pub mod audit_middleware;
 pub mod auth;
 pub mod chroma_client;
+pub mod chunk_search;
 pub mod chunking;
 pub mod embedding_client;
 pub mod error;

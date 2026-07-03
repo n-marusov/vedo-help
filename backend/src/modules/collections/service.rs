@@ -1,6 +1,8 @@
 use uuid::Uuid;
 
-use crate::modules::collections::models::{Collection, CollectionSummary, CreateCollectionRequest};
+use crate::modules::collections::models::{
+    ChunkSearchQuery, Collection, CollectionStats, CollectionSummary, CreateCollectionRequest,
+};
 use crate::modules::collections::repository::CollectionRepository;
 use crate::shared::chroma_client::ChromaClient;
 use crate::shared::error::AppError;
@@ -10,12 +12,21 @@ use crate::shared::error::AppError;
 pub struct CollectionService {
     repo: CollectionRepository,
     chroma_url: String,
+    embedding_service_url: String,
 }
 
 impl CollectionService {
     /// Create a new CollectionService.
-    pub fn new(repo: CollectionRepository, chroma_url: String) -> Self {
-        Self { repo, chroma_url }
+    pub fn new(
+        repo: CollectionRepository,
+        chroma_url: String,
+        embedding_service_url: String,
+    ) -> Self {
+        Self {
+            repo,
+            chroma_url,
+            embedding_service_url,
+        }
     }
 
     /// Create a new collection. Validates name uniqueness and creates in both
@@ -112,6 +123,91 @@ impl CollectionService {
         self.repo
             .get_collection_for_user(id, user_id, is_admin)
             .await
+    }
+
+    /// Get comprehensive statistics for a collection with ownership check.
+    pub async fn get_stats(
+        &self,
+        collection_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<CollectionStats, AppError> {
+        tracing::info!(
+            component = "collections/service",
+            collection_id = %collection_id,
+            user_id = %user_id,
+            is_admin = %is_admin,
+            "collection.get_stats"
+        );
+
+        // Verify ownership first
+        self.repo
+            .get_collection_for_user(collection_id, user_id, is_admin)
+            .await?;
+
+        self.repo.get_collection_stats(collection_id).await
+    }
+
+    /// Search chunks in a collection with ownership check.
+    /// Supports text search (PostgreSQL ILIKE) and semantic search (Chroma).
+    pub async fn search_chunks(
+        &self,
+        collection_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+        params: &ChunkSearchQuery,
+    ) -> Result<Vec<crate::shared::chunk_search::ChunkSearchResult>, AppError> {
+        tracing::info!(
+            component = "collections/service",
+            collection_id = %collection_id,
+            search_type = ?params.search_type,
+            "collection.search_chunks"
+        );
+
+        // Verify ownership first
+        self.repo
+            .get_collection_for_user(collection_id, user_id, is_admin)
+            .await?;
+
+        let search_type = params.search_type.as_deref().unwrap_or("text");
+        let source = params.source.as_deref();
+
+        match search_type {
+            "semantic" => {
+                let chroma = crate::shared::chroma_client::ChromaClient::new(&self.chroma_url);
+                let embedding_client = crate::shared::embedding_client::EmbeddingClient::new(
+                    &self.embedding_service_url,
+                );
+                let query = params.q.as_deref().unwrap_or("");
+                let top_k = params.top_k.unwrap_or(20);
+
+                crate::shared::chunk_search::search_chunks_semantic(
+                    &chroma,
+                    &embedding_client,
+                    self.repo.db(),
+                    collection_id,
+                    query,
+                    source,
+                    top_k,
+                )
+                .await
+            }
+            _ => {
+                let query = params.q.as_deref().unwrap_or("");
+                let limit = params.limit.unwrap_or(20);
+                let offset = params.offset.unwrap_or(0);
+
+                crate::shared::chunk_search::search_chunks_text(
+                    self.repo.db(),
+                    collection_id,
+                    query,
+                    source,
+                    limit,
+                    offset,
+                )
+                .await
+            }
+        }
     }
 
     /// Delete a collection. Removes from PostgreSQL and drops the Chroma collection.

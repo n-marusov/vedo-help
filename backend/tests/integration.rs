@@ -908,6 +908,7 @@ async fn test_document_repo_native_uuid_bind() {
         uploaded_at: Utc::now(),
         collection_id: collection.id,
         is_active: true,
+        source: "upload".to_string(),
         user_id: "test-user".to_string(),
     };
 

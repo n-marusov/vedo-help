@@ -5,6 +5,8 @@ use chrono::Utc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
+use crate::modules::documents::models::Chunk;
+use crate::modules::documents::repository::DocumentRepository;
 use crate::modules::git_sync::models::{GitRepo, SyncStatusResponse};
 use crate::modules::git_sync::repository::GitRepoRepository;
 use crate::shared::chroma_client::ChromaClient;
@@ -25,6 +27,7 @@ const MAX_MD_FILE_SIZE: u64 = 10 * 1024 * 1024;
 #[derive(Clone, Debug)]
 pub struct GitSyncService {
     pub repo: GitRepoRepository,
+    pub doc_repo: DocumentRepository,
     pub chroma_url: String,
     pub embedding_url: String,
     pub clone_root: PathBuf,
@@ -34,6 +37,7 @@ impl GitSyncService {
     /// Create a new `GitSyncService`.
     pub fn new(
         repo: GitRepoRepository,
+        doc_repo: DocumentRepository,
         chroma_url: String,
         embedding_url: String,
         clone_root: PathBuf,
@@ -47,6 +51,7 @@ impl GitSyncService {
         );
         Self {
             repo,
+            doc_repo,
             chroma_url,
             embedding_url,
             clone_root,
@@ -661,18 +666,21 @@ impl GitSyncService {
         })?
     }
 
-    /// Index parsed markdown files into Chroma via chunking + embedding.
+    /// Index parsed markdown files into PostgreSQL + Chroma via chunking + embedding.
     ///
     /// For each file:
-    /// 1. `chunk_document()` splits text into chunks
-    /// 2. `EmbeddingClient::embed()` produces vectors
-    /// 3. `ChromaClient::add_embeddings()` stores them with metadata
+    /// 1. Deactivate old git documents/chunks for this file
+    /// 2. Save new Document record (source='git')
+    /// 3. Save Chunk records (UUID PK for each)
+    /// 4. Embed and index into Chroma with chunk UUIDs as IDs
     ///
     /// Returns `(files_count, chunks_total)`.
     pub async fn index_chunks(
         &self,
         collection_name: &str,
+        collection_id: Uuid,
         repo_id: Uuid,
+        user_id: &str,
         files: &[(String, String)],
     ) -> Result<(usize, usize), AppError> {
         tracing::info!(
@@ -693,21 +701,57 @@ impl GitSyncService {
         let mut all_metadatas = Vec::new();
 
         for (file_path, content) in files {
-            let doc_id = format!("git-{repo_id}-{}", file_path.replace('/', "-"));
-
-            // Delete old chunks for this file from Chroma before re-indexing
-            if let Err(e) = chroma
-                .delete_where(collection_name, &serde_json::json!({"document_id": doc_id}))
+            // 1. Deactivate old git documents for this repo file
+            if let Ok(Some(old_doc)) = self
+                .doc_repo
+                .get_active_git_document_by_name(collection_id, file_path)
                 .await
             {
-                tracing::warn!(
+                tracing::debug!(
                     component = "git_sync/service",
-                    doc_id = %doc_id,
-                    collection = %collection_name,
-                    git_repo_id = %repo_id,
-                    error = %e,
-                    "index_chunks.delete_old_chunks_failed"
+                    old_document_id = %old_doc.id,
+                    file_path = %file_path,
+                    "index_chunks.deactivating_old_document"
                 );
+
+                // Delete from Chroma by the old document UUID
+                if let Err(e) = chroma
+                    .delete_where(
+                        collection_name,
+                        &serde_json::json!({"document_id": old_doc.id.to_string()}),
+                    )
+                    .await
+                {
+                    tracing::warn!(
+                        component = "git_sync/service",
+                        document_id = %old_doc.id,
+                        collection = %collection_name,
+                        error = %e,
+                        "index_chunks.delete_old_chunks_from_chroma_failed"
+                    );
+                }
+
+                // Deactivate old chunks and document in PG
+                if let Err(e) = self.doc_repo.deactivate_chunks_batch(&[old_doc.id]).await {
+                    tracing::warn!(
+                        component = "git_sync/service",
+                        document_id = %old_doc.id,
+                        error = %e,
+                        "index_chunks.deactivate_old_chunks_failed"
+                    );
+                }
+                if let Err(e) = self
+                    .doc_repo
+                    .deactivate_documents_batch(&[old_doc.id])
+                    .await
+                {
+                    tracing::warn!(
+                        component = "git_sync/service",
+                        document_id = %old_doc.id,
+                        error = %e,
+                        "index_chunks.deactivate_old_document_failed"
+                    );
+                }
             }
 
             // Chunk the document
@@ -716,8 +760,25 @@ impl GitSyncService {
                 continue;
             }
 
-            let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
             let chunk_count = chunks.len();
+
+            // 2. Save new Document record
+            let doc_id = Uuid::new_v4();
+            let doc = crate::modules::documents::models::Document {
+                id: doc_id,
+                name: file_path.clone(),
+                file_type: "text/markdown".to_string(),
+                file_size: content.len() as i64,
+                uploaded_at: chrono::Utc::now(),
+                collection_id,
+                is_active: true,
+                source: "git".to_string(),
+                user_id: user_id.to_string(),
+            };
+            self.doc_repo.save_document(&doc).await?;
+
+            // 3. Save Chunk records and prepare Chroma data
+            let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
 
             // Embed
             let embeddings = embedding_client
@@ -734,24 +795,41 @@ impl GitSyncService {
                     e
                 })?;
 
-            // Prepare IDs and metadata
             for (i, chunk) in chunks.iter().enumerate() {
-                let chunk_id = format!("{doc_id}-{i}");
-                all_ids.push(chunk_id);
+                let chunk_id = Uuid::new_v4();
+                let chunk_record = Chunk {
+                    id: chunk_id,
+                    document_id: doc_id,
+                    index: chunk.index,
+                    text: chunk.text.clone(),
+                    is_active: true,
+                };
+                self.doc_repo.save_chunk(&chunk_record).await?;
+
+                all_ids.push(chunk_id.to_string());
                 all_embeddings.push(embeddings[i].clone());
                 all_metadatas.push(serde_json::json!({
-                    "text": chunk.text,
-                    "document_id": doc_id,
+                    "document_id": doc_id.to_string(),
+                    "document_name": file_path,
+                    "chunk_id": chunk_id.to_string(),
                     "chunk_index": chunk.index,
-                    "source": "git",
-                    "repo_id": repo_id.to_string(),
-                    "file_path": file_path,
+                    "text": chunk.text,
                     "is_active": true,
+                    "source": "git",
+                    "file_path": file_path,
                 }));
             }
 
             files_indexed += 1;
             chunks_total += chunk_count;
+
+            tracing::info!(
+                component = "git_sync/service",
+                document_id = %doc_id,
+                file_path = %file_path,
+                chunk_count = chunk_count,
+                "index_chunks.document_indexed"
+            );
         }
 
         // Send all embeddings to Chroma in one batch
@@ -873,10 +951,35 @@ impl GitSyncService {
             );
         }
 
-        // 2. Delete local clone
+        // 2. Deactivate git-sourced documents in PostgreSQL
+        let collection_id = git_repo.collection_id;
+        match self
+            .doc_repo
+            .deactivate_git_documents_for_collection(collection_id)
+            .await
+        {
+            Ok(count) => {
+                tracing::info!(
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    deactivated_count = count,
+                    "delete_repo_and_cleanup.pg_documents_deactivated"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    component = "git_sync/service",
+                    git_repo_id = %repo_id,
+                    error = %e,
+                    "delete_repo_and_cleanup.pg_documents_deactivation_failed"
+                );
+            }
+        }
+
+        // 3. Delete local clone
         self.delete_repo_local(repo_id).await?;
 
-        // 3. Delete PostgreSQL row with ownership check
+        // 4. Delete PostgreSQL row with ownership check
         self.repo
             .delete_repo_for_user(repo_id, user_id, is_admin)
             .await?;
@@ -931,9 +1034,15 @@ impl GitSyncService {
             return Ok((head_commit, 0, 0));
         }
 
-        // 4. Index chunks
+        // 4. Index chunks (save to PG + Chroma)
         let (files_indexed, chunks_total) = self
-            .index_chunks(collection_name, git_repo.id, &files)
+            .index_chunks(
+                collection_name,
+                git_repo.collection_id,
+                git_repo.id,
+                &git_repo.user_id,
+                &files,
+            )
             .await?;
 
         Ok((head_commit, files_indexed, chunks_total))
@@ -985,9 +1094,15 @@ impl GitSyncService {
             .parse_markdown_files(local_path, Some(&changed_files))
             .await?;
 
-        // 4. Re-index
+        // 4. Re-index (save to PG + Chroma)
         let (files_indexed, chunks_total) = self
-            .index_chunks(collection_name, git_repo.id, &files)
+            .index_chunks(
+                collection_name,
+                git_repo.collection_id,
+                git_repo.id,
+                &git_repo.user_id,
+                &files,
+            )
             .await?;
 
         Ok((new_commit, files_indexed, chunks_total))
