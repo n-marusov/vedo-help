@@ -11,7 +11,7 @@ import { onMounted, ref, watch } from 'vue';
 const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
-const activeTab = ref<'sources' | 'debug'>('sources');
+const activeTab = ref<'sources' | 'debug' | 'status'>('sources');
 const activeSourceTab = ref<'documents' | 'git'>('documents');
 
 onMounted(() => {
@@ -39,9 +39,6 @@ watch(
 <template>
   <div class="admin-view" data-testid="admin-view">
     <div class="admin-panel">
-      <!-- Health Status Indicator -->
-      <HealthStatus />
-
       <!-- Top-level Tab Bar -->
       <div class="admin-tabs" data-testid="admin-tabs">
         <button
@@ -59,6 +56,14 @@ watch(
           @click="activeTab = 'debug'"
         >
           Session Debug
+        </button>
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeTab === 'status' }"
+          data-testid="admin-tab-status"
+          @click="activeTab = 'status'"
+        >
+          Health Status
         </button>
       </div>
 
@@ -95,6 +100,11 @@ watch(
         <!-- Session Debug Tab Content -->
         <template v-if="activeTab === 'debug'">
           <SessionDebug />
+        </template>
+
+        <!-- Health Status Tab Content -->
+        <template v-if="activeTab === 'status'">
+          <HealthStatus />
         </template>
       </div>
     </div>
