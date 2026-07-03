@@ -243,7 +243,10 @@ impl GitSyncService {
         // for Chroma which accepts only ASCII alphanumeric, underscores, and hyphens.
         let collection_name = git_repo.collection_id.to_string();
 
-        let local_path = self.clone_root.join(repo_id.to_string());
+        let local_path = self
+            .clone_root
+            .join(&git_repo.user_id)
+            .join(repo_id.to_string());
 
         let result = if git_repo.last_commit_hash.is_none() {
             tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "sync_repo.full_clone_mode");
@@ -310,10 +313,11 @@ impl GitSyncService {
     /// The `access_token` is never logged.
     pub async fn clone_repo(&self, git_repo: &GitRepo) -> Result<PathBuf, AppError> {
         let repo_id = git_repo.id;
+        let user_id = &git_repo.user_id;
         let clone_url = Self::inject_token(&git_repo.url, &git_repo.access_token);
         let redacted_url = Self::redact_clone_url(&clone_url);
         let branch = git_repo.branch.clone();
-        let local_path = self.clone_root.join(repo_id.to_string());
+        let local_path = self.clone_root.join(user_id).join(repo_id.to_string());
 
         tracing::info!(
             component = "git_sync/service",
@@ -867,8 +871,8 @@ impl GitSyncService {
     }
 
     /// Delete the local clone directory for a repo.
-    pub async fn delete_repo_local(&self, repo_id: Uuid) -> Result<(), AppError> {
-        let local_path = self.clone_root.join(repo_id.to_string());
+    pub async fn delete_repo_local(&self, repo_id: Uuid, user_id: &str) -> Result<(), AppError> {
+        let local_path = self.clone_root.join(user_id).join(repo_id.to_string());
 
         tracing::info!(
             component = "git_sync/service",
@@ -951,33 +955,43 @@ impl GitSyncService {
             );
         }
 
-        // 2. Deactivate git-sourced documents in PostgreSQL
+        // 2. Parse repo files and deactivate only those git documents in PostgreSQL
         let collection_id = git_repo.collection_id;
-        match self
-            .doc_repo
-            .deactivate_git_documents_for_collection(collection_id)
+        let user_id_str = &git_repo.user_id;
+        let local_path = self.clone_root.join(user_id_str).join(repo_id.to_string());
+        let repo_files = self
+            .parse_markdown_files(&local_path, None)
             .await
-        {
-            Ok(count) => {
-                tracing::info!(
-                    component = "git_sync/service",
-                    git_repo_id = %repo_id,
-                    deactivated_count = count,
-                    "delete_repo_and_cleanup.pg_documents_deactivated"
-                );
-            }
-            Err(e) => {
-                tracing::warn!(
-                    component = "git_sync/service",
-                    git_repo_id = %repo_id,
-                    error = %e,
-                    "delete_repo_and_cleanup.pg_documents_deactivation_failed"
-                );
+            .unwrap_or_default();
+
+        let file_paths: Vec<&str> = repo_files.iter().map(|(path, _)| path.as_str()).collect();
+        if !file_paths.is_empty() {
+            match self
+                .doc_repo
+                .deactivate_git_documents_by_names(collection_id, &file_paths)
+                .await
+            {
+                Ok(count) => {
+                    tracing::info!(
+                        component = "git_sync/service",
+                        git_repo_id = %repo_id,
+                        deactivated_count = count,
+                        "delete_repo_and_cleanup.pg_documents_deactivated"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        component = "git_sync/service",
+                        git_repo_id = %repo_id,
+                        error = %e,
+                        "delete_repo_and_cleanup.pg_documents_deactivation_failed"
+                    );
+                }
             }
         }
 
         // 3. Delete local clone
-        self.delete_repo_local(repo_id).await?;
+        self.delete_repo_local(repo_id, user_id).await?;
 
         // 4. Delete PostgreSQL row with ownership check
         self.repo

@@ -744,6 +744,82 @@ impl DocumentRepository {
 
         Ok(affected)
     }
+
+    /// Soft-deactivate git documents by their file names within a collection.
+    /// Only targets active `source='git'` documents matching the given names.
+    pub async fn deactivate_git_documents_by_names(
+        &self,
+        collection_id: Uuid,
+        names: &[&str],
+    ) -> Result<u64, AppError> {
+        if names.is_empty() {
+            return Ok(0);
+        }
+
+        tracing::debug!(
+            component = "documents/repository",
+            collection_id = %collection_id,
+            name_count = names.len(),
+            "documents.deactivate_git_by_names"
+        );
+
+        // Find matching document IDs
+        let mut qb: QueryBuilder<Postgres> =
+            QueryBuilder::new("SELECT id FROM documents WHERE collection_id = ");
+        qb.push_bind(collection_id);
+        qb.push(" AND source = 'git' AND is_active = TRUE AND name IN (");
+        let mut separated = qb.separated(", ");
+        for name in names {
+            separated.push_bind(name);
+        }
+        separated.push_unseparated(")");
+
+        let doc_ids: Vec<Uuid> = qb
+            .build_query_as::<(Uuid,)>()
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            .into_iter()
+            .map(|(id,)| id)
+            .collect();
+
+        if !doc_ids.is_empty() {
+            self.deactivate_chunks_batch(&doc_ids).await?;
+
+            let mut update_qb: QueryBuilder<Postgres> =
+                QueryBuilder::new("UPDATE documents SET is_active = FALSE WHERE id IN (");
+            let mut separated = update_qb.separated(", ");
+            for id in &doc_ids {
+                separated.push_bind(id);
+            }
+            separated.push_unseparated(")");
+            let affected = update_qb
+                .build()
+                .execute(&self.db)
+                .await
+                .map_err(|e| {
+                    AppError::InternalError(format!("Failed to deactivate git documents: {e}"))
+                })?
+                .rows_affected();
+
+            tracing::info!(
+                component = "documents/repository",
+                collection_id = %collection_id,
+                deactivated_count = affected,
+                "documents.deactivate_git_by_names.complete"
+            );
+
+            return Ok(affected);
+        }
+
+        tracing::warn!(
+            component = "documents/repository",
+            collection_id = %collection_id,
+            "documents.deactivate_git_by_names.no_matches"
+        );
+
+        Ok(0)
+    }
 }
 
 #[cfg(test)]

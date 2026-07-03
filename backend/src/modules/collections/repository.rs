@@ -294,27 +294,25 @@ impl CollectionRepository {
     ) -> Result<CollectionStats, AppError> {
         tracing::debug!(component = "collections/repository", collection_id = %collection_id, "collection.stats.fetch");
 
-        // Total documents
-        let (total_documents,): (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM documents WHERE collection_id = $1 AND is_active = TRUE",
-        )
-        .bind(collection_id)
-        .fetch_one(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
-
-        // Documents by source
-        let by_source: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT source, COUNT(*) FROM documents WHERE collection_id = $1 AND is_active = TRUE GROUP BY source",
+        // Query A: document counts by source + total file size (3 metrics in 1 query)
+        let doc_stats: Vec<(String, i64, Option<i64>)> = sqlx::query_as(
+            "SELECT source, COUNT(*) as cnt, SUM(file_size) as total_size
+             FROM documents
+             WHERE collection_id = $1 AND is_active = TRUE
+             GROUP BY source",
         )
         .bind(collection_id)
         .fetch_all(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
+        let mut total_documents = 0i64;
         let mut upload_documents = 0i64;
         let mut git_documents = 0i64;
-        for (source, count) in &by_source {
+        let mut total_file_size_bytes = 0i64;
+        for (source, count, file_size) in &doc_stats {
+            total_documents += count;
+            total_file_size_bytes += file_size.unwrap_or(0);
             match source.as_str() {
                 "upload" => upload_documents = *count,
                 "git" => git_documents = *count,
@@ -322,27 +320,24 @@ impl CollectionRepository {
             }
         }
 
-        // Total chunks
-        let (total_chunks,): (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM chunks c JOIN documents d ON c.document_id = d.id WHERE d.collection_id = $1 AND c.is_active = TRUE AND d.is_active = TRUE",
-        )
-        .bind(collection_id)
-        .fetch_one(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
-
-        // Chunks by source
-        let chunks_by_source: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT d.source, COUNT(*) FROM chunks c JOIN documents d ON c.document_id = d.id WHERE d.collection_id = $1 AND c.is_active = TRUE AND d.is_active = TRUE GROUP BY d.source",
+        // Query B: chunk counts by source (total + breakdown in 1 query)
+        let chunk_stats: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT d.source, COUNT(*) as cnt
+             FROM chunks c
+             JOIN documents d ON c.document_id = d.id
+             WHERE d.collection_id = $1 AND c.is_active = TRUE AND d.is_active = TRUE
+             GROUP BY d.source",
         )
         .bind(collection_id)
         .fetch_all(&self.db)
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
+        let mut total_chunks = 0i64;
         let mut upload_chunks = 0i64;
         let mut git_chunks = 0i64;
-        for (source, count) in &chunks_by_source {
+        for (source, count) in &chunk_stats {
+            total_chunks += count;
             match source.as_str() {
                 "upload" => upload_chunks = *count,
                 "git" => git_chunks = *count,
@@ -350,16 +345,7 @@ impl CollectionRepository {
             }
         }
 
-        // Total file size
-        let (total_file_size_bytes,): (Option<i64>,) = sqlx::query_as(
-            "SELECT COALESCE(SUM(file_size), 0) FROM documents WHERE collection_id = $1 AND is_active = TRUE",
-        )
-        .bind(collection_id)
-        .fetch_one(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
-
-        // File type breakdown
+        // Query C: file type breakdown
         let document_types: Vec<(String, i64)> = sqlx::query_as(
             "SELECT file_type, COUNT(*) FROM documents WHERE collection_id = $1 AND is_active = TRUE GROUP BY file_type",
         )
@@ -368,7 +354,7 @@ impl CollectionRepository {
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
 
-        // Git repos count
+        // Query D: git repos count
         let (total_git_repos,): (i64,) =
             sqlx::query_as("SELECT COUNT(*) FROM git_repositories WHERE collection_id = $1")
                 .bind(collection_id)
@@ -384,7 +370,7 @@ impl CollectionRepository {
             git_documents,
             upload_chunks,
             git_chunks,
-            total_file_size_bytes: total_file_size_bytes.unwrap_or(0),
+            total_file_size_bytes,
             document_types: document_types.into_iter().collect(),
         };
 
