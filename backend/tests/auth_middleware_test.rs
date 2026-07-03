@@ -57,8 +57,12 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     let _query_repo = QueryRepository::new(db.clone(), &chroma_url);
     let llm_client = LlmClient::from_config(&config);
 
-    let doc_service = DocumentService::new(doc_repo, collection_repo.clone());
-    let collection_service = CollectionService::new(collection_repo.clone(), chroma_url.clone());
+    let doc_service = DocumentService::new(doc_repo.clone(), collection_repo.clone());
+    let collection_service = CollectionService::new(
+        collection_repo.clone(),
+        chroma_url.clone(),
+        embedding_service_url.clone(),
+    );
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service = QueryService::new(
         db,
@@ -71,6 +75,7 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     );
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
+        doc_repo,
         chroma_url,
         embedding_service_url,
         std::path::PathBuf::from("/tmp/test-git-repos"),

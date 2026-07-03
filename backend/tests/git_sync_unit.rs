@@ -87,7 +87,14 @@ async fn test_create_repo_persists_all_fields() {
     assert_eq!(row.4, local_path);
     assert_eq!(row.7, coll_id);
     assert_eq!(row.8, status);
-    assert_eq!(row.10, repo_created_at);
+    // Compare at microsecond precision — PostgreSQL stores timestamptz
+    // with microsecond resolution, while chrono preserves nanoseconds.
+    let db_created_at: DateTime<Utc> = row.10;
+    assert_eq!(
+        db_created_at.timestamp_nanos_opt().unwrap() / 1000,
+        repo_created_at.timestamp_nanos_opt().unwrap() / 1000,
+        "created_at should match"
+    );
 
     // Contract: access_token, local_path, and webhook_secret are stored in DB
     // but must NOT appear in API response shapes (verified via manual JSON assertion).
@@ -875,15 +882,19 @@ async fn test_index_chunks_includes_is_active_in_metadata() {
         ),
     ];
 
+    // Insert parent collection to satisfy FK constraint
+    let coll_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(coll_id)
+        .bind(format!("test-collection-active-{coll_id}"))
+        .bind("")
+        .execute(&pool)
+        .await
+        .expect("Failed to insert collection");
+
     // Act: index chunks
     let result = svc
-        .index_chunks(
-            collection_name,
-            Uuid::new_v4(),
-            repo_id,
-            "test-user",
-            &files,
-        )
+        .index_chunks(collection_name, coll_id, repo_id, "test-user", &files)
         .await;
 
     // We expect a connection error (Chroma/embedding not available in unit test)
@@ -920,15 +931,19 @@ async fn test_index_chunks_cleans_up_old_chunks_before_adding() {
         "# Document One\n\nContent.".to_string(),
     )];
 
+    // Insert parent collection to satisfy FK constraint
+    let coll_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO collections (id, name, description) VALUES ($1, $2, $3)")
+        .bind(coll_id)
+        .bind(format!("test-collection-cleanup-{coll_id}"))
+        .bind("")
+        .execute(&pool)
+        .await
+        .expect("Failed to insert collection");
+
     // Act: index chunks (this should call delete_where for each file's doc_id)
     let result = svc
-        .index_chunks(
-            collection_name,
-            Uuid::new_v4(),
-            repo_id,
-            "test-user",
-            &files,
-        )
+        .index_chunks(collection_name, coll_id, repo_id, "test-user", &files)
         .await;
 
     // Once T8.1 is implemented, index_chunks will:

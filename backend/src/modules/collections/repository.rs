@@ -296,10 +296,10 @@ impl CollectionRepository {
 
         // Query A: document counts by source + total file size (3 metrics in 1 query)
         let doc_stats: Vec<(String, i64, Option<i64>)> = sqlx::query_as(
-            "SELECT source, COUNT(*) as cnt, SUM(file_size) as total_size
-             FROM documents
-             WHERE collection_id = $1 AND is_active = TRUE
-             GROUP BY source",
+            "SELECT source, COUNT(*) as cnt, CAST(SUM(file_size) AS BIGINT) as total_size
+                         FROM documents
+                         WHERE collection_id = $1 AND is_active = TRUE
+                         GROUP BY source",
         )
         .bind(collection_id)
         .fetch_all(&self.db)

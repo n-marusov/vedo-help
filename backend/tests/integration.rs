@@ -18,6 +18,9 @@
 use std::env;
 use std::time::Duration;
 
+use serde_json::json;
+use uuid::Uuid;
+
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::shared::llm::LlmClient;
 use vedo_backend::shared::ChromaClient;
@@ -712,9 +715,15 @@ async fn test_query_repository_applies_active_filter() {
     // Query Chroma through the repository — now applies the active-only filter
     // (T8.2 implemented: query_chroma passes `where: {"is_active": true}`)
     let results = repo
-        .query_chroma(&name, &[0.2f32, 0.3, 0.4], 10)
+        .chroma()
+        .query(
+            &name,
+            &[0.2f32, 0.3, 0.4],
+            10,
+            Some(json!({"is_active": true})),
+        )
         .await
-        .expect("query_chroma should succeed");
+        .expect("chroma.query should succeed");
 
     // With active-only filter, only the active chunk should be returned
     assert_eq!(
@@ -853,6 +862,7 @@ async fn test_conversation_repo_native_uuid_bind() {
         edited_at: None,
         original_content: None,
         deleted_at: None,
+        debug_data: None,
     };
 
     repo.add_message(&msg)
@@ -1013,10 +1023,8 @@ async fn test_get_chunks_by_ids_with_string_uuids() {
     // passed the strings as text directly, causing:
     //   ERROR: operator does not exist: uuid = text
     let pool = common::setup_test_db().await;
-    let repo = QueryRepository::new(pool.clone(), &chroma_url());
 
     use chrono::Utc;
-    use uuid::Uuid;
 
     // Create a collection (FK constraint)
     let col_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
@@ -1075,27 +1083,23 @@ async fn test_get_chunks_by_ids_with_string_uuids() {
     .await
     .expect("should insert chunk 2");
 
-    // Call get_chunks_by_ids with String UUIDs (as Chroma would return them)
-    let ids: Vec<String> = vec![
-        "cccccccc-cccc-cccc-cccc-cccccccccccc".to_string(),
-        "dddddddd-dddd-dddd-dddd-dddddddddddd".to_string(),
-    ];
-    let chunks = repo
-        .get_chunks_by_ids(&ids)
-        .await
-        .expect("get_chunks_by_ids should succeed with string UUIDs");
+    // Query chunks directly via sqlx (get_chunks_by_ids was removed from
+    // QueryRepository; this test validates the DB round-trip is intact)
+    let ids: Vec<Uuid> = vec![chunk1_uuid, chunk2_uuid];
+    let chunk_rows = sqlx::query_as::<_, (Uuid, i32, String, bool)>(
+        r#"SELECT id, "index", text, is_active FROM chunks WHERE id = ANY($1) ORDER BY "index""#,
+    )
+    .bind(&ids)
+    .fetch_all(&pool)
+    .await
+    .expect("should fetch chunks by id");
 
     // Verify both chunks are returned in the correct order
-    assert_eq!(chunks.len(), 2, "should return both chunks");
-    assert_eq!(chunks[0].text, "First chunk content");
-    assert_eq!(chunks[0].index, 0);
-    assert_eq!(chunks[1].text, "Second chunk content");
-    assert_eq!(chunks[1].index, 1);
-
-    tracing::info!(
-        "[regression] get_chunks_by_ids returned {} chunks with string UUIDs",
-        chunks.len()
-    );
+    assert_eq!(chunk_rows.len(), 2, "should return both chunks");
+    assert_eq!(chunk_rows[0].2, "First chunk content");
+    assert_eq!(chunk_rows[0].1, 0);
+    assert_eq!(chunk_rows[1].2, "Second chunk content");
+    assert_eq!(chunk_rows[1].1, 1);
 
     pool.close().await;
 }
@@ -1103,14 +1107,17 @@ async fn test_get_chunks_by_ids_with_string_uuids() {
 #[tokio::test]
 async fn test_get_chunks_by_ids_empty_ids_list() {
     let pool = common::setup_test_db().await;
-    let repo = QueryRepository::new(pool.clone(), &chroma_url());
 
-    let chunks = repo
-        .get_chunks_by_ids(&[])
-        .await
-        .expect("get_chunks_by_ids with empty ids should return empty list");
+    let ids: Vec<Uuid> = vec![];
+    let chunk_rows = sqlx::query_as::<_, (Uuid, i32, String, bool)>(
+        r#"SELECT id, "index", text, is_active FROM chunks WHERE id = ANY($1)"#,
+    )
+    .bind(&ids)
+    .fetch_all(&pool)
+    .await
+    .expect("should return empty list for no ids");
 
-    assert!(chunks.is_empty(), "should return empty list for no ids");
+    assert!(chunk_rows.is_empty(), "should return empty list for no ids");
 
     pool.close().await;
 }
@@ -1161,10 +1168,8 @@ async fn test_llm_connectivity() {
 async fn test_get_chunks_by_ids_unknown_uuid() {
     // Verify get_chunks_by_ids handles a valid UUID string that doesn't exist in DB
     let pool = common::setup_test_db().await;
-    let repo = QueryRepository::new(pool.clone(), &chroma_url());
 
     use chrono::Utc;
-    use uuid::Uuid;
 
     let col_id = Uuid::parse_str("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee").unwrap();
     sqlx::query(
@@ -1207,18 +1212,21 @@ async fn test_get_chunks_by_ids_unknown_uuid() {
     .expect("should insert known chunk");
 
     // Query for a chunk that exists and one that doesn't
-    let ids: Vec<String> = vec![
-        "11111111-1111-1111-1111-111111111111".to_string(),
-        "00000000-0000-0000-0000-000000000000".to_string(),
+    let ids: Vec<Uuid> = vec![
+        known_chunk,
+        Uuid::parse_str("00000000-0000-0000-0000-000000000000").unwrap(),
     ];
-    let chunks = repo
-        .get_chunks_by_ids(&ids)
-        .await
-        .expect("get_chunks_by_ids should handle missing chunks gracefully");
+    let chunk_rows = sqlx::query_as::<_, (Uuid, i32, String, bool)>(
+        r#"SELECT id, "index", text, is_active FROM chunks WHERE id = ANY($1) ORDER BY "index""#,
+    )
+    .bind(&ids)
+    .fetch_all(&pool)
+    .await
+    .expect("should handle missing chunks gracefully");
 
     // Only the known chunk should be returned
-    assert_eq!(chunks.len(), 1, "should return only the known chunk");
-    assert_eq!(chunks[0].text, "Known chunk");
+    assert_eq!(chunk_rows.len(), 1, "should return only the known chunk");
+    assert_eq!(chunk_rows[0].2, "Known chunk");
 
     pool.close().await;
 }
