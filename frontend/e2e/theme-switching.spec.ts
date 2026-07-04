@@ -478,14 +478,11 @@ test.describe('Theme Switching (all pages)', () => {
       await page.goto('/login');
       const toggle = page.locator('[data-testid="theme-toggle"]');
 
-      // ToggleButton should use --color-card background and --color-border stroke
-      const bg = await toggle.evaluate((el) => getComputedStyle(el).backgroundColor);
-      const borderColor = await toggle.evaluate((el) => getComputedStyle(el).borderColor);
+      // ToggleButton has background:none / border:none; verify the icon color uses muted-foreground
+      const color = await toggle.evaluate((el) => getComputedStyle(el).color);
 
-      // Dark: card background
-      expect(bg).toBe('rgb(22, 22, 46)');
-      // Dark: border color
-      expect(borderColor).toContain('42, 42, 78');
+      // Dark: muted foreground
+      expect(color).toBe('rgb(125, 125, 163)');
     });
 
     test('TC-THEME-TOKEN-003: primary color remains unchanged across themes', async ({ page }) => {
