@@ -155,16 +155,6 @@ impl ChromaClient {
         Ok(chroma_id)
     }
 
-    #[cfg(test)]
-    fn is_missing_collection_error(error: &AppError) -> bool {
-        match error {
-            AppError::ChromaError(message) => {
-                message.contains("InvalidCollection") && message.contains("does not exist")
-            }
-            _ => false,
-        }
-    }
-
     /// Query a collection by embedding vector, returning the top-k matches.
     ///
     /// If `where_filter` is `Some`, it is included as the `"where"` field in

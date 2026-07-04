@@ -10,7 +10,6 @@
 /// Prerequisites:
 ///   - PostgreSQL running at the configured DATABASE_URL
 ///   - Migrations applied (including user_id columns)
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use vedo_backend::modules::collections::repository::CollectionRepository;
@@ -22,26 +21,14 @@ mod common;
 /// Test user IDs — fixed UUIDs for reproducible test assertions.
 const USER_A_ID: &str = "00000000-0000-0000-0000-000000000001";
 const USER_B_ID: &str = "00000000-0000-0000-0000-000000000002";
-// ---------------------------------------------------------------------------
-// Helper: run TRUNCATE to get a clean slate
-// ---------------------------------------------------------------------------
-
-async fn truncate_all(pool: &PgPool) {
-    sqlx::query(
-        "TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE",
-    )
-    .execute(pool)
-    .await
-    .expect("Failed to truncate test tables");
-}
 
 // ---------------------------------------------------------------------------
 // Collection multi-tenancy tests
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
-async fn test_collections_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_collections_are_scoped_by_user() {
+    let pool = common::setup_test_db().await;
 
     let repo = CollectionRepository::new(pool.clone());
 
@@ -60,7 +47,8 @@ async fn test_collections_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
     .bind("User A's collection")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll_a");
 
     sqlx::query(
         "INSERT INTO collections (id, name, description, user_id, created_at) VALUES ($1, $2, $3, $4, NOW())",
@@ -70,7 +58,8 @@ async fn test_collections_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
     .bind("User B's collection")
     .bind(USER_B_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll_b");
 
     // User A should see only their own collection
     let colls_a = repo
@@ -97,13 +86,11 @@ async fn test_collections_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
         found.is_none(),
         "User A should NOT find User B's collection"
     );
-
-    Ok(())
 }
 
-#[sqlx::test]
-async fn test_collection_ownership_verification(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_collection_ownership_verification() {
+    let pool = common::setup_test_db().await;
 
     let coll_id = Uuid::new_v4();
     let coll_name = format!("ownership-test-{}", Uuid::new_v4());
@@ -116,7 +103,8 @@ async fn test_collection_ownership_verification(pool: PgPool) -> sqlx::Result<()
     .bind("Ownership test")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll");
 
     // User A should be able to find and delete their own collection
     let repo = CollectionRepository::new(pool.clone());
@@ -129,17 +117,15 @@ async fn test_collection_ownership_verification(pool: PgPool) -> sqlx::Result<()
         not_found.is_none(),
         "User B should NOT find User A's collection"
     );
-
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
 // Document multi-tenancy tests
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
-async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_documents_are_scoped_via_collection_ownership() {
+    let pool = common::setup_test_db().await;
 
     let coll_a_id = Uuid::new_v4();
     let coll_b_id = Uuid::new_v4();
@@ -154,7 +140,8 @@ async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sql
     .bind("User A's collection")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll_a");
 
     sqlx::query(
         "INSERT INTO collections (id, name, description, user_id, created_at) VALUES ($1, $2, $3, $4, NOW())",
@@ -164,7 +151,8 @@ async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sql
     .bind("User B's collection")
     .bind(USER_B_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll_b");
 
     // Create document in User A's collection
     sqlx::query(
@@ -177,7 +165,8 @@ async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sql
     .bind(coll_a_id)
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert doc");
 
     let repo = DocumentRepository::new(pool.clone());
 
@@ -199,17 +188,15 @@ async fn test_documents_are_scoped_via_collection_ownership(pool: PgPool) -> sql
         0,
         "User B should NOT see User A's documents"
     );
-
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
 // Session multi-tenancy tests
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
-async fn test_sessions_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_sessions_are_scoped_by_user() {
+    let pool = common::setup_test_db().await;
 
     let session_a_id = Uuid::new_v4();
     let session_b_id = Uuid::new_v4();
@@ -221,7 +208,8 @@ async fn test_sessions_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
     .bind("User A's session")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert session_a");
 
     sqlx::query(
         "INSERT INTO sessions (id, title, user_id, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())",
@@ -230,7 +218,8 @@ async fn test_sessions_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
     .bind("User B's session")
     .bind(USER_B_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert session_b");
 
     let repo = ConversationRepository::new(pool.clone());
 
@@ -250,13 +239,11 @@ async fn test_sessions_are_scoped_by_user(pool: PgPool) -> sqlx::Result<()> {
         .get_session_for_user(session_a_id, USER_B_ID, false)
         .await;
     assert!(result.is_err(), "User B should NOT find User A's session");
-
-    Ok(())
 }
 
-#[sqlx::test]
-async fn test_session_messages_are_scoped_via_session_ownership(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_session_messages_are_scoped_via_session_ownership() {
+    let pool = common::setup_test_db().await;
 
     let session_a_id = Uuid::new_v4();
     let message_id = Uuid::new_v4();
@@ -269,7 +256,8 @@ async fn test_session_messages_are_scoped_via_session_ownership(pool: PgPool) ->
     .bind("Session for message scoping")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert session");
 
     // Create a message in that session
     sqlx::query(
@@ -280,7 +268,8 @@ async fn test_session_messages_are_scoped_via_session_ownership(pool: PgPool) ->
     .bind("user")
     .bind("Test message")
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert message");
 
     let repo = ConversationRepository::new(pool.clone());
 
@@ -297,17 +286,15 @@ async fn test_session_messages_are_scoped_via_session_ownership(pool: PgPool) ->
         .get_session_for_user(session_a_id, USER_B_ID, false)
         .await;
     assert!(result.is_err(), "User B should NOT find User A's session");
-
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
 // PostgreSQL UUID round-trip tests
 // ---------------------------------------------------------------------------
 
-#[sqlx::test]
-async fn test_uuid_text_round_trip_through_collections_row_dto(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_uuid_text_round_trip_through_collections_row_dto() {
+    let pool = common::setup_test_db().await;
 
     let coll_id = Uuid::new_v4();
     let coll_name = format!("uuid-roundtrip-{}", Uuid::new_v4());
@@ -321,14 +308,16 @@ async fn test_uuid_text_round_trip_through_collections_row_dto(pool: PgPool) -> 
     .bind("UUID round-trip test")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll");
 
     // Read back and verify user_id round-trips correctly
     let row: (Uuid, String, Option<String>, String) =
         sqlx::query_as("SELECT id, name, description, user_id FROM collections WHERE id = $1")
             .bind(coll_id)
             .fetch_one(&pool)
-            .await?;
+            .await
+            .expect("fetch coll");
 
     assert_eq!(row.0, coll_id, "UUID id should round-trip");
     assert_eq!(row.1, coll_name, "name should match");
@@ -336,13 +325,11 @@ async fn test_uuid_text_round_trip_through_collections_row_dto(pool: PgPool) -> 
         row.3, USER_A_ID,
         "user_id VARCHAR should round-trip as text"
     );
-
-    Ok(())
 }
 
-#[sqlx::test]
-async fn test_uuid_text_round_trip_through_sessions_row_dto(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_uuid_text_round_trip_through_sessions_row_dto() {
+    let pool = common::setup_test_db().await;
 
     let session_id = Uuid::new_v4();
 
@@ -353,13 +340,15 @@ async fn test_uuid_text_round_trip_through_sessions_row_dto(pool: PgPool) -> sql
     .bind("UUID round-trip session")
     .bind(USER_B_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert session");
 
     let row: (Uuid, String, String) =
         sqlx::query_as("SELECT id, title, user_id FROM sessions WHERE id = $1")
             .bind(session_id)
             .fetch_one(&pool)
-            .await?;
+            .await
+            .expect("fetch session");
 
     assert_eq!(row.0, session_id, "UUID id should round-trip");
     assert_eq!(row.1, "UUID round-trip session");
@@ -367,13 +356,11 @@ async fn test_uuid_text_round_trip_through_sessions_row_dto(pool: PgPool) -> sql
         row.2, USER_B_ID,
         "user_id VARCHAR should round-trip as text"
     );
-
-    Ok(())
 }
 
-#[sqlx::test]
-async fn test_uuid_text_round_trip_through_documents_row_dto(pool: PgPool) -> sqlx::Result<()> {
-    truncate_all(&pool).await;
+#[tokio::test]
+async fn test_uuid_text_round_trip_through_documents_row_dto() {
+    let pool = common::setup_test_db().await;
 
     let coll_id = Uuid::new_v4();
     let doc_id = Uuid::new_v4();
@@ -386,7 +373,8 @@ async fn test_uuid_text_round_trip_through_documents_row_dto(pool: PgPool) -> sq
     .bind("Parent collection for document round-trip")
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert coll");
 
     sqlx::query(
         "INSERT INTO documents (id, name, file_type, file_size, collection_id, user_id, is_active, uploaded_at) VALUES ($1, $2, $3, $4, $5, $6, true, NOW())",
@@ -398,17 +386,17 @@ async fn test_uuid_text_round_trip_through_documents_row_dto(pool: PgPool) -> sq
     .bind(coll_id)
     .bind(USER_A_ID)
     .execute(&pool)
-    .await?;
+    .await
+    .expect("insert doc");
 
     let row: (Uuid, String, String) =
         sqlx::query_as("SELECT id, name, user_id FROM documents WHERE id = $1")
             .bind(doc_id)
             .fetch_one(&pool)
-            .await?;
+            .await
+            .expect("fetch doc");
 
     assert_eq!(row.0, doc_id, "UUID id should round-trip");
     assert_eq!(row.1, "roundtrip-test.md");
     assert_eq!(row.2, USER_A_ID, "user_id VARCHAR should round-trip");
-
-    Ok(())
 }
