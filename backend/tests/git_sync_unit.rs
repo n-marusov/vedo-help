@@ -23,6 +23,7 @@ mod common;
 /// Test: create_repo persists all fields.
 /// All fields set → get_repo returns identical data.
 /// access_token is present in DB but MUST be omitted in serialized summary.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_create_repo_persists_all_fields() {
     let pool = common::setup_test_db().await;
@@ -128,6 +129,7 @@ async fn test_create_repo_persists_all_fields() {
 }
 
 /// Test: list_repos returns all rows.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_list_repos_returns_all() {
     let pool = common::setup_test_db().await;
@@ -175,6 +177,7 @@ async fn test_list_repos_returns_all() {
 }
 
 /// Test: update_sync_status changes last_commit_hash and status fields.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_update_sync_status_changes_fields() {
     let pool = common::setup_test_db().await;
@@ -258,6 +261,7 @@ async fn test_update_sync_status_changes_fields() {
 }
 
 /// Test: delete_repo removes the row.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_delete_repo_removes_row() {
     let pool = common::setup_test_db().await;
@@ -319,6 +323,7 @@ async fn test_delete_repo_removes_row() {
 }
 
 /// Test: two repos with same URL but different collection_id allowed.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_create_repo_same_url_allowed() {
     let pool = common::setup_test_db().await;
@@ -786,6 +791,7 @@ async fn make_git_sync_service(
 /// Test: try_acquire_sync_lock acquires and rejects concurrent syncs.
 /// A repo with status != "syncing" should acquire the lock (returns true).
 /// A second attempt on the same repo (now "syncing") should fail (returns false).
+#[serial_test::serial]
 #[tokio::test]
 async fn test_try_acquire_sync_lock_acquires_and_rejects_concurrent() {
     let pool = common::setup_test_db().await;
@@ -864,6 +870,7 @@ async fn test_try_acquire_sync_lock_acquires_and_rejects_concurrent() {
 /// Test: index_chumps produces correct error when Chroma/embedding unavailable.
 /// This validates that the method attempts to call delete_where for each file
 /// before adding new embeddings, but fails gracefully without external services.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_index_chunks_includes_is_active_in_metadata() {
     let pool = common::setup_test_db().await;
@@ -919,6 +926,7 @@ async fn test_index_chunks_includes_is_active_in_metadata() {
 /// Test: index_chumps cleans up old chunks before adding new ones.
 /// This validates the delete_where pattern that prevents stale chunks
 /// from accumulating on incremental sync.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_index_chunks_cleans_up_old_chunks_before_adding() {
     let pool = common::setup_test_db().await;
