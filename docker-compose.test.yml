@@ -245,6 +245,8 @@ services:
   llm-mock:
     build:
       context: ./docker/test/llm-mock
+    ports:
+      - "${TEST_LLM_MOCK_PORT:-18002}:18002"
     networks:
       - test_internal
     restart: unless-stopped

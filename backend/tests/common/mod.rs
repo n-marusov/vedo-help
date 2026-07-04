@@ -104,6 +104,11 @@ pub fn setup_test_config() -> AppConfig {
         otel_endpoint: String::new(),
         service_name: "vedo-backend-test".to_string(),
         environment: "test".to_string(),
+        advanced_rag_enabled: true,
+        rerank_top_k: 5,
+        hybrid_top_k: 20,
+        multi_query_count: 3,
+        llm_rerank_model: "test-model".to_string(),
     }
 }
 
