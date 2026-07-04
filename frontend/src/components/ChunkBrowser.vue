@@ -9,20 +9,10 @@ const collectionStore = useCollectionStore();
 
 const searchQuery = ref('');
 const searchType = ref<'text' | 'semantic'>('text');
-const sourceFilter = ref<'upload' | 'git' | ''>('');
 const currentPage = ref(0);
 const pageSize = 20;
-const hasGitDocs = ref(false);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-// Detect if collection has git documents
-watch(
-  () => statsStore.stats,
-  (s) => {
-    hasGitDocs.value = (s?.git_documents ?? 0) > 0;
-  },
-);
 
 function doSearch() {
   currentPage.value = 0;
@@ -37,9 +27,6 @@ function triggerSearch() {
     params.q = searchQuery.value.trim();
   }
   params.search_type = searchType.value;
-  if (sourceFilter.value) {
-    params.source = sourceFilter.value;
-  }
 
   if (searchType.value === 'text') {
     params.limit = pageSize;
@@ -117,31 +104,6 @@ function truncateText(text: string, max = 300): string {
           Semantic Search
         </button>
       </div>
-
-      <!-- Source Filter -->
-      <div v-if="hasGitDocs" class="source-filter">
-        <button
-          class="pill-btn pill-btn--sm"
-          :class="{ 'pill-btn--active': sourceFilter === '' }"
-          @click="sourceFilter = ''"
-        >
-          All
-        </button>
-        <button
-          class="pill-btn pill-btn--sm"
-          :class="{ 'pill-btn--active': sourceFilter === 'upload' }"
-          @click="sourceFilter = 'upload'"
-        >
-          Upload
-        </button>
-        <button
-          class="pill-btn pill-btn--sm"
-          :class="{ 'pill-btn--active': sourceFilter === 'git' }"
-          @click="sourceFilter = 'git'"
-        >
-          Git
-        </button>
-      </div>
     </div>
 
     <!-- Search Input -->
@@ -171,7 +133,7 @@ function truncateText(text: string, max = 300): string {
 
     <!-- Empty State -->
     <div v-else-if="statsStore.chunks.length === 0" class="chunks-empty">
-      <template v-if="searchQuery || sourceFilter"> No chunks found </template>
+      <template v-if="searchQuery"> No chunks found </template>
       <template v-else> Enter a search query </template>
     </div>
 
@@ -247,8 +209,7 @@ function truncateText(text: string, max = 300): string {
   gap: 8px;
 }
 
-.search-mode-toggle,
-.source-filter {
+.search-mode-toggle {
   display: flex;
   gap: 4px;
 }
@@ -275,11 +236,6 @@ function truncateText(text: string, max = 300): string {
   background: var(--color-primary);
   color: var(--color-primary-foreground, #ffffff);
   border-color: var(--color-primary);
-}
-
-.pill-btn--sm {
-  padding: 4px 10px;
-  font-size: 10px;
 }
 
 /* ── Search Input ── */
