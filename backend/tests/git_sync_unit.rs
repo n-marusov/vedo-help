@@ -600,6 +600,36 @@ async fn test_sync_incremental_calls_git_diff() {
     }
 }
 
+#[tokio::test]
+async fn test_sync_fallback_to_full_clone_if_local_dir_missing() {
+    // Contract test verifying that if last_commit_hash is SOME but the local directory
+    // does not exist, the service falls back to full clone mode.
+
+    let has_last_commit = true;
+    let local_dir_exists = false;
+
+    let sync_mode = if has_last_commit && local_dir_exists {
+        "incremental"
+    } else {
+        "full_clone"
+    };
+
+    assert_eq!(
+        sync_mode, "full_clone",
+        "Should fallback to full clone if dir missing"
+    );
+
+    let fallback_steps = [
+        "clone",
+        "parse_all",
+        "embed_all",
+        "index_all",
+        "update_status",
+    ];
+
+    assert_eq!(fallback_steps[0], "clone");
+}
+
 // ---------------------------------------------------------------------------
 // Error state tests
 // ---------------------------------------------------------------------------

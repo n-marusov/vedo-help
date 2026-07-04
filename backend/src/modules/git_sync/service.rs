@@ -248,8 +248,19 @@ impl GitSyncService {
             .join(&git_repo.user_id)
             .join(repo_id.to_string());
 
+        let local_path_exists = local_path.exists();
+
         let result = if git_repo.last_commit_hash.is_none() {
             tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "sync_repo.full_clone_mode");
+            self.full_sync(&git_repo, &local_path, &collection_name)
+                .await
+        } else if !local_path_exists {
+            tracing::info!(
+                component = "git_sync/service",
+                git_repo_id = %repo_id,
+                local_path = %local_path.display(),
+                "[FIX] sync_repo.fallback_to_full_clone: local path missing for previously synced repo"
+            );
             self.full_sync(&git_repo, &local_path, &collection_name)
                 .await
         } else {
