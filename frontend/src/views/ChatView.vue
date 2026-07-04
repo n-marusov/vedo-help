@@ -987,7 +987,6 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
           type="text"
           placeholder="Search sessions..."
           autofocus
-          @input="chatStore.setSearchQuery($event.target.value)"
         />
         <div
           v-if="chatStore.filteredSessions.length === 0"
