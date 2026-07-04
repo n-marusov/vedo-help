@@ -16,6 +16,8 @@ pub struct Session {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub message_count: i64,
+    /// Display name for the user (populated from JWT on session creation).
+    pub user_name: Option<String>,
 }
 
 /// A single message within a session.
@@ -55,6 +57,8 @@ pub struct SessionSummary {
     pub collection_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// User display name (admin sessions only).
+    pub user_name: Option<String>,
 }
 
 /// Request payload for creating a new session.

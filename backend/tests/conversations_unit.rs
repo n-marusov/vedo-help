@@ -44,6 +44,7 @@ async fn seed_session(db: &PgPool, title: &str) -> Session {
         pinned: false,
         collection_id: None,
         user_id: "test-user".to_string(),
+        user_name: None,
         created_at: now,
         updated_at: now,
         message_count: 0,

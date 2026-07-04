@@ -52,6 +52,7 @@ export interface SessionSummary {
   updated_at: string;
   pinned?: boolean;
   collection_id?: string;
+  user_name?: string | null;
 }
 
 export interface Message {
@@ -246,7 +247,7 @@ export interface SessionSearchParams {
   search?: string;
   from?: string;
   to?: string;
-  user_id?: string;
+  user_name?: string;
 }
 
 // ── Health Check Types ──

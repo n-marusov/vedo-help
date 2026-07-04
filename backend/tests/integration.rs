@@ -841,6 +841,7 @@ async fn test_conversation_repo_native_uuid_bind() {
         pinned: false,
         collection_id: None,
         user_id: "test-user".to_string(),
+        user_name: None,
         created_at: now,
         updated_at: now,
         message_count: 0,

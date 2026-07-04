@@ -25,6 +25,7 @@ impl ConversationService {
         &self,
         req: CreateSessionRequest,
         user_id: &str,
+        user_name: Option<String>,
     ) -> Result<SessionSummary, AppError> {
         let now = chrono::Utc::now();
         let title = req
@@ -38,6 +39,7 @@ impl ConversationService {
             pinned: false,
             collection_id: req.collection_id,
             user_id: user_id.to_string(),
+            user_name,
             created_at: now,
             updated_at: now,
             message_count: 0,
@@ -55,6 +57,7 @@ impl ConversationService {
             collection_id: session.collection_id,
             created_at: now,
             updated_at: now,
+            user_name: session.user_name,
         })
     }
 
@@ -77,6 +80,7 @@ impl ConversationService {
                 collection_id: s.collection_id,
                 created_at: s.created_at,
                 updated_at: s.updated_at,
+                user_name: s.user_name,
             })
             .collect();
 
@@ -205,6 +209,7 @@ impl ConversationService {
             collection_id: updated.collection_id,
             created_at: updated.created_at,
             updated_at: updated.updated_at,
+            user_name: updated.user_name,
         })
     }
 
@@ -315,15 +320,15 @@ impl ConversationService {
         search: Option<String>,
         from: Option<DateTime<Utc>>,
         to: Option<DateTime<Utc>>,
-        user_id: Option<String>,
+        user_name: Option<String>,
     ) -> Result<Vec<Session>, AppError> {
         tracing::info!(
-            "[conv.search_sessions] search={:?} from={:?} to={:?} user_id={:?}",
+            "[conv.search_sessions] search={:?} from={:?} to={:?} user_name={:?}",
             search,
             from,
             to,
-            user_id
+            user_name
         );
-        self.repo.search_sessions(search, from, to, user_id).await
+        self.repo.search_sessions(search, from, to, user_name).await
     }
 }

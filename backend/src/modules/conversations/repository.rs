@@ -21,17 +21,18 @@ impl ConversationRepository {
         tracing::debug!(component = "conversations/repository", session_title = %session.title, "session.create.started");
 
         sqlx::query(
-            "INSERT INTO sessions (id, title, collection_id, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-        )
-        .bind(session.id)
-        .bind(&session.title)
-        .bind(session.collection_id)
-        .bind(&session.user_id)
-        .bind(session.created_at)
-        .bind(session.updated_at)
-        .execute(&self.db)
-        .await
-        .map_err(|e| AppError::InternalError(format!("Failed to create session: {e}")))?;
+                "INSERT INTO sessions (id, title, collection_id, user_id, user_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            )
+            .bind(session.id)
+            .bind(&session.title)
+            .bind(session.collection_id)
+            .bind(&session.user_id)
+            .bind(&session.user_name)
+            .bind(session.created_at)
+            .bind(session.updated_at)
+            .execute(&self.db)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to create session: {e}")))?;
 
         tracing::info!(component = "conversations/repository", session_id = %session.id, "session.created");
         Ok(session.id)
@@ -56,20 +57,20 @@ impl ConversationRepository {
         );
 
         let rows = if is_admin {
-            sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, String, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
-                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions ORDER BY pinned DESC, updated_at DESC",
-            )
-            .fetch_all(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, String, Option<String>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
+                            "SELECT id, title, pinned, collection_id, user_id, user_name, created_at, updated_at FROM sessions ORDER BY pinned DESC, updated_at DESC",
+                        )
+                        .fetch_all(&self.db)
+                        .await
+                        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
         } else {
-            sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, String, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
-                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions WHERE user_id = $1 ORDER BY pinned DESC, updated_at DESC",
-            )
-            .bind(user_id)
-            .fetch_all(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+            sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<uuid::Uuid>, String, Option<String>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
+                            "SELECT id, title, pinned, collection_id, user_id, user_name, created_at, updated_at FROM sessions WHERE user_id = $1 ORDER BY pinned DESC, updated_at DESC",
+                        )
+                        .bind(user_id)
+                        .fetch_all(&self.db)
+                        .await
+                        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
         };
 
         let mut sessions = Vec::with_capacity(rows.len());
@@ -82,8 +83,9 @@ impl ConversationRepository {
                 pinned: row.2,
                 collection_id: row.3,
                 user_id: row.4,
-                created_at: row.5,
-                updated_at: row.6,
+                user_name: row.5,
+                created_at: row.6,
+                updated_at: row.7,
                 message_count: count,
             });
         }
@@ -114,45 +116,47 @@ impl ConversationRepository {
 
         let row = if is_admin {
             sqlx::query_as::<
-                _,
-                (
-                    uuid::Uuid,
-                    String,
-                    bool,
-                    Option<uuid::Uuid>,
-                    String,
-                    chrono::DateTime<chrono::Utc>,
-                    chrono::DateTime<chrono::Utc>,
-                ),
-            >(
-                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions WHERE id = $1",
-            )
-            .bind(id)
-            .fetch_optional(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-            .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?
+                        _,
+                        (
+                            uuid::Uuid,
+                            String,
+                            bool,
+                            Option<uuid::Uuid>,
+                            String,
+                            Option<String>,
+                            chrono::DateTime<chrono::Utc>,
+                            chrono::DateTime<chrono::Utc>,
+                        ),
+                    >(
+                        "SELECT id, title, pinned, collection_id, user_id, user_name, created_at, updated_at FROM sessions WHERE id = $1",
+                    )
+                    .bind(id)
+                    .fetch_optional(&self.db)
+                    .await
+                    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+                    .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?
         } else {
             sqlx::query_as::<
-                _,
-                (
-                    uuid::Uuid,
-                    String,
-                    bool,
-                    Option<uuid::Uuid>,
-                    String,
-                    chrono::DateTime<chrono::Utc>,
-                    chrono::DateTime<chrono::Utc>,
-                ),
-            >(
-                "SELECT id, title, pinned, collection_id, user_id, created_at, updated_at FROM sessions WHERE id = $1 AND user_id = $2",
-            )
-            .bind(id)
-            .bind(user_id)
-            .fetch_optional(&self.db)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
-            .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?
+                        _,
+                        (
+                            uuid::Uuid,
+                            String,
+                            bool,
+                            Option<uuid::Uuid>,
+                            String,
+                            Option<String>,
+                            chrono::DateTime<chrono::Utc>,
+                            chrono::DateTime<chrono::Utc>,
+                        ),
+                    >(
+                        "SELECT id, title, pinned, collection_id, user_id, user_name, created_at, updated_at FROM sessions WHERE id = $1 AND user_id = $2",
+                    )
+                    .bind(id)
+                    .bind(user_id)
+                    .fetch_optional(&self.db)
+                    .await
+                    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?
+                    .ok_or_else(|| AppError::NotFound(format!("Session {id} not found")))?
         };
 
         let count = self.get_message_count(id).await.unwrap_or(0);
@@ -163,8 +167,9 @@ impl ConversationRepository {
             pinned: row.2,
             collection_id: row.3,
             user_id: row.4,
-            created_at: row.5,
-            updated_at: row.6,
+            user_name: row.5,
+            created_at: row.6,
+            updated_at: row.7,
             message_count: count,
         })
     }
@@ -498,18 +503,18 @@ impl ConversationRepository {
         search: Option<String>,
         from: Option<chrono::DateTime<chrono::Utc>>,
         to: Option<chrono::DateTime<chrono::Utc>>,
-        user_id: Option<String>,
+        user_name: Option<String>,
     ) -> Result<Vec<Session>, AppError> {
         tracing::debug!(
-            "Searching sessions: search={:?} from={:?} to={:?} user_id={:?}",
+            "Searching sessions: search={:?} from={:?} to={:?} user_name={:?}",
             search,
             from,
             to,
-            user_id
+            user_name
         );
 
         let mut sql = String::from(
-            "SELECT id, title, pinned, collection_id, created_at, updated_at, user_id FROM sessions WHERE 1=1"
+            "SELECT id, title, pinned, collection_id, user_id, user_name, created_at, updated_at FROM sessions WHERE 1=1"
         );
 
         if search.is_some() {
@@ -521,8 +526,8 @@ impl ConversationRepository {
         if to.is_some() {
             sql.push_str(" AND created_at <= $3");
         }
-        if user_id.is_some() {
-            sql.push_str(" AND user_id = $4");
+        if user_name.is_some() {
+            sql.push_str(" AND user_name ILIKE $4");
         }
 
         sql.push_str(" ORDER BY updated_at DESC");
@@ -534,9 +539,10 @@ impl ConversationRepository {
                 String,
                 bool,
                 Option<uuid::Uuid>,
-                chrono::DateTime<chrono::Utc>,
-                chrono::DateTime<chrono::Utc>,
                 String,
+                Option<String>,
+                chrono::DateTime<chrono::Utc>,
+                chrono::DateTime<chrono::Utc>,
             ),
         >(&sql);
 
@@ -549,8 +555,8 @@ impl ConversationRepository {
         if let Some(d) = to {
             query = query.bind(d);
         }
-        if let Some(uid) = user_id {
-            query = query.bind(uid);
+        if let Some(un) = user_name {
+            query = query.bind(format!("%{}%", un));
         }
 
         let rows = query
@@ -566,9 +572,10 @@ impl ConversationRepository {
                 title: row.1,
                 pinned: row.2,
                 collection_id: row.3,
-                created_at: row.4,
-                updated_at: row.5,
-                user_id: row.6,
+                user_id: row.4,
+                user_name: row.5,
+                created_at: row.6,
+                updated_at: row.7,
                 message_count: count,
             });
         }

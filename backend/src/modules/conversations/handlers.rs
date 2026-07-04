@@ -18,7 +18,7 @@ pub struct AdminSessionSearchQuery {
     pub search: Option<String>,
     pub from: Option<String>,
     pub to: Option<String>,
-    pub user_id: Option<String>,
+    pub user_name: Option<String>,
 }
 
 /// Query parameters for export endpoint.
@@ -50,7 +50,9 @@ pub async fn create_session(
     Json(req): Json<CreateSessionRequest>,
 ) -> Result<Json<SessionSummary>, AppError> {
     tracing::info!(component = "conversations/handlers", user_id = %user_ctx.user_id, "session.create");
-    let summary = svc.create_session(req, &user_ctx.user_id).await?;
+    let summary = svc
+        .create_session(req, &user_ctx.user_id, user_ctx.name.clone())
+        .await?;
     Ok(Json(summary))
 }
 
@@ -198,17 +200,17 @@ pub async fn delete_message(
 
 /// Admin: Search sessions with optional filters.
 ///
-/// Endpoint: `GET /api/admin/sessions?search=&from=&to=&user_id=`
+/// Endpoint: `GET /api/admin/sessions?search=&from=&to=&user_name=`
 pub async fn admin_list_sessions(
     State(svc): State<ConversationService>,
     Query(query): Query<AdminSessionSearchQuery>,
 ) -> Result<Json<Vec<SessionSummary>>, AppError> {
     tracing::info!(
-        "GET /api/admin/sessions search={:?} from={:?} to={:?} user_id={:?}",
+        "GET /api/admin/sessions search={:?} from={:?} to={:?} user_name={:?}",
         query.search,
         query.from,
         query.to,
-        query.user_id
+        query.user_name
     );
 
     let from = if let Some(ref d) = query.from {
@@ -232,7 +234,7 @@ pub async fn admin_list_sessions(
     };
 
     let sessions = svc
-        .search_sessions(query.search, from, to, query.user_id)
+        .search_sessions(query.search, from, to, query.user_name)
         .await?;
     let summaries = sessions
         .into_iter()
@@ -244,6 +246,7 @@ pub async fn admin_list_sessions(
             collection_id: s.collection_id,
             created_at: s.created_at,
             updated_at: s.updated_at,
+            user_name: s.user_name,
         })
         .collect();
 

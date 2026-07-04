@@ -428,7 +428,7 @@ describe('SessionDebug', () => {
     }
   });
 
-  it('user ID filter input is present and calls API', async () => {
+  it('user name filter input is present and calls API', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue([]);
 
     const wrapper = mount(SessionDebug, {
@@ -449,7 +449,7 @@ describe('SessionDebug', () => {
     await flushPromises();
 
     expect(api.adminSearchSessions).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-123' }),
+      expect.objectContaining({ user_name: 'user-123' }),
     );
   });
 
