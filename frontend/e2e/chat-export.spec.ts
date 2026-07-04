@@ -19,9 +19,19 @@ test.describe('chat export', () => {
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('Export test');
     await page.locator('[data-testid="btn-send"]').click();
+
+    // Wait for the SSE query to fully complete (loading done + message rendered)
     await page.waitForSelector('[data-testid="message-assistant"]', {
       timeout: 20000,
     });
+    await page.waitForFunction(
+      () => {
+        const app = document.querySelector('#app').__vue_app__;
+        const pinia = app.config.globalProperties.$pinia;
+        return !pinia.state.value.chat.isLoading;
+      },
+      { timeout: 30000 },
+    );
 
     // Get the session ID from Pinia store
     const sessionId = await page.evaluate(() => {
@@ -53,9 +63,19 @@ test.describe('chat export', () => {
     const input = page.locator('[data-testid="chat-input"]');
     await input.fill('JSON test');
     await page.locator('[data-testid="btn-send"]').click();
+
+    // Wait for the SSE query to fully complete (loading done + message rendered)
     await page.waitForSelector('[data-testid="message-assistant"]', {
       timeout: 20000,
     });
+    await page.waitForFunction(
+      () => {
+        const app = document.querySelector('#app').__vue_app__;
+        const pinia = app.config.globalProperties.$pinia;
+        return !pinia.state.value.chat.isLoading;
+      },
+      { timeout: 30000 },
+    );
 
     // Get the session ID from Pinia store
     const sessionId = await page.evaluate(() => {
