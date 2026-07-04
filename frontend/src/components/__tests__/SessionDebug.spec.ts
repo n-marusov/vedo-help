@@ -86,6 +86,30 @@ const mockMessages: Message[] = [
 ];
 
 describe('SessionDebug', () => {
+  it('loads all sessions on mount', async () => {
+    vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
+
+    const wrapper = mount(SessionDebug, {
+      global: {
+        stubs: {
+          SessionDebug: false,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    expect(api.adminSearchSessions).toHaveBeenCalledTimes(1);
+    expect(api.adminSearchSessions).toHaveBeenCalledWith({
+      search: undefined,
+      user_name: undefined,
+      from: undefined,
+      to: undefined,
+    });
+    const items = wrapper.findAll('[data-testid="session-list-item"]');
+    expect(items.length).toBe(2);
+  });
+
   it('renders session list after search', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
 
@@ -96,6 +120,10 @@ describe('SessionDebug', () => {
         },
       },
     });
+
+    await flushPromises();
+    vi.mocked(api.adminSearchSessions).mockClear();
+    vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
 
     // Trigger search
     const searchInput = wrapper.find('[data-testid="session-debug-search"]');

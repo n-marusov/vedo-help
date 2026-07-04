@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { api } from '@/api/client';
 import type { DebugData, Message, SessionSummary } from '@/api/types';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const sessions = ref<SessionSummary[]>([]);
 const selectedSession = ref<SessionSummary | null>(null);
@@ -118,6 +118,11 @@ function getStepData(
 }
 
 const hasActiveSession = computed(() => selectedSession.value !== null);
+
+// Load all sessions on mount
+onMounted(() => {
+  searchSessions();
+});
 </script>
 
 <template>
