@@ -121,20 +121,20 @@
 
 Полный 7-шаговый RAG-пайплайн с визуализацией всех шагов в админ-панели (по методичке День 2).
 
-- [ ] **Backend: Config + env vars** — `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`
-- [ ] **Backend: BM25 keyword search module** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, ранжирование по BM25 (через tantivy или ручная реализация)
-- [ ] **Backend: LLM helper для не-streaming вызовов** — `LlmClient::query_single(prompt)` для multi-query, HyDE, reranking (без стриминга, полный ответ)
-- [ ] **Backend: Multi-query** — LLM генерирует 2-3 альтернативные формулировки вопроса + исходный вопрос
-- [ ] **Backend: HyDE (гипотетический документ)** — LLM пишет гипотетический ответ для каждого вопроса; эмбеддинг делается по HyDE-документу, а не по вопросу
-- [ ] **Backend: Hybrid search orchestrator** — объединение результатов Chroma (3 ближайших на HyDE-документ = ~9 чанков) + BM25/keywords (до 2 чанков на ключевое слово = ~6 чанков) + дедупликация по chunk_id
-- [ ] **Backend: LLM Reranking** — для каждого уникального чанка: LLM оценивает (score 1-10, вердикт "брать"/"не брать", комментарий); в финальный LLM идут только "брать"
-- [ ] **Backend: Новые SSE-типы событий** — `pipeline_stage` события для каждого шага: `expanded_questions`, `hyde_docs`, `keyword_matches`, `merged_chunks`, `reranked_chunks`, `pipeline_metric`
-- [ ] **Backend: SourceRef с метаданными этапа** — расширение `SourceRef`: `stage` ("embedding" | "keyword" | "reranked"), `rerank_score`, `rerank_verdict`, `rerank_comment`, `keyword_matches`
-- [ ] **Backend: Ужесточение anti-hallucination промпта** — инструкция: "Если среди переданных чанков нет информации, отвечай ТОЛЬКО фразой: «К сожалению, не нашёл информации по этому вопросу в базе знаний»"
-- [ ] **Frontend: API types** — новые `StreamEvent` типы (`pipeline_stage`), расширенный `SourceRef` со stage/rerank/verdict полями
-- [ ] **Frontend: Pinia debug store** — `stores/ragDebug.ts`: хранение pipeline stage данных отдельно от чата
-- [ ] **Frontend: Debug panel v2** — `MessageBubble.vue`: 7 секций под каждый шаг пайплайна (коллапсируемые), тайминги, токены
-- [ ] **Frontend: Admin RAG Debug tab** — `AdminView.vue`: новая вкладка "RAG Pipeline Debug" с поиском сессий, 7-шаговой диаграммой, просмотром raw debug данных
+- [x] **Backend: Config + env vars** — `ADVANCED_RAG_ENABLED`, `RERANK_TOP_K`, `HYBRID_TOP_K`, `MULTI_QUERY_COUNT`, `LLM_RERANK_MODEL` в `config.rs`
+- [x] **Backend: BM25 keyword search module** — `shared/bm25.rs`: инвертированный индекс, поиск по ключевым словам, ранжирование по BM25
+- [x] **Backend: LLM helper для не-streaming вызовов** — `LlmClient::query_single(prompt)` для multi-query, HyDE, reranking
+- [x] **Backend: Multi-query** — LLM генерирует 2-3 альтернативные формулировки вопроса
+- [x] **Backend: HyDE (гипотетический документ)** — LLM пишет гипотетический ответ для каждого вопроса
+- [x] **Backend: Hybrid search orchestrator** — объединение результатов Chroma + BM25 + дедупликация по chunk_id
+- [x] **Backend: LLM Reranking** — для каждого уникального чанка: LLM оценивает (вердикт "брать"/"пропустить")
+- [x] **Backend: SourceRef с метаданными этапа** — расширение `SourceRef`: `stage`, `rerank_score`, `rerank_verdict`
+- [x] **Frontend: API types** — новые `StreamEvent` типы (`pipeline_stage`), расширенный `SourceRef`
+- [x] **Frontend: Debug panel v2** — `SessionDebug.vue`: 7 динамических секций под каждый шаг (реальные данные или заглушки)
+- [x] **Frontend: Admin RAG Debug tab** — обновление SessionDebug.vue: фильтр по User ID, поиск по содержимому сообщений
+- [ ] **Backend: Новые SSE-типы событий** — `pipeline_stage` события для реального времени
+- [ ] **Backend: Ужесточение anti-hallucination промпта**
+- [ ] **Frontend: Pinia debug store** — `stores/ragDebug.ts`
 
 ---
 

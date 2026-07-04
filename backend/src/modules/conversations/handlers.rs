@@ -18,6 +18,7 @@ pub struct AdminSessionSearchQuery {
     pub search: Option<String>,
     pub from: Option<String>,
     pub to: Option<String>,
+    pub user_id: Option<String>,
 }
 
 /// Query parameters for export endpoint.
@@ -197,16 +198,17 @@ pub async fn delete_message(
 
 /// Admin: Search sessions with optional filters.
 ///
-/// Endpoint: `GET /api/admin/sessions?search=&from=&to=`
+/// Endpoint: `GET /api/admin/sessions?search=&from=&to=&user_id=`
 pub async fn admin_list_sessions(
     State(svc): State<ConversationService>,
     Query(query): Query<AdminSessionSearchQuery>,
 ) -> Result<Json<Vec<SessionSummary>>, AppError> {
     tracing::info!(
-        "GET /api/admin/sessions search={:?} from={:?} to={:?}",
+        "GET /api/admin/sessions search={:?} from={:?} to={:?} user_id={:?}",
         query.search,
         query.from,
-        query.to
+        query.to,
+        query.user_id
     );
 
     let from = if let Some(ref d) = query.from {
@@ -229,7 +231,9 @@ pub async fn admin_list_sessions(
         None
     };
 
-    let sessions = svc.search_sessions(query.search, from, to).await?;
+    let sessions = svc
+        .search_sessions(query.search, from, to, query.user_id)
+        .await?;
     let summaries = sessions
         .into_iter()
         .map(|s| SessionSummary {

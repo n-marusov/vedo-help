@@ -29,6 +29,19 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 - **LLM Gateway:** RouterAI API (configurable model)
 - **Authentication:** KeyCloak 26 (OIDC/OAuth2) with PostgreSQL storage
 - **Authorization:** Three-tier RBAC (guest/user/admin)
+- **Advanced RAG:** Configurable pipeline with Multi-Query, HyDE, BM25 keyword search, and LLM reranking
+
+## Configuration Variables
+
+Key environment variables for the advanced RAG pipeline:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADVANCED_RAG_ENABLED` | `true` | Enable multi-query, HyDE, BM25, and reranking pipeline |
+| `RERANK_TOP_K` | `5` | Max chunks to keep after LLM reranking |
+| `HYBRID_TOP_K` | `20` | Initial chunks to retrieve per search pass |
+| `MULTI_QUERY_COUNT` | `3` | Number of query variants to generate |
+| `LLM_RERANK_MODEL` | `anthropic/claude-sonnet-4.6` | LLM model used for reranking |
 
 ## Architecture Notes
 

@@ -78,16 +78,20 @@ export interface SourceRef {
   chunk_index: number;
   text: string;
   relevance: number;
+  stage?: string;
+  rerank_score?: number;
+  rerank_verdict?: string;
 }
 
 export interface StreamEvent {
-  type: 'chunk' | 'sources' | 'debug' | 'error' | 'done';
+  type: 'chunk' | 'sources' | 'debug' | 'error' | 'done' | 'pipeline_stage';
   data?: {
     text?: string;
     sources?: SourceRef[];
     debug?: unknown;
     user_message_id?: string;
     assistant_message_id?: string;
+    stage_name?: string;
   };
   // Legacy fallback — some events may have fields at top level
   text?: string;
@@ -179,14 +183,62 @@ export interface FinalAnswerStep {
   prompt_preview: string;
 }
 
+export interface MultiQueryStep {
+  original_query: string;
+  variants: string[];
+  latency_ms: number;
+}
+
+export interface HydeResult {
+  query: string;
+  hypothetical_doc: string;
+  latency_ms: number;
+}
+
+export interface HydeStep {
+  per_query: HydeResult[];
+}
+
+export interface KeywordSearchStep {
+  query_tokens: string[];
+  total_matches: number;
+  results: SearchResultItem[];
+  latency_ms: number;
+}
+
+export interface MergeSourceBreakdown {
+  vector_chunks: number;
+  keyword_chunks: number;
+}
+
+export interface MergeDedupStep {
+  input_chunks: number;
+  after_dedup: number;
+  source_breakdown: MergeSourceBreakdown;
+}
+
+export interface RerankResult {
+  chunk_id: string;
+  score: number;
+  verdict: string;
+  comment: string;
+}
+
+export interface RerankingStep {
+  input_count: number;
+  accepted: number;
+  rejected: number;
+  results: RerankResult[];
+}
+
 export interface DebugData {
   query_text: string;
-  multi_query: null | Record<string, unknown>;
-  hyde: null | Record<string, unknown>;
+  multi_query: MultiQueryStep | null;
+  hyde: HydeStep | null;
   embedding_search: EmbeddingSearchStep | null;
-  keyword_search: null | Record<string, unknown>;
-  merge_dedup: null | Record<string, unknown>;
-  reranking: null | Record<string, unknown>;
+  keyword_search: KeywordSearchStep | null;
+  merge_dedup: MergeDedupStep | null;
+  reranking: RerankingStep | null;
   final_answer: FinalAnswerStep | null;
 }
 
@@ -194,6 +246,7 @@ export interface SessionSearchParams {
   search?: string;
   from?: string;
   to?: string;
+  user_id?: string;
 }
 
 // ── Health Check Types ──

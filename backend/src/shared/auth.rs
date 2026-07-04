@@ -375,6 +375,11 @@ mod tests {
             otel_endpoint: "http://otel-collector:4317".to_string(),
             service_name: "vedo-backend-test".to_string(),
             environment: "test".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "anthropic/claude-sonnet-4.6".to_string(),
         };
 
         let validator = JwtValidator::from_config(&config);

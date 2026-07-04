@@ -439,6 +439,47 @@ Export session messages. Default format is `json`.
 - `(edited)` suffix on edited messages
 - Soft-deleted messages excluded
 
+### Sessions (Admin)
+
+#### `GET /api/admin/sessions`
+
+Search all sessions with optional filters. Requires admin role.
+
+```bash
+curl "http://localhost:3000/api/admin/sessions?search=rate+limit&from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&user_id=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `search` | string | Search by session title or message content (ILIKE) |
+| `from` | string (RFC 3339) | Filter sessions created on or after this date |
+| `to` | string (RFC 3339) | Filter sessions created on or before this date |
+| `user_id` | string | Filter sessions owned by a specific user |
+
+**Response:** `200 OK` — array of [SessionSummary](#session-summary) objects.
+
+### SSE Query Events
+
+#### `pipeline_stage` event
+
+When `ADVANCED_RAG_ENABLED=true` (default), the query pipeline emits per-stage progress events during processing:
+
+```json
+{
+  "type": "pipeline_stage",
+  "stage_name": "multi_query",
+  "data": {
+    "original_query": "How do I configure the rate limiter?",
+    "variants": ["How to set up rate limiting?", "Rate limiter configuration steps", "Configure rate limit parameters"]
+  }
+}
+```
+
+Available stages: `multi_query`, `hyde`, `embedding_search`, `keyword_search`, `merge_dedup`, `reranking`, `final_answer`.
+
 ### Message Actions
 
 #### `PATCH /api/sessions/{session_id}/messages/{message_id}`

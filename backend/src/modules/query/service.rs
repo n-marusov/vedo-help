@@ -28,10 +28,12 @@ pub struct QueryService {
     conversation_repo: ConversationRepository,
     max_history_messages: usize,
     context_token_budget: usize,
+    pub config: crate::config::AppConfig,
 }
 
 impl QueryService {
     /// Create a new QueryService.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: PgPool,
         chroma_url: &str,
@@ -40,6 +42,7 @@ impl QueryService {
         collection_repo: CollectionRepository,
         max_history_messages: usize,
         context_token_budget: usize,
+        config: crate::config::AppConfig,
     ) -> Self {
         let repo = QueryRepository::new(db.clone(), chroma_url);
         let embedding_client = EmbeddingClient::new(embedding_service_url);
@@ -53,6 +56,7 @@ impl QueryService {
             conversation_repo,
             max_history_messages,
             context_token_budget,
+            config,
         }
     }
 
@@ -109,64 +113,249 @@ impl QueryService {
             "query.embedded"
         );
 
-        // 2. Search chunks using shared chunk_search module (semantic)
-        let mut chunk_search_results = chunk_search::search_chunks_semantic(
-            self.repo.chroma(),
-            &self.embedding_client,
-            self.repo.db(),
-            request.collection_id,
-            &request.query,
-            None,
-            5,
-        )
-        .await
-        .map_err(|e| {
-            tracing::error!(component = "query/service", error = %e, "query.chunk_search_failed");
-            e
-        })?;
+        use crate::modules::query::debug_models::*;
+        let mut debug_data = DebugData::new(&request.query);
 
-        if chunk_search_results.is_empty() {
-            tracing::warn!(
-                component = "query/service",
-                collection_id = %request.collection_id,
-                "query.chunk_search.empty_results"
-            );
-            for attempt in 1..=3 {
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                chunk_search_results = chunk_search::search_chunks_semantic(
+        // 2. Advanced RAG logic
+        let final_chunks: Vec<crate::shared::chunk_search::ChunkSearchResult>;
+
+        if !self.config.advanced_rag_enabled {
+            // Standard semantic search fallback
+            let start = tokio::time::Instant::now();
+            let chunk_search_results = chunk_search::search_chunks_semantic(
+                self.repo.chroma(),
+                &self.embedding_client,
+                self.repo.db(),
+                request.collection_id,
+                &request.query,
+                None,
+                self.config.rerank_top_k,
+            )
+            .await
+            .map_err(|e| {
+                tracing::error!(component = "query/service", error = %e, "query.chunk_search_failed");
+                e
+            })?;
+
+            debug_data.embedding_search = Some(EmbeddingSearchStep {
+                query_snippet: request.query.clone(),
+                embedding_dimension: 384,
+                latency_ms: start.elapsed().as_millis() as u64,
+                collection_name: request.collection_id.to_string(),
+                top_k: self.config.rerank_top_k,
+                result_count: chunk_search_results.len(),
+                retries: 0,
+                results: chunk_search_results
+                    .iter()
+                    .map(|r| SearchResultItem {
+                        chunk_id: r.chunk_id.to_string(),
+                        document_name: r.document_name.clone(),
+                        chunk_index: r.chunk_index,
+                        score: r.score.unwrap_or(0.0),
+                        text_snippet: r.text.chars().take(200).collect(),
+                    })
+                    .collect(),
+            });
+
+            final_chunks = chunk_search_results;
+        } else {
+            // Advanced Pipeline
+
+            // 2.a Multi-Query
+            let mq_start = tokio::time::Instant::now();
+            let mq_system = "You are an AI language model assistant. Your task is to generate 3 different versions of the given user question to retrieve relevant documents from a vector database. By generating multiple perspectives on the user question, your goal is to help the user overcome some of the limitations of the distance-based similarity search. Provide these alternative questions separated by newlines.";
+
+            let variants_text = self
+                .llm_client
+                .query_single(mq_system, &request.query)
+                .await
+                .unwrap_or_default();
+            let mut variants: Vec<String> = variants_text
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if variants.is_empty() {
+                variants.push(request.query.clone());
+            }
+            if variants.len() > self.config.multi_query_count {
+                variants.truncate(self.config.multi_query_count);
+            }
+
+            debug_data.multi_query = Some(MultiQueryStep {
+                original_query: request.query.clone(),
+                variants: variants.clone(),
+                latency_ms: mq_start.elapsed().as_millis() as u64,
+            });
+
+            // 2.b HyDE (Hypothetical Document Embeddings)
+            let mut hyde_results = Vec::new();
+            let hyde_system = "Please write a short hypothetical document that answers the question. The document should be factual and concise.";
+
+            for v in &variants {
+                let doc_start = tokio::time::Instant::now();
+                let doc = self
+                    .llm_client
+                    .query_single(hyde_system, v)
+                    .await
+                    .unwrap_or_default();
+                hyde_results.push(HydeResult {
+                    query: v.clone(),
+                    hypothetical_doc: doc,
+                    latency_ms: doc_start.elapsed().as_millis() as u64,
+                });
+            }
+
+            debug_data.hyde = Some(HydeStep {
+                per_query: hyde_results.clone(),
+            });
+
+            // 2.c Semantic Search (Vector)
+            let embed_start = tokio::time::Instant::now();
+            let mut all_semantic_chunks = Vec::new();
+
+            for hyde_res in &hyde_results {
+                let search_text = format!("{} {}", hyde_res.query, hyde_res.hypothetical_doc);
+                let batch_results = chunk_search::search_chunks_semantic(
                     self.repo.chroma(),
                     &self.embedding_client,
                     self.repo.db(),
                     request.collection_id,
-                    &request.query,
+                    &search_text,
                     None,
-                    5,
+                    self.config.hybrid_top_k,
                 )
                 .await
-                .map_err(|e| {
-                    tracing::error!(component = "query/service", retry_attempt = attempt, error = %e, "query.chunk_search_retry_failed");
-                    e
-                })?;
-                if !chunk_search_results.is_empty() {
-                    tracing::info!(
-                        component = "query/service",
-                        retry_attempt = attempt,
-                        collection_id = %request.collection_id,
-                        "query.chunk_search.retry_found"
-                    );
-                    break;
-                }
-                tracing::warn!(
-                    component = "query/service",
-                    retry_attempt = attempt,
-                    collection_id = %request.collection_id,
-                    "query.chunk_search.retry_empty"
-                );
+                .unwrap_or_default();
+
+                all_semantic_chunks.extend(batch_results);
             }
+
+            debug_data.embedding_search = Some(EmbeddingSearchStep {
+                query_snippet: "HyDE multi-query".to_string(),
+                embedding_dimension: 384,
+                latency_ms: embed_start.elapsed().as_millis() as u64,
+                collection_name: request.collection_id.to_string(),
+                top_k: self.config.hybrid_top_k,
+                result_count: all_semantic_chunks.len(),
+                retries: 0,
+                results: all_semantic_chunks
+                    .iter()
+                    .take(5)
+                    .map(|r| SearchResultItem {
+                        chunk_id: r.chunk_id.to_string(),
+                        document_name: r.document_name.clone(),
+                        chunk_index: r.chunk_index,
+                        score: r.score.unwrap_or(0.0),
+                        text_snippet: r.text.chars().take(200).collect(),
+                    })
+                    .collect(),
+            });
+
+            // 2.d BM25 (Keyword Search)
+            let bm25_start = tokio::time::Instant::now();
+            let bm25_chunks = chunk_search::search_chunks_text(
+                self.repo.db(),
+                request.collection_id,
+                &request.query,
+                None,
+                self.config.hybrid_top_k,
+                0,
+            )
+            .await
+            .unwrap_or_default();
+
+            debug_data.keyword_search = Some(KeywordSearchStep {
+                query_tokens: crate::shared::bm25::tokenize(&request.query),
+                total_matches: bm25_chunks.len(),
+                results: bm25_chunks
+                    .iter()
+                    .take(5)
+                    .map(|r| SearchResultItem {
+                        chunk_id: r.chunk_id.to_string(),
+                        document_name: r.document_name.clone(),
+                        chunk_index: r.chunk_index,
+                        score: 0.0,
+                        text_snippet: r.text.chars().take(200).collect(),
+                    })
+                    .collect(),
+                latency_ms: bm25_start.elapsed().as_millis() as u64,
+            });
+
+            // 2.e Merge & Dedup
+            let initial_count = all_semantic_chunks.len() + bm25_chunks.len();
+            let mut unique_chunks = std::collections::HashMap::new();
+
+            for c in all_semantic_chunks.clone() {
+                unique_chunks.insert(c.chunk_id.to_string(), c);
+            }
+
+            for c in bm25_chunks.clone() {
+                unique_chunks.insert(c.chunk_id.to_string(), c);
+            }
+
+            let merged: Vec<_> = unique_chunks.into_values().collect();
+
+            debug_data.merge_dedup = Some(MergeDedupStep {
+                input_chunks: initial_count,
+                after_dedup: merged.len(),
+                source_breakdown: MergeSourceBreakdown {
+                    vector_chunks: all_semantic_chunks.len(),
+                    keyword_chunks: bm25_chunks.len(),
+                },
+            });
+
+            // 2.f LLM Reranking
+            let rerank_system = "You are an expert relevance ranker. Given a user question and a document chunk, evaluate if the chunk contains information that helps answer the question. If it is relevant and should be kept, respond with the exact word 'брать'. If it is completely irrelevant, respond with 'пропустить'. Do not provide any other text or explanation. Question: ";
+
+            let mut accepted_chunks = Vec::new();
+            let mut rerank_results = Vec::new();
+
+            for chunk in merged {
+                let prompt = format!("{}\n\nChunk: {}", request.query, chunk.text);
+                let verdict = self
+                    .llm_client
+                    .query_single(rerank_system, &prompt)
+                    .await
+                    .unwrap_or_else(|_| "брать".to_string());
+                let keep = verdict.to_lowercase().contains("брать");
+
+                rerank_results.push(RerankResult {
+                    chunk_id: chunk.chunk_id.to_string(),
+                    score: if keep { 1.0 } else { 0.0 },
+                    verdict: if keep {
+                        "брать".to_string()
+                    } else {
+                        "пропустить".to_string()
+                    },
+                    comment: verdict,
+                });
+
+                if keep {
+                    accepted_chunks.push(chunk);
+                }
+            }
+
+            let accepted_count = accepted_chunks.len();
+            let rejected_count = rerank_results.len() - accepted_count;
+
+            // Apply Top K limit
+            if accepted_chunks.len() > self.config.rerank_top_k {
+                accepted_chunks.truncate(self.config.rerank_top_k);
+            }
+
+            debug_data.reranking = Some(RerankingStep {
+                input_count: rerank_results.len(),
+                accepted: accepted_count,
+                rejected: rejected_count,
+                results: rerank_results,
+            });
+
+            final_chunks = accepted_chunks;
         }
 
         // Build chunks for LLM context (CrateChunkData) and SourceRefs from search results
-        let chunks: Vec<crate::shared::llm::CrateChunkData> = chunk_search_results
+        let chunks: Vec<crate::shared::llm::CrateChunkData> = final_chunks
             .iter()
             .map(|r| crate::shared::llm::CrateChunkData {
                 text: r.text.clone(),
@@ -175,7 +364,7 @@ impl QueryService {
             })
             .collect();
 
-        let source_refs: Vec<SourceRef> = chunk_search_results
+        let source_refs: Vec<SourceRef> = final_chunks
             .iter()
             .map(|r| SourceRef {
                 document_id: r.document_id,
@@ -183,14 +372,20 @@ impl QueryService {
                 chunk_index: r.chunk_index,
                 text: r.text.clone(),
                 relevance: r.score.unwrap_or(0.0),
+                stage: None,
+                rerank_score: None,
+                rerank_verdict: None,
             })
             .collect();
 
-        let chunk_ids: Vec<String> = chunk_search_results
+        let chunk_ids: Vec<String> = final_chunks
             .iter()
             .map(|r| r.chunk_id.to_string())
             .collect();
 
+        let debug_data_json = serde_json::to_string(&debug_data).unwrap_or_default();
+
+        // 4. Load conversation history if session is present
         // 4. Load conversation history if session is present
         let history = if let Some(session_id) = request.session_id {
             self.load_conversation_history(session_id).await?
@@ -261,6 +456,7 @@ impl QueryService {
             user_message_id,
             assistant_message_id,
             self.conversation_repo.clone(),
+            debug_data_json,
         );
 
         Ok(stream)
@@ -270,6 +466,7 @@ impl QueryService {
     ///   1. LLM text chunks → "chunk" events
     ///   2. Sources metadata → "sources" event
     ///   3. Completion signal → "done" event with message IDs
+    #[allow(clippy::too_many_arguments)]
     fn build_event_stream(
         llm_stream: impl Stream<Item = Result<String, AppError>> + 'static,
         sources: Vec<SourceRef>,
@@ -278,6 +475,7 @@ impl QueryService {
         user_message_id: Option<Uuid>,
         assistant_message_id: Option<Uuid>,
         conversation_repo: ConversationRepository,
+        debug_data_json: String,
     ) -> impl Stream<Item = Result<StreamEvent, Infallible>> {
         let sources_event = StreamEvent {
             event_type: "sources".to_string(),
@@ -311,12 +509,12 @@ impl QueryService {
                         session_id,
                         role: "assistant".to_string(),
                         content,
-                        sources: None,
+                        sources: Some(serde_json::to_string(&sources).unwrap_or_default()),
                         created_at: chrono::Utc::now(),
                         edited_at: None,
                         original_content: None,
                         deleted_at: None,
-                        debug_data: None,
+                        debug_data: Some(debug_data_json),
                     };
                     if let Err(e) = repo.add_message(&msg).await {
                         tracing::error!(
@@ -480,6 +678,7 @@ mod tests {
             None,
             None,
             repo,
+            "null".to_string(),
         ));
 
         let events: Vec<StreamEvent> = stream

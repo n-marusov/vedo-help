@@ -101,6 +101,7 @@ export const api = {
     if (params.search) query.set('search', params.search);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.user_id) query.set('user_id', params.user_id);
     const qs = query.toString();
     return api.get<SessionSummary[]>(`/admin/sessions${qs ? `?${qs}` : ''}`);
   },

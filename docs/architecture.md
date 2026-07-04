@@ -4,7 +4,7 @@
 
 ## System Overview
 
-The system uses a six-service microservices architecture. The **backend** is the orchestrator — it accepts user requests, coordinates retrieval from Chroma, calls the embedding service, and streams LLM responses. All inter-service communication happens over Docker's internal bridge network.
+The system uses a seven-service microservices architecture (including PostgreSQL for KeyCloak). The **backend** is the orchestrator — it accepts user requests, coordinates retrieval from Chroma, calls the embedding service, and streams LLM responses. All inter-service communication happens over Docker's internal bridge network.
 
 ```mermaid
 graph TB
@@ -61,7 +61,8 @@ backend/src/
 └── shared/
     ├── auth.rs          # Bearer token middleware, JWT validator
     ├── error.rs         # Unified AppError enum
-    ├── llm.rs           # LLM client (RouterAI)
+    ├── llm.rs           # LLM client (RouterAI), streaming + single queries
+    ├── bm25.rs          # BM25 keyword search index
     ├── chunking.rs      # Text splitting
     ├── embedding_client.rs  # Embedding service HTTP client
     ├── chroma_client.rs     # Chroma HTTP client
@@ -140,7 +141,8 @@ frontend/src/
 │   ├── LoginButtons.vue     # Social login provider buttons
 │   ├── ChatWindow.vue       # Chat message list + input
 │   ├── MessageBubble.vue    # Single message with citations
-│   ├── DocumentList.vue     # Uploaded documents list
+│   ├── SessionDebug.vue   # Admin session debug panel with pipeline visualization
+    │   ├── DocumentList.vue     # Uploaded documents list
 │   ├── CollectionManager.vue  # Collection CRUD
 │   └── GitRepoManager.vue   # Git repo connect, sync, delete
 ├── stores/
@@ -202,33 +204,72 @@ sequenceDiagram
 
 ## RAG Pipeline (Query Flow)
 
+When advanced RAG is enabled (`ADVANCED_RAG_ENABLED=true`), the pipeline includes Multi-Query expansion, HyDE (Hypothetical Document Embeddings), hybrid vector + keyword search, deduplication, and LLM reranking.
+
 ```mermaid
 sequenceDiagram
     participant U as User
     participant F as Frontend
     participant B as Backend
-    participant C as Chroma
     participant E as Embedding
+    participant C as Chroma
     participant L as LLM (RouterAI)
 
     U->>F: Asks a question
     F->>B: POST /api/query
-    B->>E: POST /embed (question text)
-    E-->>B: Question embedding vector
-    B->>C: Query similar chunks
-    C-->>B: Top-k chunks with scores
-    B->>L: POST chat/completions<br/>(context + question + history)
+    Note over B: Multi-Query: generate 3 query variants
+    B->>L: query_single (generate variants)
+    L-->>B: Variant questions
+    Note over B: HyDE: generate hypothetical docs per variant
+    B->>L: query_single per variant
+    L-->>B: Hypothetical documents
+    B->>E: POST /embed (HyDE documents)
+    E-->>B: Embedding vectors
+    B->>C: Query similar chunks per variant
+    C-->>B: Vector chunks with scores
+    Note over B: BM25 keyword search
+    B->>B: Tokenize query, match inverted index
+    Note over B: Merge & dedup unique chunks
+    Note over B: LLM reranking
+    B->>L: query_single per chunk
+    L-->>B: Relevance verdicts
+    B->>L: POST chat/completions (top-k chunks)
     L-->>B: Streaming response
     B-->>F: SSE stream
     F-->>U: Rendered answer with citations
 ```
 
-1. User asks a question in the chat UI
-2. Backend embeds the question via the embedding service
-3. Backend queries Chroma for the most relevant chunks
-4. Backend builds a prompt with context + conversation history
-5. Backend streams the LLM response to the frontend via SSE
-6. Frontend renders the answer inline with source citations
+1. **Multi-Query:** Backend generates 3 query variants via LLM (`query_single`)
+2. **HyDE:** For each variant, the LLM generates a hypothetical document that would answer the question
+3. **Semantic Search:** HyDE documents are embedded and used to query Chroma for similar chunks
+4. **BM25 Keyword Search:** The original query is tokenized and matched against a keyword index for additional relevant chunks
+5. **Merge & Dedup:** Vector and keyword results are merged, deduplicated by chunk ID
+6. **LLM Reranking:** Each unique chunk is scored by the LLM (брать = keep, пропустить = skip)
+7. **Final Answer:** Top-K accepted chunks are used as context for the LLM streaming response
+
+When `ADVANCED_RAG_ENABLED=false`, the pipeline falls back to standard semantic-only search.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADVANCED_RAG_ENABLED` | `true` | Enable multi-query, HyDE, BM25, and reranking |
+| `RERANK_TOP_K` | `5` | Max chunks to keep after reranking |
+| `HYBRID_TOP_K` | `20` | Initial chunks to retrieve per search pass |
+| `MULTI_QUERY_COUNT` | `3` | Number of query variants to generate |
+| `LLM_RERANK_MODEL` | `anthropic/claude-sonnet-4.6` | LLM model for reranking verdicts |
+
+### Debug Data (Admin Panel)
+
+Each pipeline stage populates the assistant message's `debug_data` JSON field:
+
+- `multi_query` — original query, generated variants, latency
+- `hyde` — per-variant hypothetical documents, latency
+- `embedding_search` — vector search results, metadata, latency
+- `keyword_search` — BM25 tokens, match count, latency
+- `merge_dedup` — input counts, dedup stats, source breakdown
+- `reranking` — per-chunk verdicts, scores, comments
+- `final_answer` — model info, tokens, latency, prompt preview
 
 ## See Also
 

@@ -454,3 +454,39 @@ mod tests {
         );
     }
 }
+
+impl LlmClient {
+    /// Query the LLM for a single internal pipeline task (like Multi-Query or HyDE)
+    /// without conversation history and without streaming.
+    pub async fn query_single(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String, AppError> {
+        tracing::debug!(
+            component = "llm",
+            model = %self.model,
+            "query_single.request"
+        );
+
+        let messages = vec![
+            json!({"role": "system", "content": system_prompt}),
+            json!({"role": "user", "content": user_prompt}),
+        ];
+
+        let response = self.send_request_with_retry(&messages, false).await?;
+
+        let data: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AppError::LlmError(format!("Failed to parse response: {e}")))?;
+
+        let content = data["choices"]
+            .get(0)
+            .and_then(|c| c["message"]["content"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        Ok(content)
+    }
+}

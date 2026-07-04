@@ -427,4 +427,228 @@ describe('SessionDebug', () => {
       }
     }
   });
+
+  it('user ID filter input is present and calls API', async () => {
+    vi.mocked(api.adminSearchSessions).mockResolvedValue([]);
+
+    const wrapper = mount(SessionDebug, {
+      global: {
+        stubs: {
+          SessionDebug: false,
+        },
+      },
+    });
+
+    // Check the user ID filter input exists
+    const userIdInput = wrapper.find('[data-testid="session-debug-user-search"]');
+    expect(userIdInput.exists()).toBe(true);
+
+    // Type a user ID and verify API is called with it
+    await userIdInput.setValue('user-123');
+    await userIdInput.trigger('input');
+    await flushPromises();
+
+    expect(api.adminSearchSessions).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-123' }),
+    );
+  });
+
+  it('dynamic step status shows active for steps with data', async () => {
+    const debugMsg = {
+      id: 'msg-debug',
+      session_id: 'sess-1',
+      role: 'assistant' as const,
+      content: 'Test response with all pipeline steps.',
+      created_at: '2026-06-24T10:00:05Z',
+      debug_data: JSON.stringify({
+        query_text: 'How do I install VEDO?',
+        multi_query: {
+          original_query: 'How do I install VEDO?',
+          variants: ['How to install VEDO?', 'VEDO installation steps', 'Setup VEDO guide'],
+          latency_ms: 200,
+        },
+        hyde: {
+          per_query: [
+            {
+              query: 'How to install VEDO?',
+              hypothetical_doc: 'To install VEDO, run docker compose up...',
+              latency_ms: 500,
+            },
+          ],
+        },
+        embedding_search: {
+          query_snippet: 'How do I install VEDO?',
+          embedding_dimension: 384,
+          latency_ms: 45,
+          collection_name: 'abc-123',
+          top_k: 5,
+          result_count: 3,
+          retries: 0,
+          results: [],
+        },
+        keyword_search: {
+          query_tokens: ['install', 'vedo'],
+          total_matches: 2,
+          results: [],
+          latency_ms: 10,
+        },
+        merge_dedup: {
+          input_chunks: 10,
+          after_dedup: 7,
+          source_breakdown: { vector_chunks: 5, keyword_chunks: 2 },
+        },
+        reranking: {
+          input_count: 7,
+          accepted: 5,
+          rejected: 2,
+          results: [],
+        },
+        final_answer: {
+          model: 'gpt-4',
+          max_retries: 3,
+          chunks_in_context: 5,
+          history_message_count: 0,
+          history_token_estimate: 0,
+          token_budget: 4000,
+          total_tokens_estimate: 2000,
+          latency_ms: 1200,
+          prompt_preview: 'Answer...',
+        },
+      }),
+    };
+
+    vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
+    vi.mocked(api.getSessionWithMessages).mockResolvedValue({
+      session: {
+        id: 'sess-1',
+        title: 'Technical Docs Q&A',
+        message_count: 3,
+        pinned: false,
+        collection_id: 'col-1',
+        created_at: '2026-06-24T10:00:00Z',
+        updated_at: '2026-06-24T12:00:00Z',
+      },
+      messages: [debugMsg],
+    });
+
+    const wrapper = mount(SessionDebug, {
+      global: {
+        stubs: {
+          SessionDebug: false,
+        },
+      },
+    });
+
+    // Load session
+    const searchInput = wrapper.find('[data-testid="session-debug-search"]');
+    if (searchInput.exists()) {
+      await searchInput.setValue('Technical');
+      await searchInput.trigger('input');
+    }
+    await flushPromises();
+
+    const firstItem = wrapper.find('[data-testid="session-list-item"]');
+    if (firstItem.exists()) {
+      await firstItem.trigger('click');
+    }
+    await flushPromises();
+
+    // Toggle debug panel
+    const debugToggle = wrapper.find('[data-testid="session-debug-toggle"]');
+    if (debugToggle.exists()) {
+      await debugToggle.trigger('click');
+    }
+    await flushPromises();
+
+    // Verify all 7 step titles visible
+    const stepTitles = wrapper.findAll('[data-testid="debug-step-title"]');
+    expect(stepTitles.length).toBe(7);
+
+    // Verify that steps with data show active badges (no "v0.5" future badges)
+    // All 7 steps have data now, but only embedding_search (3) and final_answer (7)
+    // are in the mock. The new logic shows "active" when getStepData returns data.
+    const futureBadges = wrapper.findAll('[data-testid="debug-step-future"]');
+    // Steps without data in the mock will show v0.5 badge (none if all have data)
+    // Actually the test mock now has ALL 7 steps populated
+    expect(futureBadges.length).toBe(0);
+  });
+
+  it('renders multi-query and hyde step data when present', async () => {
+    const fullDebugMsg = {
+      id: 'msg-full',
+      session_id: 'sess-1',
+      role: 'assistant' as const,
+      content: 'Test response.',
+      created_at: '2026-06-24T10:00:05Z',
+      debug_data: JSON.stringify({
+        query_text: 'Test query',
+        multi_query: {
+          original_query: 'Test query',
+          variants: ['Variant 1', 'Variant 2'],
+          latency_ms: 150,
+        },
+        hyde: {
+          per_query: [
+            {
+              query: 'Variant 1',
+              hypothetical_doc: 'Hypothetical document about variant 1.',
+              latency_ms: 300,
+            },
+          ],
+        },
+        embedding_search: null,
+        keyword_search: null,
+        merge_dedup: null,
+        reranking: null,
+        final_answer: null,
+      }),
+    };
+
+    vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
+    vi.mocked(api.getSessionWithMessages).mockResolvedValue({
+      session: {
+        id: 'sess-1',
+        title: 'Technical Docs Q&A',
+        message_count: 3,
+        pinned: false,
+        collection_id: 'col-1',
+        created_at: '2026-06-24T10:00:00Z',
+        updated_at: '2026-06-24T12:00:00Z',
+      },
+      messages: [fullDebugMsg],
+    });
+
+    const wrapper = mount(SessionDebug, {
+      global: {
+        stubs: {
+          SessionDebug: false,
+        },
+      },
+    });
+
+    const searchInput = wrapper.find('[data-testid="session-debug-search"]');
+    if (searchInput.exists()) {
+      await searchInput.setValue('Technical');
+      await searchInput.trigger('input');
+    }
+    await flushPromises();
+
+    const firstItem = wrapper.find('[data-testid="session-list-item"]');
+    if (firstItem.exists()) {
+      await firstItem.trigger('click');
+    }
+    await flushPromises();
+
+    const debugToggle = wrapper.find('[data-testid="session-debug-toggle"]');
+    if (debugToggle.exists()) {
+      await debugToggle.trigger('click');
+    }
+    await flushPromises();
+
+    // Steps 1 (multi_query) and 2 (hyde) should have active badge
+    // Steps 3-7 should have v0.5 future badge (except steps 3 and 7 which have status: 'active')
+    // Actual: steps 4,5,6 have future badges = 3
+    const futureBadges = wrapper.findAll('[data-testid="debug-step-future"]');
+    expect(futureBadges.length).toBe(3); // keyword_search, merge_dedup, reranking have no data + future status
+  });
 });

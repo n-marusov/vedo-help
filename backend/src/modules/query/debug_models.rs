@@ -31,25 +31,66 @@ impl DebugData {
     }
 }
 
-/// Multi-query expansion step (v0.5 — placeholder).
+/// Multi-query expansion step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MultiQueryStep;
+pub struct MultiQueryStep {
+    pub original_query: String,
+    pub variants: Vec<String>,
+    pub latency_ms: u64,
+}
 
-/// Hypothetical Document Embeddings step (v0.5 — placeholder).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HydeStep;
+pub struct HydeResult {
+    pub query: String,
+    pub hypothetical_doc: String,
+    pub latency_ms: u64,
+}
 
-/// Keyword/BM25 search step (v0.5 — placeholder).
+/// Hypothetical Document Embeddings step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeywordSearchStep;
+pub struct HydeStep {
+    pub per_query: Vec<HydeResult>,
+}
 
-/// Merge and deduplication step (v0.5 — placeholder).
+/// Keyword/BM25 search step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MergeDedupStep;
+pub struct KeywordSearchStep {
+    pub query_tokens: Vec<String>,
+    pub total_matches: usize,
+    pub results: Vec<SearchResultItem>,
+    pub latency_ms: u64,
+}
 
-/// Re-ranking step (v0.5 — placeholder).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RerankingStep;
+pub struct MergeSourceBreakdown {
+    pub vector_chunks: usize,
+    pub keyword_chunks: usize,
+}
+
+/// Merge and deduplication step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeDedupStep {
+    pub input_chunks: usize,
+    pub after_dedup: usize,
+    pub source_breakdown: MergeSourceBreakdown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RerankResult {
+    pub chunk_id: String,
+    pub score: f64,
+    pub verdict: String,
+    pub comment: String,
+}
+
+/// Re-ranking step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RerankingStep {
+    pub input_count: usize,
+    pub accepted: usize,
+    pub rejected: usize,
+    pub results: Vec<RerankResult>,
+}
 
 /// Embedding/vector search step — active, shows real results.
 #[derive(Debug, Clone, Serialize, Deserialize)]

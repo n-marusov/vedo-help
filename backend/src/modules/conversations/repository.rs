@@ -498,12 +498,14 @@ impl ConversationRepository {
         search: Option<String>,
         from: Option<chrono::DateTime<chrono::Utc>>,
         to: Option<chrono::DateTime<chrono::Utc>>,
+        user_id: Option<String>,
     ) -> Result<Vec<Session>, AppError> {
         tracing::debug!(
-            "Searching sessions: search={:?} from={:?} to={:?}",
+            "Searching sessions: search={:?} from={:?} to={:?} user_id={:?}",
             search,
             from,
-            to
+            to,
+            user_id
         );
 
         let mut sql = String::from(
@@ -511,13 +513,16 @@ impl ConversationRepository {
         );
 
         if search.is_some() {
-            sql.push_str(" AND title ILIKE $1");
+            sql.push_str(" AND (title ILIKE $1 OR EXISTS (SELECT 1 FROM messages m WHERE m.session_id = sessions.id AND m.content ILIKE $1))");
         }
         if from.is_some() {
             sql.push_str(" AND created_at >= $2");
         }
         if to.is_some() {
             sql.push_str(" AND created_at <= $3");
+        }
+        if user_id.is_some() {
+            sql.push_str(" AND user_id = $4");
         }
 
         sql.push_str(" ORDER BY updated_at DESC");
@@ -543,6 +548,9 @@ impl ConversationRepository {
         }
         if let Some(d) = to {
             query = query.bind(d);
+        }
+        if let Some(uid) = user_id {
+            query = query.bind(uid);
         }
 
         let rows = query

@@ -349,6 +349,7 @@ async fn main() {
         collection_repo.clone(),
         config.llm_max_history_messages,
         config.llm_context_token_budget,
+        config.clone(),
     );
     let audit_service = AuditService::new(audit_repo);
 

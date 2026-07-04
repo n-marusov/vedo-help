@@ -315,13 +315,15 @@ impl ConversationService {
         search: Option<String>,
         from: Option<DateTime<Utc>>,
         to: Option<DateTime<Utc>>,
+        user_id: Option<String>,
     ) -> Result<Vec<Session>, AppError> {
         tracing::info!(
-            "[conv.search_sessions] search={:?} from={:?} to={:?}",
+            "[conv.search_sessions] search={:?} from={:?} to={:?} user_id={:?}",
             search,
             from,
-            to
+            to,
+            user_id
         );
-        self.repo.search_sessions(search, from, to).await
+        self.repo.search_sessions(search, from, to, user_id).await
     }
 }

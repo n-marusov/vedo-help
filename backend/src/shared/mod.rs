@@ -23,3 +23,4 @@ pub use file_validation::{validate_file, validate_zip_magic};
 pub use llm::LlmClient;
 pub use rate_limit::body_limit_layer;
 pub use types::{ChromaResult, ChunkData, Embedding, FileType};
+pub mod bm25;

@@ -37,6 +37,16 @@ pub struct AppConfig {
     pub llm_max_history_messages: usize,
     /// Token budget for LLM context window
     pub llm_context_token_budget: usize,
+    /// Advanced RAG enabled
+    pub advanced_rag_enabled: bool,
+    /// Rerank Top K chunks to keep
+    pub rerank_top_k: usize,
+    /// Hybrid search initial Top K chunks
+    pub hybrid_top_k: usize,
+    /// Multi-query count (number of query variants to generate)
+    pub multi_query_count: usize,
+    /// LLM model for reranking
+    pub llm_rerank_model: String,
 }
 
 impl AppConfig {
@@ -94,6 +104,23 @@ impl AppConfig {
                 .unwrap_or_else(|_| "http://otel-collector:4317".to_string()),
             service_name: env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| String::new()),
             environment: env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+            advanced_rag_enabled: env::var("ADVANCED_RAG_ENABLED")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(true),
+            rerank_top_k: env::var("RERANK_TOP_K")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .expect("RERANK_TOP_K must be a valid number"),
+            hybrid_top_k: env::var("HYBRID_TOP_K")
+                .unwrap_or_else(|_| "20".to_string())
+                .parse()
+                .expect("HYBRID_TOP_K must be a valid number"),
+            multi_query_count: env::var("MULTI_QUERY_COUNT")
+                .unwrap_or_else(|_| "3".to_string())
+                .parse()
+                .expect("MULTI_QUERY_COUNT must be a valid number"),
+            llm_rerank_model: env::var("LLM_RERANK_MODEL")
+                .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string()), // default to same as LLM_MODEL for now
         }
     }
 }

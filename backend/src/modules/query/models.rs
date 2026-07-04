@@ -23,6 +23,12 @@ pub struct SourceRef {
     pub chunk_index: usize,
     pub text: String,
     pub relevance: f64,
+    /// RAG pipeline stage that produced this source ("embedding" | "keyword" | "reranked")
+    pub stage: Option<String>,
+    /// LLM reranking score (0.0-1.0) for reranked sources
+    pub rerank_score: Option<f64>,
+    /// LLM reranking verdict ("брать" | "пропустить")
+    pub rerank_verdict: Option<String>,
 }
 
 /// Internal event type yielded by the query stream before conversion to SSE.
