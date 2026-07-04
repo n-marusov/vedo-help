@@ -10,3 +10,4 @@
 - When planning with checkboxes, group every test-writing task before schema, backend, frontend, docs, or validation implementation tasks
 - Use optimistic UI as a general UX principle: the UI must feel instant — eagerly update local state before the API responds, execute the mutation asynchronously, show a VToast confirmation on success, and roll back the local state with a VToast error on failure
 - Always lint-format staged .vue files manually before any frontend git commit — Lefthook biome glob `*.{js,ts,...}` excludes `.vue`, so .vue files are silently skipped by the pre-commit hook
+- Always shut down test Docker containers after running tests — use `docker compose --env-file .env.test -f docker-compose.test.yml down -v` to avoid stale volumes causing cascading test failures on the next run
