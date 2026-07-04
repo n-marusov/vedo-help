@@ -11,3 +11,4 @@
 - Use optimistic UI as a general UX principle: the UI must feel instant — eagerly update local state before the API responds, execute the mutation asynchronously, show a VToast confirmation on success, and roll back the local state with a VToast error on failure
 - Always lint-format staged .vue files manually before any frontend git commit — Lefthook biome glob `*.{js,ts,...}` excludes `.vue`, so .vue files are silently skipped by the pre-commit hook
 - Always shut down test Docker containers after running tests — use `docker compose --env-file .env.test -f docker-compose.test.yml down -v` to avoid stale volumes causing cascading test failures on the next run
+- Never change the existing formatting style (quotes, indentations, etc.) when fixing or writing code. Always strictly adhere to the formatting rules defined in the project settings (Biome, Ruff, rustfmt, etc.) for each specific language.
