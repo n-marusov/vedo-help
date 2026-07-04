@@ -17,6 +17,7 @@ use vedo_backend::modules::documents::service::DocumentService;
 use vedo_backend::shared::AppError;
 
 /// Test: save a document with source='git', then list returns it with the correct source.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_save_document_with_git_source_roundtrip() {
     let pool = common::setup_test_db().await;
@@ -71,6 +72,7 @@ fn make_zip(files: &[(&str, &str)]) -> Vec<u8> {
 
 /// Test: process_upload with Cyrillic text must not panic
 /// on debug preview slicing.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_upload_non_ascii_text() {
     let pool = common::setup_test_db().await;
@@ -123,6 +125,7 @@ async fn test_process_upload_non_ascii_text() {
 }
 
 /// Test: process_upload with 4-byte UTF-8 (emoji) must not panic.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_upload_emoji_content() {
     let pool = common::setup_test_db().await;
@@ -167,6 +170,7 @@ async fn test_process_upload_emoji_content() {
 }
 
 /// Test: process_upload with mixed CJK + Cyrillic + emoji must not panic.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_upload_mixed_encoding() {
     let pool = common::setup_test_db().await;
@@ -211,6 +215,7 @@ async fn test_process_upload_mixed_encoding() {
 }
 
 /// Test: ASCII-only upload must still work after UTF-8 fixes.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_upload_ascii_regression() {
     let pool = common::setup_test_db().await;
@@ -254,6 +259,7 @@ async fn test_process_upload_ascii_regression() {
 }
 
 /// Test: process_zip_upload with 5 valid .md files succeeds.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_zip_with_5_md_files() {
     let pool = common::setup_test_db().await;
@@ -290,6 +296,7 @@ async fn test_process_zip_with_5_md_files() {
 }
 
 /// Test: process_zip_upload with 11 files returns PayloadTooLarge.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_zip_with_11_files_returns_413() {
     let pool = common::setup_test_db().await;
@@ -322,6 +329,7 @@ async fn test_process_zip_with_11_files_returns_413() {
 }
 
 /// Test: process_zip_upload with mixed valid and invalid files.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_zip_mixed_valid_invalid() {
     let pool = common::setup_test_db().await;
@@ -355,6 +363,7 @@ async fn test_process_zip_mixed_valid_invalid() {
 }
 
 /// Test: process_zip_upload with an empty ZIP succeeds (0 files).
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_zip_empty() {
     let pool = common::setup_test_db().await;
@@ -384,6 +393,7 @@ async fn test_process_zip_empty() {
 }
 
 /// Test: process_zip_upload with corrupted data returns FileError.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_zip_corrupted() {
     let pool = common::setup_test_db().await;
@@ -414,6 +424,7 @@ async fn test_process_zip_corrupted() {
 }
 
 /// Test: process_zip_upload with unsupported file types skips them.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_process_zip_unsupported_types_skipped() {
     let pool = common::setup_test_db().await;
@@ -448,6 +459,7 @@ async fn test_process_zip_unsupported_types_skipped() {
 }
 
 /// Test: reload_document deactivates old chunks and saves new active chunks.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks() {
     let pool = common::setup_test_db().await;
@@ -521,6 +533,7 @@ async fn test_reload_document_deactivates_old_chunks_and_saves_new_active_chunks
 }
 
 /// Test: soft delete keeps rows but removes from active results.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
     let pool = common::setup_test_db().await;
@@ -613,6 +626,7 @@ async fn test_soft_delete_keeps_rows_but_removes_from_active_results() {
 }
 
 /// Test: batch delete keeps rows but removes from active results.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
     let pool = common::setup_test_db().await;
@@ -689,6 +703,7 @@ async fn test_batch_delete_keeps_rows_but_removes_from_active_results() {
 }
 
 /// Test: batch delete across multiple collections.
+#[serial_test::serial]
 #[tokio::test]
 async fn test_batch_delete_with_mixed_collections() {
     let pool = common::setup_test_db().await;
