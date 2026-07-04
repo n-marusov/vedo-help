@@ -67,16 +67,15 @@ test.describe('loading skeletons', () => {
     // Create a collection so there's something to show
     const collection = await createTestCollection(request, `Skel Docs ${Date.now()}`);
 
+    // Intercept and delay GET /api/documents to trigger skeleton display.
+    // Using a non-glob pattern since the URL includes query params.
     await page.route(
-      '**/api/documents',
+      (url) => url.pathname === '/api/documents' && url.searchParams.has('collection_id'),
       async (route) => {
-        if (route.request().method() === 'GET') {
-          console.debug(`[loading-skeletons] delayed route: ${route.request().url()}`);
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+        console.debug(`[loading-skeletons] delaying: ${route.request().url()}`);
+        await new Promise((r) => setTimeout(r, 1500));
         await route.continue();
       },
-      { times: 1 },
     );
 
     await page.goto('/admin');
