@@ -313,15 +313,14 @@ onMounted(() => {
   gap: var(--msg-gap);
   padding: 0.375rem 1.5rem;
   max-width: var(--max-msg-width);
-  width: 100%;
 }
 
 .message-user {
-  justify-content: flex-end;
+  align-self: flex-end;
 }
 
 .message-assistant {
-  justify-content: flex-start;
+  align-self: flex-start;
 }
 
 .message-avatar {
@@ -433,6 +432,12 @@ onMounted(() => {
 /* No alternating row colors — all rows same background */
 .markdown-body :deep(tr:nth-child(even)) {
   background: transparent;
+}
+
+.markdown-body :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--color-border, rgba(128, 128, 128, 0.3));
+  margin: 1rem 0;
 }
 
 .markdown-body :deep(blockquote) {

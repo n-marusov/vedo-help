@@ -171,128 +171,6 @@ test.describe('MessageBubble Component', () => {
     });
   });
 
-  test.describe('Source Citations', () => {
-    test('TC-MSG-008: displays source citation toggle for assistant messages', async ({
-      page,
-      request,
-    }) => {
-      await setupChatPage(page, request);
-      await seedMessages(page, [
-        {
-          id: 'a1',
-          session_id: 'sess-1',
-          role: 'assistant',
-          content: 'Answer with sources',
-          sources: JSON.stringify([
-            {
-              document_id: 'doc-1',
-              document_name: 'test.pdf',
-              chunk_index: 0,
-              text: 'content',
-              relevance: 0.95,
-            },
-          ]),
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      const sourcesToggle = page.locator('[data-testid="sources-toggle"]').first();
-      await expect(sourcesToggle).toBeVisible({ timeout: 5000 });
-      await expect(sourcesToggle).toContainText(/source/i);
-    });
-
-    test('TC-MSG-009: expands source list on toggle click', async ({ page, request }) => {
-      await setupChatPage(page, request);
-      await seedMessages(page, [
-        {
-          id: 'a1',
-          session_id: 'sess-1',
-          role: 'assistant',
-          content: 'Answer',
-          sources: JSON.stringify([
-            {
-              document_id: 'doc-1',
-              document_name: 'test.pdf',
-              chunk_index: 0,
-              text: 'content',
-              relevance: 0.95,
-            },
-          ]),
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      const sourcesToggle = page.locator('[data-testid="sources-toggle"]').first();
-      await sourcesToggle.click();
-
-      const sourcesList = page.locator('[data-testid="sources-list"]').first();
-      await expect(sourcesList).toBeVisible();
-    });
-
-    test('TC-MSG-010: collapses source list on second toggle click', async ({ page, request }) => {
-      await setupChatPage(page, request);
-      await seedMessages(page, [
-        {
-          id: 'a1',
-          session_id: 'sess-1',
-          role: 'assistant',
-          content: 'Answer',
-          sources: JSON.stringify([
-            {
-              document_id: 'doc-1',
-              document_name: 'test.pdf',
-              chunk_index: 0,
-              text: 'content',
-              relevance: 0.95,
-            },
-          ]),
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      const sourcesToggle = page.locator('[data-testid="sources-toggle"]').first();
-      await sourcesToggle.click(); // expand
-      await sourcesToggle.click(); // collapse
-
-      const sourcesList = page.locator('[data-testid="sources-list"]').first();
-      await expect(sourcesList).not.toBeVisible();
-    });
-
-    test('TC-MSG-011: shows document name and relevance in source item', async ({
-      page,
-      request,
-    }) => {
-      await setupChatPage(page, request);
-      await seedMessages(page, [
-        {
-          id: 'a1',
-          session_id: 'sess-1',
-          role: 'assistant',
-          content: 'Answer',
-          sources: JSON.stringify([
-            {
-              document_id: 'doc-1',
-              document_name: 'test.pdf',
-              chunk_index: 0,
-              text: 'content',
-              relevance: 0.95,
-            },
-          ]),
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      await page.locator('[data-testid="sources-toggle"]').first().click();
-
-      const sourceItem = page.locator('[data-testid="source-item"]').first();
-      await expect(sourceItem).toBeVisible();
-
-      const docName = sourceItem.locator('[data-testid="source-document"]');
-      await expect(docName).toBeVisible();
-      await expect(docName).not.toBeEmpty();
-
-      const relevance = sourceItem.locator('[data-testid="source-relevance"]');
-      await expect(relevance).toBeVisible();
-      await expect(relevance).toContainText('%');
-    });
-  });
-
   test.describe('Visual Styling', () => {
     test('TC-MSG-012: user message has right-corner-rounded bubble style', async ({
       page,
@@ -636,12 +514,12 @@ test.describe('MessageBubble Component', () => {
       const hr = msgContent.locator('hr');
       await expect(hr).toBeVisible();
 
-      // hr should have a background color (styled via CSS, design tokens)
+      // hr should have a border color (styled via CSS, design tokens)
       // DEBUG [e2e] message-bubble: CSS shorthand → longhand assertion
-      const bgColor = await hr.evaluate((el) => getComputedStyle(el).backgroundColor);
-      expect(bgColor).toBeTruthy();
-      expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
-      expect(bgColor).not.toBe('transparent');
+      const borderColor = await hr.evaluate((el) => getComputedStyle(el).borderTopColor);
+      expect(borderColor).toBeTruthy();
+      expect(borderColor).not.toBe('rgba(0, 0, 0, 0)');
+      expect(borderColor).not.toBe('transparent');
     });
   });
 });

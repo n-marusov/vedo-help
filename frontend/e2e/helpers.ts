@@ -107,7 +107,13 @@ export async function setActiveCollection(page: Page, collectionId: string): Pro
     // biome-ignore lint/suspicious/noExplicitAny: E2E helper needs access to Vue internals
     const app = (document.querySelector('#app') as any).__vue_app__;
     const pinia = app.config.globalProperties.$pinia;
-    pinia.state.value.collections.activeCollectionId = id;
+    // Use the store's action instead of raw state to ensure reactivity
+    const store = pinia._s.get('collections');
+    if (store?.setActiveCollection) {
+      store.setActiveCollection(id);
+    } else {
+      pinia.state.value.collections.activeCollectionId = id;
+    }
   }, collectionId);
 }
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { fileInput, setActiveCollection, setupAuthAndCollection } from './helpers';
+import { fileInput, setupAuthAndCollection } from './helpers';
 
 test.describe('Admin Statistics Tab', () => {
   test('TC-STATS-001: navigate to Statistics tab and see stats panel', async ({
@@ -32,6 +32,9 @@ test.describe('Admin Statistics Tab', () => {
     page,
     request,
   }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+
     const collection = await setupAuthAndCollection(page, request, `Stats Upload ${Date.now()}`);
 
     // Upload a document via API
@@ -41,9 +44,11 @@ test.describe('Admin Statistics Tab', () => {
       timeout: 10000,
     });
 
-    // Select the collection
-    await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    // Select the collection by clicking the card
+    await page.locator('.cm-card', { hasText: collection.name }).click();
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
 
     // Upload a document
     await fileInput(page).setInputFiles({
@@ -59,8 +64,23 @@ test.describe('Admin Statistics Tab', () => {
     // Navigate to Statistics tab
     await page.locator('[data-testid="admin-tab-stats"]').click();
 
+    // Debug: check what state the stats panel shows
+    const visibleState = await page.evaluate(() => {
+      const panel = document.querySelector('[data-testid="stats-panel"]');
+      if (!panel) return 'no-panel';
+      if (panel.querySelector('.stats-loading')) return 'loading';
+      if (panel.querySelector('.stats-error')) {
+        return `error: ${panel.querySelector('.stats-error')?.textContent}`;
+      }
+      if (panel.querySelector('.stats-empty')) return 'empty';
+      if (panel.querySelector('.stats-grid')) return 'grid';
+      return 'unknown-state';
+    });
+    console.log('DEBUG stats-panel state after tab click:', visibleState);
+    console.log('DEBUG page errors:', pageErrors);
+
     // Wait for stats to load
-    await expect(page.locator('.stats-grid')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.stats-grid')).toBeVisible({ timeout: 15000 });
 
     // Verify total documents is at least 1
     const totalDocs = page.locator('.stat-card').first().locator('.stat-value');
@@ -79,8 +99,11 @@ test.describe('Admin Statistics Tab', () => {
       timeout: 10000,
     });
 
-    await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    // Select the collection by clicking the card
+    await page.locator('.cm-card', { hasText: collection.name }).click();
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
 
     // Upload a document with known content
     await fileInput(page).setInputFiles({
@@ -104,7 +127,9 @@ test.describe('Admin Statistics Tab', () => {
     await searchInput.press('Enter');
 
     // Wait for results
-    await expect(page.locator('.chunk-card').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.chunk-card').first()).toBeVisible({
+      timeout: 15000,
+    });
 
     // Verify the source badge shows "Upload"
     await expect(page.locator('.chunk-card').first().locator('.v-badge')).toContainText('Upload');

@@ -292,8 +292,8 @@ services:
       - -c
       - |
         npm install -g pnpm 2>/dev/null
-        pnpm install --frozen-lockfile 2>/dev/null || npm install --no-audit --no-fund
-        npm run test:e2e
+        pnpm install --no-frozen-lockfile 2>&1
+        npx playwright test --reporter=list --workers=2
 
 networks:
   test_internal:
