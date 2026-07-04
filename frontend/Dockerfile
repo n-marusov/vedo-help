@@ -9,7 +9,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 # Copy dependency manifests
 COPY package.json pnpm-lock.yaml ./
@@ -26,7 +26,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 # Copy manifests and install all dependencies (including devDependencies)
 COPY package.json pnpm-lock.yaml ./
@@ -47,7 +47,7 @@ FROM node:22-alpine AS development
 WORKDIR /app
 
 # Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 # Copy manifests and install all dependencies
 COPY package.json pnpm-lock.yaml ./
