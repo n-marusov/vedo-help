@@ -5,62 +5,60 @@ use sqlx::PgPool;
 
 use vedo_backend::config::AppConfig;
 
-/// Create a PostgreSQL test pool and run migrations.
+/// Create a PostgreSQL test pool with fresh data but without re-running migrations
+/// (migrations are idempotent via `sqlx::migrate!().run()`).
 ///
-/// For unit/integration tests that don't use `#[sqlx::test]`, this connects to
-/// a local PostgreSQL instance. Set `DATABASE_URL` env var to override the default.
+/// For parallel execution across test binaries, set the `TEST_DATABASE_ID` env var
+/// to a unique identifier per binary (e.g., the binary name). Each binary then gets
+/// its own database: `vedo_test_<ID>` (must be pre-created via the setup script).
 ///
-/// # Race condition mitigation
+/// If `TEST_DATABASE_ID` is not set, uses the default database from `DATABASE_URL`.
+/// Always TRUNCATEs data tables for a clean state.
 ///
-/// Integration tests that share a database must NOT run in parallel because
-/// `TRUNCATE ... CASCADE` wipes all tables, destroying data created by
-/// concurrently running tests. Always run integration tests sequentially:
+/// # Parallel execution
 ///
 /// ```bash
-/// cargo test --test integration -- --test-threads=1
+/// TEST_DATABASE_ID="documents_db_unit" cargo test --test documents_db_unit
+/// TEST_DATABASE_ID="git_sync_unit"      cargo test --test git_sync_unit
 /// ```
 pub async fn setup_test_db() -> PgPool {
     let db_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string());
 
+    // ── Resolve the actual database to connect to ──
+    let binary_id = std::env::var("TEST_DATABASE_ID").unwrap_or_default();
+    let target_db = if binary_id.is_empty() {
+        extract_db_name(&db_url).to_string()
+    } else {
+        format!("vedo_test_{}", binary_id)
+    };
+
+    let target_url = replace_db_name(&db_url, &target_db);
+
     tracing::info!(
         "[integration] setting up test database: {}",
-        redact_url(&db_url)
+        redact_url(&target_url)
     );
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
-        .connect(&db_url)
+        .connect(&target_url)
         .await
         .expect("Failed to connect to test database");
 
-    // Drop stale migration tracking to avoid VersionMismatch when
-    // switching between branches with different migration histories.
-    // sqlx stores a checksum (SHA256 of the file content) for each applied
-    // migration. If a migration file is modified (even whitespace) after it
-    // was applied, sqlx will refuse to start with:
-    //   "migration N was previously applied but has been modified"
-    // This DROP forces a fresh migration run on every test invocation,
-    // decoupling tests from the host's sqlx migration state.
+    // Run migrations — idempotent via sqlx (only applies unapplied migrations).
+    // Previously this function dropped _sqlx_migrations and re-ran everything,
+    // wasting 30-60s per test binary. sqlx::migrate!().run() is already
+    // idempotent, so the DROP was unnecessary for sequential runs.
     //
-    // CAVEAT: multiple --test *_unit binaries MUST NOT run concurrently
-    // because they all DROP + re-migrate the shared database. Always use
-    // --test-threads=1 and run each binary separately.
-    sqlx::query("DROP TABLE IF EXISTS _sqlx_migrations CASCADE")
-        .execute(&pool)
-        .await
-        .ok();
-
-    // Run migrations
+    // For parallel runs (separate databases via TEST_DATABASE_ID), each
+    // database gets its own migration state automatically.
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
         .expect("Failed to run migrations");
 
     // Clean all tables for a fresh test state.
-    // IMPORTANT: tests using this function MUST run with --test-threads=1
-    // to prevent race conditions where parallel TRUNCATE wipes data from
-    // other tests mid-execution.
     tracing::info!("[integration] truncating test tables for fresh state");
     sqlx::query("TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE")
         .execute(&pool)
@@ -69,6 +67,17 @@ pub async fn setup_test_db() -> PgPool {
 
     tracing::info!("[integration] test database ready");
     pool
+}
+
+/// Extract the database name from a PostgreSQL URL.
+fn extract_db_name(url: &str) -> &str {
+    url.rsplit('/').next().unwrap_or("vedo")
+}
+
+/// Replace the database name in a PostgreSQL URL.
+fn replace_db_name(url: &str, new_db: &str) -> String {
+    let base = url.trim_end_matches(extract_db_name(url));
+    format!("{}{}", base, new_db)
 }
 
 /// Create a test AppConfig with sensible defaults for testing.

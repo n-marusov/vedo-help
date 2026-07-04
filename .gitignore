@@ -23,3 +23,5 @@ backend/rust_out.pdb
 **/.venv/
 .ai-factory/plans/
 .playwright-mcp/
+.pnpm-store/
+pnpm-workspace.yaml
