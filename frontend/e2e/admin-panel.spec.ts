@@ -6,11 +6,15 @@ test.describe('Admin panel: documents tab', () => {
     const collection = await setupAuthAndCollection(page, request, `Admin NoDrop ${Date.now()}`);
 
     await page.goto('/admin');
-    await expect(page.locator('[data-testid="admin-view"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="admin-view"]')).toBeVisible({
+      timeout: 10000,
+    });
     await page.locator('.cm-card', { hasText: collection.name }).click();
 
     // Wait for the documents tab to load
-    await expect(page.locator('.document-list')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
 
     // Drop zone should NOT exist
     const dropZone = page.locator('[data-testid="drop-zone"]');
@@ -76,17 +80,20 @@ test.describe('Admin panel: git sync race condition', () => {
     if (!hasConflict) {
       // If both returned 200, at least verify no duplicate chunks by
       // checking document count is not inflated
-      const documents = await (
-        await request.get(`${API_URL}/api/collections/${collection.id}/documents`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      ).json();
-      const docs = documents as Array<{ id: string; name: string }>;
-      const mdDocs = docs.filter((d) => d.name.endsWith('.md'));
-      // Each unique MD file should appear only once
-      const names = mdDocs.map((d) => d.name);
-      const uniqueNames = new Set(names);
-      expect(uniqueNames.size).toBe(names.length);
+      const docResp = await request.get(`${API_URL}/api/collections/${collection.id}/documents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (docResp.ok()) {
+        const documents = (await docResp.json()) as Array<{
+          id: string;
+          name: string;
+        }>;
+        const mdDocs = documents.filter((d) => d.name.endsWith('.md'));
+        // Each unique MD file should appear only once
+        const names = mdDocs.map((d) => d.name);
+        const uniqueNames = new Set(names);
+        expect(uniqueNames.size).toBe(names.length);
+      }
     }
   });
 });

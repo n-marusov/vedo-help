@@ -121,7 +121,9 @@ test.describe('ZIP batch upload with real backend', () => {
       timeout: 10000,
     });
     await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
     await fileInput(page).setInputFiles(join(tmpDir, 'valid.zip'));
 
     await expect(page.locator('.dl-item__name').first()).toContainText('README.md', {
@@ -139,7 +141,9 @@ test.describe('ZIP batch upload with real backend', () => {
 
     await page.goto('/admin');
     await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
 
     // Listen for the XHR response before triggering upload
     const responsePromise = page.waitForResponse((res) =>

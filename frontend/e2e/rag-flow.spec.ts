@@ -21,7 +21,9 @@ test.describe('RAG Flow: real backend upload → query → sources', () => {
       timeout: 10000,
     });
     await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
 
     await fileInput(page).setInputFiles({
       name: 'test-doc.md',
@@ -47,7 +49,9 @@ test.describe('RAG Flow: real backend upload → query → sources', () => {
       timeout: 10000,
     });
     await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
     await fileInput(page).setInputFiles({
       name: 'config-guide.md',
       mimeType: 'text/markdown',

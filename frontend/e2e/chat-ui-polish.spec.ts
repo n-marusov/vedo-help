@@ -11,23 +11,39 @@ test.describe('Chat UI Polish: session sidebar', () => {
     const { apiRequest, getTestAccessToken } = await import('./helpers');
     const token = await getTestAccessToken();
     await request.post('/api/sessions', {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       data: { title: 'Alpha test session', collection_id: collection.id },
     });
     await request.post('/api/sessions', {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       data: { title: 'Beta test session', collection_id: collection.id },
     });
     await request.post('/api/sessions', {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       data: { title: 'Gamma test session', collection_id: collection.id },
     });
 
     await page.goto('/');
-    await page.waitForSelector('[data-testid="session-sidebar"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="session-sidebar"]', {
+      timeout: 10000,
+    });
 
-    // Type in search field
-    const searchInput = page.locator('[data-testid="session-search-input"]');
+    // Click search toggle to show search input
+    const searchToggle = page.locator('[data-testid="session-search-toggle"]');
+    await page.locator('[data-testid="session-search-toggle"]').click();
+    await page.waitForSelector('[data-testid="search-dialog-input"]', {
+      timeout: 5000,
+    });
+    const searchInput = page.locator('[data-testid="search-dialog-input"]');
     await searchInput.fill('Alpha');
 
     // Only matching session should be visible
@@ -47,7 +63,9 @@ test.describe('Chat UI Polish: session sidebar', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('[data-testid="session-sidebar"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="session-sidebar"]', {
+      timeout: 10000,
+    });
 
     // Open rename dialog
     const sessionItem = page.locator('[data-testid="session-item"]').first();
@@ -83,7 +101,9 @@ test.describe('Chat UI Polish: session sidebar', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('[data-testid="session-sidebar"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="session-sidebar"]', {
+      timeout: 10000,
+    });
 
     const sessionItem = page.locator('[data-testid="session-item"]').first();
     await sessionItem.hover();
@@ -97,7 +117,9 @@ test.describe('Chat UI Polish: session sidebar', () => {
 
     // Reload and verify pin persists
     await page.reload();
-    await page.waitForSelector('[data-testid="session-sidebar"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="session-sidebar"]', {
+      timeout: 10000,
+    });
     await expect(page.locator('[data-testid="session-item"]').first()).toHaveAttribute(
       'data-pinned',
       'true',
@@ -132,6 +154,8 @@ test.describe('Chat UI Polish: message actions', () => {
 
   test('TC-POLISH-005: copy button copies user message to clipboard', async ({ page, request }) => {
     const collection = await setupAuthAndCollection(page, request, `Copy ${Date.now()}`);
+    // Grant clipboard permissions before navigating
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/');
     await setActiveCollection(page, collection.id);
 
@@ -140,13 +164,16 @@ test.describe('Chat UI Polish: message actions', () => {
     await page.locator('[data-testid="btn-send"]').click();
 
     // Wait for user message to appear
-    await page.waitForSelector('[data-testid="message-user"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="message-user"]', {
+      timeout: 10000,
+    });
 
     // Click copy button
     const copyBtn = page.locator('[data-testid="message-copy-btn"]').first();
     await copyBtn.click();
 
-    // Verify clipboard
+    // Verify clipboard - use clipboard API via grantPermissions
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
     expect(clipboardText).toContain('Test message for copy');
   });
@@ -160,7 +187,9 @@ test.describe('Chat UI Polish: message actions', () => {
     // Send a message and wait for assistant response
     await page.locator('[data-testid="chat-input"]').fill('Regenerate test');
     await page.locator('[data-testid="btn-send"]').click();
-    await page.waitForSelector('[data-testid="message-assistant"]', { timeout: 30000 });
+    await page.waitForSelector('[data-testid="message-assistant"]', {
+      timeout: 30000,
+    });
 
     // Click regenerate on assistant message
     const regenBtn = page.locator('[data-testid="message-regenerate-btn"]').first();
@@ -180,7 +209,9 @@ test.describe('Chat UI Polish: message actions', () => {
     // Send a message
     await page.locator('[data-testid="chat-input"]').fill('Debug test');
     await page.locator('[data-testid="btn-send"]').click();
-    await page.waitForSelector('[data-testid="message-assistant"]', { timeout: 30000 });
+    await page.waitForSelector('[data-testid="message-assistant"]', {
+      timeout: 30000,
+    });
 
     // Debug button should be visible (test runs as admin)
     const debugBtn = page.locator('[data-testid="message-debug-btn"]').first();
@@ -201,7 +232,9 @@ test.describe('Chat UI Polish: message actions', () => {
     // Send a message
     await page.locator('[data-testid="chat-input"]').fill('Check delete buttons');
     await page.locator('[data-testid="btn-send"]').click();
-    await page.waitForSelector('[data-testid="message-user"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="message-user"]', {
+      timeout: 10000,
+    });
 
     // Delete buttons should not exist
     const deleteBtns = page.locator('[data-testid="message-delete-btn"]');
@@ -217,7 +250,9 @@ test.describe('Chat UI Polish: message actions', () => {
     // Send a message
     await page.locator('[data-testid="chat-input"]').fill('Timestamp test');
     await page.locator('[data-testid="btn-send"]').click();
-    await page.waitForSelector('[data-testid="message-user"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="message-user"]', {
+      timeout: 10000,
+    });
 
     const messageActions = page.locator('[data-testid="message-actions-row"]').first();
     await expect(messageActions).toBeVisible();
@@ -241,10 +276,12 @@ test.describe('Chat UI Polish: collection tag and input', () => {
     // Send a message to create a session
     await page.locator('[data-testid="chat-input"]').fill('Tag test');
     await page.locator('[data-testid="btn-send"]').click();
-    await page.waitForSelector('[data-testid="message-user"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="message-user"]', {
+      timeout: 10000,
+    });
 
     // Collection tag should be visible instead of dropdown
-    const collectionTag = page.locator('[data-testid="collection-tag"]');
+    const collectionTag = page.locator('[data-testid="toolbar-collection-badge"]');
     await expect(collectionTag).toBeVisible({ timeout: 5000 });
     await expect(collectionTag).toContainText(collection.name);
   });
@@ -253,10 +290,12 @@ test.describe('Chat UI Polish: collection tag and input', () => {
     await setupAuthAndCollection(page, request, `AutoSel ${Date.now()}`);
 
     await page.goto('/');
-    await page.waitForSelector('[data-testid="chat-toolbar"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="chat-toolbar"]', {
+      timeout: 10000,
+    });
 
     // Active collection should be auto-selected
-    const collectionTag = page.locator('[data-testid="collection-tag"]');
+    const collectionTag = page.locator('[data-testid="toolbar-collection-badge"]');
     await expect(collectionTag).toBeVisible({ timeout: 5000 });
   });
 

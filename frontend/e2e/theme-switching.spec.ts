@@ -87,8 +87,8 @@ test.describe('Theme Switching (all pages)', () => {
     test('TC-THEME-LOGIN-004: theme toggle shows sun icon in dark theme', async ({ page }) => {
       await page.goto('/login');
       const toggle = page.locator('[data-testid="theme-toggle"]');
-      // In dark theme, toggle shows ☀️ (switch to light)
-      await expect(toggle).toContainText('☀️');
+      // In dark theme, toggle shows sun icon (switch to light)
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to light theme');
     });
 
     test('TC-THEME-LOGIN-005: clicking theme toggle switches login page to light theme', async ({
@@ -100,8 +100,8 @@ test.describe('Theme Switching (all pages)', () => {
 
       await expectLightTheme(page);
 
-      // Toggle icon should now show moon 🌙 to indicate switching back to dark
-      await expect(toggle).toContainText('🌙');
+      // Toggle icon should now show moon to indicate switching back to dark
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to dark theme');
     });
 
     test('TC-THEME-LOGIN-006: clicking theme toggle twice returns to dark theme', async ({
@@ -113,12 +113,12 @@ test.describe('Theme Switching (all pages)', () => {
       // First click → light
       await toggle.click();
       await expectLightTheme(page);
-      await expect(toggle).toContainText('🌙');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to dark theme');
 
       // Second click → dark
       await toggle.click();
       await expectDarkTheme(page);
-      await expect(toggle).toContainText('☀️');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to light theme');
     });
 
     test('TC-THEME-LOGIN-007: login card background changes on theme switch', async ({ page }) => {
@@ -204,7 +204,7 @@ test.describe('Theme Switching (all pages)', () => {
     }) => {
       await page.goto('/');
       const toggle = page.locator('[data-testid="theme-toggle"]');
-      await expect(toggle).toContainText('☀️');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to light theme');
     });
 
     test('TC-THEME-CHAT-004: clicking theme toggle switches chat to light theme', async ({
@@ -215,7 +215,7 @@ test.describe('Theme Switching (all pages)', () => {
       await toggle.click();
 
       await expectLightTheme(page);
-      await expect(toggle).toContainText('🌙');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to dark theme');
     });
 
     test('TC-THEME-CHAT-005: chat toolbar background updates on theme switch', async ({ page }) => {
@@ -289,7 +289,7 @@ test.describe('Theme Switching (all pages)', () => {
     }) => {
       await page.goto('/admin');
       const toggle = page.locator('[data-testid="theme-toggle"]');
-      await expect(toggle).toContainText('☀️');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to light theme');
     });
 
     test('TC-THEME-ADMIN-004: clicking theme toggle switches admin to light theme', async ({
@@ -300,7 +300,7 @@ test.describe('Theme Switching (all pages)', () => {
       await toggle.click();
 
       await expectLightTheme(page);
-      await expect(toggle).toContainText('🌙');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to dark theme');
     });
 
     test('TC-THEME-ADMIN-005: admin auth card background updates on theme switch', async ({
@@ -412,12 +412,11 @@ test.describe('Theme Switching (all pages)', () => {
       await page.goto('/');
       const toggle = page.locator('[data-testid="theme-toggle"]');
       await toggle.click();
-      await expect(toggle).toContainText('🌙');
+      await expect(toggle).toHaveAttribute('aria-label', 'Switch to dark theme');
 
       // Navigate to admin — toggle icon should still be moon
-      await page.goto('/admin');
       const adminToggle = page.locator('[data-testid="theme-toggle"]');
-      await expect(adminToggle).toContainText('🌙');
+      await expect(adminToggle).toHaveAttribute('aria-label', 'Switch to dark theme');
     });
 
     test('TC-THEME-PERSIST-007: body background color persists on navigation after theme switch', async ({

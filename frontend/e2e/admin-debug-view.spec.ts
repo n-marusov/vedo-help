@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { setupAuth } from './helpers';
 
 test.describe('Admin Debug View', () => {
   test('TC-ADEBUG-001: Admin panel shows tabs', async ({ page }) => {
+    await setupAuth(page);
     await page.goto('/admin');
     await expect(page.locator('[data-testid="admin-tabs"]')).toBeVisible();
     await expect(page.locator('[data-testid="admin-tab-sources"]')).toBeVisible();
@@ -9,6 +11,7 @@ test.describe('Admin Debug View', () => {
   });
 
   test('TC-ADEBUG-002: Clicking Debug tab shows session search', async ({ page }) => {
+    await setupAuth(page);
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-debug"]').click();
     await expect(page.locator('[data-testid="session-debug-view"]')).toBeVisible();
@@ -16,6 +19,7 @@ test.describe('Admin Debug View', () => {
   });
 
   test('TC-ADEBUG-003: Searching sessions returns results', async ({ page }) => {
+    await setupAuth(page);
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-debug"]').click();
     await page.locator('[data-testid="session-debug-search"]').fill('Technical');
@@ -26,6 +30,7 @@ test.describe('Admin Debug View', () => {
   });
 
   test('TC-ADEBUG-004: Selecting session shows messages', async ({ page }) => {
+    await setupAuth(page);
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-debug"]').click();
     await page.locator('[data-testid="session-debug-search"]').fill('Technical');
@@ -42,6 +47,7 @@ test.describe('Admin Debug View', () => {
   });
 
   test('TC-ADEBUG-005: Debug panel shows 7 steps', async ({ page }) => {
+    await setupAuth(page);
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-debug"]').click();
     await page.locator('[data-testid="session-debug-search"]').fill('Technical');
@@ -59,6 +65,7 @@ test.describe('Admin Debug View', () => {
   });
 
   test('TC-ADEBUG-006: Switching back to Sources tab works', async ({ page }) => {
+    await setupAuth(page);
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-debug"]').click();
     await expect(page.locator('[data-testid="session-debug-view"]')).toBeVisible();

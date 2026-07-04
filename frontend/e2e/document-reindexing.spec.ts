@@ -13,7 +13,9 @@ test.describe('Document lifecycle with real backend', () => {
       timeout: 10000,
     });
     await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
     await fileInput(page).setInputFiles({
       name: 'config-guide.md',
       mimeType: 'text/markdown',
@@ -46,7 +48,9 @@ test.describe('Document lifecycle with real backend', () => {
 
     await page.goto('/admin');
     await setActiveCollection(page, collection.id);
-    await page.waitForSelector('.drop-zone', { timeout: 10000 });
+    await expect(page.locator('.document-list')).toBeVisible({
+      timeout: 10000,
+    });
     await fileInput(page).setInputFiles({
       name: 'delete-me.md',
       mimeType: 'text/markdown',
