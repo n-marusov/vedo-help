@@ -11,8 +11,8 @@ WORKDIR /app
 # Enable pnpm via corepack
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
-# Copy dependency manifests
-COPY package.json pnpm-lock.yaml ./
+# Copy dependency manifests (including pnpm-workspace.yaml for pnpm 11 build approvals)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install only production dependencies (for caching) with BuildKit cache
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
@@ -29,7 +29,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 # Copy manifests and install all dependencies (including devDependencies)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
@@ -50,7 +50,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 # Copy manifests and install all dependencies
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 

@@ -24,4 +24,3 @@ backend/rust_out.pdb
 .ai-factory/plans/
 .playwright-mcp/
 .pnpm-store/
-pnpm-workspace.yaml

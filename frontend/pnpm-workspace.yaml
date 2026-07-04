@@ -1,0 +1,6 @@
+allowBuilds:
+  "@biomejs/biome": true
+  esbuild: true
+  lefthook: true
+  protobufjs: true
+  vue-demi: true
