@@ -7,7 +7,7 @@ import { decodeToken } from '@/api/auth';
 import { getAccessToken } from '@/api/client';
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
 import { logout } from '@/composables/useOidcAuth';
-import { userName, userProvider } from '@/stores/auth';
+import { userName } from '@/stores/auth';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -23,7 +23,6 @@ const userInfo = computed(() => {
   const roles = (decoded?.realm_access as { roles?: string[] })?.roles ?? [];
   return {
     name: userName.value || 'User',
-    provider: userProvider.value,
     isAdmin: roles.includes('admin') || roles.includes('vedo-admin'),
   };
 });
@@ -166,11 +165,6 @@ onUnmounted(() => {
           >
             <div class="app-header__dropdown-header">
               <span class="app-header__dropdown-name">{{ userInfo.name }}</span>
-              <span
-                v-if="userInfo.provider"
-                class="app-header__dropdown-provider"
-                >{{ userInfo.provider }}</span
-              >
             </div>
             <div class="app-header__dropdown-divider" />
             <button
