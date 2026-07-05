@@ -331,4 +331,10 @@ impl ConversationService {
         );
         self.repo.search_sessions(search, from, to, user_name).await
     }
+
+    /// Get distinct user names from all sessions.
+    pub async fn list_session_users(&self) -> Result<Vec<String>, AppError> {
+        tracing::debug!(component = "conversations/service", "session.list_users");
+        self.repo.get_distinct_user_names().await
+    }
 }

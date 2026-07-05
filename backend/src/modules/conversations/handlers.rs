@@ -252,3 +252,15 @@ pub async fn admin_list_sessions(
 
     Ok(Json(summaries))
 }
+
+/// Admin: List distinct user names from sessions.
+///
+/// Endpoint: `GET /api/admin/sessions/users`
+pub async fn admin_list_session_users(
+    State(svc): State<ConversationService>,
+) -> Result<Json<Vec<String>>, AppError> {
+    tracing::info!("GET /api/admin/sessions/users");
+
+    let users = svc.list_session_users().await?;
+    Ok(Json(users))
+}

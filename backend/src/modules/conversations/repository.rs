@@ -583,6 +583,22 @@ impl ConversationRepository {
         tracing::debug!("Found {} sessions matching criteria", sessions.len());
         Ok(sessions)
     }
+
+    /// Get distinct non-null user names from the sessions table.
+    pub async fn get_distinct_user_names(&self) -> Result<Vec<String>, AppError> {
+        tracing::debug!("Getting distinct session user names");
+
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT DISTINCT user_name FROM sessions WHERE user_name IS NOT NULL ORDER BY user_name",
+        )
+        .fetch_all(&self.db)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+        let names: Vec<String> = rows.into_iter().map(|(name,)| name).collect();
+        tracing::debug!("Found {} distinct user names", names.len());
+        Ok(names)
+    }
 }
 
 #[cfg(test)]

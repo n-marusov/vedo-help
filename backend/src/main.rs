@@ -489,6 +489,10 @@ async fn main() {
         )
         // Admin routes (behind auth middleware)
         .route(
+            "/api/admin/sessions/users",
+            get(conversations_handlers::admin_list_session_users),
+        )
+        .route(
             "/api/admin/sessions",
             get(conversations_handlers::admin_list_sessions),
         )
