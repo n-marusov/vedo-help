@@ -214,7 +214,13 @@ impl JwtValidator {
             name: claims
                 .get("name")
                 .and_then(|v| v.as_str())
-                .map(String::from),
+                .map(String::from)
+                .or_else(|| {
+                    claims
+                        .get("preferred_username")
+                        .and_then(|v| v.as_str())
+                        .map(String::from)
+                }),
             email: claims
                 .get("email")
                 .and_then(|v| v.as_str())
