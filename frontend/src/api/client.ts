@@ -105,6 +105,7 @@ export const api = {
     const qs = query.toString();
     return api.get<SessionSummary[]>(`/admin/sessions${qs ? `?${qs}` : ''}`);
   },
+  adminGetSessionUsers: () => api.get<string[]>('/admin/sessions/users'),
   getSessionWithMessages: (id: string) =>
     api.get<{ session: Session; messages: Message[] }>(`/sessions/${id}`),
   patch: <T>(path: string, body: unknown) =>

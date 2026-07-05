@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { api } from '@/api/client';
 import type { DebugData, Message, SessionSummary } from '@/api/types';
+import VDatePicker from '@/components/ui/VDatePicker.vue';
 import { computed, onMounted, ref } from 'vue';
 
 const sessions = ref<SessionSummary[]>([]);
@@ -12,6 +13,7 @@ const dateFrom = ref('');
 const dateTo = ref('');
 const isLoading = ref(false);
 const expandedDebug = ref<Record<string, boolean>>({});
+const users = ref<string[]>([]);
 
 const steps = [
   {
@@ -85,6 +87,14 @@ async function searchSessions() {
   }
 }
 
+async function loadUsers() {
+  try {
+    users.value = await api.adminGetSessionUsers();
+  } catch (err) {
+    console.error('[SessionDebug] load users failed', err);
+  }
+}
+
 async function loadSession(id: string) {
   selectedSession.value = sessions.value.find((s) => s.id === id) || null;
   if (!selectedSession.value) return;
@@ -119,9 +129,9 @@ function getStepData(
 
 const hasActiveSession = computed(() => selectedSession.value !== null);
 
-// Load all sessions on mount
-onMounted(() => {
-  searchSessions();
+// Load all sessions and user list on mount
+onMounted(async () => {
+  await Promise.all([searchSessions(), loadUsers()]);
 });
 </script>
 
@@ -143,32 +153,25 @@ onMounted(() => {
       <!-- User name filter -->
       <div class="debug-search-row">
         <span class="debug-search-icon">👤</span>
-        <input
+        <select
           v-model="userNameFilter"
-          class="debug-search-input"
+          class="debug-search-input debug-user-select"
           data-testid="session-debug-user-search"
-          placeholder="Filter by user name..."
-          type="text"
-          @input="searchSessions"
-        />
+          @change="searchSessions"
+        >
+          <option value="">All users</option>
+          <option v-for="u in users" :key="u" :value="u">
+            {{ u }}
+          </option>
+        </select>
       </div>
 
       <!-- Date filters -->
       <div class="debug-date-row">
         <label class="debug-date-label">From:</label>
-        <input
-          v-model="dateFrom"
-          class="debug-date-input"
-          type="date"
-          @input="searchSessions"
-        />
+        <VDatePicker v-model="dateFrom" @change="searchSessions" />
         <label class="debug-date-label">To:</label>
-        <input
-          v-model="dateTo"
-          class="debug-date-input"
-          type="date"
-          @input="searchSessions"
-        />
+        <VDatePicker v-model="dateTo" @change="searchSessions" />
       </div>
 
       <!-- Session list -->
@@ -747,6 +750,19 @@ onMounted(() => {
   color: var(--color-muted-foreground);
 }
 
+.debug-user-select {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 4px;
+}
+
+.debug-user-select option {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
 .debug-date-row {
   display: flex;
   align-items: center;
@@ -759,16 +775,6 @@ onMounted(() => {
   font-weight: 600;
   color: var(--color-muted-foreground);
   font-family: var(--font-family);
-}
-
-.debug-date-input {
-  width: 90px;
-  background: transparent;
-  border: none;
-  color: var(--color-muted-foreground);
-  font-family: var(--font-family);
-  font-size: 10px;
-  outline: none;
 }
 
 .debug-session-list {

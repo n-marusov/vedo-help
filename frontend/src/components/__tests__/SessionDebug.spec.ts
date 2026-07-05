@@ -9,6 +9,7 @@ vi.mock('@/api/client', () => ({
   api: {
     adminSearchSessions: vi.fn(),
     getSessionWithMessages: vi.fn(),
+    adminGetSessionUsers: vi.fn(),
   },
 }));
 
@@ -86,6 +87,10 @@ const mockMessages: Message[] = [
 ];
 
 describe('SessionDebug', () => {
+  beforeEach(() => {
+    vi.mocked(api.adminGetSessionUsers).mockResolvedValue([]);
+  });
+
   it('loads all sessions on mount', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue(mockSessions);
 
@@ -456,8 +461,9 @@ describe('SessionDebug', () => {
     }
   });
 
-  it('user name filter input is present and calls API', async () => {
+  it('user name filter dropdown is populated and calls API', async () => {
     vi.mocked(api.adminSearchSessions).mockResolvedValue([]);
+    vi.mocked(api.adminGetSessionUsers).mockResolvedValue(['Alice', 'Bob', 'Charlie']);
 
     const wrapper = mount(SessionDebug, {
       global: {
@@ -467,17 +473,30 @@ describe('SessionDebug', () => {
       },
     });
 
-    // Check the user ID filter input exists
-    const userIdInput = wrapper.find('[data-testid="session-debug-user-search"]');
-    expect(userIdInput.exists()).toBe(true);
+    await flushPromises();
 
-    // Type a user ID and verify API is called with it
-    await userIdInput.setValue('user-123');
-    await userIdInput.trigger('input');
+    // Check the user filter select exists
+    const userSelect = wrapper.find('[data-testid="session-debug-user-search"]');
+    expect(userSelect.exists()).toBe(true);
+    expect(userSelect.element.tagName).toBe('SELECT');
+
+    // Check that users are populated
+    const options = wrapper.findAll('[data-testid="session-debug-user-search"] option');
+    // First option is the default "All users", then Alice, Bob, Charlie
+    expect(options.length).toBe(4);
+    expect(options[0].text()).toBe('All users');
+    expect(options[0].element.getAttribute('value')).toBe('');
+    expect(options[1].text()).toBe('Alice');
+    expect(options[2].text()).toBe('Bob');
+    expect(options[3].text()).toBe('Charlie');
+
+    // Select a user and verify API is called
+    await userSelect.setValue('Alice');
+    await userSelect.trigger('change');
     await flushPromises();
 
     expect(api.adminSearchSessions).toHaveBeenCalledWith(
-      expect.objectContaining({ user_name: 'user-123' }),
+      expect.objectContaining({ user_name: 'Alice' }),
     );
   });
 
