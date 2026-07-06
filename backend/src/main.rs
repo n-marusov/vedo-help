@@ -294,12 +294,16 @@ async fn main() {
     let audit_repo = AuditRepository::new(db.clone());
     let settings_repo = SettingsRepository::new(db.clone());
 
+    let settings_service =
+        SettingsService::new(settings_repo, config.clone(), embedding_client.clone());
+
     // Services
     let doc_service = DocumentService::with_clients(
         doc_repo.clone(),
         collection_repo.clone(),
         chroma_client,
         embedding_client.clone(),
+        Some(settings_service.clone()),
     );
     let collection_service = CollectionService::new(
         collection_repo.clone(),
@@ -307,8 +311,6 @@ async fn main() {
         embedding_client.clone(),
     );
     let conversation_service = ConversationService::new(conversation_repo);
-    let settings_service =
-        SettingsService::new(settings_repo, config.clone(), embedding_client.clone());
     let query_service = QueryService::new(
         db.clone(),
         &chroma_url,

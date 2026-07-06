@@ -22,6 +22,7 @@ pub struct DocumentService {
     pub(crate) collection_repo: CollectionRepository,
     pub(crate) chroma_client: Option<ChromaClient>,
     pub(crate) embedding_client: Option<EmbeddingClient>,
+    pub(crate) settings_service: Option<crate::modules::settings::service::SettingsService>,
 }
 
 impl DocumentService {
@@ -32,6 +33,7 @@ impl DocumentService {
             collection_repo,
             chroma_client: None,
             embedding_client: None,
+            settings_service: None,
         }
     }
 
@@ -41,12 +43,14 @@ impl DocumentService {
         collection_repo: CollectionRepository,
         chroma_client: ChromaClient,
         embedding_client: EmbeddingClient,
+        settings_service: Option<crate::modules::settings::service::SettingsService>,
     ) -> Self {
         Self {
             repo,
             collection_repo,
             chroma_client: Some(chroma_client),
             embedding_client: Some(embedding_client),
+            settings_service,
         }
     }
 
@@ -899,12 +903,15 @@ impl DocumentService {
             collection_name = %collection_name,
             "chunks.index.embedding_start"
         );
-        let embeddings = embed
-            .embed(
-                crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
-                chunk_texts,
-            )
-            .await?;
+        let mut embedding_model =
+            crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL.to_string();
+        if let Some(ref settings) = self.settings_service {
+            if let Ok(rag_settings) = settings.get_rag_settings().await {
+                embedding_model = rag_settings.embedding_model;
+            }
+        }
+
+        let embeddings = embed.embed(&embedding_model, chunk_texts).await?;
 
         let ids: Vec<String> = chunks.iter().map(|c| c.id.to_string()).collect();
         let metadatas: Vec<serde_json::Value> = chunks
