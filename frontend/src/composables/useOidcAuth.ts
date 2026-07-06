@@ -508,10 +508,9 @@ function scheduleTokenRefresh(token: string): void {
  * Log the user out:
  * 1. Clear local tokens and API key
  * 2. Cancel any pending refresh timer
- * 3. Redirect to KeyCloak's end_session endpoint for RP-initiated logout
+ * 3. Redirect to the login page (local-only logout, no KeyCloak redirect)
  */
 export function logout(): void {
-  const token = getStoredToken();
   clearAllTokens();
   clearVerifier();
   clearState();
@@ -524,23 +523,7 @@ export function logout(): void {
     refreshTimerHandle = null;
   }
 
-  if (token) {
-    const params = new URLSearchParams({
-      client_id: CLIENT_ID,
-      post_logout_redirect_uri: `${window.location.origin}/login`,
-    });
-
-    const decoded = decodeToken(token);
-    const idToken = decoded?.id_token as string | undefined;
-    if (idToken) {
-      params.set('id_token_hint', idToken);
-    }
-
-    const logoutUrl = `${KEYCLOAK_BASE}/realms/${REALM}/protocol/openid-connect/logout?${params.toString()}`;
-    window.location.href = logoutUrl;
-  } else {
-    window.location.href = '/login';
-  }
+  window.location.href = '/login';
 }
 
 /**
