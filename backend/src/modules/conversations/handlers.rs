@@ -259,8 +259,16 @@ pub async fn admin_list_sessions(
 pub async fn admin_list_session_users(
     State(svc): State<ConversationService>,
 ) -> Result<Json<Vec<String>>, AppError> {
-    tracing::info!("GET /api/admin/sessions/users");
+    tracing::info!(
+        component = "conversations/handlers",
+        "[FIX] GET /api/admin/sessions/users"
+    );
 
     let users = svc.list_session_users().await?;
+    tracing::debug!(
+        component = "conversations/handlers",
+        user_count = users.len(),
+        "[FIX] admin_list_session_users returned users",
+    );
     Ok(Json(users))
 }

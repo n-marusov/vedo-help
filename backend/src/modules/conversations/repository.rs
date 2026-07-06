@@ -517,17 +517,25 @@ impl ConversationRepository {
             "SELECT id, title, pinned, collection_id, user_id, user_name, created_at, updated_at FROM sessions WHERE 1=1"
         );
 
+        // Track parameter position for dynamic $N numbering.
+        // Each filter that is present increments the counter.
+        let mut param_idx = 0;
+
         if search.is_some() {
-            sql.push_str(" AND (title ILIKE $1 OR EXISTS (SELECT 1 FROM messages m WHERE m.session_id = sessions.id AND m.content ILIKE $1))");
+            param_idx += 1;
+            sql.push_str(&format!(" AND (title ILIKE ${n} OR EXISTS (SELECT 1 FROM messages m WHERE m.session_id = sessions.id AND m.content ILIKE ${n}))", n = param_idx));
         }
         if from.is_some() {
-            sql.push_str(" AND created_at >= $2");
+            param_idx += 1;
+            sql.push_str(&format!(" AND created_at >= ${}", param_idx));
         }
         if to.is_some() {
-            sql.push_str(" AND created_at <= $3");
+            param_idx += 1;
+            sql.push_str(&format!(" AND created_at <= ${}", param_idx));
         }
         if user_name.is_some() {
-            sql.push_str(" AND user_name ILIKE $4");
+            param_idx += 1;
+            sql.push_str(&format!(" AND user_name ILIKE ${}", param_idx));
         }
 
         sql.push_str(" ORDER BY updated_at DESC");

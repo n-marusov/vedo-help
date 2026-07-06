@@ -399,7 +399,15 @@ async fn main() {
             "/api/admin/collections/:id",
             delete(collections_handlers::admin_delete),
         )
-        .route("/api/admin/audit-log", get(audit_handlers::list_audit_log));
+        .route("/api/admin/audit-log", get(audit_handlers::list_audit_log))
+        .route(
+            "/api/admin/sessions/users",
+            get(conversations_handlers::admin_list_session_users),
+        )
+        .route(
+            "/api/admin/sessions",
+            get(conversations_handlers::admin_list_sessions),
+        );
 
     // Build router
     let app = Router::new()
@@ -486,15 +494,6 @@ async fn main() {
             "/api/sessions/:sid/messages/:mid",
             patch(conversations_handlers::patch_message)
                 .delete(conversations_handlers::delete_message),
-        )
-        // Admin routes (behind auth middleware)
-        .route(
-            "/api/admin/sessions/users",
-            get(conversations_handlers::admin_list_session_users),
-        )
-        .route(
-            "/api/admin/sessions",
-            get(conversations_handlers::admin_list_sessions),
         )
         // Audit middleware for all /api/* routes (inner — runs after auth).
         .route_layer(middleware::from_fn(audit_middleware::audit_middleware))

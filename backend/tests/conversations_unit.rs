@@ -260,3 +260,313 @@ fn test_trim_history_under_budget_is_noop() {
     assert_eq!(trimmed.len(), 2);
     assert_eq!(dropped, 0);
 }
+
+/// Insert a session with a specific user_name via the repository.
+async fn seed_session_with_user(db: &PgPool, title: &str, user_name: Option<String>) -> Session {
+    let repo = ConversationRepository::new(db.clone());
+    let now = chrono::Utc::now();
+    let session = Session {
+        id: Uuid::new_v4(),
+        title: title.to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name,
+        created_at: now,
+        updated_at: now,
+        message_count: 0,
+    };
+    repo.create_session(&session)
+        .await
+        .expect("seed session with user");
+    session
+}
+
+// ===========================================================================
+// Repository: get_distinct_user_names — targets the admin user filter
+// ===========================================================================
+
+/// get_distinct_user_names returns non-null user names in sorted order.
+#[tokio::test]
+async fn test_get_distinct_user_names_returns_non_null_sorted() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    seed_session_with_user(&db, "S1", Some("Charlie".to_string())).await;
+    seed_session_with_user(&db, "S2", Some("Alice".to_string())).await;
+    seed_session_with_user(&db, "S3", Some("Bob".to_string())).await;
+    seed_session_with_user(&db, "S4", None).await;
+    seed_session_with_user(&db, "S5", Some("Alice".to_string())).await;
+
+    let names = repo
+        .get_distinct_user_names()
+        .await
+        .expect("get_distinct_user_names");
+    // Should be sorted: Alice, Bob, Charlie (no None/null, no duplicates)
+    assert_eq!(names, vec!["Alice", "Bob", "Charlie"]);
+}
+
+/// get_distinct_user_names returns empty vec when all user_names are NULL.
+#[tokio::test]
+async fn test_get_distinct_user_names_empty_when_all_null() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    seed_session_with_user(&db, "S1", None).await;
+    seed_session_with_user(&db, "S2", None).await;
+
+    let names = repo
+        .get_distinct_user_names()
+        .await
+        .expect("get_distinct_user_names");
+    assert!(names.is_empty(), "no user names should be returned");
+}
+
+/// get_distinct_user_names returns empty vec when there are no sessions.
+#[tokio::test]
+async fn test_get_distinct_user_names_empty_when_no_sessions() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+    // DB is freshly truncated — no sessions at all
+    let names = repo
+        .get_distinct_user_names()
+        .await
+        .expect("get_distinct_user_names");
+    assert!(names.is_empty(), "no sessions means no user names");
+}
+
+// ===========================================================================
+// Repository: search_sessions with partial filter combinations
+// ===========================================================================
+
+/// search_sessions with only `from` filter works correctly.
+#[tokio::test]
+async fn test_search_sessions_with_only_from_filter() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    let now = chrono::Utc::now();
+    // Create a session from yesterday (should match "from=yesterday")
+    let yesterday = now - chrono::Duration::days(1);
+    let old_session = Session {
+        id: Uuid::new_v4(),
+        title: "Old session".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: Some("Alice".to_string()),
+        created_at: yesterday,
+        updated_at: yesterday,
+        message_count: 0,
+    };
+    repo.create_session(&old_session).await.expect("seed old");
+
+    // Search with from=today → should return 0 because the only session is from yesterday
+    let from = now - chrono::Duration::hours(1);
+    let results = repo
+        .search_sessions(None, Some(from), None, None)
+        .await
+        .expect("search with from");
+    assert_eq!(results.len(), 0, "no sessions from today");
+
+    // Search with from=2_days_ago → should return 1 (the old session)
+    let from2 = now - chrono::Duration::days(2);
+    let results2 = repo
+        .search_sessions(None, Some(from2), None, None)
+        .await
+        .expect("search with from (wide)");
+    assert_eq!(results2.len(), 1, "should find the old session");
+}
+
+/// search_sessions with only `to` filter works correctly.
+#[tokio::test]
+async fn test_search_sessions_with_only_to_filter() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    let now = chrono::Utc::now();
+    let session = Session {
+        id: Uuid::new_v4(),
+        title: "Recent session".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: Some("Bob".to_string()),
+        created_at: now,
+        updated_at: now,
+        message_count: 0,
+    };
+    repo.create_session(&session).await.expect("seed recent");
+
+    // Search with to=1_hour_ago → should return 0 (session is from now)
+    let to = now - chrono::Duration::hours(1);
+    let results = repo
+        .search_sessions(None, None, Some(to), None)
+        .await
+        .expect("search with to");
+    assert_eq!(results.len(), 0, "no sessions before 1 hour ago");
+
+    // Search with to=now+1h → should return 1
+    let to2 = now + chrono::Duration::hours(1);
+    let results2 = repo
+        .search_sessions(None, None, Some(to2), None)
+        .await
+        .expect("search with to (wide)");
+    assert_eq!(results2.len(), 1, "should find the recent session");
+}
+
+/// search_sessions with only `user_name` filter works correctly.
+#[tokio::test]
+async fn test_search_sessions_with_only_user_name_filter() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    seed_session_with_user(&db, "Alice chat", Some("Alice".to_string())).await;
+    seed_session_with_user(&db, "Bob chat", Some("Bob".to_string())).await;
+    seed_session_with_user(&db, "Charlie chat", Some("Charlie".to_string())).await;
+
+    // Search for Alice by partial name match
+    let results = repo
+        .search_sessions(None, None, None, Some("Ali".to_string()))
+        .await
+        .expect("search with user_name");
+    assert_eq!(results.len(), 1, "should find Alice's session");
+    assert_eq!(results[0].user_name.as_deref(), Some("Alice"));
+
+    // Search for Bob by exact name
+    let results2 = repo
+        .search_sessions(None, None, None, Some("Bob".to_string()))
+        .await
+        .expect("search with user_name exact");
+    assert_eq!(results2.len(), 1, "should find Bob's session");
+    assert_eq!(results2[0].user_name.as_deref(), Some("Bob"));
+}
+
+/// search_sessions with only `search` filter works correctly.
+#[tokio::test]
+async fn test_search_sessions_with_only_search_filter() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    seed_session_with_user(&db, "Installation guide", Some("Alice".to_string())).await;
+    seed_session_with_user(&db, "Configuration help", Some("Bob".to_string())).await;
+
+    // Search by title
+    let results = repo
+        .search_sessions(Some("Install".to_string()), None, None, None)
+        .await
+        .expect("search with title");
+    assert_eq!(results.len(), 1, "should find Installation guide");
+    assert_eq!(results[0].title, "Installation guide");
+
+    // Search that matches nothing
+    let results2 = repo
+        .search_sessions(Some("ZZZZ".to_string()), None, None, None)
+        .await
+        .expect("search no match");
+    assert_eq!(results2.len(), 0, "no sessions match ZZZZ");
+}
+
+/// search_sessions with combined `from` and `to` filters works correctly.
+#[tokio::test]
+async fn test_search_sessions_with_from_and_to_filters() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    let now = chrono::Utc::now();
+    let old = Session {
+        id: Uuid::new_v4(),
+        title: "Old".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: None,
+        created_at: now - chrono::Duration::days(5),
+        updated_at: now - chrono::Duration::days(5),
+        message_count: 0,
+    };
+    repo.create_session(&old).await.expect("seed old");
+    let mid = Session {
+        id: Uuid::new_v4(),
+        title: "Mid".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: Some("Charlie".to_string()),
+        created_at: now - chrono::Duration::days(2),
+        updated_at: now - chrono::Duration::days(2),
+        message_count: 0,
+    };
+    repo.create_session(&mid).await.expect("seed mid");
+    let recent = Session {
+        id: Uuid::new_v4(),
+        title: "Recent".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: Some("Alice".to_string()),
+        created_at: now,
+        updated_at: now,
+        message_count: 0,
+    };
+    repo.create_session(&recent).await.expect("seed recent");
+
+    // from=3d_ago to=1d_ago → should return Mid only (not Old, not Recent)
+    let from = now - chrono::Duration::days(3);
+    let to = now - chrono::Duration::days(1);
+    let results = repo
+        .search_sessions(None, Some(from), Some(to), None)
+        .await
+        .expect("search with from+to");
+    assert_eq!(results.len(), 1, "should find Mid in range");
+    assert_eq!(results[0].title, "Mid");
+}
+
+/// search_sessions handles the combination of all four filters.
+#[tokio::test]
+async fn test_search_sessions_with_all_filters_combined() {
+    let db = common::setup_test_db().await;
+    let repo = ConversationRepository::new(db.clone());
+
+    let now = chrono::Utc::now();
+    // Create a session that should match all filters
+    let session = Session {
+        id: Uuid::new_v4(),
+        title: "Troubleshooting guide".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: Some("Diana".to_string()),
+        created_at: now,
+        updated_at: now,
+        message_count: 0,
+    };
+    repo.create_session(&session).await.expect("seed target");
+    // Create a non-matching session
+    let other = Session {
+        id: Uuid::new_v4(),
+        title: "Other".to_string(),
+        pinned: false,
+        collection_id: None,
+        user_id: "test-user".to_string(),
+        user_name: Some("Eve".to_string()),
+        created_at: now - chrono::Duration::days(10),
+        updated_at: now - chrono::Duration::days(10),
+        message_count: 0,
+    };
+    repo.create_session(&other).await.expect("seed non-match");
+
+    let from = now - chrono::Duration::hours(1);
+    let to = now + chrono::Duration::hours(1);
+    let results = repo
+        .search_sessions(
+            Some("Troubleshooting".to_string()),
+            Some(from),
+            Some(to),
+            Some("Diana".to_string()),
+        )
+        .await
+        .expect("search with all filters");
+    assert_eq!(results.len(), 1, "should find the matching session");
+    assert_eq!(results[0].title, "Troubleshooting guide");
+}
