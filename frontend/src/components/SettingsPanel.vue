@@ -20,10 +20,67 @@ interface SettingsForm {
   hybrid_top_k: number;
   rerank_top_k: number;
   multi_query_count: number;
+  llm_model: string;
   llm_rerank_model: string;
+  embedding_model: string;
   llm_max_history_messages: number;
   llm_context_token_budget: number;
 }
+
+// ── LLM Models (Inference / Chat) ──
+const LLM_MODELS = [
+  { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' },
+  { value: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6' },
+  { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4' },
+  { value: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8' },
+  { value: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku 4.5 (fast)' },
+  { value: 'openai/gpt-5.5', label: 'GPT 5.5' },
+  { value: 'openai/gpt-5.4', label: 'GPT 5.4' },
+  { value: 'openai/gpt-5.2-chat', label: 'GPT 5.2 Chat' },
+  { value: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+  { value: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash (fast)' },
+  { value: 'qwen/qwen3.5-flash', label: 'Qwen 3.5 Flash (budget)' },
+  { value: 'qwen/qwen3-coder-plus', label: 'Qwen 3 Coder Plus' },
+  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
+  { value: 'mistralai/mistral-large-3', label: 'Mistral Large 3' },
+  { value: 'meta-llama/llama-4-maverick', label: 'Llama 4 Maverick' },
+];
+
+// ── Embedding Models ──
+const EMBEDDING_MODELS = [
+  {
+    value: 'sentence-transformers/all-minilm-l6-v2',
+    label: 'all-MiniLM-L6-v2 (384d, default)',
+  },
+  {
+    value: 'sentence-transformers/all-mpnet-base-v2',
+    label: 'all-mpnet-base-v2 (768d)',
+  },
+  {
+    value: 'openai/text-embedding-3-small',
+    label: 'Text Embedding 3 Small (512-1536d)',
+  },
+  {
+    value: 'openai/text-embedding-3-large',
+    label: 'Text Embedding 3 Large (256-3072d)',
+  },
+  { value: 'qwen/qwen3-embedding-8b', label: 'Qwen3 Embedding 8B (32K ctx)' },
+  { value: 'qwen/qwen3-embedding-4b', label: 'Qwen3 Embedding 4B (33K ctx)' },
+  { value: 'baai/bge-m3', label: 'BGE M3 (1024d, multilingual)' },
+  { value: 'baai/bge-large-en-v1.5', label: 'BGE Large EN v1.5 (1024d)' },
+  { value: 'baai/bge-base-en-v1.5', label: 'BGE Base EN v1.5 (768d)' },
+  { value: 'intfloat/e5-large-v2', label: 'E5 Large V2 (1024d)' },
+  { value: 'intfloat/e5-base-v2', label: 'E5 Base V2 (768d)' },
+  {
+    value: 'intfloat/multilingual-e5-large',
+    label: 'Multilingual E5 Large (1024d, 90+ langs)',
+  },
+  { value: 'mistralai/mistral-embed-2312', label: 'Mistral Embed (1024d)' },
+  {
+    value: 'google/gemini-embedding-001',
+    label: 'Gemini Embedding 001 (768d)',
+  },
+];
 
 const DEFAULTS: SettingsForm = {
   advanced_rag_enabled: true,
@@ -37,7 +94,9 @@ const DEFAULTS: SettingsForm = {
   hybrid_top_k: 20,
   rerank_top_k: 5,
   multi_query_count: 3,
+  llm_model: 'anthropic/claude-sonnet-4.6',
   llm_rerank_model: 'anthropic/claude-sonnet-4.6',
+  embedding_model: 'sentence-transformers/all-minilm-l6-v2',
   llm_max_history_messages: 20,
   llm_context_token_budget: 6000,
 };
@@ -94,8 +153,11 @@ async function loadSettings() {
       typeof data.multi_query_count === 'number'
         ? data.multi_query_count
         : DEFAULTS.multi_query_count;
+    f.llm_model = typeof data.llm_model === 'string' ? data.llm_model : DEFAULTS.llm_model;
     f.llm_rerank_model =
       typeof data.llm_rerank_model === 'string' ? data.llm_rerank_model : DEFAULTS.llm_rerank_model;
+    f.embedding_model =
+      typeof data.embedding_model === 'string' ? data.embedding_model : DEFAULTS.embedding_model;
     f.llm_max_history_messages =
       typeof data.llm_max_history_messages === 'number'
         ? data.llm_max_history_messages
@@ -129,7 +191,9 @@ async function saveSettings() {
       hybrid_top_k: form.value.hybrid_top_k,
       rerank_top_k: form.value.rerank_top_k,
       multi_query_count: form.value.multi_query_count,
+      llm_model: form.value.llm_model,
       llm_rerank_model: form.value.llm_rerank_model,
+      embedding_model: form.value.embedding_model,
       llm_max_history_messages: form.value.llm_max_history_messages,
       llm_context_token_budget: form.value.llm_context_token_budget,
     };
@@ -422,15 +486,57 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- LLM Settings -->
+      <!-- Model Settings -->
       <section class="settings-section">
-        <h3 class="section-title">LLM</h3>
+        <h3 class="section-title">Models</h3>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label">LLM Model</label>
+            <p class="setting-description">
+              Main inference model for chat responses. Select from available
+              RouterAI models.
+            </p>
+          </div>
+          <div class="setting-control">
+            <VSelect
+              :model-value="form.llm_model"
+              :options="LLM_MODELS"
+              @update:model-value="
+                (v: string | null) => {
+                  if (v) form.llm_model = v;
+                }
+              "
+            />
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <label class="setting-label">Embedding Model</label>
+            <p class="setting-description">
+              Model used for generating document and query embeddings for vector
+              search.
+            </p>
+          </div>
+          <div class="setting-control">
+            <VSelect
+              :model-value="form.embedding_model"
+              :options="EMBEDDING_MODELS"
+              @update:model-value="
+                (v: string | null) => {
+                  if (v) form.embedding_model = v;
+                }
+              "
+            />
+          </div>
+        </div>
 
         <div class="setting-row">
           <div class="setting-info">
             <label class="setting-label">Rerank Model</label>
             <p class="setting-description">
-              LLM model used for reranking (e.g., anthropic/claude-sonnet-4.6).
+              LLM model used for reranking retrieved chunks.
             </p>
           </div>
           <div class="setting-control">

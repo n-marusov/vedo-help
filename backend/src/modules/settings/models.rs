@@ -26,7 +26,12 @@ pub struct RagSettings {
     pub hybrid_top_k: usize,
     pub rerank_top_k: usize,
     pub multi_query_count: usize,
+    /// Main inference LLM model for chat (e.g. anthropic/claude-sonnet-4.6)
+    pub llm_model: String,
+    /// LLM model for reranking
     pub llm_rerank_model: String,
+    /// Embedding model for vector search (e.g. sentence-transformers/all-minilm-l6-v2)
+    pub embedding_model: String,
     pub llm_max_history_messages: usize,
     pub llm_context_token_budget: usize,
 }
@@ -45,7 +50,9 @@ impl Default for RagSettings {
             hybrid_top_k: 20,
             rerank_top_k: 5,
             multi_query_count: 3,
+            llm_model: "anthropic/claude-sonnet-4.6".to_string(),
             llm_rerank_model: "anthropic/claude-sonnet-4.6".to_string(),
+            embedding_model: "sentence-transformers/all-minilm-l6-v2".to_string(),
             llm_max_history_messages: 20,
             llm_context_token_budget: 6000,
         }
@@ -96,7 +103,9 @@ impl RagSettings {
         self.hybrid_top_k = env.hybrid_top_k;
         self.rerank_top_k = env.rerank_top_k;
         self.multi_query_count = env.multi_query_count;
+        self.llm_model = env.llm_model.clone();
         self.llm_rerank_model = env.llm_rerank_model.clone();
+        self.embedding_model = env.embedding_model.clone();
         self.llm_max_history_messages = env.llm_max_history_messages;
         self.llm_context_token_budget = env.llm_context_token_budget;
         self
@@ -144,8 +153,16 @@ impl RagSettings {
             Value::Number(serde_json::Number::from(self.multi_query_count as u64)),
         );
         map.insert(
+            "llm_model".to_string(),
+            Value::String(self.llm_model.clone()),
+        );
+        map.insert(
             "llm_rerank_model".to_string(),
             Value::String(self.llm_rerank_model.clone()),
+        );
+        map.insert(
+            "embedding_model".to_string(),
+            Value::String(self.embedding_model.clone()),
         );
         map.insert(
             "llm_max_history_messages".to_string(),
@@ -211,10 +228,18 @@ impl RagSettings {
                 .get("multi_query_count")
                 .and_then(|v| v.as_u64().map(|n| n as usize))
                 .unwrap_or(current.multi_query_count),
+            llm_model: map
+                .get("llm_model")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or(current.llm_model.clone()),
             llm_rerank_model: map
                 .get("llm_rerank_model")
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or(current.llm_rerank_model.clone()),
+            embedding_model: map
+                .get("embedding_model")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or(current.embedding_model.clone()),
             llm_max_history_messages: map
                 .get("llm_max_history_messages")
                 .and_then(|v| v.as_u64().map(|n| n as usize))

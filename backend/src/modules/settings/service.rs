@@ -100,9 +100,19 @@ impl SettingsService {
                 settings.multi_query_count = n as usize;
             }
         }
+        if let Some(v) = db_overrides.get("llm_model") {
+            if let Some(s) = v.value.as_str() {
+                settings.llm_model = s.to_string();
+            }
+        }
         if let Some(v) = db_overrides.get("llm_rerank_model") {
             if let Some(s) = v.value.as_str() {
                 settings.llm_rerank_model = s.to_string();
+            }
+        }
+        if let Some(v) = db_overrides.get("embedding_model") {
+            if let Some(s) = v.value.as_str() {
+                settings.embedding_model = s.to_string();
             }
         }
         if let Some(v) = db_overrides.get("llm_max_history_messages") {
@@ -197,7 +207,7 @@ fn validate_setting_value(key: &str, value: &Value) -> Result<(), String> {
                 }
             }
         }
-        "llm_rerank_model" => {
+        "llm_model" | "llm_rerank_model" | "embedding_model" => {
             if !value.is_string() {
                 return Err("expected string".to_string());
             }
