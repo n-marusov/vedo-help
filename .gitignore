@@ -24,3 +24,4 @@ backend/rust_out.pdb
 .ai-factory/plans/
 .playwright-mcp/
 .pnpm-store/
+bm25_tests.pdb
