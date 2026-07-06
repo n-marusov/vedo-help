@@ -687,7 +687,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///app/data/app.db
       - CHROMA_URL=http://chroma:8000
-      - EMBEDDING_SERVICE_URL=http://embedding:8000
+      - EMBEDDING_BASE_URL=http://llm:8000/v1
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - ADMIN_API_KEY=${ADMIN_API_KEY}
       - CORS_ORIGIN=${CORS_ORIGIN}

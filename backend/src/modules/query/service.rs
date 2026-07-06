@@ -92,31 +92,8 @@ impl QueryService {
             .get_collection_for_user(request.collection_id, user_id, is_admin)
             .await?;
 
-        // 1. Embed the query
-        tracing::debug!(component = "query/service", "query.embed.start");
-        let embeddings = self
-            .embedding_client
-            .embed(&self.config.embedding_model, vec![request.query.clone()])
-            .await
-            .map_err(|e| {
-                tracing::error!(component = "query/service", error = %e, "query.embed.failed");
-                e
-            })?;
-
-        let embedding = embeddings.into_iter().next().ok_or_else(|| {
-            let err =
-                AppError::EmbeddingError("Embedding service returned empty result".to_string());
-            tracing::error!(component = "query/service", "query.embed.empty_result");
-            err
-        })?;
-
-        tracing::debug!(
-            component = "query/service",
-            embedding_dimension = embedding.len(),
-            "query.embedded"
-        );
-
-        // 2. Load effective RAG settings (DB overrides with env fallback)
+        // 1. Load effective RAG settings (DB overrides with env fallback) — before
+        //    embedding so the embedding_model from settings is used.
         let rag_settings = if let Some(ref svc) = self.settings_service {
             svc.get_rag_settings().await.unwrap_or_else(|_| {
                 tracing::warn!(
@@ -138,6 +115,31 @@ impl QueryService {
         let eff_rerank_top_k = rag_settings.rerank_top_k;
         let eff_hybrid_top_k = rag_settings.hybrid_top_k;
         let eff_multi_query_count = rag_settings.multi_query_count;
+        let eff_embedding_model = rag_settings.embedding_model.clone();
+
+        // 2. Embed the query
+        tracing::debug!(component = "query/service", "query.embed.start");
+        let embeddings = self
+            .embedding_client
+            .embed(&eff_embedding_model, vec![request.query.clone()])
+            .await
+            .map_err(|e| {
+                tracing::error!(component = "query/service", error = %e, "query.embed.failed");
+                e
+            })?;
+
+        let embedding = embeddings.into_iter().next().ok_or_else(|| {
+            let err =
+                AppError::EmbeddingError("Embedding service returned empty result".to_string());
+            tracing::error!(component = "query/service", "query.embed.empty_result");
+            err
+        })?;
+
+        tracing::debug!(
+            component = "query/service",
+            embedding_dimension = embedding.len(),
+            "query.embedded"
+        );
 
         use crate::modules::query::debug_models::*;
         let mut debug_data = DebugData::new(&request.query);
@@ -156,7 +158,7 @@ impl QueryService {
                 &request.query,
                 None,
                 eff_rerank_top_k,
-                &self.config.embedding_model,
+                &eff_embedding_model,
             )
             .await
             .map_err(|e| {
@@ -256,7 +258,7 @@ impl QueryService {
                     &hyde_doc,
                     None,
                     eff_hybrid_top_k,
-                    &self.config.embedding_model,
+                    &eff_embedding_model,
                 )
                 .await
                 .unwrap_or_default();

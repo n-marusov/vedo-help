@@ -11,7 +11,6 @@
 /// docker compose --env-file .env.test -f docker-compose.test.yml down -v
 /// docker compose --env-file .env.test -f docker-compose.test.yml up -d
 /// LLM_API_KEY=test-key LLM_BASE_URL=http://localhost:18002 LLM_MODEL=mock-model \
-/// EMBEDDING_SERVICE_URL=http://localhost:18081 \
 /// cargo test --test rag_pipeline -- --nocapture
 /// ```
 use std::env;
@@ -35,7 +34,6 @@ mod common;
 /// Configuration for test service URLs with env var overrides.
 struct TestUrls {
     chroma: String,
-    embedding: String,
     llm_base: String,
     llm_api_key: String,
     llm_model: String,
@@ -44,8 +42,6 @@ struct TestUrls {
 fn test_urls() -> TestUrls {
     TestUrls {
         chroma: env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:18000".to_string()),
-        embedding: env::var("EMBEDDING_SERVICE_URL")
-            .unwrap_or_else(|_| "http://localhost:18081".to_string()),
         llm_base: env::var("LLM_BASE_URL").unwrap_or_else(|_| "http://localhost:18002".to_string()),
         llm_api_key: env::var("LLM_API_KEY")
             .expect("LLM_API_KEY must be set for RAG pipeline test"),
@@ -104,10 +100,11 @@ async fn create_test_data(
         .await
         .expect("should create collection in Chroma");
 
-    // Create collection in PostgreSQL
+    // Create collection in PostgreSQL — use a name unique to this collection_id
+    // to avoid collisions when tests run in parallel within the same binary.
     let collection = Collection {
         id: collection_id,
-        name: "RAG Pipeline Test".to_string(),
+        name: format!("RAG Pipeline Test {}", collection_id),
         description: Some("Collection for RAG pipeline integration test".to_string()),
         created_at: chrono::Utc::now(),
         document_count: 0,
@@ -155,7 +152,7 @@ async fn create_test_data(
     // Get real embeddings from the embedding service
     let texts: Vec<String> = chunk_texts.iter().map(|t| t.to_string()).collect();
     let embeddings = embedding_client
-        .embed(texts)
+        .embed("sentence-transformers/all-minilm-l6-v2", texts)
         .await
         .expect("should get embeddings from embedding service");
 
@@ -247,7 +244,6 @@ async fn test_rag_pipeline_full_flow() {
 
     eprintln!("=== RAG Pipeline Integration Test ===");
     eprintln!("Chroma:      {}", urls.chroma);
-    eprintln!("Embedding:   {}", urls.embedding);
     eprintln!("LLM mock:    {}", urls.llm_base);
     eprintln!("LLM model:   {}", urls.llm_model);
 

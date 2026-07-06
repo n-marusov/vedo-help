@@ -13,6 +13,43 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+EMBEDDING_DIM = 384
+
+
+@app.post("/embeddings")
+async def embeddings(request: Request) -> JSONResponse:
+    """Mock OpenAI-compatible embeddings endpoint.
+
+    Returns fixed 384-dimensional vectors (matching all-MiniLM-L6-v2)
+    so that the RAG pipeline tests can run without an external API.
+    """
+    body: dict[str, Any] = await request.json()
+    inputs: list[str] = body.get("input", [])
+    if isinstance(inputs, str):
+        inputs = [inputs]
+
+    data = [
+        {
+            "object": "embedding",
+            "index": i,
+            "embedding": [0.01 * (j % 10) for j in range(EMBEDDING_DIM)],
+        }
+        for i in range(len(inputs))
+    ]
+
+    return JSONResponse(
+        {
+            "object": "list",
+            "data": data,
+            "model": body.get("model", "sentence-transformers/all-minilm-l6-v2"),
+            "usage": {
+                "prompt_tokens": sum(len(t.split()) for t in inputs),
+                "total_tokens": sum(len(t.split()) for t in inputs),
+            },
+        }
+    )
+
+
 @app.post("/chat/completions", response_model=None)
 async def chat_completions(request: Request) -> Response:
     """Mock LLM endpoint compatible with OpenAI chat completions format.
@@ -73,7 +110,11 @@ def _select_response(system_prompt: str, user_prompt: str) -> str:  # noqa: ARG0
     sp_lower = system_prompt.lower()
 
     # Reranking: detect "relevance ranker" or "брать"/"пропустить"
-    if "relevance ranker" in sp_lower or "брать" in sp_lower or "пропустить" in sp_lower:
+    if (
+        "relevance ranker" in sp_lower
+        or "брать" in sp_lower
+        or "пропустить" in sp_lower
+    ):
         return "брать"
 
     # Multi-Query: detect "alternative questions" or "multiple perspectives"
@@ -82,9 +123,7 @@ def _select_response(system_prompt: str, user_prompt: str) -> str:  # noqa: ARG0
         or "multiple perspectives" in sp_lower
         or "multi" in sp_lower
     ):
-        return (
-            "What is the VEDO hub platform?\nHow does VEDO hub work?\nDescribe VEDO hub features."
-        )
+        return "What is the VEDO hub platform?\nHow does VEDO hub work?\nDescribe VEDO hub features."
 
     # HyDE: detect "hypothetical document"
     if "hypothetical document" in sp_lower:
