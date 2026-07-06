@@ -117,6 +117,7 @@ pub async fn search_chunks_text(
 ///
 /// Embeds the query, retrieves top-k from Chroma, then fetches document metadata
 /// from PostgreSQL by matching on `document_id` (stored as string in Chroma metadata).
+#[allow(clippy::too_many_arguments)]
 pub async fn search_chunks_semantic(
     chroma: &ChromaClient,
     embedding_client: &EmbeddingClient,
