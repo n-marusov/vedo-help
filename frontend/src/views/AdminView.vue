@@ -5,6 +5,7 @@ import DocumentList from '@/components/DocumentList.vue';
 import GitRepoManager from '@/components/GitRepoManager.vue';
 import HealthStatus from '@/components/HealthStatus.vue';
 import SessionDebug from '@/components/SessionDebug.vue';
+import SettingsPanel from '@/components/SettingsPanel.vue';
 import StatsPanel from '@/components/StatsPanel.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
@@ -13,7 +14,7 @@ import { onMounted, ref, watch } from 'vue';
 const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
-const activeTab = ref<'sources' | 'debug' | 'status' | 'stats'>('sources');
+const activeTab = ref<'sources' | 'debug' | 'status' | 'stats' | 'settings'>('sources');
 const activeSourceTab = ref<'documents' | 'git'>('documents');
 
 onMounted(() => {
@@ -75,6 +76,14 @@ watch(
         >
           Statistics
         </button>
+        <button
+          class="admin-tab"
+          :class="{ 'admin-tab--active': activeTab === 'settings' }"
+          data-testid="admin-tab-settings"
+          @click="activeTab = 'settings'"
+        >
+          Settings
+        </button>
       </div>
 
       <div class="admin-content">
@@ -125,6 +134,11 @@ watch(
           <main class="stats-right-panel">
             <ChunkBrowser />
           </main>
+        </template>
+
+        <!-- Settings Tab Content -->
+        <template v-if="activeTab === 'settings'">
+          <SettingsPanel />
         </template>
       </div>
     </div>

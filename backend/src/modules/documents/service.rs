@@ -9,7 +9,7 @@ use crate::modules::documents::models::{
 };
 use crate::modules::documents::repository::DocumentRepository;
 use crate::shared::chroma_client::ChromaClient;
-use crate::shared::chunking::chunk_document;
+use crate::shared::chunking::chunk_document_default;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 use crate::shared::file_validation::{validate_file, MAX_FILE_SIZE};
@@ -82,7 +82,7 @@ impl DocumentService {
         tracing::info!(component = "documents/service", file_name = %filename, text_length = text.len(), "document.parsed");
 
         // 3. Chunk text
-        let chunks = chunk_document(&text);
+        let chunks = chunk_document_default(&text);
         tracing::debug!(
             component = "documents/service",
             chunk_index = if chunks.is_empty() { 0 } else { 1 },
@@ -398,7 +398,7 @@ impl DocumentService {
             .map_err(|e| AppError::FileError(format!("Failed to parse reloaded file: {e}")))?;
 
         // 3. Chunk the new content
-        let chunks = crate::shared::chunking::chunk_document(&content);
+        let chunks = crate::shared::chunking::chunk_document_default(&content);
 
         tracing::debug!(
             component = "documents/service",
@@ -701,7 +701,7 @@ impl DocumentService {
             };
 
             // Chunk text
-            let chunks = chunk_document(&text);
+            let chunks = chunk_document_default(&text);
             tracing::debug!(
                 component = "documents/service",
                 file_name = %name,

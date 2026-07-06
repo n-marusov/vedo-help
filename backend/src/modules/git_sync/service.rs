@@ -10,7 +10,7 @@ use crate::modules::documents::repository::DocumentRepository;
 use crate::modules::git_sync::models::{GitRepo, SyncStatusResponse};
 use crate::modules::git_sync::repository::GitRepoRepository;
 use crate::shared::chroma_client::ChromaClient;
-use crate::shared::chunking::chunk_document;
+use crate::shared::chunking::chunk_document_default;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 
@@ -770,7 +770,7 @@ impl GitSyncService {
             }
 
             // Chunk the document
-            let chunks = chunk_document(content);
+            let chunks = chunk_document_default(content);
             if chunks.is_empty() {
                 continue;
             }

@@ -5,7 +5,7 @@ use axum::{
     extract::{FromRef, State},
     http::StatusCode,
     middleware,
-    routing::{delete, get, patch, post},
+    routing::{delete, get, patch, post, put},
     Extension, Json, Router,
 };
 use opentelemetry::trace::TracerProvider as _;
@@ -41,6 +41,9 @@ use vedo_backend::modules::git_sync::repository::GitRepoRepository;
 use vedo_backend::modules::git_sync::{handlers as git_sync_handlers, service::GitSyncService};
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::modules::query::{handlers as query_handlers, service::QueryService};
+use vedo_backend::modules::settings::{
+    handlers as settings_handlers, repository::SettingsRepository, service::SettingsService,
+};
 use vedo_backend::shared::{
     audit_middleware,
     auth::{authenticate_request, SharedJwtValidator},
@@ -327,6 +330,7 @@ async fn main() {
     let conversation_repo = ConversationRepository::new(db.clone());
     let git_repo_repo = GitRepoRepository::new(db.clone());
     let audit_repo = AuditRepository::new(db.clone());
+    let settings_repo = SettingsRepository::new(db.clone());
 
     // Services
     let doc_service = DocumentService::with_clients(
@@ -341,6 +345,7 @@ async fn main() {
         embedding_service_url.clone(),
     );
     let conversation_service = ConversationService::new(conversation_repo);
+    let settings_service = SettingsService::new(settings_repo, config.clone());
     let query_service = QueryService::new(
         db.clone(),
         &chroma_url,
@@ -350,6 +355,7 @@ async fn main() {
         config.llm_max_history_messages,
         config.llm_context_token_budget,
         config.clone(),
+        Some(settings_service.clone()),
     );
     let audit_service = AuditService::new(audit_repo);
 
@@ -407,6 +413,11 @@ async fn main() {
         .route(
             "/api/admin/sessions",
             get(conversations_handlers::admin_list_sessions),
+        )
+        .route("/api/admin/settings", get(settings_handlers::get_settings))
+        .route(
+            "/api/admin/settings",
+            put(settings_handlers::update_settings),
         );
 
     // Build router
@@ -547,6 +558,7 @@ async fn main() {
             query_service,
             git_sync_service,
             audit_service,
+            settings_service,
             health_service,
         });
 
@@ -582,6 +594,7 @@ pub struct AppState {
     pub query_service: QueryService,
     pub git_sync_service: GitSyncService,
     pub audit_service: AuditService,
+    pub settings_service: SettingsService,
     pub health_service: HealthService,
 }
 
@@ -618,6 +631,12 @@ impl FromRef<AppState> for GitSyncService {
 impl FromRef<AppState> for AuditService {
     fn from_ref(state: &AppState) -> Self {
         state.audit_service.clone()
+    }
+}
+
+impl FromRef<AppState> for SettingsService {
+    fn from_ref(state: &AppState) -> Self {
+        state.settings_service.clone()
     }
 }
 

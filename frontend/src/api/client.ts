@@ -113,6 +113,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    }),
   editMessage: (sessionId: string, messageId: string, req: EditMessageRequest) =>
     api.patch<Message>(`/sessions/${sessionId}/messages/${messageId}`, req),
   deleteMessage: (sessionId: string, messageId: string) =>
@@ -149,4 +154,9 @@ export const api = {
     if (params.top_k !== undefined) query.set('top_k', String(params.top_k));
     return api.get<ChunkSearchResult[]>(`/collections/${collectionId}/chunks?${query.toString()}`);
   },
+
+  // ── Settings ──
+  getSettings: () => api.get<Record<string, unknown>>('/admin/settings'),
+  updateSettings: (settings: Record<string, unknown>) =>
+    api.put<Record<string, unknown>>('/admin/settings', settings),
 };
