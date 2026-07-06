@@ -813,7 +813,9 @@ async fn make_git_sync_service(
         repo,
         doc_repo,
         "http://chroma:8000".to_string(),
-        "http://embedding:8001".to_string(),
+        vedo_backend::shared::embedding_client::EmbeddingClient::from_config(
+            &common::setup_test_config(),
+        ),
         PathBuf::from("/tmp/vedo-test-git"),
     )
 }

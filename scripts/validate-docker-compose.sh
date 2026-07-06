@@ -23,12 +23,7 @@ if [ "$CHROMA_URL" != "http://chroma:8000" ]; then
     errors=1
 fi
 
-# Check EMBEDDING_SERVICE_URL
-EMBEDDING_URL=$(echo "$ENV_LIST" | grep "^EMBEDDING_SERVICE_URL=" | cut -d= -f2-)
-if [ "$EMBEDDING_URL" != "http://embedding:8001" ]; then
-    echo "  FAIL: EMBEDDING_SERVICE_URL = ${EMBEDDING_URL:-"(not set)"} (expected http://embedding:8001)"
-    errors=1
-fi
+
 
 if [ "$errors" -eq 0 ]; then
     echo "OK: All backend service URLs use Docker service names."

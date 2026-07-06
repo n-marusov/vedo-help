@@ -45,7 +45,6 @@ Usage: ./deploy/scripts/logs.sh [service] [options]
 Services:
   backend      Backend API (Rust/axum)
   frontend     Frontend SPA (nginx)
-  embedding    Embedding service (Python/FastAPI)
   chroma       Vector database
   caddy        Reverse proxy
   (none)       All services

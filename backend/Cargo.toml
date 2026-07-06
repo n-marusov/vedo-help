@@ -36,6 +36,9 @@ jsonwebtoken = "9"
 
 # Async streaming
 futures = "0.3"
+
+# LRU cache for embeddings
+lru = "0.12"
 tokio-stream = "0.1"
 
 # Environment (.env) file loading

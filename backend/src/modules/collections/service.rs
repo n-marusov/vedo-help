@@ -12,7 +12,7 @@ use crate::shared::error::AppError;
 pub struct CollectionService {
     repo: CollectionRepository,
     chroma_url: String,
-    embedding_service_url: String,
+    embedding_client: crate::shared::embedding_client::EmbeddingClient,
 }
 
 impl CollectionService {
@@ -20,12 +20,12 @@ impl CollectionService {
     pub fn new(
         repo: CollectionRepository,
         chroma_url: String,
-        embedding_service_url: String,
+        embedding_client: crate::shared::embedding_client::EmbeddingClient,
     ) -> Self {
         Self {
             repo,
             chroma_url,
-            embedding_service_url,
+            embedding_client,
         }
     }
 
@@ -175,15 +175,12 @@ impl CollectionService {
         match search_type {
             "semantic" => {
                 let chroma = crate::shared::chroma_client::ChromaClient::new(&self.chroma_url);
-                let embedding_client = crate::shared::embedding_client::EmbeddingClient::new(
-                    &self.embedding_service_url,
-                );
                 let query = params.q.as_deref().unwrap_or("");
                 let top_k = params.top_k.unwrap_or(20);
 
                 crate::shared::chunk_search::search_chunks_semantic(
                     &chroma,
-                    &embedding_client,
+                    &self.embedding_client,
                     self.repo.db(),
                     collection_id,
                     query,

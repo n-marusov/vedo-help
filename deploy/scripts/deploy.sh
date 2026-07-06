@@ -102,7 +102,7 @@ WAIT=0
 while [ $WAIT -lt $MAX_WAIT ]; do
     ALL_HEALTHY=true
 
-    for svc in caddy backend embedding chroma frontend; do
+    for svc in caddy backend chroma frontend; do
         HEALTH=$(docker compose -f "${COMPOSE_FILE}" -f "${COMPOSE_PROD}" ps --format '{{.Health}}' "${svc}" 2>/dev/null || echo "starting")
         if [ "$HEALTH" != "healthy" ]; then
             ALL_HEALTHY=false

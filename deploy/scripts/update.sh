@@ -91,7 +91,7 @@ DURATION=0
 
 # Recreate all services with new images
 log_info "Performing rolling update..."
-dc up -d --force-recreate --no-deps caddy backend frontend embedding || error_exit "Failed to start new containers"
+dc up -d --force-recreate --no-deps caddy backend frontend || error_exit "Failed to start new containers"
 
 # Wait for health checks
 log_info "Waiting for health checks..."
@@ -101,7 +101,7 @@ WAIT=0
 while [ $WAIT -lt $MAX_WAIT ]; do
     ALL_HEALTHY=true
 
-    for svc in caddy backend frontend embedding; do
+    for svc in caddy backend frontend; do
         HEALTH=$(dc ps --format '{{.Health}}' "${svc}" 2>/dev/null || echo "starting")
         if [ "$HEALTH" != "healthy" ]; then
             ALL_HEALTHY=false

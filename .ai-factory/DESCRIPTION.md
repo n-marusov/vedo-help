@@ -9,7 +9,7 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 ## Core Features
 
 - **Document Upload:** Upload PDF, Markdown, and DOCX files (single or ZIP batch, up to 50 MB)
-- **Indexing Pipeline:** Parse, chunk, embed (via Python service), and index into Chroma vector DB
+- **Indexing Pipeline:** Parse, chunk, embed (via RouterAI API), and index into Chroma vector DB
 - **Question-Answer Interface:** Streaming LLM responses with grounded citations and source references
 - **Collection Management:** Create, delete, and switch between document collections
 - **Conversation History:** Persistent storage with session management and history export/deletion
@@ -18,7 +18,7 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 ## Tech Stack
 
 - **Backend:** Rust (axum framework, sqlx, tokio, serde, tracing, jsonwebtoken, git2, hmac, sha2)
-- **Embedding Service:** Python (FastAPI, sentence-transformers, torch)
+- **Embedding Service:** RouterAI API (OpenAI-compatible `/v1/embeddings`, replaces local Python service)
 - **Vector Database:** Chroma (chromadb/chroma:latest)
 - **Frontend:** Vue 3 + TypeScript (streaming responses via SSE, DeepSeek-style chat UI)
 - **Testing:** Vitest + @vue/test-utils + jsdom
@@ -37,6 +37,12 @@ Key environment variables for the advanced RAG pipeline:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBEDDING_MODEL` | `sentence-transformers/all-minilm-l6-v2` | RouterAI embedding model |
+| `EMBEDDING_API_KEY` | _(inherits from LLM_API_KEY)_ | RouterAI API key for embeddings |
+| `EMBEDDING_BASE_URL` | `https://routerai.ru/api/v1` | RouterAI API base URL for embeddings |
+| `EMBEDDING_CACHE_SIZE` | `1000` | Max entries in local embedding LRU cache |
 | `ADVANCED_RAG_ENABLED` | `true` | Enable multi-query, HyDE, BM25, and reranking pipeline |
 | `RERANK_TOP_K` | `5` | Max chunks to keep after LLM reranking |
 | `HYBRID_TOP_K` | `20` | Initial chunks to retrieve per search pass |
@@ -45,10 +51,9 @@ Key environment variables for the advanced RAG pipeline:
 
 ## Architecture Notes
 
-The system follows a five-service microservices architecture:
+The system follows a four-service microservices architecture:
 
-1. **backend** (Rust/axum) — REST API for upload, query, collection management, conversation history
-2. **embedding** (Python/FastAPI) — Text embedding service with caching
+1. **backend** (Rust/axum) — REST API for upload, query, collection management, conversation history (embeddings via RouterAI API)
 3. **chroma** — Vector database for semantic search
 4. **frontend** (Vue 3/TypeScript) — SPA with SSE streaming for chat responses
 5. **keycloak** — Authentication server (OIDC/OAuth2) with PostgreSQL storage

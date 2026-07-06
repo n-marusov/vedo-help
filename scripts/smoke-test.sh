@@ -109,16 +109,6 @@ check_health_endpoints() {
         all_ok=false
     fi
 
-    # Embedding service health — check via exec since port isn't exposed
-    info "Checking embedding /health endpoint via exec..."
-    if docker compose -f "$COMPOSE_FILE" exec -T embedding python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8001/health').status)" 2>/dev/null | grep -q "200"; then
-        pass "Embedding /health — 200 OK"
-    else
-        fail "Embedding /health failed"
-        docker compose -f "$COMPOSE_FILE" logs --tail=10 embedding 2>/dev/null || true
-        all_ok=false
-    fi
-
     # Frontend serves on 80
     info "Checking frontend (nginx) responds..."
     if curl -sf "http://localhost:80/" >/dev/null 2>&1; then
@@ -135,7 +125,7 @@ check_health_endpoints() {
 check_no_crash_loops() {
     local all_ok=true
 
-    for service in chroma embedding backend frontend; do
+    for service in chroma backend frontend; do
         local restart_count
         restart_count=$(docker compose -f "$COMPOSE_FILE" ps --format json "$service" 2>/dev/null | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('RestartCount',0))" 2>/dev/null || echo "0")
         if [[ "$restart_count" -gt 2 ]]; then
@@ -213,7 +203,6 @@ echo ""
 # Phase 3: Wait for health
 info "Phase 3: Service health checks"
 wait_for_service "Chroma"     "chroma"    || ((FAILURES++))
-wait_for_service "Embedding"  "embedding" || ((FAILURES++))
 wait_for_service "Backend"    "backend"   || ((FAILURES++))
 echo ""
 

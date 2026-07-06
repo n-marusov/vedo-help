@@ -27,40 +27,6 @@ services:
       retries: 5
       start_period: 30s
 
-  embedding:
-    build:
-      context: ./embedding
-      target: production
-    dns:
-      # Явные публичные DNS — контейнер не зависит от DNS хост-системы (VPN).
-      # Без этого VPN-клиент может заблокировать разрешение huggingface.co.
-      - 8.8.8.8
-      - 1.1.1.1
-    environment:
-      - EMBEDDING_MODEL=all-MiniLM-L6-v2
-      - CACHE_DIR=/data/cache
-      - HF_TOKEN=${HF_TOKEN:-}
-    volumes:
-      - embedding_cache:/data/cache
-    networks:
-      - internal
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    depends_on:
-      chroma:
-        condition: service_healthy
-
   backend:
     build:
       context: ./backend
@@ -73,7 +39,6 @@ services:
       KEYCLOAK_JWKS_URL: "${KEYCLOAK_JWKS_URL:-http://keycloak:8080}"
       # Internal service discovery — use Docker service names, not localhost
       CHROMA_URL: "${CHROMA_URL:-http://chroma:8000}"
-      EMBEDDING_SERVICE_URL: "${EMBEDDING_SERVICE_URL:-http://embedding:8001}"
       DATABASE_URL: ${DATABASE_URL:-postgres://vedo:CHANGEME-db-password@db:5432/vedo}
       GIT_CLONE_ROOT: ${GIT_CLONE_ROOT:-/app/data/git-repos}
       LLM_MAX_HISTORY_MESSAGES: ${LLM_MAX_HISTORY_MESSAGES:-20}
@@ -238,7 +203,6 @@ networks:
 
 volumes:
   chroma_data:
-  embedding_cache:
   db_data:
   keycloak_import:
   otel_data:

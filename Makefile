@@ -1,7 +1,7 @@
-.PHONY: test test-env test-env-down test-e2e lint format check coverage ci-backend ci-embedding ci-frontend help
+.PHONY: test test-env test-env-down test-e2e lint format check coverage ci-backend ci-frontend help
 .PHONY: dev-up dev-down prod-up prod-down docker-logs docker-health docker-shell
-.PHONY: dev-build dev-build-backend dev-build-frontend dev-build-embedding build-all
-.PHONY: prod-build prod-build-backend prod-build-frontend prod-build-embedding
+.PHONY: dev-build dev-build-backend dev-build-frontend build-all
+.PHONY: prod-build prod-build-backend prod-build-frontend
 
 # VEDO hub RAG Assistant — Makefile
 
@@ -45,17 +45,11 @@ dev-build-backend: ## Build only backend (development)
 dev-build-frontend: ## Build only frontend (development)
 	docker compose build frontend
 
-dev-build-embedding: ## Build only embedding service (development)
-	docker compose build embedding
-
 prod-build-backend: ## Build only backend (production)
 	docker compose -f docker-compose.yml -f docker-compose.production.yml build backend
 
 prod-build-frontend: ## Build only frontend (production)
 	docker compose -f docker-compose.yml -f docker-compose.production.yml build frontend
-
-prod-build-embedding: ## Build only embedding service (production)
-	docker compose -f docker-compose.yml -f docker-compose.production.yml build embedding
 
 # === Docker Utilities ===
 
@@ -94,11 +88,10 @@ test-env: ## Start test environment (docker-compose.test.yml)
 test-env-down: ## Stop and clean test environment
 	docker compose --env-file .env.test -f docker-compose.test.yml down -v
 
-test: ## Run all tests (backend + frontend + embedding)
+test: ## Run all tests (backend + frontend)
 	cd backend && cargo test --lib
 	cd backend && cargo test --test integration -- --test-threads=1
 	cd frontend && pnpm test
-	cd embedding && pytest tests/ -v
 
 test-e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
 	docker compose --env-file .env.test -f docker-compose.test.yml \
@@ -110,14 +103,12 @@ test:keycloak-template: ## Validate keycloak realm template substitution (no Doc
 lint: ## Run all linters
 	cd backend && cargo clippy -- -D warnings
 	cd frontend && pnpm run lint:ci
-	cd embedding && ruff check src/
 
 # === Formatting ===
 
 format: ## Format all code
 	cd backend && cargo fmt
 	cd frontend && pnpm run format
-	cd embedding && ruff format src/
 
 # === Full check ===
 
@@ -133,19 +124,11 @@ validate-migrations: ## Validate sqlx migration files (duplicates, gaps, naming)
 coverage: ## Generate coverage reports
 	cd backend && cargo tarpaulin --out Xml --target-dir target/coverage 2>/dev/null || \
 		echo "[WARN] tarpaulin not installed"
-	cd embedding && pytest tests/ -v --cov=src --cov-report=xml --cov-report=term
 
 # === CI targets ===
 
 ci-backend: ## Backend CI (format + lint + test)
 	cd backend && cargo fmt --check && cargo clippy -- -D warnings && cargo test --lib && cargo test --test integration -- --test-threads=1
 
-ci-embedding: ## Embedding CI (format + lint + test)
-	cd embedding && uv run ruff format src/ --check && uv run ruff check src/ && uv run pytest tests/ -v --cov=src --cov-report=term
-
 ci-frontend: ## Frontend CI (lint + format check + test + build)
 	cd frontend && pnpm run lint:ci && pnpm run format:check && pnpm run test -- --run && pnpm run build
-
-smoke-dns: ## Run DNS smoke test (check embedding DNS resolution independent of host VPN)
-	@echo "Running DNS smoke test..."
-	@bash scripts/smoke-test-dns.sh

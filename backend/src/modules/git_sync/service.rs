@@ -29,7 +29,7 @@ pub struct GitSyncService {
     pub repo: GitRepoRepository,
     pub doc_repo: DocumentRepository,
     pub chroma_url: String,
-    pub embedding_url: String,
+    pub embedding_client: EmbeddingClient,
     pub clone_root: PathBuf,
 }
 
@@ -39,13 +39,12 @@ impl GitSyncService {
         repo: GitRepoRepository,
         doc_repo: DocumentRepository,
         chroma_url: String,
-        embedding_url: String,
+        embedding_client: EmbeddingClient,
         clone_root: PathBuf,
     ) -> Self {
         tracing::info!(
             component = "git_sync/service",
             chroma_url = %chroma_url,
-            embedding_url = %embedding_url,
             clone_root = %clone_root.display(),
             "new"
         );
@@ -53,7 +52,7 @@ impl GitSyncService {
             repo,
             doc_repo,
             chroma_url,
-            embedding_url,
+            embedding_client,
             clone_root,
         }
     }
@@ -707,7 +706,6 @@ impl GitSyncService {
         );
 
         let chroma = ChromaClient::new(&self.chroma_url);
-        let embedding_client = EmbeddingClient::new(&self.embedding_url);
 
         let mut files_indexed = 0usize;
         let mut chunks_total = 0usize;
@@ -796,7 +794,8 @@ impl GitSyncService {
             let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
 
             // Embed
-            let embeddings = embedding_client
+            let embeddings = self
+                .embedding_client
                 .embed(chunk_texts.clone())
                 .await
                 .map_err(|e| {

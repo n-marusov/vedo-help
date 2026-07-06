@@ -72,7 +72,7 @@ DURATION=0
 if [ -d ".git" ]; then
     log_info "Checking out ${TARGET_VERSION} for Docker config..."
     git checkout "${TARGET_VERSION}" -- docker-compose.yml docker-compose.production.yml \
-        backend/Dockerfile frontend/Dockerfile embedding/Dockerfile \
+        backend/Dockerfile frontend/Dockerfile \
         Caddyfile .env.example 2>/dev/null || {
         log_warning "Could not checkout files from ${TARGET_VERSION}, proceeding with current files"
     }
@@ -90,7 +90,7 @@ WAIT=0
 
 while [ $WAIT -lt $MAX_WAIT ]; do
     ALL_HEALTHY=true
-    for svc in caddy backend embedding chroma frontend; do
+    for svc in caddy backend chroma frontend; do
         HEALTH=$(dc ps --format '{{.Health}}' "${svc}" 2>/dev/null || echo "starting")
         if [ "$HEALTH" != "healthy" ]; then
             ALL_HEALTHY=false

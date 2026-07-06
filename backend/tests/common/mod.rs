@@ -84,11 +84,14 @@ fn replace_db_name(url: &str, new_db: &str) -> String {
 pub fn setup_test_config() -> AppConfig {
     AppConfig {
         database_url: "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string(),
-        embedding_service_url: "http://localhost:18001".to_string(),
         chroma_url: "http://localhost:18000".to_string(),
         llm_api_key: "test-openrouter-key".to_string(),
         llm_base_url: "http://llm-mock:18002".to_string(),
         llm_model: "test-model".to_string(),
+        embedding_api_key: "test-embedding-key".to_string(),
+        embedding_base_url: "https://routerai.ru/api/v1".to_string(),
+        embedding_model: "sentence-transformers/all-minilm-l6-v2".to_string(),
+        embedding_cache_size: 1000,
         host: "127.0.0.1".to_string(),
         port: 0,
         rust_log: "off".to_string(),

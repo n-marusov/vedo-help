@@ -31,16 +31,10 @@ Copy `.env.example` to `.env` and set the required values. All variables have se
 | `OTEL_SERVICE_NAME` | Service name for OTel resource attributes | `vedo-backend` |
 | `ENVIRONMENT` | Deployment environment (development, production) | `development` |
 | `CHROMA_CONNECT_RETRIES` | Chroma startup retry count (30 = ~30s wait, 0 = skip) | `30` |
-| `EMBEDDING_CONNECT_RETRIES` | Embedding service startup retry count (30 = ~30s wait, 0 = skip) | `30` |
-
-### Embedding Service
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `EMBEDDING_MODEL` | Sentence-transformers model name | `BAAI/bge-small-en-v1.5` |
-| `CACHE_DIR` | Disk cache directory for embeddings | `/data/cache` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP gRPC endpoint | `http://otel-collector:4317` |
-| `ENVIRONMENT` | Deployment environment (development, production) | `development` |
+| `EMBEDDING_API_KEY` | RouterAI API key for embeddings (defaults to `LLM_API_KEY`) | _(inherits from LLM_API_KEY)_ |
+| `EMBEDDING_BASE_URL` | RouterAI API base URL for embeddings (defaults to `LLM_BASE_URL`) | `https://routerai.ru/api/v1` |
+| `EMBEDDING_MODEL` | RouterAI embedding model identifier | `sentence-transformers/all-minilm-l6-v2` |
+| `EMBEDDING_CACHE_SIZE` | Max entries in local embedding LRU cache | `1000` |
 
 ### Docker Compose
 
@@ -85,7 +79,6 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 | Volume | Mount Point | Service | Purpose |
 |--------|------------|---------|---------|
 | `chroma_data` | `/chroma/chroma` | chroma | Vector index persistence |
-| `embedding_cache` | `/data/cache` | embedding | Cached embeddings |
 | `db_data` | `/data` | backend | SQLite database file |
 | `keycloak_db_data` | `/var/lib/postgresql/data` | keycloak-db | KeyCloak PostgreSQL data |
 

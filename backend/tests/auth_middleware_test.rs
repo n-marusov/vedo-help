@@ -48,7 +48,8 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     let db = common::setup_test_db().await;
     let config = common::setup_test_config();
     let chroma_url = config.chroma_url.clone();
-    let embedding_service_url = config.embedding_service_url.clone();
+    let embedding_client =
+        vedo_backend::shared::embedding_client::EmbeddingClient::from_config(&config);
 
     let doc_repo = DocumentRepository::new(db.clone());
     let collection_repo = CollectionRepository::new(db.clone());
@@ -61,23 +62,25 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     let collection_service = CollectionService::new(
         collection_repo.clone(),
         chroma_url.clone(),
-        embedding_service_url.clone(),
+        embedding_client.clone(),
     );
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service = QueryService::new(
         db,
         &chroma_url,
         llm_client,
-        &embedding_service_url,
+        embedding_client.clone(),
         collection_repo,
         20,
         6000,
+        config,
+        None,
     );
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
         doc_repo,
         chroma_url,
-        embedding_service_url,
+        embedding_client,
         std::path::PathBuf::from("/tmp/test-git-repos"),
     );
 

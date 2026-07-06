@@ -40,7 +40,7 @@ impl QueryService {
         db: PgPool,
         chroma_url: &str,
         llm_client: LlmClient,
-        embedding_service_url: &str,
+        embedding_client: EmbeddingClient,
         collection_repo: CollectionRepository,
         max_history_messages: usize,
         context_token_budget: usize,
@@ -48,7 +48,6 @@ impl QueryService {
         settings_service: Option<SettingsService>,
     ) -> Self {
         let repo = QueryRepository::new(db.clone(), chroma_url);
-        let embedding_client = EmbeddingClient::new(embedding_service_url);
         let conversation_repo = ConversationRepository::new(db);
         tracing::debug!(component = "query/service", "service.initialized");
         Self {

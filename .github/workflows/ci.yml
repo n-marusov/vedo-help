@@ -76,34 +76,6 @@ jobs:
         env:
           CHROMA_URL: http://localhost:8000
 
-  embedding:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: embedding/requirements.txt
-
-      - name: Install dependencies
-        run: pip install -r embedding/requirements.txt
-        working-directory: embedding
-
-      - name: Ruff lint
-        run: ruff check embedding/src/
-        working-directory: embedding
-
-      - name: Ruff format check
-        run: ruff format embedding/src/ --check
-        working-directory: embedding
-
-      - name: Pytest with coverage
-        run: pytest embedding/tests/ -v --cov=src --cov-report=term
-        working-directory: embedding
-
   frontend:
     runs-on: ubuntu-latest
     steps:

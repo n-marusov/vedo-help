@@ -183,7 +183,6 @@ async fn main() {
 
     // Initialize services
     let chroma_url = config.chroma_url.clone();
-    let embedding_service_url = config.embedding_service_url.clone();
 
     // Chroma client
     let chroma_client = vedo_backend::shared::chroma_client::ChromaClient::new(&chroma_url);
@@ -195,10 +194,11 @@ async fn main() {
 
     // Embedding client
     let embedding_client =
-        vedo_backend::shared::embedding_client::EmbeddingClient::new(&embedding_service_url);
+        vedo_backend::shared::embedding_client::EmbeddingClient::from_config(&config);
     tracing::info!(
         component = "main",
-        embedding_url = %embedding_service_url,
+        embedding_model = %config.embedding_model,
+        embedding_url = %config.embedding_base_url,
         "embedding_client.configured"
     );
 
@@ -208,12 +208,8 @@ async fn main() {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(30);
-    let embedding_connect_retries: u32 = std::env::var("EMBEDDING_CONNECT_RETRIES")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(30);
-
-    // Chroma startup retry loop
+    // Embedding startup retry loop removed: embeddings are now served via RouterAI API,
+    // which is covered by the LLM health probe since they share the same gateway.
     tracing::info!(
         component = "main",
         max_retries = chroma_connect_retries,
@@ -242,40 +238,6 @@ async fn main() {
                     max_retries = chroma_connect_retries,
                     error = %e,
                     "chroma.connect.exhausted"
-                );
-            }
-        }
-    }
-
-    // Embedding startup retry loop
-    tracing::info!(
-        component = "main",
-        max_retries = embedding_connect_retries,
-        "embedding.connect.start"
-    );
-    for attempt in 1..=embedding_connect_retries {
-        match embedding_client.health().await {
-            Ok(()) => {
-                tracing::info!(component = "main", attempt = attempt, "embedding.connected");
-                break;
-            }
-            Err(e) if attempt < embedding_connect_retries => {
-                tracing::warn!(
-                    component = "main",
-                    attempt = attempt,
-                    max_retries = embedding_connect_retries,
-                    error = %e,
-                    "embedding.connect.retry"
-                );
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
-            Err(e) => {
-                tracing::warn!(
-                    component = "main",
-                    attempt = attempt,
-                    max_retries = embedding_connect_retries,
-                    error = %e,
-                    "embedding.connect.exhausted"
                 );
             }
         }
@@ -337,12 +299,12 @@ async fn main() {
         doc_repo.clone(),
         collection_repo.clone(),
         chroma_client,
-        embedding_client,
+        embedding_client.clone(),
     );
     let collection_service = CollectionService::new(
         collection_repo.clone(),
         chroma_url.clone(),
-        embedding_service_url.clone(),
+        embedding_client.clone(),
     );
     let conversation_service = ConversationService::new(conversation_repo);
     let settings_service = SettingsService::new(settings_repo, config.clone());
@@ -350,7 +312,7 @@ async fn main() {
         db.clone(),
         &chroma_url,
         llm_client,
-        &embedding_service_url,
+        embedding_client.clone(),
         collection_repo.clone(),
         config.llm_max_history_messages,
         config.llm_context_token_budget,
@@ -364,7 +326,7 @@ async fn main() {
         git_repo_repo,
         doc_repo.clone(),
         chroma_url.clone(),
-        embedding_service_url.clone(),
+        embedding_client,
         std::path::PathBuf::from(&config.git_clone_root),
     );
 

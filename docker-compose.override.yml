@@ -5,9 +5,8 @@ services:
     build:
       target: development
     dns:
-      # Explicit public DNS — same rationale as embedding service.
-      # Without this, VPN clients on the host can block resolution of
-      # crates.io (cargo metadata / cargo run in dev mode).
+      # Explicit public DNS — prevents VPN clients on the host from blocking
+      # resolution of crates.io (cargo metadata / cargo run in dev mode).
       - 8.8.8.8
       - 1.1.1.1
     ports:
@@ -30,20 +29,6 @@ services:
       retries: 5
       start_period: 90s
     command: cargo watch -x run --ignore data/
-
-  embedding:
-    build:
-      target: development
-    ports:
-      # Port 8001 is occupied on this host; using 18001 instead
-      # Set EMBEDDING_PORT env var to override.
-      - "${EMBEDDING_PORT:-18001}:8001"
-    volumes:
-      - ./embedding/src:/app/src
-      - ./embedding/pyproject.toml:/app/pyproject.toml
-      - ./embedding/uv.lock:/app/uv.lock
-    environment:
-      LOG_LEVEL: debug
 
   frontend:
     build:

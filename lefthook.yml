@@ -8,14 +8,6 @@ pre-commit:
       glob: "*.rs"
       run: cd backend && cargo fmt
       stage_fixed: true
-    ruff-format:
-      glob: "*.py"
-      run: uvx ruff format --config embedding/pyproject.toml {staged_files}
-      stage_fixed: true
-    ruff-lint:
-      glob: "*.py"
-      run: uvx ruff check --fix --config embedding/pyproject.toml {staged_files}
-      stage_fixed: true
 
 pre-push:
   commands:
@@ -25,6 +17,3 @@ pre-push:
     rust-clippy:
       glob: "*.rs"
       run: cd backend && cargo clippy -- -D warnings
-    ruff-ci:
-      glob: "*.py"
-      run: uvx ruff check --config embedding/pyproject.toml {push_files}

@@ -361,11 +361,14 @@ mod tests {
     fn jwt_validator_uses_separate_issuer_and_jwks_urls() {
         let config = AppConfig {
             database_url: ":memory:".to_string(),
-            embedding_service_url: "http://localhost:18001".to_string(),
             chroma_url: "http://localhost:18000".to_string(),
             llm_api_key: "test".to_string(),
             llm_base_url: "http://llm-mock:18002".to_string(),
             llm_model: "test-model".to_string(),
+            embedding_api_key: "test".to_string(),
+            embedding_base_url: "http://embedding-mock:18001".to_string(),
+            embedding_model: "sentence-transformers/all-minilm-l6-v2".to_string(),
+            embedding_cache_size: 1000,
             host: "127.0.0.1".to_string(),
             port: 0,
             rust_log: "off".to_string(),

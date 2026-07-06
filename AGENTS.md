@@ -4,12 +4,12 @@
 
 ## Project Overview
 
-VEDO hub RAG Assistant is a personal Q&A system that ingests technical documentation, indexes it in a vector database (Chroma), and answers questions with grounded citations using an LLM via RouterAI. The stack: Rust (axum) backend, Python (FastAPI) embedding service, Vue 3 + TypeScript frontend, Docker Compose deployment.
+VEDO hub RAG Assistant is a personal Q&A system that ingests technical documentation, indexes it in a vector database (Chroma), and answers questions with grounded citations using an LLM via RouterAI. The stack: Rust (axum) backend (with RouterAI API for embeddings), Vue 3 + TypeScript frontend, Docker Compose deployment.
 
 ## Tech Stack
 
-- **Programming language:** Rust, Python, TypeScript
-- **Framework:** axum (Rust), FastAPI (Python), Vue 3 (frontend)
+- **Programming language:** Rust, TypeScript
+- **Framework:** axum (Rust), Vue 3 (frontend)
 - **Database:** SQLite (metadata), Chroma (vector search)
 - **ORM:** sqlx (Rust)
 - **Deployment:** Docker Compose, Caddy reverse proxy
@@ -48,19 +48,13 @@ vedo-assistant/
 │   │       ├── llm.rs          # LLM client (RouterAI)
 │   │       ├── chroma_client.rs  # Chroma HTTP client
 │   │       ├── chunking.rs     # Text splitting
-│   │       ├── embedding_client.rs  # Embedding service client
+│   │       ├── embedding_client.rs  # RouterAI embedding client
 │   │       ├── file_validation.rs  # MIME + magic bytes
 │   │       ├── rate_limit.rs   # Body size limiting
 │   │       └── types.rs        # Shared type definitions
 │   └── tests/
 │       ├── common/mod.rs    # Test helpers (in-memory SQLite, test config)
 │       └── integration.rs   # Chroma integration tests (requires Chroma service)
-├── embedding/                  # Python/FastAPI embedding service
-│   └── src/
-│       ├── main.py             # FastAPI app, /embed and /health
-│       ├── models.py           # Pydantic schemas
-│       ├── service.py          # Sentence-transformers wrapper
-│       └── cache.py            # Disk-based embedding cache
 ├── frontend/                   # Vue 3 + TypeScript SPA
 │   ├── vitest.config.ts        # Vitest configuration
 │   └── src/
@@ -117,7 +111,7 @@ vedo-assistant/
 ├── scripts/                    # backup.sh, restore.sh
 ├── AGENTS.md                   # This file — project map for AI agents
 ├── opencode.json               # MCP server configuration
-├── docker-compose.yml          # 7-service Docker Compose (incl. keycloak-init, keycloak + keycloak-db)
+├── docker-compose.yml          # 6-service Docker Compose (chroma, backend, frontend, keycloak-init, keycloak + keycloak-db)
 ├── Caddyfile                   # Reverse proxy config
 ├── Makefile                    # Developer tooling
 ├── rust-toolchain.toml         # Rust toolchain config
@@ -135,7 +129,7 @@ vedo-assistant/
 | `.ai-factory/DESCRIPTION.md` | Condensed project description for AI agents |
 | `.ai-factory/config.yaml` | AI Factory configuration (language, paths, git workflow) |
 | `.ai-factory/ARCHITECTURE.md` | Architecture pattern and folder structure guidelines |
-| `docker-compose.yml` | Core Docker Compose definition (chroma, embedding, backend, frontend, keycloak-init, keycloak, keycloak-db) |
+| `docker-compose.yml` | Core Docker Compose definition (chroma, backend, frontend, keycloak-init, keycloak, keycloak-db) |
 | `docker-compose.override.yml` | Development overrides (hot-reload, debug ports) |
 | `docker-compose.production.yml` | Production hardening (no-exposed ports, resource limits, logging) |
 | `Caddyfile` | Reverse proxy config (API, frontend, KeyCloak auth) |
@@ -175,7 +169,7 @@ vedo-assistant/
 - Decompose shell commands into separate steps — never combine `git checkout` and `git pull` with `&&`.
   - Incorrect: `git checkout main && git pull`
   - Correct: First `git checkout main`, then `git pull origin main`
-- For Docker Compose service-to-service communication, use Docker service names and container ports (`http://chroma:8000`, `http://embedding:8001`, `http://backend:3000`, `http://keycloak:8080`). Do not use `localhost` for calls from one container to another; reserve `localhost` for browser/public URLs, host-published ports, and container self-healthchecks.
+- For Docker Compose service-to-service communication, use Docker service names and container ports (`http://chroma:8000`, `http://backend:3000`, `http://keycloak:8080`). Do not use `localhost` for calls from one container to another; reserve `localhost` for browser/public URLs, host-published ports, and container self-healthchecks.
 - When calling Chroma API from the backend, never pass user-supplied display names directly to `create_collection` or `delete_collection` — Chroma accepts only ASCII alphanumeric, underscores, and hyphens in collection names. Use the collection UUID (`id.to_string()`) instead. The `QueryService` already uses UUID as the collection name; keep this pattern consistent.
 - Before implementing any feature, reference `.ai-factory/DESCRIPTION.md` and `docs/technical-specification-rag-system.md` for requirements and design decisions.
 - For deployment-related tasks, consult Section 7 of the technical specification.
@@ -196,7 +190,6 @@ vedo-assistant/
   race conditions on the shared database.
 - Adhere to each service's linter/formatter configuration and run the respective format + lint check before considering any code change complete:
   - **Rust** (`backend/`): `cargo fmt` and `cargo clippy` — rustfmt uses default settings (no custom config).
-  - **Python** (`embedding/`): `ruff format` and `ruff check` — configured via `[tool.ruff]` in `embedding/pyproject.toml`.
   - **TypeScript/Vue** (`frontend/`): `npx biome format` and `npx biome check` — configured via `frontend/biome.json`.
   Do not rely solely on the agent's own code style preferences; the project's tool configs are the source of truth.
 

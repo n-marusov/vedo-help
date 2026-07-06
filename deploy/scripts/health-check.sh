@@ -79,7 +79,7 @@ main() {
 
     # Check HTTP health endpoints
     log_info "HTTP Health Endpoints:"
-    for ep in "backend:${BACKEND_PORT}/health" "embedding:8001/health" "chroma:8000/api/v1/heartbeat"; do
+    for ep in "backend:${BACKEND_PORT}/health" "chroma:8000/api/v1/heartbeat"; do
         svc="${ep%%:*}"
         url="${ep#*:}"
         if curl -f -s -m 5 "http://${url}" > /dev/null 2>&1; then

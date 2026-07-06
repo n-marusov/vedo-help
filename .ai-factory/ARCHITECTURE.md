@@ -11,7 +11,7 @@ This architecture was chosen because the project is a single-developer system wi
 ## Decision Rationale
 
 - **Project type:** Personal RAG Q&A system with multi-service Docker deployment
-- **Tech stack:** Rust (axum), Python (FastAPI), Vue 3 + TypeScript, Chroma, SQLite
+- **Tech stack:** Rust (axum), Vue 3 + TypeScript, Chroma, SQLite
 - **Key factor:** Single developer needs clear organization without over-engineering; soft module boundaries with explicit dependency direction
 
 ## Folder Structure
@@ -69,15 +69,6 @@ backend/
         ├── file_validation.rs     # MIME check, magic bytes
         └── types.rs               # Shared type definitions
 
-embedding/
-├── requirements.txt
-├── Dockerfile
-└── src/
-    ├── main.py                   # FastAPI app entry
-    ├── models.py                 # Request/response models
-    ├── service.py                # Embedding orchestration
-    └── cache.py                  # Embedding cache layer
-
 frontend/
 ├── package.json
 ├── Dockerfile
@@ -121,7 +112,7 @@ frontend/
 - **Handlers → Service:** Handler calls service method, receives result (Result<T, AppError>)
 - **Service → Repository:** Service orchestrates use case: fetch data → call model method → save
 - **Service → External APIs:** Service calls LLM client (from shared/) via async reqwest
-- **Cross-service:** Backend communicates with embedding service via HTTP (Docker internal network)
+- **Cross-service:** Backend calls RouterAI API (OpenAI-compatible /v1/embeddings) via HTTP
 
 ## Key Principles
 

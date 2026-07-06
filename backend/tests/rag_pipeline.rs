@@ -53,7 +53,7 @@ fn test_urls() -> TestUrls {
     }
 }
 
-/// Check if Chroma and embedding services are reachable.
+/// Check if Chroma and LLM mock services are reachable.
 async fn check_services_healthy() -> Result<(), String> {
     let urls = test_urls();
 
@@ -65,17 +65,8 @@ async fn check_services_healthy() -> Result<(), String> {
         return Err(format!("Chroma not reachable at {}", urls.chroma));
     }
 
-    let embed_ok = reqwest::get(&format!("{}/health", urls.embedding))
-        .await
-        .map(|r| r.status().is_success())
-        .unwrap_or(false);
-    if !embed_ok {
-        return Err(format!(
-            "Embedding service not reachable at {}",
-            urls.embedding
-        ));
-    }
-
+    // Embeddings are now served via RouterAI API (same gateway as LLM).
+    // The LLM mock health check covers RouterAI connectivity.
     let llm_ok = reqwest::get(&format!("{}/health", urls.llm_base))
         .await
         .map(|r| r.status().is_success())
@@ -201,11 +192,14 @@ async fn create_test_data(
 fn make_test_config(urls: &TestUrls, advanced_rag: bool) -> AppConfig {
     AppConfig {
         database_url: String::new(),
-        embedding_service_url: urls.embedding.clone(),
         chroma_url: urls.chroma.clone(),
         llm_api_key: urls.llm_api_key.clone(),
         llm_base_url: urls.llm_base.clone(),
         llm_model: urls.llm_model.clone(),
+        embedding_api_key: urls.llm_api_key.clone(),
+        embedding_base_url: urls.llm_base.clone(),
+        embedding_model: "sentence-transformers/all-minilm-l6-v2".to_string(),
+        embedding_cache_size: 1000,
         host: "127.0.0.1".to_string(),
         port: 0,
         rust_log: "off".to_string(),
@@ -266,7 +260,8 @@ async fn test_rag_pipeline_full_flow() {
 
     let pool = common::setup_test_db().await;
     let chroma = ChromaClient::new(&urls.chroma);
-    let embedding_client = EmbeddingClient::new(&urls.embedding);
+    let config = make_test_config(&urls, true);
+    let embedding_client = EmbeddingClient::from_config(&config);
     let collection_repo = CollectionRepository::new(pool.clone());
 
     let collection_id = Uuid::new_v4();
@@ -283,18 +278,18 @@ async fn test_rag_pipeline_full_flow() {
     .await;
 
     // Set up QueryService
-    let config = make_test_config(&urls, true);
     let llm_client = LlmClient::from_config(&config);
 
     let query_service = QueryService::new(
         pool.clone(),
         &urls.chroma,
         llm_client,
-        &urls.embedding,
+        embedding_client,
         collection_repo,
         20,
         6000,
         config,
+        None,
     );
 
     // Execute query
@@ -392,7 +387,8 @@ async fn test_rag_pipeline_debug_data_flow() {
 
     let pool = common::setup_test_db().await;
     let chroma = ChromaClient::new(&urls.chroma);
-    let embedding_client = EmbeddingClient::new(&urls.embedding);
+    let config = make_test_config(&urls, true);
+    let embedding_client = EmbeddingClient::from_config(&config);
     let collection_repo = CollectionRepository::new(pool.clone());
 
     let collection_id = Uuid::new_v4();
@@ -408,18 +404,18 @@ async fn test_rag_pipeline_debug_data_flow() {
     )
     .await;
 
-    let config = make_test_config(&urls, true);
     let llm_client = LlmClient::from_config(&config);
 
     let query_service = QueryService::new(
         pool.clone(),
         &urls.chroma,
         llm_client,
-        &urls.embedding,
+        embedding_client,
         collection_repo,
         20,
         6000,
         config,
+        None,
     );
 
     // Insert a session so FK constraint on messages is satisfied
@@ -603,7 +599,9 @@ async fn test_rag_pipeline_advanced_disabled() {
 
     let pool = common::setup_test_db().await;
     let chroma = ChromaClient::new(&urls.chroma);
-    let embedding_client = EmbeddingClient::new(&urls.embedding);
+    // Disable advanced RAG
+    let config = make_test_config(&urls, false);
+    let embedding_client = EmbeddingClient::from_config(&config);
     let collection_repo = CollectionRepository::new(pool.clone());
 
     let collection_id = Uuid::new_v4();
@@ -619,19 +617,18 @@ async fn test_rag_pipeline_advanced_disabled() {
     )
     .await;
 
-    // Disable advanced RAG
-    let config = make_test_config(&urls, false);
     let llm_client = LlmClient::from_config(&config);
 
     let query_service = QueryService::new(
         pool.clone(),
         &urls.chroma,
         llm_client,
-        &urls.embedding,
+        embedding_client,
         collection_repo,
         20,
         6000,
         config,
+        None,
     );
 
     let request = QueryRequest {

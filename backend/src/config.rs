@@ -4,11 +4,18 @@ use std::env;
 #[derive(Clone, Debug)]
 pub struct AppConfig {
     pub database_url: String,
-    pub embedding_service_url: String,
     pub chroma_url: String,
     pub llm_api_key: String,
     pub llm_base_url: String,
     pub llm_model: String,
+    /// RouterAI embedding API key (defaults to llm_api_key)
+    pub embedding_api_key: String,
+    /// RouterAI embedding API base URL (defaults to llm_base_url)
+    pub embedding_base_url: String,
+    /// RouterAI embedding model name (e.g. sentence-transformers/all-minilm-l6-v2)
+    pub embedding_model: String,
+    /// Max entries in local embedding LRU cache
+    pub embedding_cache_size: usize,
     pub host: String,
     pub port: u16,
     pub rust_log: String,
@@ -59,17 +66,18 @@ impl AppConfig {
             .or_else(|_| env::var("KEYCLOAK_INTERNAL_URL"))
             .unwrap_or_else(|_| keycloak_url.clone());
 
+        let llm_api_key = env::var("LLM_API_KEY").unwrap_or_else(|_| String::new());
+        let llm_base_url =
+            env::var("LLM_BASE_URL").unwrap_or_else(|_| "https://routerai.ru/api/v1".to_string());
+
         Self {
             database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
                 "postgres://vedo:CHANGEME-db-password@localhost:5432/vedo".to_string()
             }),
-            embedding_service_url: env::var("EMBEDDING_SERVICE_URL")
-                .unwrap_or_else(|_| "http://localhost:8001".to_string()),
             chroma_url: env::var("CHROMA_URL")
                 .unwrap_or_else(|_| "http://localhost:8000".to_string()),
-            llm_api_key: env::var("LLM_API_KEY").unwrap_or_else(|_| String::new()),
-            llm_base_url: env::var("LLM_BASE_URL")
-                .unwrap_or_else(|_| "https://routerai.ru/api/v1".to_string()),
+            llm_api_key: llm_api_key.clone(),
+            llm_base_url: llm_base_url.clone(),
             llm_model: env::var("LLM_MODEL")
                 .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string()),
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
@@ -121,6 +129,16 @@ impl AppConfig {
                 .expect("MULTI_QUERY_COUNT must be a valid number"),
             llm_rerank_model: env::var("LLM_RERANK_MODEL")
                 .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string()), // default to same as LLM_MODEL for now
+            embedding_api_key: env::var("EMBEDDING_API_KEY")
+                .unwrap_or_else(|_| llm_api_key.clone()),
+            embedding_base_url: env::var("EMBEDDING_BASE_URL")
+                .unwrap_or_else(|_| llm_base_url.clone()),
+            embedding_model: env::var("EMBEDDING_MODEL")
+                .unwrap_or_else(|_| "sentence-transformers/all-minilm-l6-v2".to_string()),
+            embedding_cache_size: env::var("EMBEDDING_CACHE_SIZE")
+                .unwrap_or_else(|_| "1000".to_string())
+                .parse()
+                .expect("EMBEDDING_CACHE_SIZE must be a valid number"),
         }
     }
 }
@@ -136,6 +154,19 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 3000);
         assert!(!config.llm_model.is_empty());
+    }
+
+    #[test]
+    fn test_embedding_config_defaults() {
+        let config = AppConfig::from_env();
+        // Embedding config should default to LLM values and standard model
+        assert_eq!(config.embedding_api_key, config.llm_api_key);
+        assert_eq!(config.embedding_base_url, config.llm_base_url);
+        assert!(
+            config.embedding_model.contains("sentence-transformers"),
+            "Embedding model should default to sentence-transformers model"
+        );
+        assert_eq!(config.embedding_cache_size, 1000);
     }
 
     #[test]

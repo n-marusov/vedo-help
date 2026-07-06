@@ -73,7 +73,7 @@ check_port_uniqueness() {
   local dev_ports test_ports
 
   # Extract host ports from dev compose (only services with ports published)
-  # Matches lines like "  - \"18001:8001\"" or "${EMBEDDING_PORT:-18001}:8001"
+  # Matches lines like "  - \"18001:8001\"" or "${BACKEND_PORT:-3000}:3000"
   dev_ports=$(docker compose --env-file "$PROJECT_DIR/.env" config \
     | sed -n 's/^\s*-\s*"\([0-9]*\):[0-9]*".*/\1/p' \
     | sort -u)

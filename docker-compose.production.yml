@@ -1,6 +1,6 @@
 # docker-compose.production.yml — Production hardening
 # Usage: docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
-# NOTE: No ports exposed on infrastructure services (chroma, embedding). They communicate
+# NOTE: No ports exposed on infrastructure services (chroma). They communicate
 # via Docker network only. Only Caddy exposes ports 80/443 to the host.
 
 x-logging: &default-logging
@@ -58,23 +58,6 @@ services:
     depends_on:
       caddy:
         condition: service_started
-
-  embedding:
-    <<: *default-security
-    user: "1001:1001"
-    tmpfs:
-      - /tmp:noexec,nosuid,size=100m
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 1G
-          pids: 100
-        reservations:
-          cpus: "0.5"
-          memory: 512M
-    logging: *default-logging
-    ports: []
 
   chroma:
     <<: *default-security

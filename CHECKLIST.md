@@ -72,7 +72,7 @@ migration N was previously applied but is missing / has been modified
 
 Перед любыми тестами запусти тестовое окружение. **Один запуск** — все сервисы
 поднимаются сразу. `--env-file .env.test` обязателен для корректной работы KeyCloak,
-Chroma, embedding и БД.
+Chroma и БД.
 
 > ⚠️ **Важно:** Перед запуском убедись, что Docker volumes чистые (см. Database & Migration Hygiene выше).
 
@@ -84,7 +84,7 @@ docker compose --env-file .env.test -f docker-compose.test.yml down -v
 docker compose --env-file .env.test -f docker-compose.test.yml up -d
 
 # Дождаться, пока все сервисы станут healthy
-# (7 сервисов: chroma, embedding, backend, frontend, db, keycloak, llm-mock)
+# (6 сервисов: chroma, backend, frontend, db, keycloak, llm-mock)
 docker compose --env-file .env.test -f docker-compose.test.yml ps
 ```
 
@@ -98,8 +98,8 @@ cd frontend && npm test
 
 ### Backend unit-тесты (`cargo test --lib`)
 
-Чистые unit-тесты не требуют никакой инфраструктуры — ни PostgreSQL, ни Chroma,
-ни Embedding. Выполняются на хосте сразу.
+Чистые unit-тесты не требуют никакой инфраструктуры — ни PostgreSQL, ни Chroma.
+Выполняются на хосте сразу.
 
 ```bash
 cd backend && cargo test --lib
@@ -125,7 +125,7 @@ cd backend && cargo test --test documents_db_unit -- --test-threads=1
 
 ### Backend интеграционные тесты (`cargo test --test integration`)
 
-Требуют **реальный Chroma, Embedding и PostgreSQL** из тестового окружения.
+Требуют **реальный Chroma и PostgreSQL** из тестового окружения.
 Используют `setup_test_config()` для настройки клиентов, но сами ходят в работающие
 сервисы. Выполняются на хосте.
 
@@ -134,23 +134,10 @@ cd backend && cargo test --test documents_db_unit -- --test-threads=1
 # Терминал 2:
 export DATABASE_URL=postgres://vedo:test-vedo-password@localhost:15432/vedo
 export CHROMA_URL=http://localhost:18000
-export EMBEDDING_SERVICE_URL=http://localhost:18001
 cd backend && cargo test --test integration -- --test-threads=1
 ```
 
-### Embedding тесты (Python/pytest)
 
-Используют `TestClient` (FastAPI) — не требуют реального embedding-сервиса.
-Для запуска нужен `uv` в окружении:
-
-```bash
-# В терминале с активным .venv embedding:
-# Вариант A — через uv (рекомендуется):
-cd embedding && uv run pytest tests/ -v
-
-# Вариант B — через докер-контейнер (если uv на хосте не настроен):
-docker compose --env-file .env.test -f docker-compose.test.yml run --rm embedding pytest tests/ -v
-```
 
 ### E2E тесты (Playwright)
 
@@ -226,7 +213,7 @@ docker compose --env-file .env.test -f docker-compose.test.yml down -v
 ```bash
 make test-env       # docker compose up + ожидание healthcheck'ов
 # в отдельном терминале:
-make test           # unit-тесты (backend --lib + frontend npm test + embedding pytest)
+make test           # unit-тесты (backend --lib + frontend npm test)
 make test:e2e       # E2E через Playwright-контейнер в test_internal (без localhost)
 make test-env-down  # остановка и очистка
 ```
