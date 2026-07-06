@@ -82,6 +82,7 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
         chroma_url,
         embedding_client,
         std::path::PathBuf::from("/tmp/test-git-repos"),
+        None,
     );
 
     #[derive(Clone)]

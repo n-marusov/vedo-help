@@ -9,6 +9,7 @@ use crate::modules::documents::models::Chunk;
 use crate::modules::documents::repository::DocumentRepository;
 use crate::modules::git_sync::models::{GitRepo, SyncStatusResponse};
 use crate::modules::git_sync::repository::GitRepoRepository;
+use crate::modules::settings::service::SettingsService;
 use crate::shared::chroma_client::ChromaClient;
 use crate::shared::chunking::chunk_document_default;
 use crate::shared::embedding_client::EmbeddingClient;
@@ -31,6 +32,7 @@ pub struct GitSyncService {
     pub chroma_url: String,
     pub embedding_client: EmbeddingClient,
     pub clone_root: PathBuf,
+    pub settings_service: Option<SettingsService>,
 }
 
 impl GitSyncService {
@@ -41,6 +43,7 @@ impl GitSyncService {
         chroma_url: String,
         embedding_client: EmbeddingClient,
         clone_root: PathBuf,
+        settings_service: Option<SettingsService>,
     ) -> Self {
         tracing::info!(
             component = "git_sync/service",
@@ -54,6 +57,7 @@ impl GitSyncService {
             chroma_url,
             embedding_client,
             clone_root,
+            settings_service,
         }
     }
 
@@ -793,13 +797,19 @@ impl GitSyncService {
             // 3. Save Chunk records and prepare Chroma data
             let chunk_texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
 
+            // Determine embedding model from settings (fallback to DEFAULT_EMBEDDING_MODEL)
+            let mut embedding_model =
+                crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL.to_string();
+            if let Some(ref settings) = self.settings_service {
+                if let Ok(rag_settings) = settings.get_rag_settings().await {
+                    embedding_model = rag_settings.embedding_model;
+                }
+            }
+
             // Embed
             let embeddings = self
                 .embedding_client
-                .embed(
-                    crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
-                    chunk_texts.clone(),
-                )
+                .embed(&embedding_model, chunk_texts.clone())
                 .await
                 .map_err(|e| {
                     tracing::error!(

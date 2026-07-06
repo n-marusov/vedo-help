@@ -331,6 +331,7 @@ async fn main() {
         chroma_url.clone(),
         embedding_client,
         std::path::PathBuf::from(&config.git_clone_root),
+        Some(settings_service.clone()),
     );
 
     // Reset stale sync locks left from a previous crash or restart.
