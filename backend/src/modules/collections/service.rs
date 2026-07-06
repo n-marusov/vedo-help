@@ -13,19 +13,22 @@ pub struct CollectionService {
     repo: CollectionRepository,
     chroma_url: String,
     embedding_client: crate::shared::embedding_client::EmbeddingClient,
+    settings_service: Option<crate::modules::settings::service::SettingsService>,
 }
 
 impl CollectionService {
-    /// Create a new CollectionService.
+    /// Create a new `CollectionService` with the given repository and HTTP clients.
     pub fn new(
         repo: CollectionRepository,
         chroma_url: String,
         embedding_client: crate::shared::embedding_client::EmbeddingClient,
+        settings_service: Option<crate::modules::settings::service::SettingsService>,
     ) -> Self {
         Self {
             repo,
             chroma_url,
             embedding_client,
+            settings_service,
         }
     }
 
@@ -178,6 +181,14 @@ impl CollectionService {
                 let query = params.q.as_deref().unwrap_or("");
                 let top_k = params.top_k.unwrap_or(20);
 
+                let mut embedding_model =
+                    crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL.to_string();
+                if let Some(ref settings) = self.settings_service {
+                    if let Ok(rag_settings) = settings.get_rag_settings().await {
+                        embedding_model = rag_settings.embedding_model;
+                    }
+                }
+
                 crate::shared::chunk_search::search_chunks_semantic(
                     &chroma,
                     &self.embedding_client,
@@ -186,7 +197,7 @@ impl CollectionService {
                     query,
                     source,
                     top_k,
-                    crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
+                    &embedding_model,
                 )
                 .await
             }

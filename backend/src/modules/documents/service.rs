@@ -816,13 +816,16 @@ impl DocumentService {
             {
                 let collection_name = collection_id.to_string();
 
+                let mut embedding_model =
+                    crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL.to_string();
+                if let Some(ref settings) = self.settings_service {
+                    if let Ok(rag_settings) = settings.get_rag_settings().await {
+                        embedding_model = rag_settings.embedding_model;
+                    }
+                }
+
                 let index_result = async {
-                    let embeddings = embed
-                        .embed(
-                            crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
-                            chroma_texts,
-                        )
-                        .await?;
+                    let embeddings = embed.embed(&embedding_model, chroma_texts).await?;
                     chroma
                         .add_embeddings(
                             &collection_name,

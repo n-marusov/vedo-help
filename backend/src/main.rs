@@ -309,6 +309,7 @@ async fn main() {
         collection_repo.clone(),
         chroma_url.clone(),
         embedding_client.clone(),
+        Some(settings_service.clone()),
     );
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service = QueryService::new(

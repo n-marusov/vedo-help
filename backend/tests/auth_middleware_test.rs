@@ -63,6 +63,7 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
         collection_repo.clone(),
         chroma_url.clone(),
         embedding_client.clone(),
+        None,
     );
     let conversation_service = ConversationService::new(conversation_repo);
     let query_service = QueryService::new(
