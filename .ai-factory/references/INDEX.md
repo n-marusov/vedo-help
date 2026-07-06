@@ -14,3 +14,4 @@ Available knowledge references for AI agents.
 | [routerai-api](routerai-api.md) | RouterAI API gateway — models, endpoints, auth, agent integrations | routerai.ru | 2026-06-21 |
 | [opentelemetry-logging-unification](opentelemetry-logging-unification.md) | OpenTelemetry logging unification — structured logs, OTLP, service migration plans | opentelemetry.io | 2026-06-25 |
 | [pnpm](pnpm.md) | pnpm v11 package manager — CLI, config, allowBuilds, Docker, CI | pnpm CLI (v11.9.0), github.com/pnpm/pnpm | 2026-07-04 |
+| [routerai-models](routerai-models.md) | RouterAI model catalog — 401+ models, pricing, providers, selection guide | routerai.ru/models, routerai.ru/api/v1/models | 2026-07-06 |
