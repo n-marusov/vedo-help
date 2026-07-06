@@ -25,9 +25,9 @@ export default defineConfig({
       },
     },
   },
-  // Tree-shake console.debug calls in production builds.
+  // Tree-shake console.debug and console.error calls in production builds.
   // Dev-mode logging stays intact for debugging.
   esbuild: {
-    pure: ['console.debug'],
+    pure: ['console.debug', 'console.error'],
   },
 });

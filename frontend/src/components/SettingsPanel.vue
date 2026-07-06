@@ -77,7 +77,9 @@ async function loadModels() {
     embeddingModels.value = data.embedding_models;
     rerankModels.value = data.rerank_models;
   } catch (err) {
-    console.error('Failed to load model lists from backend:', err);
+    toastType.value = 'error';
+    toastMessage.value = `Failed to load model lists: ${err instanceof Error ? err.message : String(err)}`;
+    toastShow.value = true;
   }
 }
 
