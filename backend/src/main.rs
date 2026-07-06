@@ -307,7 +307,8 @@ async fn main() {
         embedding_client.clone(),
     );
     let conversation_service = ConversationService::new(conversation_repo);
-    let settings_service = SettingsService::new(settings_repo, config.clone());
+    let settings_service =
+        SettingsService::new(settings_repo, config.clone(), embedding_client.clone());
     let query_service = QueryService::new(
         db.clone(),
         &chroma_url,

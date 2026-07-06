@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::modules::settings::models::{RagSettings, SettingsResponse};
 use crate::modules::settings::repository::SettingsRepository;
+use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 
 /// Service for managing application settings.
@@ -14,17 +15,29 @@ use crate::shared::error::AppError;
 pub struct SettingsService {
     repo: SettingsRepository,
     env_config: crate::config::AppConfig,
+    embedding_client: EmbeddingClient,
 }
 
 impl SettingsService {
-    /// Create a new SettingsService.
-    pub fn new(repo: SettingsRepository, env_config: crate::config::AppConfig) -> Self {
+    /// Create a new SettingsService with the given repository, env config, and embedding client.
+    ///
+    /// The `embedding_client` is used to auto-detect embedding dimension when the
+    /// admin changes the embedding model in settings.
+    pub fn new(
+        repo: SettingsRepository,
+        env_config: crate::config::AppConfig,
+        embedding_client: EmbeddingClient,
+    ) -> Self {
         tracing::info!(
             component = "settings/service",
             has_env_fallback = true,
             "settings.service.initialized"
         );
-        Self { repo, env_config }
+        Self {
+            repo,
+            env_config,
+            embedding_client,
+        }
     }
 
     /// Load all RAG settings by merging database overrides with env-var defaults.
@@ -115,6 +128,11 @@ impl SettingsService {
                 settings.embedding_model = s.to_string();
             }
         }
+        if let Some(v) = db_overrides.get("embedding_dimension") {
+            if let Some(n) = v.value.as_u64() {
+                settings.embedding_dimension = Some(n as usize);
+            }
+        }
         if let Some(v) = db_overrides.get("llm_max_history_messages") {
             if let Some(n) = v.value.as_u64() {
                 settings.llm_max_history_messages = n as usize;
@@ -154,6 +172,35 @@ impl SettingsService {
             validate_setting_value(key, value)
                 .map_err(|msg| AppError::BadRequest(format!("Invalid value for '{key}': {msg}")))?;
             db_updates.insert(key.clone(), value.clone());
+        }
+
+        // If the embedding model changed, auto-detect its dimension
+        // and store it alongside the model name.
+        if let Some(Value::String(new_model)) = updates.get("embedding_model") {
+            match self.embedding_client.detect_dimension(new_model).await {
+                Ok(dim) => {
+                    tracing::info!(
+                        component = "settings/service",
+                        model = %new_model,
+                        dimension = dim,
+                        "settings.embedding_dimension_detected"
+                    );
+                    db_updates.insert(
+                        "embedding_dimension".to_string(),
+                        Value::Number(serde_json::Number::from(dim as u64)),
+                    );
+                }
+                Err(e) => {
+                    // Non-fatal: model is still saved, but dimension is unknown.
+                    // The mismatch will surface later as a Chroma query error.
+                    tracing::warn!(
+                        component = "settings/service",
+                        model = %new_model,
+                        error = %e,
+                        "settings.embedding_dimension_detection_failed"
+                    );
+                }
+            }
         }
 
         // Persist to database
@@ -197,7 +244,8 @@ fn validate_setting_value(key: &str, value: &Value) -> Result<(), String> {
         | "rerank_top_k"
         | "multi_query_count"
         | "llm_max_history_messages"
-        | "llm_context_token_budget" => {
+        | "llm_context_token_budget"
+        | "embedding_dimension" => {
             if !value.is_number() {
                 return Err("expected number".to_string());
             }
@@ -261,6 +309,8 @@ mod tests {
         assert!(validate_setting_value("multi_query_count", &json!(2)).is_ok());
         assert!(validate_setting_value("llm_max_history_messages", &json!(10)).is_ok());
         assert!(validate_setting_value("llm_context_token_budget", &json!(8000)).is_ok());
+        assert!(validate_setting_value("embedding_dimension", &json!(384)).is_ok());
+        assert!(validate_setting_value("embedding_dimension", &json!(1536)).is_ok());
     }
 
     #[test]

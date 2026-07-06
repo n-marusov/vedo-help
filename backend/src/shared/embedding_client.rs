@@ -328,6 +328,31 @@ impl super::health::HealthProbe for EmbeddingClient {
 }
 
 impl EmbeddingClient {
+    /// Detect the embedding vector dimension for a given model by making a
+    /// single test embedding call.
+    ///
+    /// Used when the admin changes the embedding model to auto-detect the vector size
+    /// and store it alongside the model name. This ensures all collections created
+    /// with the new model have consistent dimensionality.
+    pub async fn detect_dimension(&self, model: &str) -> Result<usize, AppError> {
+        let start = tokio::time::Instant::now();
+        let test = vec!["embedding dimension probe".to_string()];
+        let result = self.embed(model, test).await?;
+        let dim = result.first().map(|v| v.len()).ok_or_else(|| {
+            AppError::EmbeddingError(
+                "Dimension detection: embedding API returned empty result".to_string(),
+            )
+        })?;
+        tracing::info!(
+            component = "embedding_client",
+            model = %model,
+            dimension = dim,
+            latency_ms = start.elapsed().as_millis(),
+            "embedding.dimension_detected"
+        );
+        Ok(dim)
+    }
+
     /// Quick health check — pings the RouterAI API base URL.
     ///
     /// Single attempt (no retry), 10-second timeout.

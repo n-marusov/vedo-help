@@ -32,6 +32,9 @@ pub struct RagSettings {
     pub llm_rerank_model: String,
     /// Embedding model for vector search (e.g. sentence-transformers/all-minilm-l6-v2)
     pub embedding_model: String,
+    /// Auto-detected embedding vector dimension.
+    /// `None` = not yet detected (backward-compat with settings that predate this feature).
+    pub embedding_dimension: Option<usize>,
     pub llm_max_history_messages: usize,
     pub llm_context_token_budget: usize,
 }
@@ -53,6 +56,7 @@ impl Default for RagSettings {
             llm_model: "anthropic/claude-sonnet-4.6".to_string(),
             llm_rerank_model: "anthropic/claude-sonnet-4.6".to_string(),
             embedding_model: "sentence-transformers/all-minilm-l6-v2".to_string(),
+            embedding_dimension: None,
             llm_max_history_messages: 20,
             llm_context_token_budget: 6000,
         }
@@ -164,6 +168,12 @@ impl RagSettings {
             "embedding_model".to_string(),
             Value::String(self.embedding_model.clone()),
         );
+        if let Some(dim) = self.embedding_dimension {
+            map.insert(
+                "embedding_dimension".to_string(),
+                Value::Number(serde_json::Number::from(dim as u64)),
+            );
+        }
         map.insert(
             "llm_max_history_messages".to_string(),
             Value::Number(serde_json::Number::from(
@@ -240,6 +250,10 @@ impl RagSettings {
                 .get("embedding_model")
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or(current.embedding_model.clone()),
+            embedding_dimension: map
+                .get("embedding_dimension")
+                .and_then(|v| v.as_u64().map(|n| n as usize))
+                .or(current.embedding_dimension),
             llm_max_history_messages: map
                 .get("llm_max_history_messages")
                 .and_then(|v| v.as_u64().map(|n| n as usize))
@@ -597,8 +611,93 @@ mod tests {
         assert_eq!(s.llm_model, "anthropic/claude-sonnet-4.6");
         assert_eq!(s.llm_rerank_model, "anthropic/claude-sonnet-4.6");
         assert_eq!(s.embedding_model, "sentence-transformers/all-minilm-l6-v2");
+        assert_eq!(
+            s.embedding_dimension, None,
+            "embedding_dimension should be None by default (backward compat)"
+        );
         assert_eq!(s.llm_max_history_messages, 20);
         assert_eq!(s.llm_context_token_budget, 6000);
+    }
+
+    #[test]
+    fn test_embedding_dimension_roundtrip() {
+        // Regression: when embedding_dimension is set, to_map must include it
+        // and from_map must restore it.
+        let mut settings = RagSettings::default();
+        settings.embedding_dimension = Some(1536);
+
+        let map = settings.to_map();
+        assert!(
+            map.contains_key("embedding_dimension"),
+            "to_map must include embedding_dimension when Some"
+        );
+        assert_eq!(
+            map.get("embedding_dimension").and_then(|v| v.as_u64()),
+            Some(1536),
+            "embedding_dimension value must be 1536"
+        );
+
+        let restored = RagSettings::from_map(&map, &settings).unwrap();
+        assert_eq!(
+            restored.embedding_dimension,
+            Some(1536),
+            "from_map must restore embedding_dimension"
+        );
+    }
+
+    #[test]
+    fn test_embedding_dimension_excluded_when_none() {
+        // Regression: when embedding_dimension is None, to_map must NOT include it
+        // so existing admin panels don't see an unexpected null field.
+        let settings = RagSettings::default();
+        assert_eq!(
+            settings.embedding_dimension, None,
+            "precondition: default is None"
+        );
+
+        let map = settings.to_map();
+        assert!(
+            !map.contains_key("embedding_dimension"),
+            "to_map must omit embedding_dimension when None"
+        );
+    }
+
+    #[test]
+    fn test_embedding_dimension_fallback_on_missing_key() {
+        // Regression: from_map must fall back to current value when the key
+        // is not present in the incoming map.
+        let current = RagSettings {
+            embedding_dimension: Some(768),
+            ..RagSettings::default()
+        };
+
+        let empty = HashMap::new();
+        let restored = RagSettings::from_map(&empty, &current).unwrap();
+        assert_eq!(
+            restored.embedding_dimension,
+            Some(768),
+            "must fall back to current.embedding_dimension when key is missing"
+        );
+    }
+
+    #[test]
+    fn test_embedding_dimension_override_via_from_map() {
+        // Regression: from_map must accept embedding_dimension and override
+        // the current value.
+        let current = RagSettings::default();
+        let mut map = HashMap::new();
+        map.insert("embedding_dimension".to_string(), serde_json::json!(384));
+        map.insert(
+            "embedding_model".to_string(),
+            serde_json::json!("sentence-transformers/all-minilm-l6-v2"),
+        );
+
+        let restored = RagSettings::from_map(&map, &current).unwrap();
+        assert_eq!(
+            restored.embedding_dimension,
+            Some(384),
+            "from_map must override embedding_dimension when key is present"
+        );
     }
 
     #[test]
