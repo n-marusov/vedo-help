@@ -96,7 +96,7 @@ impl QueryService {
         tracing::debug!(component = "query/service", "query.embed.start");
         let embeddings = self
             .embedding_client
-            .embed(vec![request.query.clone()])
+            .embed(&self.config.embedding_model, vec![request.query.clone()])
             .await
             .map_err(|e| {
                 tracing::error!(component = "query/service", error = %e, "query.embed.failed");
@@ -156,6 +156,7 @@ impl QueryService {
                 &request.query,
                 None,
                 eff_rerank_top_k,
+                &self.config.embedding_model,
             )
             .await
             .map_err(|e| {
@@ -255,6 +256,7 @@ impl QueryService {
                     &hyde_doc,
                     None,
                     eff_hybrid_top_k,
+                    &self.config.embedding_model,
                 )
                 .await
                 .unwrap_or_default();

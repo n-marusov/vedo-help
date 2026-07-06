@@ -186,6 +186,7 @@ impl CollectionService {
                     query,
                     source,
                     top_k,
+                    crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
                 )
                 .await
             }

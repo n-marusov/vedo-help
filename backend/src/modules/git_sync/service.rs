@@ -796,7 +796,10 @@ impl GitSyncService {
             // Embed
             let embeddings = self
                 .embedding_client
-                .embed(chunk_texts.clone())
+                .embed(
+                    crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
+                    chunk_texts.clone(),
+                )
                 .await
                 .map_err(|e| {
                     tracing::error!(

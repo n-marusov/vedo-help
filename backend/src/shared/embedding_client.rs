@@ -11,11 +11,17 @@ use serde_json::json;
 use crate::config::AppConfig;
 use crate::shared::error::AppError;
 
+/// Default embedding model used when no admin-panel override is configured.
+pub const DEFAULT_EMBEDDING_MODEL: &str = "sentence-transformers/all-minilm-l6-v2";
+
 /// HTTP client for RouterAI embeddings API.
 ///
 /// Calls `POST {base_url}/embeddings` with OpenAI-compatible format and returns
 /// the embedding vectors with retry on 5xx / rate-limit errors.
 /// 401/402 errors (auth / insufficient balance) are NOT retried.
+///
+/// The embedding model is specified per-call via `embed(model, texts)`
+/// so it can be overridden at runtime from admin panel settings.
 ///
 /// Includes an in-memory LRU cache to avoid redundant API calls for repeated inputs.
 #[derive(Debug)]
@@ -23,7 +29,6 @@ pub struct EmbeddingClient {
     client: Client,
     api_key: String,
     base_url: String,
-    model: String,
     /// In-memory LRU cache mapping text-hash → embedding vectors
     cache: Mutex<LruCache<u64, Vec<Vec<f32>>>>,
 }
@@ -68,7 +73,6 @@ impl Clone for EmbeddingClient {
             client: self.client.clone(),
             api_key: self.api_key.clone(),
             base_url: self.base_url.clone(),
-            model: self.model.clone(),
             cache: Mutex::new(cache),
         }
     }
@@ -99,7 +103,6 @@ impl EmbeddingClient {
             client,
             api_key: String::new(),
             base_url: base_url.trim_end_matches('/').to_string(),
-            model: "sentence-transformers/all-minilm-l6-v2".to_string(),
             cache: Mutex::new(LruCache::new(cache_size)),
         }
     }
@@ -114,7 +117,6 @@ impl EmbeddingClient {
 
         tracing::debug!(
             component = "embedding_client",
-            model = %config.embedding_model,
             url = %config.embedding_base_url,
             cache_size = cache_size.get(),
             "embedding_client.from_config"
@@ -124,22 +126,25 @@ impl EmbeddingClient {
             client,
             api_key: config.embedding_api_key.clone(),
             base_url: config.embedding_base_url.trim_end_matches('/').to_string(),
-            model: config.embedding_model.clone(),
             cache: Mutex::new(LruCache::new(cache_size)),
         }
     }
 
-    /// Embed one or more text strings, returning a vector of embedding vectors.
+    /// Embed one or more text strings using the given model, returning a vector of embedding vectors.
     ///
-    /// Uses an in-memory LRU cache to avoid redundant API calls.
+    /// The `model` parameter specifies which embedding model to use (e.g.
+    /// `"sentence-transformers/all-minilm-l6-v2"`). This allows the caller
+    /// to override the model at runtime based on admin panel settings.
+    ///
+    /// Uses an in-memory LRU cache to avoid redundant API calls for repeated inputs.
     /// Retries on 5xx / 429 responses and connection errors up to `MAX_RETRIES` times.
     /// 401/402 errors are NOT retried (auth / balance).
-    pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>, AppError> {
+    pub async fn embed(&self, model: &str, texts: Vec<String>) -> Result<Vec<Vec<f32>>, AppError> {
         tracing::debug!(
             component = "embedding_client",
             text_count = texts.len(),
             total_chars = texts.iter().map(|t| t.len()).sum::<usize>(),
-            model = %self.model,
+            model = %model,
             "embed.request"
         );
 
@@ -173,9 +178,8 @@ impl EmbeddingClient {
             );
         }
 
-        // Build OpenAI-compatible request
         let body = json!({
-            "model": self.model,
+            "model": model,
             "input": &texts,
         });
         let url = format!("{}/embeddings", self.base_url);
@@ -371,7 +375,6 @@ mod tests {
     fn test_embedding_client_from_config() {
         let config = AppConfig::from_env();
         let client = EmbeddingClient::from_config(&config);
-        assert_eq!(client.model, config.embedding_model);
         assert_eq!(client.base_url, config.embedding_base_url);
         assert_eq!(client.api_key, config.embedding_api_key);
     }
@@ -408,7 +411,7 @@ mod tests {
         let client = EmbeddingClient::from_config(&config);
 
         // This should succeed quickly without any API call (empty check)
-        let result = client.embed(Vec::new()).await;
+        let result = client.embed("test-model", Vec::new()).await;
         assert!(result.is_ok());
         let embeddings = result.unwrap();
         assert!(

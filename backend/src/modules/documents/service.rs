@@ -813,7 +813,12 @@ impl DocumentService {
                 let collection_name = collection_id.to_string();
 
                 let index_result = async {
-                    let embeddings = embed.embed(chroma_texts).await?;
+                    let embeddings = embed
+                        .embed(
+                            crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
+                            chroma_texts,
+                        )
+                        .await?;
                     chroma
                         .add_embeddings(
                             &collection_name,
@@ -894,7 +899,12 @@ impl DocumentService {
             collection_name = %collection_name,
             "chunks.index.embedding_start"
         );
-        let embeddings = embed.embed(chunk_texts).await?;
+        let embeddings = embed
+            .embed(
+                crate::shared::embedding_client::DEFAULT_EMBEDDING_MODEL,
+                chunk_texts,
+            )
+            .await?;
 
         let ids: Vec<String> = chunks.iter().map(|c| c.id.to_string()).collect();
         let metadatas: Vec<serde_json::Value> = chunks

@@ -125,6 +125,7 @@ pub async fn search_chunks_semantic(
     query: &str,
     source: Option<&str>,
     top_k: usize,
+    model: &str,
 ) -> Result<Vec<ChunkSearchResult>, AppError> {
     tracing::debug!(
         component = "chunk_search",
@@ -137,7 +138,7 @@ pub async fn search_chunks_semantic(
 
     // 1. Embed the query
     let embeddings = embedding_client
-        .embed(vec![query.to_string()])
+        .embed(model, vec![query.to_string()])
         .await
         .map_err(|e| {
             tracing::error!(

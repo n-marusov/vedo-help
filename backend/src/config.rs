@@ -12,8 +12,6 @@ pub struct AppConfig {
     pub embedding_api_key: String,
     /// RouterAI embedding API base URL (defaults to llm_base_url)
     pub embedding_base_url: String,
-    /// RouterAI embedding model name (e.g. sentence-transformers/all-minilm-l6-v2)
-    pub embedding_model: String,
     /// Max entries in local embedding LRU cache
     pub embedding_cache_size: usize,
     pub host: String,
@@ -54,6 +52,8 @@ pub struct AppConfig {
     pub multi_query_count: usize,
     /// LLM model for reranking
     pub llm_rerank_model: String,
+    /// Embedding model for vector search
+    pub embedding_model: String,
 }
 
 impl AppConfig {
@@ -133,12 +133,12 @@ impl AppConfig {
                 .unwrap_or_else(|_| llm_api_key.clone()),
             embedding_base_url: env::var("EMBEDDING_BASE_URL")
                 .unwrap_or_else(|_| llm_base_url.clone()),
-            embedding_model: env::var("EMBEDDING_MODEL")
-                .unwrap_or_else(|_| "sentence-transformers/all-minilm-l6-v2".to_string()),
             embedding_cache_size: env::var("EMBEDDING_CACHE_SIZE")
                 .unwrap_or_else(|_| "1000".to_string())
                 .parse()
                 .expect("EMBEDDING_CACHE_SIZE must be a valid number"),
+            embedding_model: env::var("EMBEDDING_MODEL")
+                .unwrap_or_else(|_| "sentence-transformers/all-minilm-l6-v2".to_string()),
         }
     }
 }
@@ -159,13 +159,9 @@ mod tests {
     #[test]
     fn test_embedding_config_defaults() {
         let config = AppConfig::from_env();
-        // Embedding config should default to LLM values and standard model
+        // Embedding config should default to LLM values
         assert_eq!(config.embedding_api_key, config.llm_api_key);
         assert_eq!(config.embedding_base_url, config.llm_base_url);
-        assert!(
-            config.embedding_model.contains("sentence-transformers"),
-            "Embedding model should default to sentence-transformers model"
-        );
         assert_eq!(config.embedding_cache_size, 1000);
     }
 
