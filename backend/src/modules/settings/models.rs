@@ -269,3 +269,153 @@ impl SettingRow {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_settings() {
+        let s = RagSettings::default();
+        assert!(s.advanced_rag_enabled);
+        assert_eq!(s.chunk_method, ChunkMethod::Paragraph);
+        assert_eq!(s.chunk_size, 1000);
+        assert_eq!(s.chunk_overlap, 200);
+        assert_eq!(s.hybrid_top_k, 20);
+        assert_eq!(s.rerank_top_k, 5);
+        assert_eq!(s.multi_query_count, 3);
+        assert_eq!(s.llm_model, "anthropic/claude-sonnet-4.6");
+        assert_eq!(s.llm_rerank_model, "anthropic/claude-sonnet-4.6");
+        assert_eq!(s.embedding_model, "sentence-transformers/all-minilm-l6-v2");
+        assert_eq!(s.llm_max_history_messages, 20);
+        assert_eq!(s.llm_context_token_budget, 6000);
+    }
+
+    #[test]
+    fn test_to_map_contains_all_keys() {
+        let s = RagSettings::default();
+        let map = s.to_map();
+        assert_eq!(map.len(), 16);
+        assert!(map.contains_key("advanced_rag_enabled"));
+        assert!(map.contains_key("llm_model"));
+        assert!(map.contains_key("embedding_model"));
+        assert!(map.contains_key("llm_rerank_model"));
+        assert!(map.contains_key("chunk_size"));
+        assert!(map.contains_key("chunk_overlap"));
+        assert!(map.contains_key("chunk_method"));
+        assert_eq!(map.get("llm_model").unwrap(), "anthropic/claude-sonnet-4.6");
+        assert_eq!(
+            map.get("embedding_model").unwrap(),
+            "sentence-transformers/all-minilm-l6-v2"
+        );
+    }
+
+    #[test]
+    fn test_from_map_roundtrip() {
+        let original = RagSettings::default();
+        let map = original.to_map();
+        let restored = RagSettings::from_map(&map, &original).unwrap();
+        assert_eq!(restored.advanced_rag_enabled, original.advanced_rag_enabled);
+        assert_eq!(restored.chunk_method, original.chunk_method);
+        assert_eq!(restored.chunk_size, original.chunk_size);
+        assert_eq!(restored.llm_model, original.llm_model);
+        assert_eq!(restored.embedding_model, original.embedding_model);
+        assert_eq!(restored.llm_rerank_model, original.llm_rerank_model);
+        assert_eq!(
+            restored.llm_max_history_messages,
+            original.llm_max_history_messages
+        );
+    }
+
+    #[test]
+    fn test_from_map_falls_back_for_missing_keys() {
+        let current = RagSettings::default();
+        let empty = HashMap::new();
+        let restored = RagSettings::from_map(&empty, &current).unwrap();
+        // All values should fall back to current
+        assert_eq!(restored.llm_model, current.llm_model);
+        assert_eq!(restored.embedding_model, current.embedding_model);
+        assert_eq!(restored.chunk_size, current.chunk_size);
+        assert!(restored.advanced_rag_enabled);
+    }
+
+    #[test]
+    fn test_from_map_overrides_specific_keys() {
+        let current = RagSettings::default();
+        let mut map = HashMap::new();
+        map.insert(
+            "llm_model".to_string(),
+            Value::String("custom-model".to_string()),
+        );
+        map.insert(
+            "chunk_size".to_string(),
+            Value::Number(serde_json::Number::from(500u64)),
+        );
+        let restored = RagSettings::from_map(&map, &current).unwrap();
+        assert_eq!(restored.llm_model, "custom-model");
+        assert_eq!(restored.chunk_size, 500);
+        // Unchanged values stay at current
+        assert_eq!(restored.embedding_model, current.embedding_model);
+        assert_eq!(restored.chunk_method, current.chunk_method);
+    }
+
+    #[test]
+    fn test_from_map_rejects_invalid_chunk_method() {
+        let current = RagSettings::default();
+        let mut map = HashMap::new();
+        map.insert(
+            "chunk_method".to_string(),
+            Value::String("invalid".to_string()),
+        );
+        let result = RagSettings::from_map(&map, &current);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unknown chunk method"));
+    }
+
+    #[test]
+    fn test_with_env_overrides() {
+        let defaults = RagSettings::default();
+        let mut env = crate::config::AppConfig::from_env();
+        env.llm_model = "env-llm".to_string();
+        env.embedding_model = "env-embed".to_string();
+
+        let overridden = defaults.with_env_overrides(&env);
+        assert_eq!(overridden.llm_model, "env-llm");
+        assert_eq!(overridden.embedding_model, "env-embed");
+        // Non-overridden defaults preserved
+        assert_eq!(overridden.chunk_method, ChunkMethod::Paragraph);
+        assert_eq!(overridden.chunk_size, 1000);
+    }
+
+    #[test]
+    fn test_chunk_method_display() {
+        assert_eq!(ChunkMethod::Paragraph.to_string(), "paragraph");
+        assert_eq!(ChunkMethod::Fixed.to_string(), "fixed");
+    }
+
+    #[test]
+    fn test_chunk_method_from_str() {
+        assert_eq!(
+            "paragraph".parse::<ChunkMethod>().unwrap(),
+            ChunkMethod::Paragraph
+        );
+        assert_eq!("fixed".parse::<ChunkMethod>().unwrap(), ChunkMethod::Fixed);
+        assert_eq!(
+            "PARAGRAPH".parse::<ChunkMethod>().unwrap(),
+            ChunkMethod::Paragraph
+        );
+        assert!("invalid".parse::<ChunkMethod>().is_err());
+    }
+
+    #[test]
+    fn test_setting_row_into_entry() {
+        let row = SettingRow {
+            key: "test_key".to_string(),
+            value: Value::String("test_val".to_string()),
+            updated_at: chrono::Utc::now(),
+        };
+        let entry: SettingEntry = row.into_entry();
+        assert_eq!(entry.key, "test_key");
+        assert_eq!(entry.value, "test_val");
+    }
+}

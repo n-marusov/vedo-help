@@ -27,26 +27,66 @@ interface SettingsForm {
   llm_context_token_budget: number;
 }
 
-// ── LLM Models (Inference / Chat) ──
+// ── LLM Models (Output / Inference) ──
+// Real models available via RouterAI gateway (https://routerai.ru)
 const LLM_MODELS = [
-  { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' },
-  { value: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6' },
-  { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4' },
-  { value: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8' },
-  { value: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku 4.5 (fast)' },
-  { value: 'openai/gpt-5.5', label: 'GPT 5.5' },
-  { value: 'openai/gpt-5.4', label: 'GPT 5.4' },
+  // ── Anthropic Claude (Premium Frontier) ──
+  { value: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5 — Frontier' },
+  {
+    value: 'anthropic/claude-sonnet-4.6',
+    label: 'Claude Sonnet 4.6 — Frontier',
+  },
+  {
+    value: 'anthropic/claude-sonnet-4.5',
+    label: 'Claude Sonnet 4.5 — Frontier',
+  },
+  { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4 — Frontier' },
+  { value: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8 — Premium' },
+  { value: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6 — Premium' },
+  { value: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku 4.5 — Fast' },
+  { value: 'anthropic/claude-3-haiku', label: 'Claude 3 Haiku — Legacy' },
+
+  // ── OpenAI GPT (Premium Frontier) ──
+  { value: 'openai/gpt-5.5', label: 'GPT 5.5 — Frontier' },
+  { value: 'openai/gpt-5.4', label: 'GPT 5.4 — Frontier' },
+  { value: 'openai/gpt-5.4-mini', label: 'GPT 5.4 Mini — Balanced' },
+  { value: 'openai/gpt-5.4-nano', label: 'GPT 5.4 Nano — Fast' },
+  { value: 'openai/gpt-5.3-codex', label: 'GPT 5.3 Codex — Coding' },
   { value: 'openai/gpt-5.2-chat', label: 'GPT 5.2 Chat' },
-  { value: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
-  { value: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash (fast)' },
-  { value: 'qwen/qwen3.5-flash', label: 'Qwen 3.5 Flash (budget)' },
-  { value: 'qwen/qwen3-coder-plus', label: 'Qwen 3 Coder Plus' },
+  { value: 'openai/gpt-5-nano', label: 'GPT 5 Nano — Ultra-cheap' },
+  { value: 'openai/o3-mini', label: 'O3 Mini — Reasoning' },
+
+  // ── Google Gemini (Premium Frontier) ──
+  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro — Top' },
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash — Fast' },
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
-  { value: 'mistralai/mistral-large-3', label: 'Mistral Large 3' },
-  { value: 'meta-llama/llama-4-maverick', label: 'Llama 4 Maverick' },
+
+  // ── DeepSeek (Premium Frontier) ──
+  { value: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+  { value: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+
+  // ── Best Value (Balanced Price/Performance) ──
+  { value: 'qwen/qwen3-coder-plus', label: 'Qwen 3 Coder Plus' },
+  { value: 'qwen/qwen3-plus', label: 'Qwen 3 Plus — Balanced' },
+  { value: 'qwen/qwen3.5-flash', label: 'Qwen 3.5 Flash — Budget' },
+  {
+    value: 'mistralai/mistral-large-3-2512',
+    label: 'Mistral Large 3 — Apache 2.0',
+  },
+  { value: 'mistralai/mistral-small-4', label: 'Mistral Small 4' },
+  { value: 'meta-llama/llama-4-maverick', label: 'Llama 4 Maverick — 1M ctx' },
+  { value: 'meta-llama/llama-4-scout', label: 'Llama 4 Scout — 10M ctx' },
+  { value: 'nvidia/nemotron-3-super', label: 'Nemotron 3 Super — 1M ctx' },
+  { value: 'cohere/command-r-08-2024', label: 'Command R — RAG & Tools' },
+
+  // ── Budget / Open Models ──
+  { value: 'qwen/qwen3-32b', label: 'Qwen 3 32B — Budget' },
+  { value: 'google/gemma-3-27b-it', label: 'Gemma 3 27B — Open' },
+  { value: 'qwen/qwen3-8b', label: 'Qwen 3 8B — Budget' },
 ];
 
 // ── Embedding Models ──
+// Real embedding models available via RouterAI gateway (https://routerai.ru)
 const EMBEDDING_MODELS = [
   {
     value: 'sentence-transformers/all-minilm-l6-v2',
@@ -64,6 +104,14 @@ const EMBEDDING_MODELS = [
     value: 'openai/text-embedding-3-large',
     label: 'Text Embedding 3 Large (256-3072d)',
   },
+  {
+    value: 'google/gemini-embedding-001',
+    label: 'Gemini Embedding 001 (768d)',
+  },
+  {
+    value: 'google/gemini-embedding-2',
+    label: 'Gemini Embedding 2 (128-3072d, multimodal)',
+  },
   { value: 'qwen/qwen3-embedding-8b', label: 'Qwen3 Embedding 8B (32K ctx)' },
   { value: 'qwen/qwen3-embedding-4b', label: 'Qwen3 Embedding 4B (33K ctx)' },
   { value: 'baai/bge-m3', label: 'BGE M3 (1024d, multilingual)' },
@@ -77,8 +125,18 @@ const EMBEDDING_MODELS = [
   },
   { value: 'mistralai/mistral-embed-2312', label: 'Mistral Embed (1024d)' },
   {
-    value: 'google/gemini-embedding-001',
-    label: 'Gemini Embedding 001 (768d)',
+    value: 'mistralai/codestral-embed-2505',
+    label: 'Codestral Embed (1024d, code)',
+  },
+  { value: 'thenlper/gte-base', label: 'GTE Base (768d, efficient)' },
+  { value: 'thenlper/gte-large', label: 'GTE Large (1024d, high quality)' },
+  {
+    value: 'perplexity/pplx-embed-v1-4b',
+    label: 'Perplexity Embed v1 4B (variable dims, 32K ctx)',
+  },
+  {
+    value: 'perplexity/pplx-embed-v1-0.6b',
+    label: 'Perplexity Embed v1 0.6B (ultra-cheap)',
   },
 ];
 
@@ -488,14 +546,14 @@ onMounted(() => {
 
       <!-- Model Settings -->
       <section class="settings-section">
-        <h3 class="section-title">Models</h3>
+        <h3 class="section-title">Models (Output / Embeddings)</h3>
 
         <div class="setting-row">
           <div class="setting-info">
-            <label class="setting-label">LLM Model</label>
+            <label class="setting-label">LLM Model (Output)</label>
             <p class="setting-description">
-              Main inference model for chat responses. Select from available
-              RouterAI models.
+              Main output model for generating chat completions. Select from
+              available RouterAI inference models.
             </p>
           </div>
           <div class="setting-control">
@@ -534,9 +592,9 @@ onMounted(() => {
 
         <div class="setting-row">
           <div class="setting-info">
-            <label class="setting-label">Rerank Model</label>
+            <label class="setting-label">Rerank Model (LLM)</label>
             <p class="setting-description">
-              LLM model used for reranking retrieved chunks.
+              LLM model used for reranking retrieved chunks. Free-form input.
             </p>
           </div>
           <div class="setting-control">

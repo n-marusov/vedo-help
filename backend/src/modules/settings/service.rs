@@ -222,3 +222,89 @@ fn validate_setting_value(key: &str, value: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_validate_boolean_keys() {
+        assert!(validate_setting_value("advanced_rag_enabled", &json!(true)).is_ok());
+        assert!(validate_setting_value("multi_query_enabled", &json!(false)).is_ok());
+        assert!(validate_setting_value("hyde_enabled", &json!(true)).is_ok());
+        assert!(validate_setting_value("bm25_enabled", &json!(false)).is_ok());
+        assert!(validate_setting_value("reranking_enabled", &json!(true)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_boolean_keys_wrong_type() {
+        assert!(validate_setting_value("advanced_rag_enabled", &json!("true")).is_err());
+        assert!(validate_setting_value("multi_query_enabled", &json!(42)).is_err());
+        assert!(validate_setting_value("hyde_enabled", &json!({})).is_err());
+    }
+
+    #[test]
+    fn test_validate_chunk_method() {
+        assert!(validate_setting_value("chunk_method", &json!("paragraph")).is_ok());
+        assert!(validate_setting_value("chunk_method", &json!("fixed")).is_ok());
+        assert!(validate_setting_value("chunk_method", &json!("invalid")).is_err());
+        assert!(validate_setting_value("chunk_method", &json!(42)).is_err());
+    }
+
+    #[test]
+    fn test_validate_number_keys() {
+        assert!(validate_setting_value("chunk_size", &json!(500)).is_ok());
+        assert!(validate_setting_value("chunk_overlap", &json!(50)).is_ok());
+        assert!(validate_setting_value("hybrid_top_k", &json!(10)).is_ok());
+        assert!(validate_setting_value("rerank_top_k", &json!(3)).is_ok());
+        assert!(validate_setting_value("multi_query_count", &json!(2)).is_ok());
+        assert!(validate_setting_value("llm_max_history_messages", &json!(10)).is_ok());
+        assert!(validate_setting_value("llm_context_token_budget", &json!(8000)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_number_keys_wrong_type() {
+        assert!(validate_setting_value("chunk_size", &json!("500")).is_err());
+        assert!(validate_setting_value("hybrid_top_k", &json!(true)).is_err());
+        assert!(validate_setting_value("llm_context_token_budget", &json!({})).is_err());
+    }
+
+    #[test]
+    fn test_validate_number_keys_too_large() {
+        let err = validate_setting_value("chunk_size", &json!(2_000_000)).unwrap_err();
+        assert!(err.contains("value too large"));
+    }
+
+    #[test]
+    fn test_validate_model_string_keys() {
+        assert!(validate_setting_value("llm_model", &json!("anthropic/claude-sonnet-4.6")).is_ok());
+        assert!(validate_setting_value("llm_rerank_model", &json!("gpt-4")).is_ok());
+        assert!(validate_setting_value(
+            "embedding_model",
+            &json!("sentence-transformers/all-minilm-l6-v2")
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_validate_model_string_keys_wrong_type() {
+        assert!(validate_setting_value("llm_model", &json!(42)).is_err());
+        assert!(validate_setting_value("embedding_model", &json!(true)).is_err());
+        assert!(validate_setting_value("llm_rerank_model", &json!([])).is_err());
+    }
+
+    #[test]
+    fn test_validate_model_string_keys_empty() {
+        let err = validate_setting_value("llm_model", &json!("")).unwrap_err();
+        assert!(err.contains("must not be empty"));
+        let err = validate_setting_value("embedding_model", &json!("")).unwrap_err();
+        assert!(err.contains("must not be empty"));
+    }
+
+    #[test]
+    fn test_validate_unknown_key() {
+        let err = validate_setting_value("nonexistent", &json!(true)).unwrap_err();
+        assert!(err.contains("unknown setting key"));
+    }
+}
