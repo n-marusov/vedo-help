@@ -3,9 +3,18 @@ use std::collections::HashMap;
 use axum::{extract::State, Json};
 use serde_json::Value;
 
-use crate::modules::settings::models::SettingsResponse;
+use crate::modules::settings::models::{ModelsResponse, SettingsResponse};
 use crate::modules::settings::service::SettingsService;
 use crate::shared::error::AppError;
+
+/// GET /api/admin/models — returns the available LLM, embedding, and rerank model lists.
+///
+/// The backend is the single source of truth for model definitions.
+/// Requires admin role (enforced by RBAC middleware on the admin sub-router).
+pub async fn get_models() -> Json<ModelsResponse> {
+    tracing::info!(component = "admin/settings", "admin.models.get");
+    Json(ModelsResponse::all())
+}
 
 /// GET /api/admin/settings — returns all RAG settings as a flat JSON map.
 ///

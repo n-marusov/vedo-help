@@ -376,6 +376,7 @@ async fn main() {
             "/api/admin/sessions",
             get(conversations_handlers::admin_list_sessions),
         )
+        .route("/api/admin/models", get(settings_handlers::get_models))
         .route("/api/admin/settings", get(settings_handlers::get_settings))
         .route(
             "/api/admin/settings",

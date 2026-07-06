@@ -252,6 +252,316 @@ impl RagSettings {
     }
 }
 
+// ── Model lists (single source of truth) ──
+
+/// A single model option returned by the /api/admin/models endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelOption {
+    pub value: String,
+    pub label: String,
+}
+
+/// Response type for GET /api/admin/models.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelsResponse {
+    pub llm_models: Vec<ModelOption>,
+    pub embedding_models: Vec<ModelOption>,
+    pub rerank_models: Vec<ModelOption>,
+}
+
+impl ModelsResponse {
+    pub fn all() -> Self {
+        Self {
+            llm_models: llm_models(),
+            embedding_models: embedding_models(),
+            rerank_models: rerank_models(),
+        }
+    }
+}
+
+fn llm_models() -> Vec<ModelOption> {
+    vec![
+        // ── Anthropic Claude (Premium Frontier) ──
+        ModelOption {
+            value: "anthropic/claude-sonnet-5".into(),
+            label: "Claude Sonnet 5 — Frontier".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-sonnet-4.6".into(),
+            label: "Claude Sonnet 4.6 — Frontier".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-sonnet-4.5".into(),
+            label: "Claude Sonnet 4.5 — Frontier".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-sonnet-4".into(),
+            label: "Claude Sonnet 4 — Frontier".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-opus-4.8".into(),
+            label: "Claude Opus 4.8 — Premium".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-opus-4.6".into(),
+            label: "Claude Opus 4.6 — Premium".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-haiku-4.5".into(),
+            label: "Claude Haiku 4.5 — Fast".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-3-haiku".into(),
+            label: "Claude 3 Haiku — Legacy".into(),
+        },
+        // ── OpenAI GPT (Premium Frontier) ──
+        ModelOption {
+            value: "openai/gpt-5.5".into(),
+            label: "GPT 5.5 — Frontier".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.4".into(),
+            label: "GPT 5.4 — Frontier".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.4-mini".into(),
+            label: "GPT 5.4 Mini — Balanced".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.4-nano".into(),
+            label: "GPT 5.4 Nano — Fast".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.3-codex".into(),
+            label: "GPT 5.3 Codex — Coding".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.2-chat".into(),
+            label: "GPT 5.2 Chat".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5-nano".into(),
+            label: "GPT 5 Nano — Ultra-cheap".into(),
+        },
+        ModelOption {
+            value: "openai/o3-mini".into(),
+            label: "O3 Mini — Reasoning".into(),
+        },
+        // ── Google Gemini (Premium Frontier) ──
+        ModelOption {
+            value: "google/gemini-2.5-pro".into(),
+            label: "Gemini 2.5 Pro — Top".into(),
+        },
+        ModelOption {
+            value: "google/gemini-2.5-flash".into(),
+            label: "Gemini 2.5 Flash — Fast".into(),
+        },
+        ModelOption {
+            value: "google/gemini-3-flash-preview".into(),
+            label: "Gemini 3 Flash Preview".into(),
+        },
+        // ── DeepSeek (Premium Frontier) ──
+        ModelOption {
+            value: "deepseek/deepseek-v4-pro".into(),
+            label: "DeepSeek V4 Pro".into(),
+        },
+        ModelOption {
+            value: "deepseek/deepseek-v4-flash".into(),
+            label: "DeepSeek V4 Flash".into(),
+        },
+        // ── Best Value (Balanced Price/Performance) ──
+        ModelOption {
+            value: "qwen/qwen3-coder-plus".into(),
+            label: "Qwen 3 Coder Plus".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3-plus".into(),
+            label: "Qwen 3 Plus — Balanced".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3.5-flash".into(),
+            label: "Qwen 3.5 Flash — Budget".into(),
+        },
+        ModelOption {
+            value: "mistralai/mistral-large-3-2512".into(),
+            label: "Mistral Large 3 — Apache 2.0".into(),
+        },
+        ModelOption {
+            value: "mistralai/mistral-small-4".into(),
+            label: "Mistral Small 4".into(),
+        },
+        ModelOption {
+            value: "meta-llama/llama-4-maverick".into(),
+            label: "Llama 4 Maverick — 1M ctx".into(),
+        },
+        ModelOption {
+            value: "meta-llama/llama-4-scout".into(),
+            label: "Llama 4 Scout — 10M ctx".into(),
+        },
+        ModelOption {
+            value: "nvidia/nemotron-3-super".into(),
+            label: "Nemotron 3 Super — 1M ctx".into(),
+        },
+        ModelOption {
+            value: "cohere/command-r-08-2024".into(),
+            label: "Command R — RAG & Tools".into(),
+        },
+        // ── Budget / Open Models ──
+        ModelOption {
+            value: "qwen/qwen3-32b".into(),
+            label: "Qwen 3 32B — Budget".into(),
+        },
+        ModelOption {
+            value: "google/gemma-3-27b-it".into(),
+            label: "Gemma 3 27B — Open".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3-8b".into(),
+            label: "Qwen 3 8B — Budget".into(),
+        },
+    ]
+}
+
+fn embedding_models() -> Vec<ModelOption> {
+    vec![
+        ModelOption {
+            value: "sentence-transformers/all-minilm-l6-v2".into(),
+            label: "all-MiniLM-L6-v2 (384d, default)".into(),
+        },
+        ModelOption {
+            value: "sentence-transformers/all-mpnet-base-v2".into(),
+            label: "all-mpnet-base-v2 (768d)".into(),
+        },
+        ModelOption {
+            value: "openai/text-embedding-3-small".into(),
+            label: "Text Embedding 3 Small (512-1536d)".into(),
+        },
+        ModelOption {
+            value: "openai/text-embedding-3-large".into(),
+            label: "Text Embedding 3 Large (256-3072d)".into(),
+        },
+        ModelOption {
+            value: "google/gemini-embedding-001".into(),
+            label: "Gemini Embedding 001 (768d)".into(),
+        },
+        ModelOption {
+            value: "google/gemini-embedding-2".into(),
+            label: "Gemini Embedding 2 (128-3072d, multimodal)".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3-embedding-8b".into(),
+            label: "Qwen3 Embedding 8B (32K ctx)".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3-embedding-4b".into(),
+            label: "Qwen3 Embedding 4B (33K ctx)".into(),
+        },
+        ModelOption {
+            value: "baai/bge-m3".into(),
+            label: "BGE M3 (1024d, multilingual)".into(),
+        },
+        ModelOption {
+            value: "baai/bge-large-en-v1.5".into(),
+            label: "BGE Large EN v1.5 (1024d)".into(),
+        },
+        ModelOption {
+            value: "baai/bge-base-en-v1.5".into(),
+            label: "BGE Base EN v1.5 (768d)".into(),
+        },
+        ModelOption {
+            value: "intfloat/e5-large-v2".into(),
+            label: "E5 Large V2 (1024d)".into(),
+        },
+        ModelOption {
+            value: "intfloat/e5-base-v2".into(),
+            label: "E5 Base V2 (768d)".into(),
+        },
+        ModelOption {
+            value: "intfloat/multilingual-e5-large".into(),
+            label: "Multilingual E5 Large (1024d, 90+ langs)".into(),
+        },
+        ModelOption {
+            value: "mistralai/mistral-embed-2312".into(),
+            label: "Mistral Embed (1024d)".into(),
+        },
+        ModelOption {
+            value: "mistralai/codestral-embed-2505".into(),
+            label: "Codestral Embed (1024d, code)".into(),
+        },
+        ModelOption {
+            value: "thenlper/gte-base".into(),
+            label: "GTE Base (768d, efficient)".into(),
+        },
+        ModelOption {
+            value: "thenlper/gte-large".into(),
+            label: "GTE Large (1024d, high quality)".into(),
+        },
+        ModelOption {
+            value: "perplexity/pplx-embed-v1-4b".into(),
+            label: "Perplexity Embed v1 4B (variable dims, 32K ctx)".into(),
+        },
+        ModelOption {
+            value: "perplexity/pplx-embed-v1-0.6b".into(),
+            label: "Perplexity Embed v1 0.6B (ultra-cheap)".into(),
+        },
+    ]
+}
+
+fn rerank_models() -> Vec<ModelOption> {
+    vec![
+        // ── Dedicated Rerankers (best quality) ──
+        ModelOption {
+            value: "cohere/rerank-4-pro".into(),
+            label: "Cohere Rerank 4 Pro — 32K ctx, 100+ languages".into(),
+        },
+        ModelOption {
+            value: "cohere/rerank-4-fast".into(),
+            label: "Cohere Rerank 4 Fast — 32K ctx, low latency".into(),
+        },
+        ModelOption {
+            value: "cohere/rerank-v3.5".into(),
+            label: "Cohere Rerank v3.5 — 4K ctx, legacy".into(),
+        },
+        // ── LLMs for Reranking (prompt-based) ──
+        ModelOption {
+            value: "anthropic/claude-sonnet-4.6".into(),
+            label: "Claude Sonnet 4.6 — Frontier (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "anthropic/claude-sonnet-4.5".into(),
+            label: "Claude Sonnet 4.5 — Frontier (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.4-mini".into(),
+            label: "GPT 5.4 Mini — Balanced (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "openai/gpt-5.4-nano".into(),
+            label: "GPT 5.4 Nano — Fast (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "google/gemini-2.5-flash".into(),
+            label: "Gemini 2.5 Flash — Fast (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3-plus".into(),
+            label: "Qwen 3 Plus — Balanced (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3.5-flash".into(),
+            label: "Qwen 3.5 Flash — Budget (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "qwen/qwen3-32b".into(),
+            label: "Qwen 3 32B — Budget (prompt-based)".into(),
+        },
+        ModelOption {
+            value: "meta-llama/llama-4-scout".into(),
+            label: "Llama 4 Scout — 10M ctx (prompt-based)".into(),
+        },
+    ]
+}
+
 /// Internal row DTO for sqlx query_as on the settings table.
 #[derive(Debug, sqlx::FromRow)]
 pub struct SettingRow {

@@ -10,6 +10,7 @@ import type {
   GitRepoSummary,
   HealthReport,
   Message,
+  ModelsResponse,
   Session,
   SessionSearchParams,
   SessionSummary,
@@ -154,6 +155,9 @@ export const api = {
     if (params.top_k !== undefined) query.set('top_k', String(params.top_k));
     return api.get<ChunkSearchResult[]>(`/collections/${collectionId}/chunks?${query.toString()}`);
   },
+
+  // ── Models (source of truth is backend) ──
+  getModels: () => api.get<ModelsResponse>('/admin/models'),
 
   // ── Settings ──
   getSettings: () => api.get<Record<string, unknown>>('/admin/settings'),

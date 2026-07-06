@@ -4,15 +4,59 @@ import { createPinia, setActivePinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 
-const { mockGetSettings, mockUpdateSettings } = vi.hoisted(() => ({
+const { mockGetSettings, mockUpdateSettings, mockGetModels } = vi.hoisted(() => ({
   mockGetSettings: vi.fn(),
   mockUpdateSettings: vi.fn(),
+  mockGetModels: vi.fn(),
 }));
+
+const MOCK_MODELS_RESPONSE = {
+  llm_models: [
+    {
+      value: 'anthropic/claude-sonnet-4.6',
+      label: 'Claude Sonnet 4.6 — Frontier',
+    },
+    { value: 'openai/gpt-5.5', label: 'GPT 5.5 — Frontier' },
+    { value: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+    { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash — Fast' },
+  ],
+  embedding_models: [
+    {
+      value: 'sentence-transformers/all-minilm-l6-v2',
+      label: 'all-MiniLM-L6-v2 (384d, default)',
+    },
+    {
+      value: 'openai/text-embedding-3-small',
+      label: 'Text Embedding 3 Small (512-1536d)',
+    },
+    { value: 'baai/bge-m3', label: 'BGE M3 (1024d, multilingual)' },
+    { value: 'intfloat/e5-large-v2', label: 'E5 Large V2 (1024d)' },
+  ],
+  rerank_models: [
+    {
+      value: 'cohere/rerank-4-pro',
+      label: 'Cohere Rerank 4 Pro — 32K ctx, 100+ languages',
+    },
+    {
+      value: 'cohere/rerank-4-fast',
+      label: 'Cohere Rerank 4 Fast — 32K ctx, low latency',
+    },
+    {
+      value: 'anthropic/claude-sonnet-4.6',
+      label: 'Claude Sonnet 4.6 — Frontier (prompt-based)',
+    },
+    {
+      value: 'google/gemini-2.5-flash',
+      label: 'Gemini 2.5 Flash — Fast (prompt-based)',
+    },
+  ],
+};
 
 vi.mock('@/api/client', () => ({
   api: {
     getSettings: mockGetSettings,
     updateSettings: mockUpdateSettings,
+    getModels: mockGetModels,
   },
 }));
 
@@ -39,7 +83,7 @@ const DEFAULT_API_RESPONSE = {
   rerank_top_k: 5,
   multi_query_count: 3,
   llm_model: 'anthropic/claude-sonnet-4.6',
-  llm_rerank_model: 'anthropic/claude-sonnet-4.6',
+  llm_rerank_model: 'cohere/rerank-4-pro',
   embedding_model: 'sentence-transformers/all-minilm-l6-v2',
   llm_max_history_messages: 20,
   llm_context_token_budget: 6000,
@@ -50,6 +94,7 @@ describe('SettingsPanel', () => {
     vi.clearAllMocks();
     mockGetSettings.mockResolvedValue({ ...DEFAULT_API_RESPONSE });
     mockUpdateSettings.mockResolvedValue({ ...DEFAULT_API_RESPONSE });
+    mockGetModels.mockResolvedValue({ ...MOCK_MODELS_RESPONSE });
   });
 
   it('shows skeleton loader while loading', () => {
@@ -75,10 +120,12 @@ describe('SettingsPanel', () => {
     expect(wrapper.text()).toContain('Models');
     expect(wrapper.text()).toContain('LLM Model');
     expect(wrapper.text()).toContain('Embedding Model');
+    expect(wrapper.text()).toContain('Rerank Model');
 
-    // Default model values should appear
+    // Default model values should appear in VSelect trigger labels
     expect(wrapper.text()).toContain('Claude Sonnet 4.6');
     expect(wrapper.text()).toContain('all-MiniLM-L6-v2');
+    expect(wrapper.text()).toContain('Cohere Rerank 4 Pro');
   });
 
   it('shows Save button disabled when nothing changed', async () => {
@@ -112,17 +159,36 @@ describe('SettingsPanel', () => {
     expect(saveBtn.attributes('disabled')).toBeUndefined();
   });
 
+  it('enables Save button after changing Rerank model', async () => {
+    const wrapper = mountWithPinia();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      form: Record<string, unknown>;
+      changed: boolean;
+    };
+    vm.form.llm_rerank_model = 'cohere/rerank-4-fast';
+    await nextTick();
+
+    expect(vm.changed).toBe(true);
+
+    const saveBtn = wrapper.findAll('button').filter((b) => b.text().includes('Save Changes'))[0];
+    expect(saveBtn).toBeDefined();
+    expect(saveBtn.attributes('disabled')).toBeUndefined();
+  });
+
   it('saves settings and shows success toast', async () => {
     const wrapper = mountWithPinia();
     await flushPromises();
 
-    // Modify a field via component internals
+    // Modify fields via component internals
     const vm = wrapper.vm as unknown as {
       form: Record<string, unknown>;
       saveSettings: () => Promise<void>;
     };
     vm.form.llm_model = 'openai/gpt-5.5';
     vm.form.embedding_model = 'openai/text-embedding-3-small';
+    vm.form.llm_rerank_model = 'cohere/rerank-4-fast';
     await nextTick();
 
     // Call save directly
@@ -133,6 +199,7 @@ describe('SettingsPanel', () => {
       expect.objectContaining({
         llm_model: 'openai/gpt-5.5',
         embedding_model: 'openai/text-embedding-3-small',
+        llm_rerank_model: 'cohere/rerank-4-fast',
       }),
     );
 
@@ -152,6 +219,7 @@ describe('SettingsPanel', () => {
     };
     vm.form.llm_model = 'openai/gpt-5.5';
     vm.form.embedding_model = 'openai/text-embedding-3-small';
+    vm.form.llm_rerank_model = 'cohere/rerank-4-pro';
     await nextTick();
 
     await vm.saveSettings();
@@ -183,8 +251,10 @@ describe('SettingsPanel', () => {
 
     // First change something
     vm.form.llm_model = 'openai/gpt-5.5';
+    vm.form.llm_rerank_model = 'cohere/rerank-4-fast';
     await nextTick();
     expect(vm.form.llm_model).toBe('openai/gpt-5.5');
+    expect(vm.form.llm_rerank_model).toBe('cohere/rerank-4-fast');
 
     // Open reset dialog
     vm.showResetDialog = true;
@@ -201,6 +271,7 @@ describe('SettingsPanel', () => {
     // Values should be back to defaults
     expect(vm.form.llm_model).toBe('anthropic/claude-sonnet-4.6');
     expect(vm.form.embedding_model).toBe('sentence-transformers/all-minilm-l6-v2');
+    expect(vm.form.llm_rerank_model).toBe('cohere/rerank-4-pro');
     expect(vm.showResetDialog).toBe(false);
 
     // Toast about reset should show
@@ -211,19 +282,25 @@ describe('SettingsPanel', () => {
     const wrapper = mountWithPinia();
     await flushPromises();
 
-    const html = wrapper.html();
+    // VSelect trigger buttons show the currently selected label
+    expect(wrapper.text()).toContain('Claude Sonnet 4.6');
+    expect(wrapper.text()).toContain('all-MiniLM-L6-v2');
+    expect(wrapper.text()).toContain('Cohere Rerank 4 Pro');
 
-    // Both VSelect trigger buttons should show default labels
-    expect(html).toContain('Claude Sonnet 4.6');
-    expect(html).toContain('all-MiniLM-L6-v2');
-
-    // Rerank model input should exist
-    expect(html).toContain('anthropic/claude-sonnet-4.6');
-
-    // Models section should be present
+    // Models section descriptions should be present
     expect(wrapper.text()).toContain('Main output model');
     expect(wrapper.text()).toContain('Model used for generating');
-    expect(wrapper.text()).toContain('model used for reranking');
+    expect(wrapper.text()).toContain('reranking retrieved chunks');
+  });
+
+  it('has correct default rerank model value in form data', async () => {
+    const wrapper = mountWithPinia();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      form: Record<string, unknown>;
+    };
+    expect(vm.form.llm_rerank_model).toBe('cohere/rerank-4-pro');
   });
 
   it('shows Saving... text while saving', async () => {

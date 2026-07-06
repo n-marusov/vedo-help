@@ -303,6 +303,19 @@ export interface ChunkSearchResult {
   file_path: string | null;
 }
 
+// ── Model Lists (from backend /api/admin/models) ──
+
+export interface ModelOption {
+  value: string;
+  label: string;
+}
+
+export interface ModelsResponse {
+  llm_models: ModelOption[];
+  embedding_models: ModelOption[];
+  rerank_models: ModelOption[];
+}
+
 export interface ChunkSearchParams {
   q?: string;
   search_type?: 'text' | 'semantic';

@@ -44,6 +44,11 @@ test.describe('Admin Settings: Model Configuration', () => {
 
     // Embedding model default: all-MiniLM-L6-v2
     await expect(page.locator('.v-select__value', { hasText: 'all-MiniLM-L6-v2' })).toBeVisible();
+
+    // Rerank model default: Cohere Rerank 4 Pro
+    await expect(
+      page.locator('.v-select__value', { hasText: 'Cohere Rerank 4 Pro' }),
+    ).toBeVisible();
   });
 
   test('TC-SETTINGS-003: change LLM model via dropdown and save', async ({ page }) => {
@@ -122,7 +127,7 @@ test.describe('Admin Settings: Model Configuration', () => {
     expect(settings.embedding_model).toBe('baai/bge-m3');
   });
 
-  test('TC-SETTINGS-005: change both LLM and embedding models at once', async ({ page }) => {
+  test('TC-SETTINGS-005: change LLM, embedding, and rerank models at once', async ({ page }) => {
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-settings"]').click();
     await expect(page.locator('[data-testid="settings-panel"]')).toBeVisible({
@@ -141,13 +146,18 @@ test.describe('Admin Settings: Model Configuration', () => {
     await embedTrigger.click();
     await page.locator('.v-select__option', { hasText: 'E5 Large V2' }).click();
 
-    // Save both
+    // Change Rerank model to Cohere Rerank 4 Fast
+    const rerankTrigger = modelsSection.locator('.v-select__trigger').nth(2);
+    await rerankTrigger.click();
+    await page.locator('.v-select__option', { hasText: 'Cohere Rerank 4 Fast' }).click();
+
+    // Save all
     await page.locator('button', { hasText: 'Save Changes' }).click();
     await expect(page.locator('.v-toast')).toContainText('Settings saved successfully', {
       timeout: 10000,
     });
 
-    // Verify both via API
+    // Verify all via API
     const token = await getTestAccessToken();
     const settingsResp = await page.request.get(`${API_URL}/api/admin/settings`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -156,6 +166,7 @@ test.describe('Admin Settings: Model Configuration', () => {
     const settings = await settingsResp.json();
     expect(settings.llm_model).toBe('deepseek/deepseek-v4-flash');
     expect(settings.embedding_model).toBe('intfloat/e5-large-v2');
+    expect(settings.llm_rerank_model).toBe('cohere/rerank-4-fast');
   });
 
   test('TC-SETTINGS-006: all sections are visible', async ({ page }) => {
@@ -214,20 +225,28 @@ test.describe('Admin Settings: Model Configuration', () => {
     expect(typeof body.advanced_rag_enabled).toBe('boolean');
   });
 
-  test('TC-SETTINGS-008: modify rerank model via text input and save', async ({ page }) => {
+  test('TC-SETTINGS-008a: change rerank model via dropdown (dedicated reranker) and save', async ({
+    page,
+  }) => {
     await page.goto('/admin');
     await page.locator('[data-testid="admin-tab-settings"]').click();
     await expect(page.locator('[data-testid="settings-panel"]')).toBeVisible({
       timeout: 10000,
     });
 
-    // Find the Rerank Model input (it's a VInput, the 3rd field in Models section)
+    // Find the Rerank Model VSelect trigger (3rd VSelect in Models section)
     const modelsSection = page.locator('.settings-section').filter({ hasText: 'Models' });
-    const rerankInput = modelsSection.locator('input').first();
+    const rerankTrigger = modelsSection.locator('.v-select__trigger').nth(2);
 
-    // Clear and type a new value
-    await rerankInput.fill('');
-    await rerankInput.fill('anthropic/claude-sonnet-5');
+    // Open the dropdown
+    await rerankTrigger.click();
+    await expect(page.locator('[data-testid="collection-select-dropdown"]')).toBeVisible();
+
+    // Select "Cohere Rerank 4 Fast" from the dropdown
+    await page.locator('.v-select__option', { hasText: 'Cohere Rerank 4 Fast' }).click();
+
+    // Verify the trigger updated
+    await expect(rerankTrigger).toContainText('Cohere Rerank 4 Fast');
 
     // Save
     await page.locator('button', { hasText: 'Save Changes' }).click();
@@ -242,7 +261,42 @@ test.describe('Admin Settings: Model Configuration', () => {
     });
     expect(settingsResp.status()).toBe(200);
     const settings = await settingsResp.json();
-    expect(settings.llm_rerank_model).toBe('anthropic/claude-sonnet-5');
+    expect(settings.llm_rerank_model).toBe('cohere/rerank-4-fast');
+  });
+
+  test('TC-SETTINGS-008b: change rerank model via dropdown (prompt-based LLM) and save', async ({
+    page,
+  }) => {
+    await page.goto('/admin');
+    await page.locator('[data-testid="admin-tab-settings"]').click();
+    await expect(page.locator('[data-testid="settings-panel"]')).toBeVisible({
+      timeout: 10000,
+    });
+
+    const modelsSection = page.locator('.settings-section').filter({ hasText: 'Models' });
+    const rerankTrigger = modelsSection.locator('.v-select__trigger').nth(2);
+
+    // Open dropdown and select a prompt-based LLM reranker
+    await rerankTrigger.click();
+    await expect(page.locator('[data-testid="collection-select-dropdown"]')).toBeVisible();
+    await page.locator('.v-select__option', { hasText: 'Gemini 2.5 Flash' }).click();
+
+    await expect(rerankTrigger).toContainText('Gemini 2.5 Flash');
+
+    // Save
+    await page.locator('button', { hasText: 'Save Changes' }).click();
+    await expect(page.locator('.v-toast')).toContainText('Settings saved successfully', {
+      timeout: 10000,
+    });
+
+    // Verify via API
+    const token = await getTestAccessToken();
+    const settingsResp = await page.request.get(`${API_URL}/api/admin/settings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(settingsResp.status()).toBe(200);
+    const settings = await settingsResp.json();
+    expect(settings.llm_rerank_model).toBe('google/gemini-2.5-flash');
   });
 
   test('TC-SETTINGS-009: Reset to Defaults resets form values', async ({ page }) => {
@@ -252,25 +306,32 @@ test.describe('Admin Settings: Model Configuration', () => {
       timeout: 10000,
     });
 
-    // First change a model to something custom
+    // First change models to something custom
     const modelsSection = page.locator('.settings-section').filter({ hasText: 'Models' });
     const llmTrigger = modelsSection.locator('.v-select__trigger').first();
     await llmTrigger.click();
     await page.locator('.v-select__option', { hasText: 'GPT 5.5' }).click();
     await expect(llmTrigger).toContainText('GPT 5.5');
 
+    // Also change rerank model
+    const rerankTrigger = modelsSection.locator('.v-select__trigger').nth(2);
+    await rerankTrigger.click();
+    await page.locator('.v-select__option', { hasText: 'Cohere Rerank 4 Fast' }).click();
+    await expect(rerankTrigger).toContainText('Cohere Rerank 4 Fast');
+
     // Click Reset to Defaults
     await page.locator('button', { hasText: 'Reset to Defaults' }).click();
 
     // Reset dialog should appear
-    await expect(page.locator('.v-overlay__dialog')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.v-overlay__dialog')).toBeVisible({
+      timeout: 5000,
+    });
 
     // Click Reset in the dialog
     await page.locator('.v-overlay__dialog button', { hasText: 'Reset' }).click();
 
-    // The form should be reset but not yet saved — the trigger should still show old value
-    // because the form was reset in memory; Click Save to persist default
-    // Actually the form value changes back to default in memory, so VSelect shows the default
+    // The form should be reset — both LLM and rerank should go back to defaults
     await expect(llmTrigger).toContainText('Claude Sonnet 4.6');
+    await expect(rerankTrigger).toContainText('Cohere Rerank 4 Pro');
   });
 });
