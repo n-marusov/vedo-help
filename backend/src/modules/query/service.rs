@@ -1,12 +1,13 @@
 use std::convert::Infallible;
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures::stream::{self, Stream};
 use futures::StreamExt;
 use serde_json::json;
 use sqlx::PgPool;
 use std::sync::Mutex;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 use crate::modules::collections::repository::CollectionRepository;
@@ -66,14 +67,8 @@ impl QueryService {
 
     /// Process a query and return a stream of SSE events.
     ///
-    /// Steps:
-    /// 1. Embed the query via the embedding service
-    /// 2. Search Chroma for the top-5 most similar chunks
-    /// 3. Fetch full chunk data from PostgreSQL
-    /// 4. Load conversation history (if session_id is provided)
-    /// 5. Persist user message (if session_id is provided)
-    /// 6. Stream the LLM response, yielding events: "chunk", "sources", "done"
-    /// 7. Persist assistant message on done (if session_id is provided)
+    /// Emits pipeline_stage events as each RAG pipeline step completes,
+    /// then streams the LLM response as chunk/sources/done events.
     pub async fn process_query(
         &self,
         request: QueryRequest,
@@ -88,16 +83,12 @@ impl QueryService {
             "query.process.start"
         );
 
-        let pipeline_start = tokio::time::Instant::now();
-        let mut stage_events: Vec<StreamEvent> = Vec::new();
-
         // 0. Verify collection ownership
         self.collection_repo
             .get_collection_for_user(request.collection_id, user_id, is_admin)
             .await?;
 
-        // 1. Load effective RAG settings (DB overrides with env fallback) — before
-        //    embedding so the embedding_model from settings is used.
+        // 1. Load effective RAG settings
         let rag_settings = if let Some(ref svc) = self.settings_service {
             svc.get_rag_settings().await.unwrap_or_else(|_| {
                 tracing::warn!(
@@ -111,6 +102,54 @@ impl QueryService {
             crate::modules::settings::models::RagSettings::default()
                 .with_env_overrides(&self.config)
         };
+
+        // Create channel and spawn pipeline in background task.
+        // The SSE response starts immediately — stage events arrive as each
+        // pipeline step completes, giving the frontend real-time progress.
+        let (tx, rx) = mpsc::channel::<Result<StreamEvent, Infallible>>(64);
+        let svc = self.clone();
+        let owned_user_id = user_id.to_string();
+
+        tokio::spawn(async move {
+            if let Err(e) = Self::run_pipeline(
+                tx.clone(),
+                svc,
+                request,
+                owned_user_id,
+                is_admin,
+                rag_settings,
+            )
+            .await
+            {
+                tracing::error!(component = "query/service", error = %e, "query.pipeline.failed");
+                tx.send(Ok(StreamEvent {
+                    event_type: "error".to_string(),
+                    data: json!({"text": e.to_string()}),
+                }))
+                .await
+                .ok();
+            }
+        });
+
+        Ok(ReceiverStream::new(rx))
+    }
+
+    /// Execute the full RAG pipeline and send events through the channel.
+    ///
+    /// Stage events are sent in real-time as each step completes, allowing the
+    /// frontend to display progress before the LLM response begins streaming.
+    #[allow(clippy::too_many_arguments)]
+    async fn run_pipeline(
+        tx: mpsc::Sender<Result<StreamEvent, Infallible>>,
+        svc: QueryService,
+        request: QueryRequest,
+        _user_id: String,
+        _is_admin: bool,
+        rag_settings: crate::modules::settings::models::RagSettings,
+    ) -> Result<(), AppError> {
+        use crate::modules::query::debug_models::*;
+
+        let pipeline_start = tokio::time::Instant::now();
         let advanced_rag_enabled = rag_settings.advanced_rag_enabled;
         let multi_query_enabled = rag_settings.multi_query_enabled;
         let hyde_enabled = rag_settings.hyde_enabled;
@@ -121,68 +160,59 @@ impl QueryService {
         let eff_multi_query_count = rag_settings.multi_query_count;
         let eff_embedding_model = rag_settings.embedding_model.clone();
 
-        // 2. Embed the query
-        tracing::debug!(component = "query/service", "query.embed.start");
-        let embeddings = self
+        // Helper to send a stage event through the channel
+        let send_stage = |name: String| {
+            let tx = tx.clone();
+            async move {
+                tx.send(Ok(StreamEvent {
+                    event_type: "pipeline_stage".to_string(),
+                    data: json!({"stage_name": name}),
+                }))
+                .await
+                .ok();
+                tracing::debug!(
+                    component = "query/service",
+                    stage = name,
+                    "query.pipeline_stage"
+                );
+            }
+        };
+
+        // Step 1: Embed the query
+        send_stage("embedding".to_string()).await;
+        let embeddings = svc
             .embedding_client
             .embed(&eff_embedding_model, vec![request.query.clone()])
-            .await
-            .map_err(|e| {
-                tracing::error!(component = "query/service", error = %e, "query.embed.failed");
-                e
-            })?;
-
-        let embedding = embeddings.into_iter().next().ok_or_else(|| {
-            let err =
-                AppError::EmbeddingError("Embedding service returned empty result".to_string());
-            tracing::error!(component = "query/service", "query.embed.empty_result");
-            err
+            .await?;
+        let _embedding = embeddings.into_iter().next().ok_or_else(|| {
+            AppError::EmbeddingError("Embedding service returned empty result".to_string())
         })?;
 
-        tracing::debug!(
-            component = "query/service",
-            embedding_dimension = embedding.len(),
-            "query.embedded"
-        );
-        stage_events.push(Self::make_stage_event("embedding"));
-
-        use crate::modules::query::debug_models::*;
         let mut debug_data = DebugData::new(&request.query);
-
-        // 3. Advanced RAG logic
-        let final_chunks: Vec<crate::shared::chunk_search::ChunkSearchResult>;
-        // Rerank lookup map used for source_ref enrichment (populated in advanced path)
         let mut rerank_lookup: std::collections::HashMap<String, (f64, String)> =
             std::collections::HashMap::new();
 
+        // Step 2: Advanced RAG logic
+        let final_chunks: Vec<crate::shared::chunk_search::ChunkSearchResult>;
+
         if !advanced_rag_enabled {
-            stage_events.push(Self::make_stage_event("searching"));
-            // Standard semantic search fallback
+            send_stage("searching".to_string()).await;
             let start = tokio::time::Instant::now();
-            tracing::debug!(
-                component = "query/service",
-                dimension = embedding.len(),
-                "debug.embedding_dimension_detected"
-            );
             let chunk_search_results = chunk_search::search_chunks_semantic(
-                self.repo.chroma(),
-                &self.embedding_client,
-                self.repo.db(),
+                svc.repo.chroma(),
+                &svc.embedding_client,
+                svc.repo.db(),
                 request.collection_id,
                 &request.query,
                 None,
                 eff_rerank_top_k,
                 &eff_embedding_model,
             )
-            .await
-            .map_err(|e| {
-                tracing::error!(component = "query/service", error = %e, "query.chunk_search_failed");
-                e
-            })?;
+            .await?;
 
             debug_data.embedding_search = Some(EmbeddingSearchStep {
                 query_snippet: request.query.clone(),
-                embedding_dimension: embedding.len(),
+                embedding_dimension: _embedding.len(),
                 latency_ms: start.elapsed().as_millis() as u64,
                 collection_name: request.collection_id.to_string(),
                 top_k: eff_rerank_top_k,
@@ -202,19 +232,13 @@ impl QueryService {
 
             final_chunks = chunk_search_results;
         } else {
-            // ── Composed Pipeline with Per-Stage Gates ──
-
-            // Build the list of queries to search:
-            //   - If Multi-Query is enabled, generate LLM variants
-            //   - Otherwise, use only the original query
             let mut queries: Vec<String> = vec![request.query.clone()];
 
             if multi_query_enabled {
-                stage_events.push(Self::make_stage_event("multi_query"));
+                send_stage("multi_query".to_string()).await;
                 let mq_start = tokio::time::Instant::now();
                 let mq_system = "You are an AI language model assistant. Your task is to generate 3 different versions of the given user question to retrieve relevant documents from a vector database. By generating multiple perspectives on the user question, your goal is to help the user overcome some of the limitations of the distance-based similarity search. Provide these alternative questions separated by newlines.";
-
-                let variants_text = self
+                let variants_text = svc
                     .llm_client
                     .query_single(mq_system, &request.query)
                     .await
@@ -230,7 +254,6 @@ impl QueryService {
                 if variants.len() > eff_multi_query_count {
                     variants.truncate(eff_multi_query_count);
                 }
-
                 queries.extend(variants);
 
                 debug_data.multi_query = Some(MultiQueryStep {
@@ -240,12 +263,10 @@ impl QueryService {
                 });
             }
 
-            // HyDE: for each query, optionally generate a hypothetical document,
-            // then search semantically
             if hyde_enabled {
-                stage_events.push(Self::make_stage_event("hyde"));
+                send_stage("hyde".to_string()).await;
             }
-            stage_events.push(Self::make_stage_event("searching"));
+            send_stage("searching".to_string()).await;
             let embed_start = tokio::time::Instant::now();
             let mut all_semantic_chunks = Vec::new();
             let mut hyde_results = Vec::new();
@@ -255,7 +276,7 @@ impl QueryService {
                 let hyde_doc = if hyde_enabled {
                     let doc_start = tokio::time::Instant::now();
                     let hyde_system = "Please write a short hypothetical document that answers the question. The document should be factual and concise.";
-                    let doc = self
+                    let doc = svc
                         .llm_client
                         .query_single(hyde_system, q)
                         .await
@@ -265,21 +286,17 @@ impl QueryService {
                         hypothetical_doc: doc.clone(),
                         latency_ms: doc_start.elapsed().as_millis() as u64,
                     });
-                    format!("{} {}", q, doc)
+                    format!("{}, {}", q, doc)
                 } else {
                     q.clone()
                 };
-
-                // Capture the first effective query (the actual string sent to Chroma)
-                // for debug display
                 if hyde_enabled && i == 0 {
                     effective_query_first = hyde_doc.clone();
                 }
-
                 let batch_results = chunk_search::search_chunks_semantic(
-                    self.repo.chroma(),
-                    &self.embedding_client,
-                    self.repo.db(),
+                    svc.repo.chroma(),
+                    &svc.embedding_client,
+                    svc.repo.db(),
                     request.collection_id,
                     &hyde_doc,
                     None,
@@ -288,7 +305,6 @@ impl QueryService {
                 )
                 .await
                 .unwrap_or_default();
-
                 all_semantic_chunks.extend(batch_results);
             }
 
@@ -298,15 +314,9 @@ impl QueryService {
                 });
             }
 
-            tracing::debug!(
-                component = "query/service",
-                dimension = embedding.len(),
-                "debug.embedding_dimension_detected"
-            );
-
             debug_data.embedding_search = Some(EmbeddingSearchStep {
                 query_snippet: effective_query_first.clone(),
-                embedding_dimension: embedding.len(),
+                embedding_dimension: _embedding.len(),
                 latency_ms: embed_start.elapsed().as_millis() as u64,
                 collection_name: request.collection_id.to_string(),
                 top_k: eff_hybrid_top_k,
@@ -325,21 +335,17 @@ impl QueryService {
                     .collect(),
             });
 
-            tracing::debug!(component = "query/service", query_snippet = %effective_query_first, "debug.query_snippet_set");
-
-            // BM25 (Keyword Search) — gated
             let bm25_chunks = if bm25_enabled {
-                stage_events.push(Self::make_stage_event("keyword_search"));
+                send_stage("keyword_search".to_string()).await;
                 let bm25_start = tokio::time::Instant::now();
                 let results = chunk_search::search_bm25(
-                    self.repo.db(),
+                    svc.repo.db(),
                     request.collection_id,
                     &request.query,
                     eff_hybrid_top_k,
                 )
                 .await
                 .unwrap_or_default();
-
                 debug_data.keyword_search = Some(KeywordSearchStep {
                     query_tokens: crate::shared::bm25::tokenize(&request.query),
                     total_matches: results.len(),
@@ -356,26 +362,20 @@ impl QueryService {
                         .collect(),
                     latency_ms: bm25_start.elapsed().as_millis() as u64,
                 });
-
                 results
             } else {
                 Vec::new()
             };
 
-            // Merge & Dedup
             let initial_count = all_semantic_chunks.len() + bm25_chunks.len();
             let mut unique_chunks = std::collections::HashMap::new();
-
             for c in all_semantic_chunks.clone() {
                 unique_chunks.insert(c.chunk_id.to_string(), c);
             }
             for c in bm25_chunks.clone() {
                 unique_chunks.insert(c.chunk_id.to_string(), c);
             }
-
             let merged: Vec<_> = unique_chunks.into_values().collect();
-
-            // Build SearchResultItems for merge/dedup debug display (all chunks, not limited)
             let merge_dedup_results: Vec<SearchResultItem> = merged
                 .iter()
                 .map(|r| SearchResultItem {
@@ -386,7 +386,6 @@ impl QueryService {
                     text_snippet: r.text.chars().take(200).collect(),
                 })
                 .collect();
-
             debug_data.merge_dedup = Some(MergeDedupStep {
                 input_chunks: initial_count,
                 after_dedup: merged.len(),
@@ -397,23 +396,14 @@ impl QueryService {
                 results: merge_dedup_results,
             });
 
-            tracing::debug!(
-                component = "query/service",
-                merge_results = merged.len(),
-                "debug.merge_dedup_results_set"
-            );
-
-            // LLM Reranking — gated
             let final_merged = if reranking_enabled {
-                stage_events.push(Self::make_stage_event("reranking"));
+                send_stage("reranking".to_string()).await;
                 let rerank_system = "You are an expert relevance ranker. Given a user question and a document chunk, evaluate if the chunk contains information that helps answer the question. If it is relevant and should be kept, respond with the exact word 'брать'. If it is completely irrelevant, respond with 'пропустить'. Do not provide any other text or explanation. Question: ";
-
                 let mut accepted_chunks = Vec::new();
                 let mut rerank_results = Vec::new();
-
                 for chunk in merged {
                     let prompt = format!("{}\n\nChunk: {}", request.query, chunk.text);
-                    let verdict = self
+                    let verdict = svc
                         .llm_client
                         .query_single(rerank_system, &prompt)
                         .await
@@ -425,12 +415,10 @@ impl QueryService {
                     } else {
                         "пропустить".to_string()
                     };
-
                     rerank_lookup.insert(
                         chunk.chunk_id.to_string(),
                         (rerank_score, rerank_verdict.clone()),
                     );
-
                     rerank_results.push(RerankResult {
                         chunk_id: chunk.chunk_id.to_string(),
                         document_name: chunk.document_name.clone(),
@@ -440,33 +428,22 @@ impl QueryService {
                         verdict: rerank_verdict,
                         comment: verdict,
                     });
-
                     if keep {
                         accepted_chunks.push(chunk);
                     }
                 }
-
                 let accepted_count = accepted_chunks.len();
                 let rejected_count = rerank_results.len() - accepted_count;
                 let rerank_results_count = rerank_results.len();
-
                 if accepted_chunks.len() > eff_rerank_top_k {
                     accepted_chunks.truncate(eff_rerank_top_k);
                 }
-
                 debug_data.reranking = Some(RerankingStep {
                     input_count: rerank_results_count,
                     accepted: accepted_count,
                     rejected: rejected_count,
                     results: rerank_results,
                 });
-
-                tracing::debug!(
-                    component = "query/service",
-                    rerank_results = rerank_results_count,
-                    "debug.rerank_results_details_set"
-                );
-
                 accepted_chunks
             } else {
                 let mut result = merged;
@@ -475,13 +452,12 @@ impl QueryService {
                 }
                 result
             };
-
             final_chunks = final_merged;
         }
 
-        stage_events.push(Self::make_stage_event("building_context"));
+        send_stage("building_context".to_string()).await;
 
-        // Build chunks for LLM context (CrateChunkData) and SourceRefs from search results
+        // Build LLM context
         let chunks: Vec<crate::shared::llm::CrateChunkData> = final_chunks
             .iter()
             .map(|r| crate::shared::llm::CrateChunkData {
@@ -526,25 +502,19 @@ impl QueryService {
             })
             .collect();
 
-        tracing::debug!(
-            component = "query/service",
-            source_refs_count = source_refs.len(),
-            "debug.source_refs_with_stage"
-        );
-
         let chunk_ids: Vec<String> = final_chunks
             .iter()
             .map(|r| r.chunk_id.to_string())
             .collect();
 
-        // 4. Load conversation history if session is present
+        // Load conversation history
         let history = if let Some(session_id) = request.session_id {
-            self.load_conversation_history(session_id).await?
+            svc.load_conversation_history(session_id).await?
         } else {
             Vec::new()
         };
 
-        // Populate FinalAnswerStep with real values before serializing debug_data
+        // Populate debug data final answer step
         {
             let context_parts: Vec<String> = chunks
                 .iter()
@@ -556,7 +526,7 @@ impl QueryService {
                 })
                 .collect();
             let context_str = context_parts.join("\n\n");
-            let messages = self
+            let messages = svc
                 .llm_client
                 .build_messages(&context_str, &request.query, &history);
             let prompt_preview = serde_json::to_string_pretty(&messages).unwrap_or_default();
@@ -572,19 +542,11 @@ impl QueryService {
                 latency_ms: pipeline_start.elapsed().as_millis() as u64,
                 prompt_preview,
             });
-
-            tracing::debug!(
-                component = "query/service",
-                model = %rag_settings.llm_model,
-                chunks = chunks.len(),
-                history_messages = history.len(),
-                "debug.final_answer_set"
-            );
         }
 
         let debug_data_json = serde_json::to_string(&debug_data).unwrap_or_default();
 
-        // 5. Persist user message (if session is present) and get its ID
+        // Persist user message (if session is present)
         let user_message_id = if let Some(session_id) = request.session_id {
             let user_msg_id = Uuid::new_v4();
             let msg = Message {
@@ -599,11 +561,10 @@ impl QueryService {
                 deleted_at: None,
                 debug_data: None,
             };
-            self.conversation_repo.add_message(&msg).await?;
-            tracing::info!(component = "query/service", user_message_id = %user_msg_id, "query.user_message_persisted");
+            svc.conversation_repo.add_message(&msg).await?;
 
-            // Auto-name session if title is still the default placeholder
-            let session = self.conversation_repo.get_session(session_id).await?;
+            // Auto-name session if needed
+            let session = svc.conversation_repo.get_session(session_id).await?;
             if session.title == "New Chat" || session.title == "New Session" {
                 let auto_title = request
                     .query
@@ -613,65 +574,49 @@ impl QueryService {
                     .trim()
                     .to_string();
                 if !auto_title.is_empty() {
-                    tracing::info!(
-                        component = "query/service",
-                        session_id = %session_id,
-                        auto_title = %auto_title,
-                        "query.session.auto_named"
-                    );
-                    self.conversation_repo
+                    svc.conversation_repo
                         .update_session(session_id, Some(auto_title), None)
                         .await?;
                 }
             }
-
             Some(user_msg_id)
         } else {
             None
         };
 
-        // Pre-generate assistant message ID for the done event
         let assistant_message_id = request.session_id.map(|_| Uuid::new_v4());
 
-        // 6. Stream LLM response
-        stage_events.push(Self::make_stage_event("generating"));
-        let llm_stream = self
+        // Stream LLM response
+        send_stage("generating".to_string()).await;
+        let llm_stream = svc
             .llm_client
             .query_stream(&request.query, &chunks, &history)
             .await?;
 
-        // Yield stage events with a small delay between each so the SSE stream
-        // flushes each event separately and Vue's reactivity can render each stage.
-        let stage_stream = stream::unfold(
-            (stage_events.into_iter(), false),
-            |(mut iter, started)| async move {
-                match iter.next() {
-                    Some(event) => {
-                        if started {
-                            tokio::time::sleep(Duration::from_millis(10)).await;
-                        }
-                        Some((Ok::<StreamEvent, Infallible>(event), (iter, true)))
-                    }
-                    None => None,
-                }
-            },
-        );
-        let llm_event_stream = Self::build_event_stream(
+        // Forward LLM events through the channel
+        let llm_event_stream = QueryService::build_event_stream(
             llm_stream,
             source_refs,
             request.session_id,
             chunk_ids,
             user_message_id,
             assistant_message_id,
-            self.conversation_repo.clone(),
+            svc.conversation_repo.clone(),
             debug_data_json,
         );
-        let full_stream = stage_stream.chain(llm_event_stream);
 
-        Ok(full_stream)
+        let mut llm_event_stream = Box::pin(llm_event_stream);
+        while let Some(event) = llm_event_stream.next().await {
+            if tx.send(event).await.is_err() {
+                break;
+            }
+        }
+
+        Ok(())
     }
 
     /// Create a pipeline_stage event for SSE streaming.
+    #[allow(dead_code)]
     fn make_stage_event(stage_name: &str) -> StreamEvent {
         tracing::debug!(
             component = "query/service",
