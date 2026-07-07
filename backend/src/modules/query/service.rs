@@ -368,6 +368,36 @@ impl QueryService {
             };
 
             let initial_count = all_semantic_chunks.len() + bm25_chunks.len();
+
+            // RRF (Reciprocal Rank Fusion) — score by position in each result list
+            // A chunk at rank 3 in vector search gets 1/(60+3) contribution, plus
+            // 1/(60+7) from BM25 if it also appeared there. This fairly combines
+            // semantic and lexical relevance without comparing raw score magnitudes.
+            let rrf_k = 60.0_f64;
+            let mut rrf_scores: std::collections::HashMap<String, f64> =
+                std::collections::HashMap::new();
+
+            for (i, chunk) in all_semantic_chunks.iter().enumerate() {
+                let rank = (i + 1) as f64;
+                *rrf_scores.entry(chunk.chunk_id.to_string()).or_insert(0.0) +=
+                    1.0 / (rrf_k + rank);
+            }
+            for (i, chunk) in bm25_chunks.iter().enumerate() {
+                let rank = (i + 1) as f64;
+                *rrf_scores.entry(chunk.chunk_id.to_string()).or_insert(0.0) +=
+                    1.0 / (rrf_k + rank);
+            }
+
+            // Track deduplicated chunks (found by BOTH search methods)
+            let bm25_ids: std::collections::HashSet<String> =
+                bm25_chunks.iter().map(|c| c.chunk_id.to_string()).collect();
+            let vector_ids: std::collections::HashSet<String> = all_semantic_chunks
+                .iter()
+                .map(|c| c.chunk_id.to_string())
+                .collect();
+            let deduped_ids: Vec<String> = vector_ids.intersection(&bm25_ids).cloned().collect();
+
+            // Dedup by chunk_id
             let mut unique_chunks = std::collections::HashMap::new();
             for c in all_semantic_chunks.clone() {
                 unique_chunks.insert(c.chunk_id.to_string(), c);
@@ -375,7 +405,24 @@ impl QueryService {
             for c in bm25_chunks.clone() {
                 unique_chunks.insert(c.chunk_id.to_string(), c);
             }
-            let merged: Vec<_> = unique_chunks.into_values().collect();
+
+            // Merge and sort by RRF score (descending) so the highest-ranked
+            // chunks across both search methods appear first
+            let mut merged: Vec<_> = unique_chunks.into_values().collect();
+            merged.sort_by(|a, b| {
+                let a_score = rrf_scores
+                    .get(&a.chunk_id.to_string())
+                    .copied()
+                    .unwrap_or(0.0);
+                let b_score = rrf_scores
+                    .get(&b.chunk_id.to_string())
+                    .copied()
+                    .unwrap_or(0.0);
+                b_score
+                    .partial_cmp(&a_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
             let merge_dedup_results: Vec<SearchResultItem> = merged
                 .iter()
                 .map(|r| SearchResultItem {
@@ -386,6 +433,7 @@ impl QueryService {
                     text_snippet: r.text.chars().take(200).collect(),
                 })
                 .collect();
+
             debug_data.merge_dedup = Some(MergeDedupStep {
                 input_chunks: initial_count,
                 after_dedup: merged.len(),
@@ -394,6 +442,7 @@ impl QueryService {
                     keyword_chunks: bm25_chunks.len(),
                 },
                 results: merge_dedup_results,
+                deduped_ids,
             });
 
             let final_merged = if reranking_enabled {
@@ -435,15 +484,7 @@ impl QueryService {
                 let accepted_count = accepted_chunks.len();
                 let rejected_count = rerank_results.len() - accepted_count;
                 let rerank_results_count = rerank_results.len();
-                // Sort accepted chunks by original relevance score (descending)
-                // so the most relevant chunks make it to the LLM context,
-                // not arbitrary HashMap iteration order.
-                accepted_chunks.sort_by(|a, b| {
-                    b.score
-                        .unwrap_or(0.0)
-                        .partial_cmp(&a.score.unwrap_or(0.0))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
+                // accepted_chunks are already in RRF order (merged was sorted by RRF)
                 if accepted_chunks.len() > eff_rerank_top_k {
                     accepted_chunks.truncate(eff_rerank_top_k);
                 }

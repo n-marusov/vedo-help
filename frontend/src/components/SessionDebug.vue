@@ -499,6 +499,23 @@ onMounted(async () => {
                               ?.source_breakdown.keyword_chunks
                           }}</span
                         >
+                        >
+                      </div>
+                      <div
+                        v-if="
+                          getStepData(getDebugForMsg(msg), 'merge_dedup')
+                            ?.deduped_ids?.length
+                        "
+                        class="debug-meta-row"
+                      >
+                        <span class="debug-meta-label">Both (dedup)</span>
+                        <span class="debug-meta-value"
+                          >{{
+                            getStepData(getDebugForMsg(msg), "merge_dedup")
+                              ?.deduped_ids?.length
+                          }}
+                          chunks found by vector + BM25</span
+                        >
                       </div>
                       <div
                         v-if="

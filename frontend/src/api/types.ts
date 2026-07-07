@@ -224,6 +224,8 @@ export interface MergeDedupStep {
   input_chunks: number;
   after_dedup: number;
   source_breakdown: MergeSourceBreakdown;
+  results: SearchResultItem[];
+  deduped_ids: string[];
 }
 
 export interface RerankResult {

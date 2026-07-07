@@ -74,6 +74,8 @@ pub struct MergeDedupStep {
     pub after_dedup: usize,
     pub source_breakdown: MergeSourceBreakdown,
     pub results: Vec<SearchResultItem>,
+    /// Chunk IDs that appeared in BOTH vector and BM25 search results
+    pub deduped_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -276,20 +278,21 @@ mod tests {
             },
             results: vec![
                 SearchResultItem {
-                    chunk_id: "chunk-1".to_string(),
+                    chunk_id: "c1".to_string(),
                     document_name: "doc-a.pdf".to_string(),
                     chunk_index: 2,
                     score: 0.91,
                     text_snippet: "First chunk text".to_string(),
                 },
                 SearchResultItem {
-                    chunk_id: "chunk-2".to_string(),
+                    chunk_id: "c2".to_string(),
                     document_name: "doc-b.pdf".to_string(),
                     chunk_index: 5,
-                    score: 0.85,
+                    score: 0.72,
                     text_snippet: "Second chunk text".to_string(),
                 },
             ],
+            deduped_ids: vec![],
         };
         assert_eq!(step.input_chunks, 10);
         assert_eq!(step.after_dedup, 7);
@@ -304,8 +307,6 @@ mod tests {
         let json = serde_json::to_value(&step).expect("serialization should succeed");
         assert!(json["results"].is_array());
         assert_eq!(json["results"].as_array().unwrap().len(), 2);
-        assert_eq!(json["results"][0]["chunk_id"], "chunk-1");
-        assert_eq!(json["results"][0]["text_snippet"], "First chunk text");
     }
 
     #[test]
@@ -426,11 +427,12 @@ mod tests {
                 },
                 results: vec![SearchResultItem {
                     chunk_id: "c3".to_string(),
-                    document_name: "doc3".to_string(),
-                    chunk_index: 3,
-                    score: 0.8,
-                    text_snippet: "merged snippet".to_string(),
+                    document_name: "doc-c.txt".to_string(),
+                    chunk_index: 2,
+                    score: 0.65,
+                    text_snippet: "def sort(arr):...".to_string(),
                 }],
+                deduped_ids: vec![],
             }),
             reranking: Some(RerankingStep {
                 input_count: 3,

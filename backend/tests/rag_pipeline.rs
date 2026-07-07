@@ -175,7 +175,13 @@ async fn create_test_data(
         .collect();
 
     chroma
-        .add_embeddings(chroma_collection_name, &ids, &embeddings, &metadatas)
+        .add_embeddings(
+            chroma_collection_name,
+            &ids,
+            &embeddings,
+            &metadatas,
+            &[] as &[String],
+        )
         .await
         .expect("should add embeddings to Chroma");
 

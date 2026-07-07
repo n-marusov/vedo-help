@@ -217,7 +217,13 @@ async fn test_sync_markdown_repo_from_local_fixture() {
 
     if !ids.is_empty() {
         client
-            .add_embeddings(&collection_name, &ids, &sample_embeddings, &metadatas)
+            .add_embeddings(
+                &collection_name,
+                &ids,
+                &sample_embeddings,
+                &metadatas,
+                &[] as &[String],
+            )
             .await
             .expect("should add embeddings for fixture files");
 
@@ -537,7 +543,13 @@ async fn test_sync_repo_with_nested_dirs() {
         .collect();
 
     client
-        .add_embeddings(&collection_name, &ids, &embeddings, &metadatas)
+        .add_embeddings(
+            &collection_name,
+            &ids,
+            &embeddings,
+            &metadatas,
+            &[] as &[String],
+        )
         .await
         .expect("add nested file embeddings");
 

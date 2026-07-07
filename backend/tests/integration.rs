@@ -175,7 +175,7 @@ async fn test_add_and_query_embeddings() {
     ];
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
@@ -225,7 +225,7 @@ async fn test_query_returns_top_k() {
         .collect();
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
@@ -286,7 +286,7 @@ async fn test_delete_document_removes_from_results() {
     ];
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
@@ -345,7 +345,7 @@ async fn test_delete_multiple_documents() {
         .collect();
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
@@ -433,7 +433,7 @@ async fn test_full_crud_lifecycle() {
     ];
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("step 2: add embeddings");
 
@@ -525,7 +525,7 @@ async fn test_query_with_where_active_filter() {
     ];
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
@@ -593,7 +593,7 @@ async fn test_delete_where_removes_specific_document_chunks() {
     ];
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
@@ -651,7 +651,7 @@ async fn test_query_repository_applies_active_filter() {
     ];
 
     client
-        .add_embeddings(&name, &ids, &embeddings, &metadatas)
+        .add_embeddings(&name, &ids, &embeddings, &metadatas, &[] as &[String])
         .await
         .expect("should add embeddings");
 
