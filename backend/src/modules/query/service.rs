@@ -17,7 +17,7 @@ use crate::modules::settings::service::SettingsService;
 use crate::shared::chunk_search;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
-use crate::shared::llm::{LlmClient, Message as LlmMessage};
+use crate::shared::llm::{LlmClient, Message as LlmMessage, MAX_RETRIES};
 
 /// Service for processing RAG queries with streaming responses.
 #[derive(Clone, Debug)]
@@ -87,6 +87,8 @@ impl QueryService {
             "query.process.start"
         );
 
+        let pipeline_start = tokio::time::Instant::now();
+
         // 0. Verify collection ownership
         self.collection_repo
             .get_collection_for_user(request.collection_id, user_id, is_admin)
@@ -153,6 +155,11 @@ impl QueryService {
         if !advanced_rag_enabled {
             // Standard semantic search fallback
             let start = tokio::time::Instant::now();
+            tracing::debug!(
+                component = "query/service",
+                dimension = embedding.len(),
+                "debug.embedding_dimension_detected"
+            );
             let chunk_search_results = chunk_search::search_chunks_semantic(
                 self.repo.chroma(),
                 &self.embedding_client,
@@ -403,15 +410,25 @@ impl QueryService {
                         .await
                         .unwrap_or_else(|_| "брать".to_string());
                     let keep = verdict.to_lowercase().contains("брать");
+                    let rerank_score = if keep { 1.0 } else { 0.0 };
+                    let rerank_verdict = if keep {
+                        "брать".to_string()
+                    } else {
+                        "пропустить".to_string()
+                    };
+
+                    rerank_lookup.insert(
+                        chunk.chunk_id.to_string(),
+                        (rerank_score, rerank_verdict.clone()),
+                    );
 
                     rerank_results.push(RerankResult {
                         chunk_id: chunk.chunk_id.to_string(),
-                        score: if keep { 1.0 } else { 0.0 },
-                        verdict: if keep {
-                            "брать".to_string()
-                        } else {
-                            "пропустить".to_string()
-                        },
+                        document_name: chunk.document_name.clone(),
+                        chunk_index: chunk.chunk_index,
+                        text_snippet: chunk.text.chars().take(200).collect(),
+                        score: rerank_score,
+                        verdict: rerank_verdict,
                         comment: verdict,
                     });
 
@@ -422,17 +439,24 @@ impl QueryService {
 
                 let accepted_count = accepted_chunks.len();
                 let rejected_count = rerank_results.len() - accepted_count;
+                let rerank_results_count = rerank_results.len();
 
                 if accepted_chunks.len() > eff_rerank_top_k {
                     accepted_chunks.truncate(eff_rerank_top_k);
                 }
 
                 debug_data.reranking = Some(RerankingStep {
-                    input_count: rerank_results.len(),
+                    input_count: rerank_results_count,
                     accepted: accepted_count,
                     rejected: rejected_count,
                     results: rerank_results,
                 });
+
+                tracing::debug!(
+                    component = "query/service",
+                    rerank_results = rerank_results_count,
+                    "debug.rerank_results_details_set"
+                );
 
                 accepted_chunks
             } else {
@@ -458,26 +482,50 @@ impl QueryService {
 
         let source_refs: Vec<SourceRef> = final_chunks
             .iter()
-            .map(|r| SourceRef {
-                document_id: r.document_id,
-                document_name: r.document_name.clone(),
-                chunk_index: r.chunk_index,
-                text: r.text.clone(),
-                relevance: r.score.unwrap_or(0.0),
-                stage: None,
-                rerank_score: None,
-                rerank_verdict: None,
+            .map(|r| {
+                let entry = rerank_lookup.get(&r.chunk_id.to_string());
+                let (rerank_score, rerank_verdict) = entry
+                    .map(|(s, v)| (*s, v.clone()))
+                    .unwrap_or((0.0, String::new()));
+                SourceRef {
+                    document_id: r.document_id,
+                    document_name: r.document_name.clone(),
+                    chunk_index: r.chunk_index,
+                    text: r.text.clone(),
+                    relevance: r.score.unwrap_or(0.0),
+                    stage: if advanced_rag_enabled && reranking_enabled {
+                        Some("reranked".to_string())
+                    } else {
+                        Some("vector".to_string())
+                    },
+                    rerank_score: if advanced_rag_enabled && reranking_enabled {
+                        Some(rerank_score)
+                    } else {
+                        None
+                    },
+                    rerank_verdict: if advanced_rag_enabled
+                        && reranking_enabled
+                        && !rerank_verdict.is_empty()
+                    {
+                        Some(rerank_verdict)
+                    } else {
+                        None
+                    },
+                }
             })
             .collect();
+
+        tracing::debug!(
+            component = "query/service",
+            source_refs_count = source_refs.len(),
+            "debug.source_refs_with_stage"
+        );
 
         let chunk_ids: Vec<String> = final_chunks
             .iter()
             .map(|r| r.chunk_id.to_string())
             .collect();
 
-        let debug_data_json = serde_json::to_string(&debug_data).unwrap_or_default();
-
-        // 4. Load conversation history if session is present
         // 4. Load conversation history if session is present
         let history = if let Some(session_id) = request.session_id {
             self.load_conversation_history(session_id).await?

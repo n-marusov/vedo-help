@@ -177,7 +177,7 @@ impl LlmClient {
     /// Security: user `prompt` is enclosed in injection-guard delimiters
     /// and the system instruction explicitly forbids following embedded
     /// commands from the user message section.
-    fn build_messages(
+    pub fn build_messages(
         &self,
         context: &str,
         prompt: &str,
