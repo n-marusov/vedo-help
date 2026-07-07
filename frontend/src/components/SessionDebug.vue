@@ -514,13 +514,26 @@ onMounted(async () => {
                           )?.results"
                           :key="i"
                           class="debug-result-item"
+                          style="
+                            flex-direction: column;
+                            align-items: flex-start;
+                            gap: 4px;
+                          "
                         >
-                          <span class="debug-result-doc">{{
-                            r.document_name
-                          }}</span>
-                          <span class="debug-result-score">{{
-                            r.score.toFixed(2)
-                          }}</span>
+                          <div
+                            style="
+                              display: flex;
+                              justify-content: space-between;
+                              width: 100%;
+                            "
+                          >
+                            <span class="debug-result-doc">{{
+                              r.document_name
+                            }}</span>
+                            <span class="debug-result-score">{{
+                              r.score.toFixed(2)
+                            }}</span>
+                          </div>
                           <details>
                             <summary>Chunk #{{ r.chunk_index }}</summary>
                             <pre>{{ r.text_snippet }}</pre>
