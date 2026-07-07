@@ -460,9 +460,9 @@ onMounted(async () => {
                           <span class="debug-result-doc">{{
                             r.document_name
                           }}</span>
-                          <span class="debug-result-score"
-                            >{{ Math.round(r.score * 100) }}%</span
-                          >
+                          <span class="debug-result-score">{{
+                            r.score.toFixed(2)
+                          }}</span>
                         </div>
                       </div>
                     </template>
@@ -518,9 +518,9 @@ onMounted(async () => {
                           <span class="debug-result-doc">{{
                             r.document_name
                           }}</span>
-                          <span class="debug-result-score"
-                            >{{ Math.round(r.score * 100) }}%</span
-                          >
+                          <span class="debug-result-score">{{
+                            r.score.toFixed(2)
+                          }}</span>
                           <details>
                             <summary>Chunk #{{ r.chunk_index }}</summary>
                             <pre>{{ r.text_snippet }}</pre>

@@ -630,9 +630,10 @@ impl QueryService {
     }
 
     /// Build the final event stream:
-    ///   1. LLM text chunks → "chunk" events
-    ///   2. Sources metadata → "sources" event
-    ///   3. Completion signal → "done" event with message IDs
+    ///   1. Debug data → "debug" event (RAG pipeline internals)
+    ///   2. LLM text chunks → "chunk" events
+    ///   3. Sources metadata → "sources" event
+    ///   4. Completion signal → "done" event with message IDs
     #[allow(clippy::too_many_arguments)]
     fn build_event_stream(
         llm_stream: impl Stream<Item = Result<String, AppError>> + 'static,
@@ -648,6 +649,18 @@ impl QueryService {
             event_type: "sources".to_string(),
             data: json!({"sources": sources}),
         };
+
+        // Parse debug data into a JSON value for the debug event
+        let debug_value: serde_json::Value =
+            serde_json::from_str(&debug_data_json).unwrap_or_default();
+
+        // Debug event: sent before chunks so the frontend can show pipeline internals
+        let debug_event = stream::once(async move {
+            Ok(StreamEvent {
+                event_type: "debug".to_string(),
+                data: json!({"debug": debug_value}),
+            })
+        });
 
         // Track the full LLM output for persisting the assistant message
         let full_content: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
@@ -708,8 +721,8 @@ impl QueryService {
             })
         };
 
-        tracked_stream
-            .map(|result| match result {
+        debug_event
+            .chain(tracked_stream.map(|result| match result {
                 Ok(text) => Ok(StreamEvent {
                     event_type: "chunk".to_string(),
                     data: json!({"text": text}),
@@ -721,7 +734,7 @@ impl QueryService {
                         data: json!({"text": e.to_string()}),
                     })
                 }
-            })
+            }))
             .chain(stream::once(async move { Ok(sources_event) }))
             .chain(done_event)
     }
@@ -854,17 +867,22 @@ mod tests {
             .collect()
             .await;
 
-        // Expected: chunk "Hello ", chunk "world", sources, done
-        assert_eq!(events.len(), 4, "should yield 4 events without panicking");
-        assert_eq!(events[0].event_type, "chunk");
-        assert_eq!(events[0].data["text"], "Hello ");
-        assert_eq!(events[1].event_type, "chunk");
-        assert_eq!(events[1].data["text"], "world");
-        assert_eq!(events[2].event_type, "sources");
-        assert_eq!(events[3].event_type, "done");
-        assert_eq!(events[3].data["user_message_id"], serde_json::Value::Null);
+        // Expected: debug, chunk "Hello ", chunk "world", sources, done
         assert_eq!(
-            events[3].data["assistant_message_id"],
+            events.len(),
+            5,
+            "should yield 5 events (debug + chunks + sources + done)"
+        );
+        assert_eq!(events[0].event_type, "debug");
+        assert_eq!(events[1].event_type, "chunk");
+        assert_eq!(events[1].data["text"], "Hello ");
+        assert_eq!(events[2].event_type, "chunk");
+        assert_eq!(events[2].data["text"], "world");
+        assert_eq!(events[3].event_type, "sources");
+        assert_eq!(events[4].event_type, "done");
+        assert_eq!(events[4].data["user_message_id"], serde_json::Value::Null);
+        assert_eq!(
+            events[4].data["assistant_message_id"],
             serde_json::Value::Null
         );
     }
@@ -921,11 +939,11 @@ mod tests {
             .collect()
             .await;
 
-        // Expected order: 4 stage events, then chunk "test response", sources, done
+        // Expected order: 4 stage events, then debug, chunk, sources, done
         assert_eq!(
             events.len(),
-            7,
-            "should yield 7 events: 4 stages + chunk + sources + done"
+            8,
+            "should yield 8 events: 4 stages + debug + chunk + sources + done"
         );
 
         // First 4 events must be pipeline_stage events in order
@@ -938,11 +956,14 @@ mod tests {
         assert_eq!(events[3].event_type, "pipeline_stage");
         assert_eq!(events[3].data["stage_name"], "generating");
 
+        // Then debug event (from build_event_stream)
+        assert_eq!(events[4].event_type, "debug");
+
         // Then LLM chunk, sources, done
-        assert_eq!(events[4].event_type, "chunk");
-        assert_eq!(events[4].data["text"], "test response");
-        assert_eq!(events[5].event_type, "sources");
-        assert_eq!(events[6].event_type, "done");
+        assert_eq!(events[5].event_type, "chunk");
+        assert_eq!(events[5].data["text"], "test response");
+        assert_eq!(events[6].event_type, "sources");
+        assert_eq!(events[7].event_type, "done");
     }
 
     /// Regression: channel-based stage stream yields events in correct order, just like
