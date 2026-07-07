@@ -135,6 +135,13 @@
 - [ ] **Backend: Новые SSE-типы событий** — `pipeline_stage` события для реального времени
 - [ ] **Backend: Ужесточение anti-hallucination промпта**
 - [ ] **Frontend: Pinia debug store** — `stores/ragDebug.ts`
+- [x] **Backend: Динамическая размерность эмбеддинга + реальный query_snippet** — исправление хардкода `384` на `embedding.len()`, замена статической строки "Multi-query with HyDE" на эффективный поисковый запрос
+- [x] **Backend: Детальные чанки во всех шагах отладки** — `MergeDedupStep.results`, `RerankResult.text_snippet`
+- [x] **Backend: Заполнение FinalAnswerStep** — model, chunks_in_context, prompt_preview, latency, токены
+- [x] **Backend: SourceRef с реальными метаданными этапа** — stage, rerank_score, rerank_verdict
+- [x] **Frontend: Чанки под спойлерами** — отображение text_snippet в embedding search, merge&dedup, reranking
+- [x] **Frontend: Скрытие отключённых этапов** — полное скрытие disabled-шагов, удаление бейджей active/future
+- [x] **Frontend: Final answer с реальными данными** — заполнение model, prompt_preview, chunks_in_context
 
 ---
 
@@ -195,9 +202,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.2.1 — Markdown & Code Rendering | ✅ **1/1** | Markdown rendering, syntax highlighting, copy button |
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
-<<<<<<< HEAD
 | v0.4 — Observability & Reliability | ⏳ 2/6 | Debug view ✅; deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination ❌ |
-| v0.4.2 — Advanced RAG Pipeline | 🔄 0/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization |
+| v0.4.2 — Advanced RAG Pipeline | 🔄 7/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization, debug data fixes |
 | v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
@@ -211,6 +217,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Chat UI polish debug info + admin role wiring:** 2026-06-23
 **v0.6 — Multi-user & Security complete (all 7 phases):** 2026-06-25
 **Debug view (v0.4):** 2026-06-26
+**RAG pipeline debug data fixes (v0.4.2):** 2026-07-07
 **Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:

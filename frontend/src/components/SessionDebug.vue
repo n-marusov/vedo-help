@@ -20,14 +20,14 @@ const steps = [
     id: 1,
     name: 'Multi-query',
     key: 'multi_query',
-    status: 'future',
+    status: 'disabled',
     desc: 'Question → 3 variants',
   },
   {
     id: 2,
     name: 'HyDE',
     key: 'hyde',
-    status: 'future',
+    status: 'disabled',
     desc: 'Hypothetical document per query',
   },
   {
@@ -41,21 +41,21 @@ const steps = [
     id: 4,
     name: 'Hybrid keyword search',
     key: 'keyword_search',
-    status: 'future',
+    status: 'disabled',
     desc: 'Keywords → chunks',
   },
   {
     id: 5,
     name: 'Merge & dedup',
     key: 'merge_dedup',
-    status: 'future',
+    status: 'disabled',
     desc: '~15-19 chunks → unique set',
   },
   {
     id: 6,
     name: 'Reranking',
     key: 'reranking',
-    status: 'future',
+    status: 'disabled',
     desc: 'LLM scores each chunk',
   },
   {
@@ -125,6 +125,11 @@ function getStepData(
   // biome-ignore lint/suspicious/noExplicitAny: needs dynamic key access
 ): any {
   return (debug as unknown as Record<string, unknown>)[key] || null;
+}
+
+/** Cache parsed debug data per message to avoid repeated JSON.parse calls */
+function getDebugForMsg(msg: Message): DebugData {
+  return parseDebugData(msg) || ({} as DebugData);
 }
 
 const hasActiveSession = computed(() => selectedSession.value !== null);
@@ -264,7 +269,11 @@ onMounted(async () => {
               data-testid="debug-panel"
             >
               <div
-                v-for="step in steps"
+                v-for="step in steps.filter(
+                  (s) =>
+                    getStepData(getDebugForMsg(msg), s.key) ||
+                    s.status === 'active',
+                )"
                 :key="step.id"
                 class="debug-step"
                 data-testid="debug-step"
@@ -277,64 +286,27 @@ onMounted(async () => {
                       data-testid="debug-step-title"
                       >{{ step.name }}</span
                     >
-                    <span
-                      v-if="
-                        getStepData(
-                          parseDebugData(msg) || ({} as DebugData),
-                          step.key,
-                        )
-                      "
-                      class="debug-step-badge debug-step-badge--active"
-                      >active</span
-                    >
-                    <span
-                      v-else-if="step.status === 'active'"
-                      class="debug-step-badge debug-step-badge--active"
-                      >v0.1</span
-                    >
-                    <span
-                      v-else
-                      class="debug-step-badge debug-step-badge--future"
-                      data-testid="debug-step-future"
-                      >v0.5</span
-                    >
                   </summary>
-                  <div
-                    v-if="
-                      getStepData(
-                        parseDebugData(msg) || ({} as DebugData),
-                        step.key,
-                      ) || step.status === 'active'
-                    "
-                    class="debug-step-body"
-                    data-testid="debug-step-data"
-                  >
+                  <div class="debug-step-body" data-testid="debug-step-data">
                     <template
                       v-if="
                         step.id === 1 &&
-                        getStepData(
-                          parseDebugData(msg) || ({} as DebugData),
-                          'multi_query',
-                        )
+                        getStepData(getDebugForMsg(msg), 'multi_query')
                       "
                     >
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Original Query</span>
                         <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "multi_query",
-                          )?.original_query
+                          getStepData(getDebugForMsg(msg), "multi_query")
+                            ?.original_query
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Latency</span>
                         <span class="debug-meta-value"
                           >{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "multi_query",
-                            )?.latency_ms
+                            getStepData(getDebugForMsg(msg), "multi_query")
+                              ?.latency_ms
                           }}ms</span
                         >
                       </div>
@@ -344,7 +316,7 @@ onMounted(async () => {
                           <ul style="margin: 0; padding-left: 1.2em">
                             <li
                               v-for="(v, idx) in getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
+                                getDebugForMsg(msg),
                                 'multi_query',
                               )?.variants"
                               :key="idx"
@@ -358,10 +330,7 @@ onMounted(async () => {
                     <template
                       v-if="
                         step.id === 2 &&
-                        getStepData(
-                          parseDebugData(msg) || ({} as DebugData),
-                          'hyde',
-                        )
+                        getStepData(getDebugForMsg(msg), 'hyde')
                       "
                     >
                       <div class="debug-meta-row">
@@ -370,7 +339,7 @@ onMounted(async () => {
                           <ul style="margin: 0; padding-left: 1.2em">
                             <li
                               v-for="(v, idx) in getStepData(
-                                parseDebugData(msg) || ({} as DebugData),
+                                getDebugForMsg(msg),
                                 'hyde',
                               )?.per_query"
                               :key="idx"
@@ -388,44 +357,42 @@ onMounted(async () => {
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Query snippet</span
                         ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "embedding_search",
-                          )?.query_snippet
+                          getStepData(getDebugForMsg(msg), "embedding_search")
+                            ?.query_snippet
                         }}</span>
                       </div>
-                      <div class="debug-meta-row">
+                      <div
+                        class="debug-meta-row"
+                        v-if="
+                          getStepData(getDebugForMsg(msg), 'embedding_search')
+                            ?.embedding_dimension
+                        "
+                      >
                         <span class="debug-meta-label">Dimension</span
                         ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "embedding_search",
-                          )?.embedding_dimension
+                          getStepData(getDebugForMsg(msg), "embedding_search")
+                            ?.embedding_dimension
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Latency</span
                         ><span class="debug-meta-value"
                           >{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "embedding_search",
-                            )?.latency_ms
+                            getStepData(getDebugForMsg(msg), "embedding_search")
+                              ?.latency_ms
                           }}ms</span
                         >
                       </div>
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'embedding_search',
-                          )?.results?.length
+                          getStepData(getDebugForMsg(msg), 'embedding_search')
+                            ?.results?.length
                         "
                         class="debug-results"
                       >
                         <div
                           v-for="(r, i) in getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
+                            getDebugForMsg(msg),
                             'embedding_search',
                           )?.results"
                           :key="i"
@@ -437,23 +404,24 @@ onMounted(async () => {
                           <span class="debug-result-score"
                             >{{ Math.round(r.score * 100) }}%</span
                           >
+                          <details>
+                            <summary>Chunk #{{ r.chunk_index }}</summary>
+                            <pre>{{ r.text_snippet }}</pre>
+                          </details>
                         </div>
                       </div>
                     </template>
                     <template
                       v-if="
                         step.id === 4 &&
-                        getStepData(
-                          parseDebugData(msg) || ({} as DebugData),
-                          'keyword_search',
-                        )
+                        getStepData(getDebugForMsg(msg), 'keyword_search')
                       "
                     >
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Tokens</span>
                         <span class="debug-meta-value">{{
                           getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
+                            getDebugForMsg(msg),
                             "keyword_search",
                           )?.query_tokens.join(", ")
                         }}</span>
@@ -461,35 +429,29 @@ onMounted(async () => {
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Matches</span>
                         <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "keyword_search",
-                          )?.total_matches
+                          getStepData(getDebugForMsg(msg), "keyword_search")
+                            ?.total_matches
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Latency</span>
                         <span class="debug-meta-value"
                           >{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "keyword_search",
-                            )?.latency_ms
+                            getStepData(getDebugForMsg(msg), "keyword_search")
+                              ?.latency_ms
                           }}ms</span
                         >
                       </div>
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'keyword_search',
-                          )?.results?.length
+                          getStepData(getDebugForMsg(msg), 'keyword_search')
+                            ?.results?.length
                         "
                         class="debug-results"
                       >
                         <div
                           v-for="(r, i) in getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
+                            getDebugForMsg(msg),
                             'keyword_search',
                           )?.results"
                           :key="i"
@@ -507,28 +469,21 @@ onMounted(async () => {
                     <template
                       v-if="
                         step.id === 5 &&
-                        getStepData(
-                          parseDebugData(msg) || ({} as DebugData),
-                          'merge_dedup',
-                        )
+                        getStepData(getDebugForMsg(msg), 'merge_dedup')
                       "
                     >
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Input Chunks</span>
                         <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "merge_dedup",
-                          )?.input_chunks
+                          getStepData(getDebugForMsg(msg), "merge_dedup")
+                            ?.input_chunks
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">After Dedup</span>
                         <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "merge_dedup",
-                          )?.after_dedup
+                          getStepData(getDebugForMsg(msg), "merge_dedup")
+                            ?.after_dedup
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
@@ -536,68 +491,80 @@ onMounted(async () => {
                         <span class="debug-meta-value"
                           >Vector:
                           {{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "merge_dedup",
-                            )?.source_breakdown.vector_chunks
+                            getStepData(getDebugForMsg(msg), "merge_dedup")
+                              ?.source_breakdown.vector_chunks
                           }}, BM25:
                           {{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "merge_dedup",
-                            )?.source_breakdown.keyword_chunks
+                            getStepData(getDebugForMsg(msg), "merge_dedup")
+                              ?.source_breakdown.keyword_chunks
                           }}</span
                         >
                       </div>
-                    </template>
-                    <template
-                      v-if="
-                        step.id === 6 &&
-                        getStepData(
-                          parseDebugData(msg) || ({} as DebugData),
-                          'reranking',
-                        )
-                      "
-                    >
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Input Count</span>
-                        <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "reranking",
-                          )?.input_count
-                        }}</span>
-                      </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Accepted</span>
-                        <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "reranking",
-                          )?.accepted
-                        }}</span>
-                      </div>
-                      <div class="debug-meta-row">
-                        <span class="debug-meta-label">Rejected</span>
-                        <span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "reranking",
-                          )?.rejected
-                        }}</span>
-                      </div>
                       <div
                         v-if="
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            'reranking',
-                          )?.results?.length
+                          getStepData(getDebugForMsg(msg), 'merge_dedup')
+                            ?.results?.length
                         "
                         class="debug-results"
                       >
                         <div
                           v-for="(r, i) in getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
+                            getDebugForMsg(msg),
+                            'merge_dedup',
+                          )?.results"
+                          :key="i"
+                          class="debug-result-item"
+                        >
+                          <span class="debug-result-doc">{{
+                            r.document_name
+                          }}</span>
+                          <span class="debug-result-score"
+                            >{{ Math.round(r.score * 100) }}%</span
+                          >
+                          <details>
+                            <summary>Chunk #{{ r.chunk_index }}</summary>
+                            <pre>{{ r.text_snippet }}</pre>
+                          </details>
+                        </div>
+                      </div>
+                    </template>
+                    <template
+                      v-if="
+                        step.id === 6 &&
+                        getStepData(getDebugForMsg(msg), 'reranking')
+                      "
+                    >
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">Input Count</span>
+                        <span class="debug-meta-value">{{
+                          getStepData(getDebugForMsg(msg), "reranking")
+                            ?.input_count
+                        }}</span>
+                      </div>
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">Accepted</span>
+                        <span class="debug-meta-value">{{
+                          getStepData(getDebugForMsg(msg), "reranking")
+                            ?.accepted
+                        }}</span>
+                      </div>
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">Rejected</span>
+                        <span class="debug-meta-value">{{
+                          getStepData(getDebugForMsg(msg), "reranking")
+                            ?.rejected
+                        }}</span>
+                      </div>
+                      <div
+                        v-if="
+                          getStepData(getDebugForMsg(msg), 'reranking')?.results
+                            ?.length
+                        "
+                        class="debug-results"
+                      >
+                        <div
+                          v-for="(r, i) in getStepData(
+                            getDebugForMsg(msg),
                             'reranking',
                           )?.results"
                           :key="i"
@@ -615,9 +582,10 @@ onMounted(async () => {
                               width: 100%;
                             "
                           >
-                            <span class="debug-result-doc">{{
-                              r.chunk_id
-                            }}</span>
+                            <span class="debug-result-doc"
+                              >{{ r.document_name || r.chunk_id }} (chunk
+                              {{ r.chunk_index }})</span
+                            >
                             <span
                               class="debug-result-score"
                               :style="{
@@ -637,6 +605,10 @@ onMounted(async () => {
                           >
                             {{ r.comment }}
                           </div>
+                          <details>
+                            <summary>Chunk text</summary>
+                            <pre>{{ r.text_snippet }}</pre>
+                          </details>
                         </div>
                       </div>
                     </template>
@@ -644,54 +616,63 @@ onMounted(async () => {
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Model</span
                         ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.model
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.model
+                        }}</span>
+                      </div>
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">Max Retries</span
+                        ><span class="debug-meta-value">{{
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.max_retries
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Chunks in context</span
                         ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.chunks_in_context
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.chunks_in_context
+                        }}</span>
+                      </div>
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label">History Messages</span
+                        ><span class="debug-meta-value">{{
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.history_message_count
                         }}</span>
                       </div>
                       <div class="debug-meta-row">
                         <span class="debug-meta-label">Latency</span
                         ><span class="debug-meta-value"
                           >{{
-                            getStepData(
-                              parseDebugData(msg) || ({} as DebugData),
-                              "final_answer",
-                            )?.latency_ms
+                            getStepData(getDebugForMsg(msg), "final_answer")
+                              ?.latency_ms
                           }}ms</span
                         >
                       </div>
                       <div class="debug-meta-row">
-                        <span class="debug-meta-label">Tokens</span
+                        <span class="debug-meta-label">Token Budget</span
                         ><span class="debug-meta-value">{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.total_tokens_estimate
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.token_budget
+                        }}</span>
+                      </div>
+                      <div class="debug-meta-row">
+                        <span class="debug-meta-label"
+                          >Total Tokens Estimate</span
+                        ><span class="debug-meta-value">{{
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.total_tokens_estimate
                         }}</span>
                       </div>
                       <details class="debug-prompt-preview">
                         <summary>Prompt preview</summary>
                         <pre>{{
-                          getStepData(
-                            parseDebugData(msg) || ({} as DebugData),
-                            "final_answer",
-                          )?.prompt_preview
+                          getStepData(getDebugForMsg(msg), "final_answer")
+                            ?.prompt_preview
                         }}</pre>
                       </details>
                     </template>
-                  </div>
-                  <div v-else class="debug-step-body">
-                    <p class="debug-step-placeholder">{{ step.desc }}</p>
                   </div>
                 </details>
               </div>
@@ -1016,13 +997,6 @@ onMounted(async () => {
 
 .debug-step-body {
   padding: 6px 0 0 16px;
-}
-
-.debug-step-placeholder {
-  font-size: 10px;
-  color: var(--color-muted-foreground);
-  font-style: italic;
-  margin: 0;
 }
 
 .debug-meta-row {
