@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::stream::{self, Stream};
 use futures::StreamExt;
@@ -639,8 +640,22 @@ impl QueryService {
             .query_stream(&request.query, &chunks, &history)
             .await?;
 
-        let stage_stream =
-            stream::iter(stage_events.into_iter().map(Ok::<StreamEvent, Infallible>));
+        // Yield stage events with a small delay between each so the SSE stream
+        // flushes each event separately and Vue's reactivity can render each stage.
+        let stage_stream = stream::unfold(
+            (stage_events.into_iter(), false),
+            |(mut iter, started)| async move {
+                match iter.next() {
+                    Some(event) => {
+                        if started {
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                        }
+                        Some((Ok::<StreamEvent, Infallible>(event), (iter, true)))
+                    }
+                    None => None,
+                }
+            },
+        );
         let llm_event_stream = Self::build_event_stream(
             llm_stream,
             source_refs,

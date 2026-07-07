@@ -44,6 +44,7 @@ export const useChatStore = defineStore('chat', () => {
   const pipelineStage = ref<string | null>(null);
 
   const stageLabels: Record<string, string> = {
+    processing: 'Processing query...',
     embedding: 'Embedding query...',
     multi_query: 'Generating query variants...',
     hyde: 'Generating hypothetical document...',
@@ -188,6 +189,8 @@ export const useChatStore = defineStore('chat', () => {
     lastCollectionId.value = collectionId;
     error.value = null;
     pipelineStage.value = null;
+    // Show initial processing stage immediately while pipeline runs
+    pipelineStage.value = 'processing';
     abortController = new AbortController();
 
     // Optimistic title: show user query in sidebar and badge immediately
