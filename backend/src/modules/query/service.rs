@@ -321,13 +321,11 @@ impl QueryService {
             // BM25 (Keyword Search) — gated
             let bm25_chunks = if bm25_enabled {
                 let bm25_start = tokio::time::Instant::now();
-                let results = chunk_search::search_chunks_text(
+                let results = chunk_search::search_bm25(
                     self.repo.db(),
                     request.collection_id,
                     &request.query,
-                    None,
                     eff_hybrid_top_k,
-                    0,
                 )
                 .await
                 .unwrap_or_default();
@@ -342,7 +340,7 @@ impl QueryService {
                             chunk_id: r.chunk_id.to_string(),
                             document_name: r.document_name.clone(),
                             chunk_index: r.chunk_index,
-                            score: 0.0,
+                            score: r.score.unwrap_or(0.0),
                             text_snippet: r.text.chars().take(200).collect(),
                         })
                         .collect(),

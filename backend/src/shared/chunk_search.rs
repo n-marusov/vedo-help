@@ -1,6 +1,7 @@
 use sqlx::{PgPool, Postgres, QueryBuilder};
 use uuid::Uuid;
 
+use crate::shared::bm25;
 use crate::shared::chroma_client::ChromaClient;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
@@ -107,6 +108,136 @@ pub async fn search_chunks_text(
             component = "chunk_search",
             collection_id = %collection_id,
             "search_chunks_text.empty"
+        );
+    }
+
+    Ok(results)
+}
+
+/// Search chunks using BM25 keyword scoring.
+///
+/// Fetches all active chunks for a collection from PostgreSQL, builds an
+/// in-memory BM25 index, and scores them against the query. Returns results
+/// ranked by BM25 relevance score descending.
+///
+/// This replaces the old ILIKE-based phrase search with proper tokenized
+/// BM25 scoring (k1=1.5, b=0.75) so multi-word queries match individual
+/// tokens rather than requiring an exact phrase match.
+pub async fn search_bm25(
+    db: &PgPool,
+    collection_id: Uuid,
+    query: &str,
+    top_k: usize,
+) -> Result<Vec<ChunkSearchResult>, AppError> {
+    tracing::debug!(
+        component = "chunk_search",
+        collection_id = %collection_id,
+        query = %query,
+        top_k = top_k,
+        "search_bm25"
+    );
+
+    if top_k == 0 {
+        tracing::debug!(component = "chunk_search", "search_bm25.top_k_zero");
+        return Ok(Vec::new());
+    }
+
+    // 1. Fetch all active chunks for the collection
+    let rows = sqlx::query_as::<_, (Uuid, Uuid, String, i32, String, String)>(
+        r#"SELECT c.id, c.document_id, d.name, c."index", c.text, d.source
+           FROM chunks c
+           JOIN documents d ON d.id = c.document_id
+           WHERE c.is_active = TRUE
+             AND d.is_active = TRUE
+             AND d.collection_id = $1
+           ORDER BY d.name, c."index""#,
+    )
+    .bind(collection_id)
+    .fetch_all(db)
+    .await
+    .map_err(|e| AppError::InternalError(format!("Database error: {e}")))?;
+
+    if rows.is_empty() {
+        tracing::warn!(
+            component = "chunk_search",
+            collection_id = %collection_id,
+            "search_bm25.empty_collection"
+        );
+        return Ok(Vec::new());
+    }
+
+    tracing::debug!(
+        component = "chunk_search",
+        chunk_count = rows.len(),
+        "search_bm25.fetched_chunks"
+    );
+
+    // 2. Build BM25 index from the chunks
+    //    Also keep a metadata map for fields that Bm25Result doesn't carry
+    //    and store full text since Bm25Result only has a 200-char snippet
+    let mut doc_meta_map: std::collections::HashMap<
+        String,
+        (Uuid, String, String, String), // (document_id, document_name, source, full_text)
+    > = std::collections::HashMap::new();
+
+    let bm25_docs: Vec<(String, String, usize, String)> = rows
+        .iter()
+        .map(|row| {
+            let chunk_id_str = row.0.to_string();
+            doc_meta_map.insert(
+                chunk_id_str.clone(),
+                (row.1, row.2.clone(), row.5.clone(), row.4.clone()),
+            );
+            (chunk_id_str, row.2.clone(), row.3 as usize, row.4.clone())
+        })
+        .collect();
+
+    let index = bm25::build_index(&bm25_docs);
+
+    // 3. Search using BM25
+    let bm25_results = index.search(query, top_k);
+
+    if bm25_results.is_empty() {
+        tracing::info!(
+            component = "chunk_search",
+            collection_id = %collection_id,
+            "search_bm25.no_matches"
+        );
+        return Ok(Vec::new());
+    }
+
+    // 4. Map Bm25Result -> ChunkSearchResult, using full text from doc_meta_map
+    let results: Vec<ChunkSearchResult> = bm25_results
+        .into_iter()
+        .filter_map(|r| {
+            let doc_uuid = Uuid::parse_str(&r.chunk_id).ok()?;
+            let (document_id, document_name, source, full_text) =
+                doc_meta_map.get(&r.chunk_id).cloned().unwrap_or_default();
+
+            Some(ChunkSearchResult {
+                chunk_id: doc_uuid,
+                document_id,
+                document_name,
+                chunk_index: r.chunk_index,
+                text: full_text,
+                source,
+                score: Some(r.score),
+                file_path: None,
+            })
+        })
+        .collect();
+
+    tracing::info!(
+        component = "chunk_search",
+        result_count = results.len(),
+        "search_bm25.found"
+    );
+
+    if results.is_empty() {
+        tracing::warn!(
+            component = "chunk_search",
+            collection_id = %collection_id,
+            "search_bm25.empty_after_filter"
         );
     }
 
