@@ -146,6 +146,9 @@ impl QueryService {
 
         // 3. Advanced RAG logic
         let final_chunks: Vec<crate::shared::chunk_search::ChunkSearchResult>;
+        // Rerank lookup map used for source_ref enrichment (populated in advanced path)
+        let mut rerank_lookup: std::collections::HashMap<String, (f64, String)> =
+            std::collections::HashMap::new();
 
         if !advanced_rag_enabled {
             // Standard semantic search fallback
@@ -168,7 +171,7 @@ impl QueryService {
 
             debug_data.embedding_search = Some(EmbeddingSearchStep {
                 query_snippet: request.query.clone(),
-                embedding_dimension: 384,
+                embedding_dimension: embedding.len(),
                 latency_ms: start.elapsed().as_millis() as u64,
                 collection_name: request.collection_id.to_string(),
                 top_k: eff_rerank_top_k,
@@ -230,8 +233,9 @@ impl QueryService {
             let embed_start = tokio::time::Instant::now();
             let mut all_semantic_chunks = Vec::new();
             let mut hyde_results = Vec::new();
+            let mut effective_query_first = request.query.clone();
 
-            for q in &queries {
+            for (i, q) in queries.iter().enumerate() {
                 let hyde_doc = if hyde_enabled {
                     let doc_start = tokio::time::Instant::now();
                     let hyde_system = "Please write a short hypothetical document that answers the question. The document should be factual and concise.";
@@ -249,6 +253,12 @@ impl QueryService {
                 } else {
                     q.clone()
                 };
+
+                // Capture the first effective query (the actual string sent to Chroma)
+                // for debug display
+                if hyde_enabled && i == 0 {
+                    effective_query_first = hyde_doc.clone();
+                }
 
                 let batch_results = chunk_search::search_chunks_semantic(
                     self.repo.chroma(),
@@ -272,13 +282,15 @@ impl QueryService {
                 });
             }
 
+            tracing::debug!(
+                component = "query/service",
+                dimension = embedding.len(),
+                "debug.embedding_dimension_detected"
+            );
+
             debug_data.embedding_search = Some(EmbeddingSearchStep {
-                query_snippet: if multi_query_enabled {
-                    "Multi-query with HyDE".to_string()
-                } else {
-                    "Single query".to_string()
-                },
-                embedding_dimension: 384,
+                query_snippet: effective_query_first.clone(),
+                embedding_dimension: embedding.len(),
                 latency_ms: embed_start.elapsed().as_millis() as u64,
                 collection_name: request.collection_id.to_string(),
                 top_k: eff_hybrid_top_k,
@@ -296,6 +308,8 @@ impl QueryService {
                     })
                     .collect(),
             });
+
+            tracing::debug!(component = "query/service", query_snippet = %effective_query_first, "debug.query_snippet_set");
 
             // BM25 (Keyword Search) — gated
             let bm25_chunks = if bm25_enabled {
@@ -346,6 +360,18 @@ impl QueryService {
 
             let merged: Vec<_> = unique_chunks.into_values().collect();
 
+            // Build SearchResultItems for merge/dedup debug display (all chunks, not limited)
+            let merge_dedup_results: Vec<SearchResultItem> = merged
+                .iter()
+                .map(|r| SearchResultItem {
+                    chunk_id: r.chunk_id.to_string(),
+                    document_name: r.document_name.clone(),
+                    chunk_index: r.chunk_index,
+                    score: r.score.unwrap_or(0.0),
+                    text_snippet: r.text.chars().take(200).collect(),
+                })
+                .collect();
+
             debug_data.merge_dedup = Some(MergeDedupStep {
                 input_chunks: initial_count,
                 after_dedup: merged.len(),
@@ -353,7 +379,14 @@ impl QueryService {
                     vector_chunks: all_semantic_chunks.len(),
                     keyword_chunks: bm25_chunks.len(),
                 },
+                results: merge_dedup_results,
             });
+
+            tracing::debug!(
+                component = "query/service",
+                merge_results = merged.len(),
+                "debug.merge_dedup_results_set"
+            );
 
             // LLM Reranking — gated
             let final_merged = if reranking_enabled {
