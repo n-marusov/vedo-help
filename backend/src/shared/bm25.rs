@@ -109,7 +109,7 @@ impl Bm25Index {
     pub fn search(&self, query: &str, top_k: usize) -> Vec<Bm25Result> {
         tracing::trace!(component = "bm25", query = %query, "bm25.search.started");
 
-        let k1 = 1.5;
+        let k1 = 1.2;
         let b = 0.75;
         let tokens = tokenize(query);
         let mut scores: HashMap<String, f64> = HashMap::new();

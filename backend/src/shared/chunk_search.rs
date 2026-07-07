@@ -121,8 +121,11 @@ pub async fn search_chunks_text(
 /// ranked by BM25 relevance score descending.
 ///
 /// This replaces the old ILIKE-based phrase search with proper tokenized
-/// BM25 scoring (k1=1.5, b=0.75) so multi-word queries match individual
+/// BM25 scoring (k1=1.2, b=0.75) so multi-word queries match individual
 /// tokens rather than requiring an exact phrase match.
+///
+/// Uses Lucene-compatible defaults (k1=1.2, b=0.75) and the same
+/// non-negative IDF variant: log(1 + (N - df + 0.5) / (df + 0.5)).
 pub async fn search_bm25(
     db: &PgPool,
     collection_id: Uuid,
