@@ -817,6 +817,7 @@ mod tests {
     use crate::modules::conversations::repository::ConversationRepository;
     use futures::stream;
     use futures::StreamExt;
+    use serde_json::json;
     use sqlx::postgres::PgPoolOptions;
 
     /// Pure unit test: `build_event_stream` with all `None` IDs never touches the DB.
@@ -942,5 +943,120 @@ mod tests {
         assert_eq!(events[4].data["text"], "test response");
         assert_eq!(events[5].event_type, "sources");
         assert_eq!(events[6].event_type, "done");
+    }
+
+    /// Regression: channel-based stage stream yields events in correct order, just like
+    /// `run_pipeline` sends events through `tokio::sync::mpsc`.
+    #[tokio::test]
+    async fn channel_stage_events_yielded_in_order() {
+        use futures::StreamExt;
+        use tokio::sync::mpsc;
+        use tokio_stream::wrappers::ReceiverStream;
+
+        let (tx, rx) = mpsc::channel::<Result<StreamEvent, Infallible>>(16);
+
+        // Spawn a task that sends stage events through the channel
+        tokio::spawn(async move {
+            let events = vec![
+                QueryService::make_stage_event("embedding"),
+                QueryService::make_stage_event("searching"),
+                QueryService::make_stage_event("building_context"),
+                QueryService::make_stage_event("generating"),
+            ];
+            for event in events {
+                tx.send(Ok(event)).await.unwrap();
+            }
+        });
+
+        let stream = ReceiverStream::new(rx);
+        let collected: Vec<StreamEvent> = stream
+            .filter_map(|r| futures::future::ready(r.ok()))
+            .collect()
+            .await;
+
+        assert_eq!(collected.len(), 4, "should receive exactly 4 stage events");
+        assert_eq!(collected[0].event_type, "pipeline_stage");
+        assert_eq!(collected[0].data["stage_name"], "embedding");
+        assert_eq!(collected[1].event_type, "pipeline_stage");
+        assert_eq!(collected[1].data["stage_name"], "searching");
+        assert_eq!(collected[2].event_type, "pipeline_stage");
+        assert_eq!(collected[2].data["stage_name"], "building_context");
+        assert_eq!(collected[3].event_type, "pipeline_stage");
+        assert_eq!(collected[3].data["stage_name"], "generating");
+    }
+
+    /// Regression: channel stream can interleave stage events with LLM forwarding.
+    /// This simulates the final step of `run_pipeline` where stage events precede
+    /// forwarded LLM chunk events through the same channel.
+    #[tokio::test]
+    async fn channel_stage_then_llm_events_yielded_in_order() {
+        use futures::StreamExt;
+        use tokio::sync::mpsc;
+        use tokio_stream::wrappers::ReceiverStream;
+
+        let (tx, rx) = mpsc::channel::<Result<StreamEvent, Infallible>>(32);
+
+        tokio::spawn(async move {
+            // Send stage events
+            tx.send(Ok(QueryService::make_stage_event("embedding")))
+                .await
+                .unwrap();
+            tx.send(Ok(QueryService::make_stage_event("searching")))
+                .await
+                .unwrap();
+            tx.send(Ok(QueryService::make_stage_event("generating")))
+                .await
+                .unwrap();
+
+            // Simulate forwarded LLM events (chunks, sources, done)
+            tx.send(Ok(StreamEvent {
+                event_type: "chunk".to_string(),
+                data: json!({"text": "Hello"}),
+            }))
+            .await
+            .unwrap();
+            tx.send(Ok(StreamEvent {
+                event_type: "chunk".to_string(),
+                data: json!({"text": " world"}),
+            }))
+            .await
+            .unwrap();
+            tx.send(Ok(StreamEvent {
+                event_type: "sources".to_string(),
+                data: json!({"sources": []}),
+            }))
+            .await
+            .unwrap();
+            tx.send(Ok(StreamEvent {
+                event_type: "done".to_string(),
+                data: json!({"user_message_id": null}),
+            }))
+            .await
+            .unwrap();
+        });
+
+        let stream = ReceiverStream::new(rx);
+        let collected: Vec<StreamEvent> = stream
+            .filter_map(|r| futures::future::ready(r.ok()))
+            .collect()
+            .await;
+
+        assert_eq!(collected.len(), 7, "should receive all 7 events");
+
+        // Stage events come first
+        assert_eq!(collected[0].event_type, "pipeline_stage");
+        assert_eq!(collected[0].data["stage_name"], "embedding");
+        assert_eq!(collected[1].event_type, "pipeline_stage");
+        assert_eq!(collected[1].data["stage_name"], "searching");
+        assert_eq!(collected[2].event_type, "pipeline_stage");
+        assert_eq!(collected[2].data["stage_name"], "generating");
+
+        // Then LLM chunks, sources, done
+        assert_eq!(collected[3].event_type, "chunk");
+        assert_eq!(collected[3].data["text"], "Hello");
+        assert_eq!(collected[4].event_type, "chunk");
+        assert_eq!(collected[4].data["text"], " world");
+        assert_eq!(collected[5].event_type, "sources");
+        assert_eq!(collected[6].event_type, "done");
     }
 }
