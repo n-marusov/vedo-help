@@ -435,6 +435,15 @@ impl QueryService {
                 let accepted_count = accepted_chunks.len();
                 let rejected_count = rerank_results.len() - accepted_count;
                 let rerank_results_count = rerank_results.len();
+                // Sort accepted chunks by original relevance score (descending)
+                // so the most relevant chunks make it to the LLM context,
+                // not arbitrary HashMap iteration order.
+                accepted_chunks.sort_by(|a, b| {
+                    b.score
+                        .unwrap_or(0.0)
+                        .partial_cmp(&a.score.unwrap_or(0.0))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
                 if accepted_chunks.len() > eff_rerank_top_k {
                     accepted_chunks.truncate(eff_rerank_top_k);
                 }
