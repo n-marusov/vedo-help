@@ -205,6 +205,7 @@ pub async fn get_sync_status(
         chunks_total: 0,
         last_commit: repo.last_commit_hash,
         error: None,
+        progress: svc.get_sync_progress(id),
     }))
 }
 

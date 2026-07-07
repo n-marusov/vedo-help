@@ -585,7 +585,8 @@ async fn test_sync_status_transitions_contract() {
         "files_indexed": 0,
         "chunks_total": 0,
         "last_commit": null,
-        "error": null
+        "error": null,
+        "progress": null
     });
 
     assert_eq!(idle_response["status"], "idle");
@@ -593,20 +594,30 @@ async fn test_sync_status_transitions_contract() {
     assert!(idle_response["error"].is_null());
     assert!(idle_response["files_indexed"].as_u64().is_some());
     assert!(idle_response["chunks_total"].as_u64().is_some());
+    assert!(idle_response["progress"].is_null());
 
-    // Syncing state
+    // Syncing state — with progress data
     let syncing_response = json!({
         "repo_id": "repo-test-1",
         "status": "syncing",
         "files_indexed": 5,
         "chunks_total": 20,
         "last_commit": "abc123def456",
-        "error": null
+        "error": null,
+        "progress": {
+            "total_files": 10,
+            "indexed_files": 5,
+            "current_file": "docs/guide.md",
+            "phase": "indexing"
+        }
     });
 
     assert_eq!(syncing_response["status"], "syncing");
     assert_eq!(syncing_response["files_indexed"], 5);
     assert_eq!(syncing_response["last_commit"], "abc123def456");
+    assert_eq!(syncing_response["progress"]["total_files"], 10);
+    assert_eq!(syncing_response["progress"]["indexed_files"], 5);
+    assert_eq!(syncing_response["progress"]["phase"], "indexing");
 
     // Error state
     let error_response = json!({
@@ -615,12 +626,14 @@ async fn test_sync_status_transitions_contract() {
         "files_indexed": 0,
         "chunks_total": 0,
         "last_commit": null,
-        "error": "Failed to clone: SSL certificate verify failed"
+        "error": "Failed to clone: SSL certificate verify failed",
+        "progress": null
     });
 
     assert_eq!(error_response["status"], "error");
     assert!(error_response["error"].as_str().is_some());
     assert!(!error_response["error"].as_str().unwrap().is_empty());
+    assert!(error_response["progress"].is_null());
 
     // Status values must be in the valid set
     let valid_statuses = ["idle", "syncing", "error"];

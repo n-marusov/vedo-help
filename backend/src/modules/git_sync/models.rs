@@ -84,6 +84,20 @@ impl From<GitRepo> for GitRepoSummary {
     }
 }
 
+/// Tracks real-time sync progress for the frontend progress bar.
+///
+/// - `phase`: `"cloning"` during git clone, `"indexing"` during embedding generation.
+/// - `total_files`: total documents to index — determined after cloning, set before indexing.
+/// - `indexed_files`: how many have been processed so far.
+/// - `current_file`: the file currently being embedded (shown in the UI).
+#[derive(Debug, Clone, Serialize)]
+pub struct SyncProgress {
+    pub total_files: usize,
+    pub indexed_files: usize,
+    pub current_file: String,
+    pub phase: String,
+}
+
 /// Response returned by the sync endpoint, reporting sync results.
 #[derive(Debug, Clone, Serialize)]
 pub struct SyncStatusResponse {
@@ -93,6 +107,8 @@ pub struct SyncStatusResponse {
     pub chunks_total: usize,
     pub last_commit: Option<String>,
     pub error: Option<String>,
+    /// Real-time progress of an active sync — `None` when idle or error.
+    pub progress: Option<SyncProgress>,
 }
 
 /// Payload received from a Git provider (GitHub / GitLab / Bitbucket)

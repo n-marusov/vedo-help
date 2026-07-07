@@ -1,16 +1,69 @@
 <script setup lang="ts">
 import { api } from '@/api/client';
-import type { CreateRepoRequest, GitRepoSummary } from '@/api/types';
+import type { CreateRepoRequest, GitRepoSummary, SyncProgress } from '@/api/types';
 import VBadge from '@/components/ui/VBadge.vue';
 import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import VInput from '@/components/ui/VInput.vue';
+import VProgressBar from '@/components/ui/VProgressBar.vue';
 import VSkeleton from '@/components/ui/VSkeleton.vue';
 import { useCollectionStore } from '@/stores/collections';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 const repos = ref<GitRepoSummary[]>([]);
 const collectionStore = useCollectionStore();
 const isLoadingRepos = ref(false);
+
+// Sync progress polling
+const syncProgresses = ref<Record<string, SyncProgress>>({});
+let pollingTimer: ReturnType<typeof setInterval> | null = null;
+
+function startPolling() {
+  if (pollingTimer) return;
+  pollingTimer = setInterval(pollSyncStatuses, 2000);
+}
+
+function stopPolling() {
+  if (pollingTimer) {
+    clearInterval(pollingTimer);
+    pollingTimer = null;
+  }
+}
+
+async function pollSyncStatuses() {
+  const syncingRepos = repos.value.filter((r) => r.status === 'syncing');
+  if (syncingRepos.length === 0) {
+    stopPolling();
+    return;
+  }
+  for (const repo of syncingRepos) {
+    try {
+      const result = await api.getSyncStatus(repo.id);
+      if (result.progress) {
+        syncProgresses.value[repo.id] = result.progress;
+      }
+      // If status changed away from syncing, update the repo row
+      if (result.status !== 'syncing') {
+        const idx = repos.value.findIndex((r) => r.id === repo.id);
+        if (idx !== -1) {
+          repos.value[idx] = {
+            ...repos.value[idx],
+            status: result.status as GitRepoSummary['status'],
+            last_commit_hash: result.last_commit,
+            last_synced_at: new Date().toISOString(),
+          };
+          delete syncProgresses.value[repo.id];
+        }
+      }
+    } catch (err) {
+      console.error('[GitRepoManager] poll status failed:', err);
+    }
+  }
+}
+
+function progressPercent(progress: SyncProgress): number {
+  if (progress.total_files === 0) return 0;
+  return Math.round((progress.indexed_files / progress.total_files) * 100);
+}
 
 type ConnectRepoForm = Omit<CreateRepoRequest, 'branch' | 'access_token' | 'collection_id'> & {
   branch: string;
@@ -53,11 +106,19 @@ onMounted(() => {
   fetchRepos();
 });
 
+onUnmounted(() => {
+  stopPolling();
+});
+
 // ── Data fetching ──
 async function fetchRepos() {
   isLoadingRepos.value = true;
   try {
     repos.value = await api.getGitRepos();
+    // Start polling if any repos are currently syncing
+    if (repos.value.some((r) => r.status === 'syncing')) {
+      startPolling();
+    }
   } catch (err) {
     console.error('[GitRepoManager] failed to fetch repos:', err);
   } finally {
@@ -130,10 +191,16 @@ async function syncRepo(repo: GitRepoSummary) {
   const idx = repos.value.findIndex((r) => r.id === repo.id);
   if (idx === -1) return;
   repos.value[idx] = { ...repos.value[idx], status: 'syncing' };
+  // Start polling for progress
+  startPolling();
   try {
     const result = await api.triggerSync(repo.id);
     // Update with response data — check for error/syncing status in the response body
     const newStatus = (result.status as GitRepoSummary['status']) || 'idle';
+    // Store initial progress if the sync is already in indexing phase
+    if (result.progress) {
+      syncProgresses.value[repo.id] = result.progress;
+    }
     repos.value[idx] = {
       ...repos.value[idx],
       status: newStatus,
@@ -144,8 +211,17 @@ async function syncRepo(repo: GitRepoSummary) {
     if (result.error) {
       console.warn('[GitRepoManager] sync returned with error message:', result.error);
       syncErrors.value[repo.id] = result.error;
+      // If already failed, no need to poll
+      if (newStatus !== 'syncing') {
+        delete syncProgresses.value[repo.id];
+      }
     } else {
       delete syncErrors.value[repo.id];
+    }
+    // If sync completed faster than our poll interval, stop polling
+    if (newStatus !== 'syncing') {
+      delete syncProgresses.value[repo.id];
+      stopPolling();
     }
   } catch (err) {
     console.error('[GitRepoManager] sync failed:', err);
@@ -155,6 +231,7 @@ async function syncRepo(repo: GitRepoSummary) {
       last_commit_hash: undefined,
     };
     syncErrors.value[repo.id] = err instanceof Error ? err.message : 'Sync request failed.';
+    delete syncProgresses.value[repo.id];
   }
 }
 
@@ -259,39 +336,66 @@ function formatDate(iso?: string): string {
 
             <td>
               <div class="grm-status-cell">
-                <VBadge
-                  data-testid="git-repo-status"
-                  :variant="
-                    repo.status === 'syncing'
-                      ? 'info'
-                      : repo.status === 'error'
-                        ? 'default'
-                        : 'default'
-                  "
-                  :class="{
-                    'grm-badge-syncing': repo.status === 'syncing',
-                    'grm-badge-error': repo.status === 'error',
-                    'grm-badge-idle': repo.status === 'idle',
-                  }"
-                  @mouseenter="
-                    repo.status === 'error' ? (hoveredRepoId = repo.id) : null
-                  "
-                  @mouseleave="hoveredRepoId = null"
-                >
-                  <span v-if="repo.status === 'syncing'" class="grm-sync-icon"
-                    >⟳</span
+                <template v-if="repo.status === 'syncing'">
+                  <div class="grm-sync-progress">
+                    <VProgressBar
+                      :value="
+                        progressPercent(
+                          syncProgresses[repo.id] || {
+                            total_files: 0,
+                            indexed_files: 0,
+                            current_file: '',
+                            phase: 'cloning',
+                          },
+                        )
+                      "
+                      variant="info"
+                    />
+                    <span class="grm-sync-label">
+                      <template
+                        v-if="syncProgresses[repo.id]?.phase === 'cloning'"
+                      >
+                        Cloning repository…
+                      </template>
+                      <template
+                        v-else-if="
+                          syncProgresses[repo.id]?.phase === 'indexing'
+                        "
+                      >
+                        {{ syncProgresses[repo.id]?.indexed_files ?? 0 }}/{{
+                          syncProgresses[repo.id]?.total_files ?? 0
+                        }}
+                        files indexed
+                      </template>
+                      <template v-else> Syncing… </template>
+                    </span>
+                  </div>
+                </template>
+                <template v-else>
+                  <VBadge
+                    data-testid="git-repo-status"
+                    :variant="repo.status === 'error' ? 'default' : 'default'"
+                    :class="{
+                      'grm-badge-error': repo.status === 'error',
+                      'grm-badge-idle': repo.status === 'idle',
+                    }"
+                    @mouseenter="
+                      repo.status === 'error' ? (hoveredRepoId = repo.id) : null
+                    "
+                    @mouseleave="hoveredRepoId = null"
                   >
-                  {{ repo.status }}
-                </VBadge>
-                <div
-                  v-if="repo.status === 'error' && hoveredRepoId === repo.id"
-                  class="grm-error-tooltip"
-                >
-                  {{
-                    syncErrors[repo.id] ||
-                    "Sync failed. Check logs for details."
-                  }}
-                </div>
+                    {{ repo.status }}
+                  </VBadge>
+                  <div
+                    v-if="repo.status === 'error' && hoveredRepoId === repo.id"
+                    class="grm-error-tooltip"
+                  >
+                    {{
+                      syncErrors[repo.id] ||
+                      "Sync failed. Check logs for details."
+                    }}
+                  </div>
+                </template>
               </div>
             </td>
             <td>{{ formatDate(repo.last_synced_at) }}</td>
@@ -484,44 +588,29 @@ function formatDate(iso?: string): string {
   align-items: center;
 }
 
+/* ── Sync progress bar ── */
+.grm-sync-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.grm-sync-label {
+  font-family: var(--font-family);
+  font-size: var(--font-size-3xs, 10px);
+  color: var(--color-muted-foreground);
+  white-space: nowrap;
+}
+
 .grm-badge-idle {
   background: var(--color-secondary);
   color: var(--color-muted-foreground);
 }
 
-.grm-badge-syncing {
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 20%, transparent);
-  color: var(--color-info, #3b82f6);
-  animation: grm-pulse 1.5s ease-in-out infinite;
-}
-
 .grm-badge-error {
   background: color-mix(in srgb, var(--color-destructive) 20%, transparent);
   color: var(--color-destructive);
-}
-
-@keyframes grm-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-.grm-sync-icon {
-  display: inline-block;
-  animation: grm-spin 1s linear infinite;
-}
-
-@keyframes grm-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ── Error tooltip ── */

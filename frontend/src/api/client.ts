@@ -75,6 +75,7 @@ export const api = {
   getGitRepos: () => api.get<GitRepoSummary[]>('/git-sync/repos'),
   createGitRepo: (req: CreateRepoRequest) => api.post<GitRepoSummary>('/git-sync/repos', req),
   triggerSync: (id: string) => api.post<SyncStatusResponse>(`/git-sync/repos/${id}/sync`),
+  getSyncStatus: (id: string) => api.get<SyncStatusResponse>(`/git-sync/repos/${id}/status`),
   deleteGitRepo: (id: string) => api.del<{ status: string; id: string }>(`/git-sync/repos/${id}`),
   upload: <T>(path: string, formData: FormData) => {
     const headers: Record<string, string> = {};

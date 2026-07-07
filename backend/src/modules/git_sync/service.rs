@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use chrono::Utc;
 use tokio::sync::broadcast;
@@ -7,7 +9,7 @@ use uuid::Uuid;
 
 use crate::modules::documents::models::Chunk;
 use crate::modules::documents::repository::DocumentRepository;
-use crate::modules::git_sync::models::{GitRepo, SyncStatusResponse};
+use crate::modules::git_sync::models::{GitRepo, SyncProgress, SyncStatusResponse};
 use crate::modules::git_sync::repository::GitRepoRepository;
 use crate::modules::settings::service::SettingsService;
 use crate::shared::chroma_client::ChromaClient;
@@ -33,6 +35,8 @@ pub struct GitSyncService {
     pub embedding_client: EmbeddingClient,
     pub clone_root: PathBuf,
     pub settings_service: Option<SettingsService>,
+    /// In-memory progress for active syncs — cleared on completion.
+    pub sync_progress: Arc<RwLock<HashMap<Uuid, SyncProgress>>>,
 }
 
 impl GitSyncService {
@@ -58,6 +62,31 @@ impl GitSyncService {
             embedding_client,
             clone_root,
             settings_service,
+            sync_progress: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    // ── Sync progress helpers ──
+
+    /// Store current sync progress for a repo (frontend polls via GET status).
+    pub fn set_sync_progress(&self, repo_id: Uuid, progress: SyncProgress) {
+        if let Ok(mut map) = self.sync_progress.write() {
+            map.insert(repo_id, progress);
+        }
+    }
+
+    /// Read current sync progress, or `None` if not actively syncing.
+    pub fn get_sync_progress(&self, repo_id: Uuid) -> Option<SyncProgress> {
+        self.sync_progress
+            .read()
+            .ok()
+            .and_then(|m| m.get(&repo_id).cloned())
+    }
+
+    /// Remove progress entry once a sync completes or fails.
+    pub fn clear_sync_progress(&self, repo_id: Uuid) {
+        if let Ok(mut map) = self.sync_progress.write() {
+            map.remove(&repo_id);
         }
     }
 
@@ -212,6 +241,7 @@ impl GitSyncService {
                 chunks_total: 0,
                 last_commit: None,
                 error: Some("Sync already in progress for this repository".to_string()),
+                progress: None,
             });
         }
 
@@ -238,9 +268,21 @@ impl GitSyncService {
                     chunks_total: 0,
                     last_commit: None,
                     error: Some(msg),
+                    progress: None,
                 });
             }
         };
+
+        // Signal frontend that we are in the cloning phase
+        self.set_sync_progress(
+            repo_id,
+            SyncProgress {
+                total_files: 0,
+                indexed_files: 0,
+                current_file: String::new(),
+                phase: "cloning".to_string(),
+            },
+        );
 
         // Use the collection UUID as the Chroma collection name — this is safe
         // for Chroma which accepts only ASCII alphanumeric, underscores, and hyphens.
@@ -279,6 +321,8 @@ impl GitSyncService {
                     .update_sync_status(repo_id, &new_commit, &now, "idle")
                     .await?;
 
+                self.clear_sync_progress(repo_id);
+
                 tracing::info!(
                     component = "git_sync/service",
                     git_repo_id = %repo_id,
@@ -294,6 +338,7 @@ impl GitSyncService {
                     chunks_total,
                     last_commit: Some(new_commit),
                     error: None,
+                    progress: None,
                 })
             }
             Err(e) => {
@@ -308,6 +353,8 @@ impl GitSyncService {
                 // overwriting last_commit_hash, preserving it for future syncs.
                 self.repo.mark_sync_error(repo_id, &error_msg).await?;
 
+                self.clear_sync_progress(repo_id);
+
                 Ok(SyncStatusResponse {
                     repo_id,
                     status: "error".to_string(),
@@ -315,6 +362,7 @@ impl GitSyncService {
                     chunks_total: 0,
                     last_commit: git_repo.last_commit_hash,
                     error: Some(error_msg),
+                    progress: None,
                 })
             }
         }
@@ -850,6 +898,14 @@ impl GitSyncService {
             files_indexed += 1;
             chunks_total += chunk_count;
 
+            // Update sync progress so the frontend can poll it
+            if let Ok(mut map) = self.sync_progress.write() {
+                if let Some(progress) = map.get_mut(&repo_id) {
+                    progress.indexed_files = files_indexed;
+                    progress.current_file = file_path.clone();
+                }
+            }
+
             tracing::info!(
                 component = "git_sync/service",
                 document_id = %doc_id,
@@ -950,6 +1006,9 @@ impl GitSyncService {
         is_admin: bool,
     ) -> Result<(), AppError> {
         tracing::info!(component = "git_sync/service", git_repo_id = %repo_id, "delete_repo_and_cleanup.starting");
+
+        // Clean up any in-memory sync progress for this repo
+        self.clear_sync_progress(repo_id);
 
         // Get repo with ownership check
         let git_repo = self
@@ -1071,6 +1130,17 @@ impl GitSyncService {
             return Ok((head_commit, 0, 0));
         }
 
+        // Signal frontend with total file count for progress bar
+        self.set_sync_progress(
+            git_repo.id,
+            SyncProgress {
+                total_files: files.len(),
+                indexed_files: 0,
+                current_file: String::new(),
+                phase: "indexing".to_string(),
+            },
+        );
+
         // 4. Index chunks (save to PG + Chroma)
         let (files_indexed, chunks_total) = self
             .index_chunks(
@@ -1130,6 +1200,26 @@ impl GitSyncService {
         let files = self
             .parse_markdown_files(local_path, Some(&changed_files))
             .await?;
+
+        if files.is_empty() {
+            tracing::debug!(
+                component = "git_sync/service",
+                git_repo_id = %git_repo.id,
+                "incremental_sync.no_parsed_files"
+            );
+            return Ok((new_commit, 0, 0));
+        }
+
+        // Signal frontend with total changed files for progress bar
+        self.set_sync_progress(
+            git_repo.id,
+            SyncProgress {
+                total_files: files.len(),
+                indexed_files: 0,
+                current_file: String::new(),
+                phase: "indexing".to_string(),
+            },
+        );
 
         // 4. Re-index (save to PG + Chroma)
         let (files_indexed, chunks_total) = self

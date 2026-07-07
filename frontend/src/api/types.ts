@@ -142,6 +142,13 @@ export interface CreateRepoRequest {
   collection_id: string;
 }
 
+export interface SyncProgress {
+  total_files: number;
+  indexed_files: number;
+  current_file: string;
+  phase: string;
+}
+
 export interface SyncStatusResponse {
   repo_id: string;
   status: string;
@@ -149,6 +156,7 @@ export interface SyncStatusResponse {
   chunks_total: number;
   last_commit?: string;
   error?: string;
+  progress?: SyncProgress;
 }
 
 // ── Session Debug Types (Admin Panel) ──
