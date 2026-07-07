@@ -41,6 +41,23 @@ export const useChatStore = defineStore('chat', () => {
   const lastCollectionId = ref<string | null>(null);
   const searchQuery = ref('');
   const sidebarCollapsed = ref(false);
+  const pipelineStage = ref<string | null>(null);
+
+  const stageLabels: Record<string, string> = {
+    embedding: 'Embedding query...',
+    multi_query: 'Generating query variants...',
+    hyde: 'Generating hypothetical document...',
+    searching: 'Searching vector DB...',
+    keyword_search: 'Searching by keywords...',
+    reranking: 'Reranking results...',
+    building_context: 'Building context...',
+    generating: 'Generating response...',
+  };
+
+  const pipelineStageLabel = computed(() => {
+    if (!pipelineStage.value) return null;
+    return stageLabels[pipelineStage.value] || pipelineStage.value;
+  });
 
   const filteredSessions = computed(() => {
     if (!searchQuery.value.trim()) return sessions.value;
@@ -170,6 +187,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading.value = true;
     lastCollectionId.value = collectionId;
     error.value = null;
+    pipelineStage.value = null;
     abortController = new AbortController();
 
     // Optimistic title: show user query in sidebar and badge immediately
@@ -263,6 +281,14 @@ export const useChatStore = defineStore('chat', () => {
           case 'sources':
             sources = JSON.stringify(value.data?.sources || value.sources);
             break;
+          case 'pipeline_stage': {
+            const stageName = value.data?.stage_name || '';
+            if (stageName) {
+              pipelineStage.value = stageName;
+              console.debug('[Chat] pipeline stage: %s', stageName);
+            }
+            break;
+          }
           case 'debug': {
             const lastMsg = messages.value[messages.value.length - 1];
             if (lastMsg?.role === 'assistant') {
@@ -272,11 +298,13 @@ export const useChatStore = defineStore('chat', () => {
             break;
           }
           case 'error':
+            pipelineStage.value = null;
             error.value = value.data?.text || value.text || 'An error occurred';
             // Remove the placeholder assistant message
             messages.value.pop();
             break;
           case 'done': {
+            pipelineStage.value = null;
             // Finalize the assistant message
             const finalMsg = messages.value[messages.value.length - 1];
             if (finalMsg?.role === 'assistant') {
@@ -361,6 +389,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function cancelStream() {
+    pipelineStage.value = null;
     if (abortController) {
       abortController.abort();
       abortController = null;
@@ -611,5 +640,7 @@ export const useChatStore = defineStore('chat', () => {
     toggleSidebarCollapsed,
     regenerateMessage,
     copyMessage,
+    pipelineStage,
+    pipelineStageLabel,
   };
 });

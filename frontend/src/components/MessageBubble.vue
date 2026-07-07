@@ -7,6 +7,7 @@ const props = defineProps<{
   message: Message;
   isStreaming?: boolean;
   index?: number;
+  pipelineStageLabel?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -164,7 +165,15 @@ onMounted(() => {
             class="streaming-bar"
             data-testid="streaming-indicator"
           >
-            Assistant is typing<span class="streaming-dots">...</span>
+            <template v-if="pipelineStageLabel">
+              <span class="streaming-stage-label">{{
+                pipelineStageLabel
+              }}</span>
+              <span class="streaming-dots">...</span>
+            </template>
+            <template v-else>
+              Assistant is typing<span class="streaming-dots">...</span>
+            </template>
           </div>
         </template>
       </div>
@@ -686,6 +695,13 @@ onMounted(() => {
 
 .streaming-dots {
   animation: blink 1.4s steps(4) infinite;
+}
+
+.streaming-stage-label {
+  color: var(--color-muted-foreground);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 @keyframes blink {

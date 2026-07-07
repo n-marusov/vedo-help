@@ -88,6 +88,7 @@ impl QueryService {
         );
 
         let pipeline_start = tokio::time::Instant::now();
+        let mut stage_events: Vec<StreamEvent> = Vec::new();
 
         // 0. Verify collection ownership
         self.collection_repo
@@ -142,6 +143,7 @@ impl QueryService {
             embedding_dimension = embedding.len(),
             "query.embedded"
         );
+        stage_events.push(Self::make_stage_event("embedding"));
 
         use crate::modules::query::debug_models::*;
         let mut debug_data = DebugData::new(&request.query);
@@ -153,6 +155,7 @@ impl QueryService {
             std::collections::HashMap::new();
 
         if !advanced_rag_enabled {
+            stage_events.push(Self::make_stage_event("searching"));
             // Standard semantic search fallback
             let start = tokio::time::Instant::now();
             tracing::debug!(
@@ -206,6 +209,7 @@ impl QueryService {
             let mut queries: Vec<String> = vec![request.query.clone()];
 
             if multi_query_enabled {
+                stage_events.push(Self::make_stage_event("multi_query"));
                 let mq_start = tokio::time::Instant::now();
                 let mq_system = "You are an AI language model assistant. Your task is to generate 3 different versions of the given user question to retrieve relevant documents from a vector database. By generating multiple perspectives on the user question, your goal is to help the user overcome some of the limitations of the distance-based similarity search. Provide these alternative questions separated by newlines.";
 
@@ -237,6 +241,10 @@ impl QueryService {
 
             // HyDE: for each query, optionally generate a hypothetical document,
             // then search semantically
+            if hyde_enabled {
+                stage_events.push(Self::make_stage_event("hyde"));
+            }
+            stage_events.push(Self::make_stage_event("searching"));
             let embed_start = tokio::time::Instant::now();
             let mut all_semantic_chunks = Vec::new();
             let mut hyde_results = Vec::new();
@@ -320,6 +328,7 @@ impl QueryService {
 
             // BM25 (Keyword Search) — gated
             let bm25_chunks = if bm25_enabled {
+                stage_events.push(Self::make_stage_event("keyword_search"));
                 let bm25_start = tokio::time::Instant::now();
                 let results = chunk_search::search_bm25(
                     self.repo.db(),
@@ -395,6 +404,7 @@ impl QueryService {
 
             // LLM Reranking — gated
             let final_merged = if reranking_enabled {
+                stage_events.push(Self::make_stage_event("reranking"));
                 let rerank_system = "You are an expert relevance ranker. Given a user question and a document chunk, evaluate if the chunk contains information that helps answer the question. If it is relevant and should be kept, respond with the exact word 'брать'. If it is completely irrelevant, respond with 'пропустить'. Do not provide any other text or explanation. Question: ";
 
                 let mut accepted_chunks = Vec::new();
@@ -467,6 +477,8 @@ impl QueryService {
 
             final_chunks = final_merged;
         }
+
+        stage_events.push(Self::make_stage_event("building_context"));
 
         // Build chunks for LLM context (CrateChunkData) and SourceRefs from search results
         let chunks: Vec<crate::shared::llm::CrateChunkData> = final_chunks
@@ -621,12 +633,15 @@ impl QueryService {
         let assistant_message_id = request.session_id.map(|_| Uuid::new_v4());
 
         // 6. Stream LLM response
+        stage_events.push(Self::make_stage_event("generating"));
         let llm_stream = self
             .llm_client
             .query_stream(&request.query, &chunks, &history)
             .await?;
 
-        let stream = Self::build_event_stream(
+        let stage_stream =
+            stream::iter(stage_events.into_iter().map(Ok::<StreamEvent, Infallible>));
+        let llm_event_stream = Self::build_event_stream(
             llm_stream,
             source_refs,
             request.session_id,
@@ -636,8 +651,22 @@ impl QueryService {
             self.conversation_repo.clone(),
             debug_data_json,
         );
+        let full_stream = stage_stream.chain(llm_event_stream);
 
-        Ok(stream)
+        Ok(full_stream)
+    }
+
+    /// Create a pipeline_stage event for SSE streaming.
+    fn make_stage_event(stage_name: &str) -> StreamEvent {
+        tracing::debug!(
+            component = "query/service",
+            stage = stage_name,
+            "query.pipeline_stage"
+        );
+        StreamEvent {
+            event_type: "pipeline_stage".to_string(),
+            data: json!({"stage_name": stage_name}),
+        }
     }
 
     /// Build the final event stream:
@@ -824,7 +853,7 @@ pub async fn load_conversation_history_rows(
 
 #[cfg(test)]
 mod tests {
-    use super::{AppError, QueryService, StreamEvent};
+    use super::{AppError, Infallible, QueryService, StreamEvent};
     use crate::modules::conversations::repository::ConversationRepository;
     use futures::stream;
     use futures::StreamExt;
@@ -877,5 +906,81 @@ mod tests {
             events[3].data["assistant_message_id"],
             serde_json::Value::Null
         );
+    }
+
+    /// Test that `make_stage_event` creates a correctly structured pipeline_stage event.
+    #[test]
+    fn make_stage_event_creates_correct_event() {
+        let event = QueryService::make_stage_event("embedding");
+
+        assert_eq!(event.event_type, "pipeline_stage");
+        assert_eq!(event.data["stage_name"], "embedding");
+    }
+
+    /// Test that stage events chained before LLM events appear in the correct order.
+    #[tokio::test]
+    async fn stage_events_appear_before_chunk_events_when_chained() {
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy("postgres://localhost/nonexistent")
+            .expect("lazy pool creation should not require a running DB");
+
+        // Build stage events (simulating what process_query would collect)
+        let stage_names = ["embedding", "searching", "building_context", "generating"];
+        let stage_events: Vec<StreamEvent> = stage_names
+            .iter()
+            .map(|name| QueryService::make_stage_event(name))
+            .collect();
+
+        let stage_stream =
+            futures::stream::iter(stage_events.into_iter().map(Ok::<StreamEvent, Infallible>));
+
+        // Build an LLM stream with a single chunk
+        let llm_stream = Box::pin(stream::iter(vec![Ok::<String, AppError>(
+            "test response".to_string(),
+        )]));
+
+        let repo = ConversationRepository::new(pool);
+
+        let llm_event_stream = Box::pin(QueryService::build_event_stream(
+            llm_stream,
+            vec![],
+            None,
+            vec![],
+            None,
+            None,
+            repo,
+            "null".to_string(),
+        ));
+
+        let full_stream = stage_stream.chain(llm_event_stream);
+
+        let events: Vec<StreamEvent> = full_stream
+            .filter_map(|r| futures::future::ready(r.ok()))
+            .collect()
+            .await;
+
+        // Expected order: 4 stage events, then chunk "test response", sources, done
+        assert_eq!(
+            events.len(),
+            7,
+            "should yield 7 events: 4 stages + chunk + sources + done"
+        );
+
+        // First 4 events must be pipeline_stage events in order
+        assert_eq!(events[0].event_type, "pipeline_stage");
+        assert_eq!(events[0].data["stage_name"], "embedding");
+        assert_eq!(events[1].event_type, "pipeline_stage");
+        assert_eq!(events[1].data["stage_name"], "searching");
+        assert_eq!(events[2].event_type, "pipeline_stage");
+        assert_eq!(events[2].data["stage_name"], "building_context");
+        assert_eq!(events[3].event_type, "pipeline_stage");
+        assert_eq!(events[3].data["stage_name"], "generating");
+
+        // Then LLM chunk, sources, done
+        assert_eq!(events[4].event_type, "chunk");
+        assert_eq!(events[4].data["text"], "test response");
+        assert_eq!(events[5].event_type, "sources");
+        assert_eq!(events[6].event_type, "done");
     }
 }

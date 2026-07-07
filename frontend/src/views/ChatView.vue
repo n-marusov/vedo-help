@@ -826,6 +826,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             @cancel-edit="() => {}"
             @copy="handleCopyMessage"
             @regenerate="handleRegenerateMessage"
+            :pipeline-stage-label="chatStore.pipelineStageLabel"
           />
         </div>
 
