@@ -825,13 +825,14 @@ impl DocumentService {
                 }
 
                 let index_result = async {
-                    let embeddings = embed.embed(&embedding_model, chroma_texts).await?;
+                    let embeddings = embed.embed(&embedding_model, chroma_texts.clone()).await?;
                     chroma
                         .add_embeddings(
                             &collection_name,
                             &chroma_ids,
                             &embeddings,
                             &chroma_metadatas,
+                            &chroma_texts,
                         )
                         .await
                 }
@@ -914,7 +915,7 @@ impl DocumentService {
             }
         }
 
-        let embeddings = embed.embed(&embedding_model, chunk_texts).await?;
+        let embeddings = embed.embed(&embedding_model, chunk_texts.clone()).await?;
 
         let ids: Vec<String> = chunks.iter().map(|c| c.id.to_string()).collect();
         let metadatas: Vec<serde_json::Value> = chunks
@@ -932,7 +933,13 @@ impl DocumentService {
             .collect();
 
         chroma
-            .add_embeddings(&collection_name, &ids, &embeddings, &metadatas)
+            .add_embeddings(
+                &collection_name,
+                &ids,
+                &embeddings,
+                &metadatas,
+                &chunk_texts,
+            )
             .await?;
 
         tracing::info!(

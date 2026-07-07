@@ -52,13 +52,14 @@ impl ChromaClient {
         }
     }
 
-    /// Add embeddings to a collection.
+    /// Add embeddings and their document texts to a collection.
     pub async fn add_embeddings(
         &self,
         collection: &str,
         ids: &[String],
         embeddings: &[Vec<f32>],
         metadatas: &[serde_json::Value],
+        documents: &[String],
     ) -> Result<(), AppError> {
         tracing::debug!(
             component = "chroma_client",
@@ -71,6 +72,7 @@ impl ChromaClient {
             "ids": ids,
             "embeddings": embeddings,
             "metadatas": metadatas,
+            "documents": documents,
         });
 
         // Resolve collection name to Chroma UUID for URL path.
@@ -263,7 +265,12 @@ impl ChromaClient {
                 let distance = data["distances"][0][i].as_f64().unwrap_or(1.0);
                 let score = 1.0 - distance;
                 let metadata = &data["metadatas"][0][i];
-                let text = data["documents"][0][i].as_str().unwrap_or("").to_string();
+                let text = data["documents"][0][i]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| metadata["text"].as_str())
+                    .unwrap_or("")
+                    .to_string();
 
                 results.push(ChromaResult {
                     id: id.as_str().unwrap_or("").to_string(),

@@ -764,6 +764,7 @@ impl GitSyncService {
         let mut all_ids = Vec::new();
         let mut all_embeddings = Vec::new();
         let mut all_metadatas = Vec::new();
+        let mut all_texts = Vec::new();
 
         for (file_path, content) in files {
             // 1. Deactivate old git documents for this repo file
@@ -883,6 +884,7 @@ impl GitSyncService {
 
                 all_ids.push(chunk_id.to_string());
                 all_embeddings.push(embeddings[i].clone());
+                all_texts.push(chunk.text.clone());
                 all_metadatas.push(serde_json::json!({
                     "document_id": doc_id.to_string(),
                     "document_name": file_path,
@@ -925,7 +927,13 @@ impl GitSyncService {
             );
 
             chroma
-                .add_embeddings(collection_name, &all_ids, &all_embeddings, &all_metadatas)
+                .add_embeddings(
+                    collection_name,
+                    &all_ids,
+                    &all_embeddings,
+                    &all_metadatas,
+                    &all_texts,
+                )
                 .await
                 .map_err(|e| {
                     tracing::error!(
