@@ -533,6 +533,46 @@ impl QueryService {
             Vec::new()
         };
 
+        // Populate FinalAnswerStep with real values before serializing debug_data
+        {
+            let context_parts: Vec<String> = chunks
+                .iter()
+                .map(|c| {
+                    format!(
+                        "[Source: {} (chunk {})]\n{}",
+                        c.document_name, c.index, c.text
+                    )
+                })
+                .collect();
+            let context_str = context_parts.join("\n\n");
+            let messages = self
+                .llm_client
+                .build_messages(&context_str, &request.query, &history);
+            let prompt_preview = serde_json::to_string_pretty(&messages).unwrap_or_default();
+
+            debug_data.final_answer = Some(FinalAnswerStep {
+                model: rag_settings.llm_model.clone(),
+                max_retries: MAX_RETRIES,
+                chunks_in_context: chunks.len(),
+                history_message_count: history.len(),
+                history_token_estimate: 0,
+                token_budget: rag_settings.llm_context_token_budget,
+                total_tokens_estimate: 0,
+                latency_ms: pipeline_start.elapsed().as_millis() as u64,
+                prompt_preview,
+            });
+
+            tracing::debug!(
+                component = "query/service",
+                model = %rag_settings.llm_model,
+                chunks = chunks.len(),
+                history_messages = history.len(),
+                "debug.final_answer_set"
+            );
+        }
+
+        let debug_data_json = serde_json::to_string(&debug_data).unwrap_or_default();
+
         // 5. Persist user message (if session is present) and get its ID
         let user_message_id = if let Some(session_id) = request.session_id {
             let user_msg_id = Uuid::new_v4();
