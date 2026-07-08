@@ -323,48 +323,151 @@ fn llm_models() -> Vec<ModelOption> {
         ),
         ModelOption::pair("anthropic/claude-sonnet-4", "Claude Sonnet 4 — Frontier"),
         ModelOption::pair("anthropic/claude-opus-4.8", "Claude Opus 4.8 — Premium"),
+        ModelOption::pair("anthropic/claude-opus-4.7", "Claude Opus 4.7 — Premium"),
         ModelOption::pair("anthropic/claude-opus-4.6", "Claude Opus 4.6 — Premium"),
+        ModelOption::pair("anthropic/claude-opus-4.5", "Claude Opus 4.5 — Premium"),
+        ModelOption::pair("anthropic/claude-fable-5", "Claude Fable 5 — Mythos-tier"),
         ModelOption::pair("anthropic/claude-haiku-4.5", "Claude Haiku 4.5 — Fast"),
         ModelOption::pair("anthropic/claude-3-haiku", "Claude 3 Haiku — Legacy"),
         // ── OpenAI GPT (Premium Frontier) ──
         ModelOption::pair("openai/gpt-5.5", "GPT 5.5 — Frontier"),
+        ModelOption::pair("openai/gpt-5.5-pro", "GPT 5.5 Pro — Premium"),
         ModelOption::pair("openai/gpt-5.4", "GPT 5.4 — Frontier"),
+        ModelOption::pair("openai/gpt-5.4-pro", "GPT 5.4 Pro — Premium"),
         ModelOption::pair("openai/gpt-5.4-mini", "GPT 5.4 Mini — Balanced"),
         ModelOption::pair("openai/gpt-5.4-nano", "GPT 5.4 Nano — Fast"),
         ModelOption::pair("openai/gpt-5.3-codex", "GPT 5.3 Codex — Coding"),
-        ModelOption::pair("openai/gpt-5.2-chat", "GPT 5.2 Chat"),
+        ModelOption::pair("openai/gpt-5.2", "GPT 5.2 — Frontier"),
+        ModelOption::pair("openai/gpt-5.2-chat", "GPT 5.2 Chat — Fast"),
+        ModelOption::pair("openai/gpt-5.2-pro", "GPT 5.2 Pro — Premium"),
+        ModelOption::pair("openai/gpt-5.1", "GPT 5.1 — Frontier"),
+        ModelOption::pair("openai/gpt-5.1-codex", "GPT 5.1 Codex — Coding"),
+        ModelOption::pair("openai/gpt-5", "GPT 5 — Frontier"),
+        ModelOption::pair("openai/gpt-5-mini", "GPT 5 Mini — Balanced"),
         ModelOption::pair("openai/gpt-5-nano", "GPT 5 Nano — Ultra-cheap"),
-        ModelOption::pair("openai/gpt-4o-mini", "GPT 4o Mini — Legacy, cheap"),
+        ModelOption::pair("openai/gpt-5-codex", "GPT 5 Codex — Coding"),
         ModelOption::pair("openai/gpt-4o", "GPT 4o — Legacy multimodal"),
+        ModelOption::pair("openai/gpt-4o-mini", "GPT 4o Mini — Legacy, cheap"),
         ModelOption::pair("openai/gpt-4.1", "GPT 4.1 — 1M ctx, legacy"),
         ModelOption::pair("openai/gpt-4.1-mini", "GPT 4.1 Mini — 1M ctx, legacy"),
         ModelOption::pair("openai/gpt-4.1-nano", "GPT 4.1 Nano — 1M ctx, legacy"),
-        ModelOption::pair("openai/o3-mini", "O3 Mini — Reasoning"),
         ModelOption::pair("openai/o4-mini", "O4 Mini — Compact reasoning"),
+        ModelOption::pair("openai/o4-mini-high", "O4 Mini High — Deep reasoning"),
+        ModelOption::pair("openai/o3-mini", "O3 Mini — Reasoning"),
+        ModelOption::pair("openai/o3", "O3 — Strong reasoning"),
+        ModelOption::pair("openai/o1", "O1 — Legacy reasoning"),
         // ── Google Gemini (Premium Frontier) ──
+        ModelOption::pair("google/gemini-3.5-flash", "Gemini 3.5 Flash — Fast"),
+        ModelOption::pair("google/gemini-3.1-pro-preview", "Gemini 3.1 Pro — Frontier"),
+        ModelOption::pair(
+            "google/gemini-3.1-flash-lite",
+            "Gemini 3.1 Flash Lite — Budget",
+        ),
+        ModelOption::pair(
+            "google/gemini-3-flash-preview",
+            "Gemini 3 Flash Preview — Fast",
+        ),
         ModelOption::pair("google/gemini-2.5-pro", "Gemini 2.5 Pro — Top"),
         ModelOption::pair("google/gemini-2.5-flash", "Gemini 2.5 Flash — Fast"),
-        ModelOption::pair("google/gemini-3-flash-preview", "Gemini 3 Flash Preview"),
+        ModelOption::pair(
+            "google/gemini-2.5-flash-lite",
+            "Gemini 2.5 Flash Lite — Budget",
+        ),
         // ── DeepSeek (Premium Frontier) ──
-        ModelOption::pair("deepseek/deepseek-v4-pro", "DeepSeek V4 Pro"),
-        ModelOption::pair("deepseek/deepseek-v4-flash", "DeepSeek V4 Flash"),
+        ModelOption::pair("deepseek/deepseek-v4-pro", "DeepSeek V4 Pro — Frontier"),
+        ModelOption::pair("deepseek/deepseek-v4-flash", "DeepSeek V4 Flash — Fast"),
+        ModelOption::pair("deepseek/deepseek-v3.2", "DeepSeek V3.2 — Reasoning"),
+        ModelOption::pair("deepseek/deepseek-chat-v3.1", "DeepSeek V3.1 — Balanced"),
+        ModelOption::pair("deepseek/deepseek-r1", "DeepSeek R1 — Open reasoning"),
+        ModelOption::pair(
+            "deepseek/deepseek-r1-0528",
+            "DeepSeek R1 0528 — Updated reasoning",
+        ),
+        // ── Google Gemma (Open) ──
+        ModelOption::pair("google/gemma-4-31b-it", "Gemma 4 31B — Apache 2.0"),
+        ModelOption::pair(
+            "google/gemma-4-26b-a4b-it",
+            "Gemma 4 26B A4B — Apache 2.0 (MoE)",
+        ),
+        ModelOption::pair("google/gemma-3-27b-it", "Gemma 3 27B — Open"),
         // ── Best Value (Balanced Price/Performance) ──
-        ModelOption::pair("qwen/qwen3-coder-plus", "Qwen 3 Coder Plus"),
-        ModelOption::pair("qwen/qwen3-plus", "Qwen 3 Plus — Balanced"),
+        ModelOption::pair("qwen/qwen3.7-max", "Qwen 3.7 Max — Flagship"),
+        ModelOption::pair("qwen/qwen3.7-plus", "Qwen 3.7 Plus — Balanced"),
+        ModelOption::pair("qwen/qwen3.6-plus", "Qwen 3.6 Plus — Strong coding"),
+        ModelOption::pair("qwen/qwen3.6-flash", "Qwen 3.6 Flash — Fast"),
+        ModelOption::pair("qwen/qwen3.5-plus", "Qwen 3.5 Plus — Balanced"),
         ModelOption::pair("qwen/qwen3.5-flash", "Qwen 3.5 Flash — Budget"),
+        ModelOption::pair("qwen/qwen3-coder-plus", "Qwen 3 Coder Plus — Coding"),
+        ModelOption::pair("qwen/qwen3-coder-flash", "Qwen 3 Coder Flash — Coding fast"),
+        ModelOption::pair("qwen/qwen3-plus", "Qwen 3 Plus — Balanced"),
+        ModelOption::pair("qwen/qwen3-max", "Qwen 3 Max — Open flagship"),
+        ModelOption::pair("qwen/qwen3-max-thinking", "Qwen 3 Max Thinking — Reasoning"),
+        // ── Mistral AI ──
         ModelOption::pair(
             "mistralai/mistral-large-3-2512",
             "Mistral Large 3 — Apache 2.0",
         ),
+        ModelOption::pair("mistralai/mistral-medium-3.5", "Mistral Medium 3.5 — 128B"),
         ModelOption::pair("mistralai/mistral-small-4", "Mistral Small 4"),
+        ModelOption::pair(
+            "mistralai/mistral-small-3.2-24b-instruct",
+            "Mistral Small 3.2 24B",
+        ),
+        ModelOption::pair(
+            "mistralai/codestral-2508",
+            "Codestral 2508 — Code-specialized",
+        ),
+        // ── Meta Llama (Open) ──
         ModelOption::pair("meta-llama/llama-4-maverick", "Llama 4 Maverick — 1M ctx"),
         ModelOption::pair("meta-llama/llama-4-scout", "Llama 4 Scout — 10M ctx"),
-        ModelOption::pair("nvidia/nemotron-3-super", "Nemotron 3 Super — 1M ctx"),
+        ModelOption::pair("meta-llama/llama-3.3-70b-instruct", "Llama 3.3 70B — Open"),
+        ModelOption::pair(
+            "meta-llama/llama-3.1-70b-instruct",
+            "Llama 3.1 70B — Legacy open",
+        ),
+        ModelOption::pair(
+            "meta-llama/llama-3.1-8b-instruct",
+            "Llama 3.1 8B — Lightweight",
+        ),
+        // ── xAI Grok ──
+        ModelOption::pair("x-ai/grok-4.20", "Grok 4.20 — Frontier"),
+        ModelOption::pair("x-ai/grok-4.3", "Grok 4.3 — Balanced"),
+        ModelOption::pair("x-ai/grok-build-0.1", "Grok Build 0.1 — Coding agent"),
+        // ── MiniMax ──
+        ModelOption::pair("minimax/minimax-m3", "MiniMax M3 — 1M ctx"),
+        ModelOption::pair("minimax/minimax-m2.7", "MiniMax M2.7 — Strong agent"),
+        ModelOption::pair("minimax/minimax-m2.5", "MiniMax M2.5 — 80% SWE"),
+        ModelOption::pair("minimax/minimax-m2.1", "MiniMax M2.1 — Lightweight"),
+        // ── Additional Providers ──
+        ModelOption::pair("moonshotai/kimi-k2.5", "Kimi K2.5 — Multimodal coding"),
+        ModelOption::pair(
+            "moonshotai/kimi-k2-thinking",
+            "Kimi K2 Thinking — Reasoning",
+        ),
+        ModelOption::pair("cohere/command-a", "Command A — 256K ctx, agentic"),
         ModelOption::pair("cohere/command-r-08-2024", "Command R — RAG & Tools"),
+        ModelOption::pair("nvidia/nemotron-3-super", "Nemotron 3 Super — 1M ctx"),
+        ModelOption::pair(
+            "nvidia/nemotron-3-ultra-550b-a55b",
+            "Nemotron 3 Ultra — Orchestrator",
+        ),
+        ModelOption::pair("z-ai/glm-5.2", "GLM 5.2 — 1M ctx, reasoning"),
+        ModelOption::pair("z-ai/glm-5", "GLM 5 — Open, system design"),
+        ModelOption::pair("amazon/nova-2-lite-v1", "Nova 2 Lite — Amazon budget"),
+        ModelOption::pair(
+            "ibm-granite/granite-4.1-8b",
+            "Granite 4.1 8B — IBM enterprise",
+        ),
         // ── Budget / Open Models ──
         ModelOption::pair("qwen/qwen3-32b", "Qwen 3 32B — Budget"),
-        ModelOption::pair("google/gemma-3-27b-it", "Gemma 3 27B — Open"),
+        ModelOption::pair("qwen/qwen3-14b", "Qwen 3 14B — Budget"),
         ModelOption::pair("qwen/qwen3-8b", "Qwen 3 8B — Budget"),
+        ModelOption::pair("google/gemma-3-12b-it", "Gemma 3 12B — Open"),
+        ModelOption::pair("google/gemma-3-4b-it", "Gemma 3 4B — Tiny"),
+        ModelOption::pair("microsoft/phi-4", "Phi 4 — 14B, reasoning"),
+        ModelOption::pair("mistralai/mistral-nemo", "Mistral Nemo — 12B, Apache 2.0"),
+        ModelOption::pair("inclusionai/ling-2.6-flash", "Ling 2.6 Flash — Ultra-cheap"),
+        ModelOption::pair("meta-llama/llama-3.2-3b-instruct", "Llama 3.2 3B — Tiny"),
     ]
 }
 
@@ -388,6 +491,14 @@ fn embedding_models() -> Vec<ModelOption> {
         ),
         ModelOption::pair("qwen/qwen3-embedding-8b", "Qwen3 Embedding 8B (32K ctx)"),
         ModelOption::pair("qwen/qwen3-embedding-4b", "Qwen3 Embedding 4B (33K ctx)"),
+        ModelOption::pair(
+            "google/gemini-embedding-2",
+            "Gemini Embedding 2 (128-3072d, multimodal)",
+        ),
+        ModelOption::pair(
+            "google/gemini-embedding-001",
+            "Gemini Embedding 001 (768d, top MTEB)",
+        ),
         ModelOption::pair("baai/bge-m3", "BGE M3 (1024d, multilingual)"),
         ModelOption::pair("baai/bge-large-en-v1.5", "BGE Large EN v1.5 (1024d)"),
         ModelOption::pair("baai/bge-base-en-v1.5", "BGE Base EN v1.5 (768d)"),
@@ -429,6 +540,10 @@ fn rerank_models() -> Vec<ModelOption> {
         ModelOption::pair("cohere/rerank-v3.5", "Cohere Rerank v3.5 — 4K ctx, legacy"),
         // ── Frontier (prompt-based) ──
         ModelOption::pair(
+            "anthropic/claude-sonnet-5",
+            "Claude Sonnet 5 — Frontier (prompt-based)",
+        ),
+        ModelOption::pair(
             "anthropic/claude-sonnet-4.6",
             "Claude Sonnet 4.6 — Frontier (prompt-based)",
         ),
@@ -451,6 +566,10 @@ fn rerank_models() -> Vec<ModelOption> {
             "DeepSeek V4 Flash — Fast, 1M ctx (prompt-based)",
         ),
         ModelOption::pair(
+            "google/gemini-3.5-flash",
+            "Gemini 3.5 Flash — Fast (prompt-based)",
+        ),
+        ModelOption::pair(
             "google/gemini-2.5-flash",
             "Gemini 2.5 Flash — Fast (prompt-based)",
         ),
@@ -458,12 +577,17 @@ fn rerank_models() -> Vec<ModelOption> {
             "google/gemini-2.5-flash-lite",
             "Gemini 2.5 Flash Lite — Ultra cheap (prompt-based)",
         ),
+        ModelOption::pair("qwen/qwen3.6-flash", "Qwen 3.6 Flash — Fast (prompt-based)"),
         // ── Balanced (prompt-based) ──
         ModelOption::pair(
             "openai/gpt-5.4-mini",
             "GPT 5.4 Mini — Balanced (prompt-based)",
         ),
         ModelOption::pair("qwen/qwen3-plus", "Qwen 3 Plus — Balanced (prompt-based)"),
+        ModelOption::pair(
+            "qwen/qwen3.5-plus",
+            "Qwen 3.5 Plus — Balanced (prompt-based)",
+        ),
         // ── Budget (prompt-based) ──
         ModelOption::pair(
             "qwen/qwen3.5-flash",
@@ -477,6 +601,14 @@ fn rerank_models() -> Vec<ModelOption> {
         ModelOption::pair(
             "openai/gpt-5-nano",
             "GPT 5 Nano — Ultra-fast, ultra-cheap (prompt-based)",
+        ),
+        ModelOption::pair(
+            "mistralai/mistral-small-4",
+            "Mistral Small 4 — Budget (prompt-based)",
+        ),
+        ModelOption::pair(
+            "inclusionai/ling-2.6-flash",
+            "Ling 2.6 Flash — Ultra-cheap (prompt-based)",
         ),
     ]
 }
