@@ -334,7 +334,13 @@ fn llm_models() -> Vec<ModelOption> {
         ModelOption::pair("openai/gpt-5.3-codex", "GPT 5.3 Codex — Coding"),
         ModelOption::pair("openai/gpt-5.2-chat", "GPT 5.2 Chat"),
         ModelOption::pair("openai/gpt-5-nano", "GPT 5 Nano — Ultra-cheap"),
+        ModelOption::pair("openai/gpt-4o-mini", "GPT 4o Mini — Legacy, cheap"),
+        ModelOption::pair("openai/gpt-4o", "GPT 4o — Legacy multimodal"),
+        ModelOption::pair("openai/gpt-4.1", "GPT 4.1 — 1M ctx, legacy"),
+        ModelOption::pair("openai/gpt-4.1-mini", "GPT 4.1 Mini — 1M ctx, legacy"),
+        ModelOption::pair("openai/gpt-4.1-nano", "GPT 4.1 Nano — 1M ctx, legacy"),
         ModelOption::pair("openai/o3-mini", "O3 Mini — Reasoning"),
+        ModelOption::pair("openai/o4-mini", "O4 Mini — Compact reasoning"),
         // ── Google Gemini (Premium Frontier) ──
         ModelOption::pair("google/gemini-2.5-pro", "Gemini 2.5 Pro — Top"),
         ModelOption::pair("google/gemini-2.5-flash", "Gemini 2.5 Flash — Fast"),
