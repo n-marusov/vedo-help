@@ -8,6 +8,7 @@ pub mod error;
 pub mod file_validation;
 pub mod health;
 pub mod llm;
+pub mod pricing;
 pub mod rate_limit;
 pub mod rbac;
 pub mod security_headers;

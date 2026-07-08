@@ -318,6 +318,7 @@ export interface ChunkSearchResult {
 export interface ModelOption {
   value: string;
   label: string;
+  pricing?: string;
 }
 
 export interface ModelsResponse {

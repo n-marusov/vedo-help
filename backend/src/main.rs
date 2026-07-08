@@ -50,6 +50,7 @@ use vedo_backend::shared::{
     error::AppError,
     health::{HealthProbe, HealthReport, HealthService, HealthStatus},
     llm::LlmClient,
+    pricing::PricingCache,
     rbac,
 };
 
@@ -251,6 +252,15 @@ async fn main() {
     health_service.register(chroma_client.clone());
     health_service.register(embedding_client.clone());
     health_service.register(llm_client.clone());
+
+    // Pricing cache — fetches model prices from RouterAI in the background.
+    // First refresh happens after 3 seconds (non-blocking startup), then every 15 minutes.
+    let pricing_cache = PricingCache::new(&config.llm_base_url);
+    pricing_cache.clone().start_background_refresh(
+        std::time::Duration::from_secs(3),
+        std::time::Duration::from_secs(900),
+    );
+    tracing::info!(component = "main", "pricing_cache.initialized");
 
     // Wrap DB pool as a HealthProbe
     struct DbProbe {
@@ -528,6 +538,7 @@ async fn main() {
             audit_service,
             settings_service,
             health_service,
+            pricing_cache,
         });
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
@@ -564,6 +575,7 @@ pub struct AppState {
     pub audit_service: AuditService,
     pub settings_service: SettingsService,
     pub health_service: HealthService,
+    pub pricing_cache: PricingCache,
 }
 
 impl FromRef<AppState> for DocumentService {
@@ -611,6 +623,12 @@ impl FromRef<AppState> for SettingsService {
 impl FromRef<AppState> for HealthService {
     fn from_ref(state: &AppState) -> Self {
         state.health_service.clone()
+    }
+}
+
+impl FromRef<AppState> for PricingCache {
+    fn from_ref(state: &AppState) -> Self {
+        state.pricing_cache.clone()
     }
 }
 

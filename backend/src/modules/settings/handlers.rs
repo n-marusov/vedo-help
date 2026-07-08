@@ -6,14 +6,26 @@ use serde_json::Value;
 use crate::modules::settings::models::{ModelsResponse, SettingsResponse};
 use crate::modules::settings::service::SettingsService;
 use crate::shared::error::AppError;
+use crate::shared::pricing::PricingCache;
 
 /// GET /api/admin/models — returns the available LLM, embedding, and rerank model lists.
 ///
 /// The backend is the single source of truth for model definitions.
+/// Pricing is enriched dynamically from the PricingCache (fetched from RouterAI).
 /// Requires admin role (enforced by RBAC middleware on the admin sub-router).
-pub async fn get_models() -> Json<ModelsResponse> {
+pub async fn get_models(State(cache): State<PricingCache>) -> Json<ModelsResponse> {
     tracing::info!(component = "admin/settings", "admin.models.get");
-    Json(ModelsResponse::all())
+
+    let mut response = ModelsResponse::all();
+
+    // Enrich model pricing from RouterAI pricing cache.
+    // The cache is populated asynchronously on startup and refreshed periodically.
+    // If the cache hasn't loaded yet, models are returned without pricing (graceful degradation).
+    cache.enrich_options(&mut response.llm_models).await;
+    cache.enrich_options(&mut response.embedding_models).await;
+    cache.enrich_options(&mut response.rerank_models).await;
+
+    Json(response)
 }
 
 /// GET /api/admin/settings — returns all RAG settings as a flat JSON map.

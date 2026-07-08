@@ -70,6 +70,20 @@ const changed = computed(() => {
   return false;
 });
 
+// ── Model pricing display helpers ──
+function getPricing(modelValue: string, options: ModelOption[]): string | null {
+  const match = options.find((o) => o.value === modelValue);
+  return match?.pricing ?? null;
+}
+
+const selectedLlmPricing = computed(() => getPricing(form.value.llm_model, llmModels.value));
+const selectedEmbeddingPricing = computed(() =>
+  getPricing(form.value.embedding_model, embeddingModels.value),
+);
+const selectedRerankPricing = computed(() =>
+  getPricing(form.value.llm_rerank_model, rerankModels.value),
+);
+
 async function loadModels() {
   try {
     const data = await api.getModels();
@@ -473,6 +487,9 @@ onMounted(() => {
                 }
               "
             />
+            <p v-if="selectedLlmPricing" class="model-pricing">
+              {{ selectedLlmPricing }}
+            </p>
           </div>
         </div>
 
@@ -494,6 +511,9 @@ onMounted(() => {
                 }
               "
             />
+            <p v-if="selectedEmbeddingPricing" class="model-pricing">
+              {{ selectedEmbeddingPricing }}
+            </p>
           </div>
         </div>
 
@@ -515,6 +535,9 @@ onMounted(() => {
                 }
               "
             />
+            <p v-if="selectedRerankPricing" class="model-pricing">
+              {{ selectedRerankPricing }}
+            </p>
           </div>
         </div>
 
@@ -704,6 +727,13 @@ onMounted(() => {
 .setting-control--narrow {
   min-width: 120px;
   max-width: 120px;
+}
+
+.model-pricing {
+  color: var(--color-muted-foreground);
+  font-size: var(--font-size-xs);
+  margin: var(--space-1) 0 0 0;
+  padding-left: var(--space-1);
 }
 
 .settings-actions {

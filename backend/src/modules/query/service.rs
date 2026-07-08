@@ -447,17 +447,49 @@ impl QueryService {
 
             let final_merged = if reranking_enabled {
                 send_stage("reranking".to_string()).await;
-                let rerank_system = "You are an expert relevance ranker. Given a user question and a document chunk, evaluate if the chunk contains information that helps answer the question. If it is relevant and should be kept, respond with the exact word 'брать'. If it is completely irrelevant, respond with 'пропустить'. Do not provide any other text or explanation. Question: ";
+                let (rerank_system, batch_prompt) =
+                    format_batch_rerank_prompt(&request.query, &merged);
+                let response = svc
+                    .llm_client
+                    .query_single(&rerank_system, &batch_prompt)
+                    .await;
+                let verdicts: Vec<(usize, bool)> = match response {
+                    Ok(text) => {
+                        tracing::debug!(
+                            component = "query/service",
+                            response_len = text.len(),
+                            "batch_rerank.response_received"
+                        );
+                        let parsed = parse_batch_verdicts(&text, merged.len());
+                        if parsed.is_empty() && !merged.is_empty() {
+                            tracing::warn!(
+                                component = "query/service",
+                                raw_snippet = %text.chars().take(200).collect::<String>(),
+                                "batch_rerank.parse_error"
+                            );
+                            merged.iter().enumerate().map(|(i, _)| (i, true)).collect()
+                        } else {
+                            parsed
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            component = "query/service",
+                            error = %e,
+                            "batch_rerank.fallback"
+                        );
+                        merged.iter().enumerate().map(|(i, _)| (i, true)).collect()
+                    }
+                };
+                let accepted_set: std::collections::HashSet<usize> = verdicts
+                    .iter()
+                    .filter(|(_, keep)| *keep)
+                    .map(|(i, _)| *i)
+                    .collect();
                 let mut accepted_chunks = Vec::new();
                 let mut rerank_results = Vec::new();
-                for chunk in merged {
-                    let prompt = format!("{}\n\nChunk: {}", request.query, chunk.text);
-                    let verdict = svc
-                        .llm_client
-                        .query_single(rerank_system, &prompt)
-                        .await
-                        .unwrap_or_else(|_| "брать".to_string());
-                    let keep = verdict.to_lowercase().contains("брать");
+                for (i, chunk) in merged.into_iter().enumerate() {
+                    let keep = accepted_set.contains(&i);
                     let rerank_score = if keep { 1.0 } else { 0.0 };
                     let rerank_verdict = if keep {
                         "брать".to_string()
@@ -475,7 +507,7 @@ impl QueryService {
                         text_snippet: chunk.text.chars().take(200).collect(),
                         score: rerank_score,
                         verdict: rerank_verdict,
-                        comment: verdict,
+                        comment: String::new(),
                     });
                     if keep {
                         accepted_chunks.push(chunk);
@@ -874,9 +906,116 @@ pub async fn load_conversation_history_rows(
         .collect())
 }
 
+/// Format a batch rerank prompt containing all chunks as a numbered list.
+/// Returns (system_prompt, user_prompt).
+fn format_batch_rerank_prompt(
+    question: &str,
+    chunks: &[crate::shared::chunk_search::ChunkSearchResult],
+) -> (String, String) {
+    tracing::debug!(
+        component = "query/service",
+        chunk_count = chunks.len(),
+        total_text_len = chunks.iter().map(|c| c.text.len()).sum::<usize>(),
+        "batch_rerank.start"
+    );
+
+    let system_prompt = "You are an expert relevance ranker. Given a user question and a \
+                numbered list of document chunks, evaluate each chunk independently.\n\n\
+                For each chunk, determine if it contains information that helps answer \
+                the user's question.\n\n\
+                Respond ONLY with a valid JSON array of objects. Each object must have:\n\
+                  - \"index\": the chunk number (1-based)\n\
+                  - \"verdict\": \"брать\" if the chunk is relevant, \"пропустить\" if \
+                completely irrelevant\n\n\
+                Example: [{\"index\": 1, \"verdict\": \"брать\"}, {\"index\": 2, \"verdict\": \"пропустить\"}]".to_string();
+
+    let mut user_prompt = String::from("Question: ");
+    user_prompt.push_str(question);
+    user_prompt.push_str("\n\nChunks to evaluate:\n");
+    for (i, chunk) in chunks.iter().enumerate() {
+        user_prompt.push_str(&format!("--- Chunk {} ---\n{}\n\n", i + 1, chunk.text));
+    }
+
+    tracing::debug!(
+        component = "query/service",
+        prompt_len = user_prompt.len(),
+        "batch_rerank.prompt_ready"
+    );
+
+    (system_prompt, user_prompt)
+}
+
+/// Parse batch rerank JSON response into (index, keep) verdicts.
+/// Falls back gracefully on malformed input.
+fn parse_batch_verdicts(response: &str, chunk_count: usize) -> Vec<(usize, bool)> {
+    let root: serde_json::Value = match serde_json::from_str(response) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(
+                component = "query/service",
+                error = %e,
+                "batch_rerank.parse_error.invalid_json"
+            );
+            return Vec::new();
+        }
+    };
+
+    let items = match root.as_array() {
+        Some(arr) => arr.clone(),
+        None => {
+            tracing::warn!(
+                component = "query/service",
+                "batch_rerank.parse_error.not_an_array"
+            );
+            return Vec::new();
+        }
+    };
+
+    let mut verdicts = Vec::new();
+    for item in &items {
+        let idx = match item.get("index").and_then(|v| v.as_u64()) {
+            Some(i) if i >= 1 && (i as usize) <= chunk_count => (i as usize) - 1,
+            Some(i) if i > 0 => {
+                tracing::warn!(
+                    component = "query/service",
+                    index = i,
+                    chunk_count = chunk_count,
+                    "batch_rerank.unexpected_indices"
+                );
+                continue;
+            }
+            _ => continue,
+        };
+        let verdict = item.get("verdict").and_then(|v| v.as_str()).unwrap_or("");
+        let keep = verdict.to_lowercase().contains("брать");
+        verdicts.push((idx, keep));
+    }
+
+    // Fill in missing indices as accepted (safe default)
+    let present: std::collections::HashSet<usize> = verdicts.iter().map(|(i, _)| *i).collect();
+    for i in 0..chunk_count {
+        if !present.contains(&i) {
+            verdicts.push((i, true));
+        }
+    }
+
+    // Sort by index to preserve original order
+    verdicts.sort_by_key(|a| a.0);
+
+    tracing::info!(
+        component = "query/service",
+        accepted = verdicts.iter().filter(|(_, k)| *k).count(),
+        rejected = verdicts.iter().filter(|(_, k)| !*k).count(),
+        total = chunk_count,
+        "batch_rerank.parsed"
+    );
+
+    verdicts
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{AppError, Infallible, QueryService, StreamEvent};
+    use super::{parse_batch_verdicts, AppError, Infallible, QueryService, StreamEvent};
     use crate::modules::conversations::repository::ConversationRepository;
     use futures::stream;
     use futures::StreamExt;
@@ -1129,5 +1268,125 @@ mod tests {
         assert_eq!(collected[4].data["text"], " world");
         assert_eq!(collected[5].event_type, "sources");
         assert_eq!(collected[6].event_type, "done");
+    }
+
+    // ── Batch Reranking Tests ──
+
+    #[test]
+    fn test_parse_batch_verdicts_valid_json() {
+        let response = r#"[
+            {"index": 1, "verdict": "брать"},
+            {"index": 2, "verdict": "пропустить"},
+            {"index": 3, "verdict": "брать"}
+        ]"#;
+        let verdicts = parse_batch_verdicts(response, 3);
+        assert_eq!(verdicts.len(), 3);
+        assert!(verdicts[0].1); // index 0 → accept
+        assert!(!verdicts[1].1); // index 1 → reject
+        assert!(verdicts[2].1); // index 2 → accept
+    }
+
+    #[test]
+    fn test_parse_batch_verdicts_all_accept() {
+        let response = r#"[
+            {"index": 1, "verdict": "брать"},
+            {"index": 2, "verdict": "брать"},
+            {"index": 3, "verdict": "брать"}
+        ]"#;
+        let verdicts = parse_batch_verdicts(response, 3);
+        assert_eq!(verdicts.len(), 3);
+        assert!(verdicts.iter().all(|(_, k)| *k));
+    }
+
+    #[test]
+    fn test_parse_batch_verdicts_all_reject() {
+        let response = r#"[
+            {"index": 1, "verdict": "пропустить"},
+            {"index": 2, "verdict": "пропустить"}
+        ]"#;
+        let verdicts = parse_batch_verdicts(response, 2);
+        assert_eq!(verdicts.len(), 2);
+        assert!(verdicts.iter().all(|(_, k)| !*k));
+    }
+
+    #[test]
+    fn test_parse_batch_verdicts_partial() {
+        let response = r#"[
+            {"index": 1, "verdict": "брать"},
+            {"index": 2, "verdict": "пропустить"},
+            {"index": 3, "verdict": "пропустить"},
+            {"index": 4, "verdict": "брать"}
+        ]"#;
+        let verdicts = parse_batch_verdicts(response, 4);
+        assert_eq!(verdicts.len(), 4);
+        assert!(verdicts[0].1); // accept
+        assert!(!verdicts[1].1); // reject
+        assert!(!verdicts[2].1); // reject
+        assert!(verdicts[3].1); // accept
+    }
+
+    #[test]
+    fn test_parse_batch_verdicts_invalid_json_fallback() {
+        let response = "not valid json at all";
+        let verdicts = parse_batch_verdicts(response, 5);
+        // Invalid JSON returns empty Vec → caller falls back to accept all
+        assert!(verdicts.is_empty());
+    }
+
+    #[test]
+    fn test_parse_batch_verdicts_extra_indices() {
+        // Response has more entries than chunks → extra entries are ignored
+        let response = r#"[
+            {"index": 1, "verdict": "брать"},
+            {"index": 2, "verdict": "пропустить"},
+            {"index": 999, "verdict": "брать"}
+        ]"#;
+        let verdicts = parse_batch_verdicts(response, 2);
+        // Should have 2 entries (indices 0 and 1)
+        assert_eq!(verdicts.len(), 2);
+        assert!(verdicts[0].1);
+        assert!(!verdicts[1].1);
+    }
+
+    #[test]
+    fn test_parse_batch_verdicts_missing_indices() {
+        // Response has fewer entries → missing entries are accepted
+        let response = r#"[
+            {"index": 2, "verdict": "пропустить"}
+        ]"#;
+        let verdicts = parse_batch_verdicts(response, 3);
+        // Should have 3 entries: index 0 missing → accepted, index 1 specified as reject, index 2 missing → accepted
+        assert_eq!(verdicts.len(), 3);
+        assert!(verdicts[0].1); // index 0 missing → accepted
+        assert!(!verdicts[1].1); // index 1 → specified as "пропустить" → rejected
+        assert!(verdicts[2].1); // index 2 missing → accepted
+    }
+
+    #[test]
+    fn test_batch_rerank_replaces_sequential_loop() {
+        // Verify that parse_batch_verdicts handles a realistic multi-chunk response
+        let response = format!(
+            r#"[
+                {{"index": 1, "verdict": "брать"}},
+                {{"index": 2, "verdict": "брать"}},
+                {{"index": 3, "verdict": "пропустить"}},
+                {{"index": 4, "verdict": "брать"}},
+                {{"index": 5, "verdict": "пропустить"}}
+            ]"#
+        );
+        let verdicts = parse_batch_verdicts(&response, 5);
+        assert_eq!(verdicts.len(), 5);
+        let accepted: Vec<usize> = verdicts
+            .iter()
+            .filter(|(_, k)| *k)
+            .map(|(i, _)| *i)
+            .collect();
+        assert_eq!(accepted, vec![0, 1, 3]);
+        let rejected: Vec<usize> = verdicts
+            .iter()
+            .filter(|(_, k)| !*k)
+            .map(|(i, _)| *i)
+            .collect();
+        assert_eq!(rejected, vec![2, 4]);
     }
 }

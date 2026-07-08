@@ -209,7 +209,8 @@ watch(
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   margin-top: var(--space-1);
-  overflow: hidden;
+  max-height: 300px;
+  overflow-y: auto;
   padding: var(--space-1) 0;
   position: fixed;
   z-index: 1000;
