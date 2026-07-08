@@ -321,7 +321,7 @@ async fn main() {
         embedding_client.clone(),
         Some(settings_service.clone()),
     );
-    let conversation_service = ConversationService::new(conversation_repo);
+    let conversation_service = ConversationService::new(conversation_repo, llm_client.clone());
     let query_service = QueryService::new(
         db.clone(),
         &chroma_url,
@@ -477,6 +477,10 @@ async fn main() {
         .route(
             "/api/sessions/:id/export",
             get(conversations_handlers::export_session),
+        )
+        .route(
+            "/api/sessions/:id/generate-title",
+            post(conversations_handlers::generate_session_title),
         )
         // Message edit/delete routes (v0.3.1)
         .route(

@@ -712,12 +712,10 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
               data-testid="toolbar-collection-badge"
               >{{ activeCollectionName }}</VBadge
             >
-            <VBadge
-              size="sm"
-              variant="success"
-              data-testid="toolbar-session-badge"
-              >{{ truncateTitle(activeSession.title, 30) }}</VBadge
-            >
+            <h1
+              class="toolbar-session-title"
+              data-testid="toolbar-session-title"
+              >{{ activeSession.title }}</h1>
           </div>
           <div
             v-else-if="activeCollectionName"
@@ -1416,6 +1414,18 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.toolbar-session-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 420px;
+  line-height: 1.3;
 }
 
 .toolbar-right {

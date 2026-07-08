@@ -7,17 +7,19 @@ use crate::modules::conversations::models::{
 };
 use crate::modules::conversations::repository::ConversationRepository;
 use crate::shared::error::AppError;
+use crate::shared::llm::LlmClient;
 
 /// Service for conversation management operations.
 #[derive(Clone, Debug)]
 pub struct ConversationService {
     repo: ConversationRepository,
+    llm: LlmClient,
 }
 
 impl ConversationService {
     /// Create a new ConversationService.
-    pub fn new(repo: ConversationRepository) -> Self {
-        Self { repo }
+    pub fn new(repo: ConversationRepository, llm: LlmClient) -> Self {
+        Self { repo, llm }
     }
 
     /// Create a new session with an optional title and collection association.
@@ -211,6 +213,84 @@ impl ConversationService {
             updated_at: updated.updated_at,
             user_name: updated.user_name,
         })
+    }
+
+    /// Generate a concise title for a session using the LLM.
+    ///
+    /// Reads the first user message in the session, sends it to the LLM
+    /// with a summarization prompt, and updates the session title with
+    /// the generated short phrase.
+    pub async fn generate_title(
+        &self,
+        session_id: Uuid,
+        user_id: &str,
+        is_admin: bool,
+    ) -> Result<String, AppError> {
+        tracing::info!(
+            component = "conversations/service",
+            session_id = %session_id,
+            "session.generate_title"
+        );
+
+        // Get the session and its messages
+        let (_session, messages) = self
+            .get_session_history(session_id, user_id, is_admin)
+            .await?;
+
+        // Find the first user message and the first assistant response
+        let mut first_query: Option<&str> = None;
+        let mut first_response: Option<&str> = None;
+
+        for msg in &messages {
+            if msg.role == "user" && first_query.is_none() {
+                first_query = Some(msg.content.as_str());
+            } else if msg.role == "assistant" && first_response.is_none() {
+                first_response = Some(msg.content.as_str());
+                break;
+            }
+        }
+
+        let first_query = first_query.unwrap_or("");
+
+        if first_query.is_empty() {
+            return Err(AppError::BadRequest(
+                "No user messages in session".to_string(),
+            ));
+        }
+
+        // Build prompt — include the assistant response for better context
+        let system_prompt = "You are a summarization assistant. Summarize the user's question as a short phrase (up to 5 words). Reply with only the phrase, no quotes, no punctuation, no extra text.";
+        let user_prompt = match first_response {
+            Some(response) => {
+                let truncated = if response.len() > 300 {
+                    format!("{}...", &response[..300])
+                } else {
+                    response.to_string()
+                };
+                format!(
+                    "User query: {}\n\nAssistant response: {}",
+                    first_query, truncated
+                )
+            }
+            None => format!("User query: {}", first_query),
+        };
+
+        let title = self.llm.query_single(system_prompt, &user_prompt).await?;
+        let title = title.trim().to_string();
+
+        // Update the session title
+        self.repo
+            .update_session(session_id, Some(title.clone()), None)
+            .await?;
+
+        tracing::info!(
+            component = "conversations/service",
+            session_id = %session_id,
+            new_title = %title,
+            "session.title_generated"
+        );
+
+        Ok(title)
     }
 
     /// Soft-delete a message.

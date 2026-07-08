@@ -157,6 +157,10 @@ export const api = {
     return api.get<ChunkSearchResult[]>(`/collections/${collectionId}/chunks?${query.toString()}`);
   },
 
+  // ── Session Title Generation ──
+  generateSessionTitle: (id: string) =>
+    api.post<{ title: string }>(`/sessions/${id}/generate-title`),
+
   // ── Models (source of truth is backend) ──
   getModels: () => api.get<ModelsResponse>('/admin/models'),
 

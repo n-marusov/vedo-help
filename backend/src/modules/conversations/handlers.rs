@@ -139,6 +139,25 @@ pub async fn delete_all_sessions(
     Ok(Json(result))
 }
 
+/// Generate a concise title for a session using the LLM.
+///
+/// Reads the first user message and uses the LLM to create a short
+/// descriptive title (up to ~5 words). Updates the session title
+/// and returns the generated title.
+///
+/// Endpoint: `POST /api/sessions/:id/generate-title`
+pub async fn generate_session_title(
+    user_ctx: UserContext,
+    State(svc): State<ConversationService>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    tracing::info!(component = "conversations/handlers", session_id = %id, user_id = %user_ctx.user_id, "session.generate_title");
+    let title = svc
+        .generate_title(id, &user_ctx.user_id, user_ctx.is_admin())
+        .await?;
+    Ok(Json(serde_json::json!({"title": title})))
+}
+
 /// Update a message's content.
 ///
 /// Endpoint: `PATCH /api/sessions/:session_id/messages/:message_id`

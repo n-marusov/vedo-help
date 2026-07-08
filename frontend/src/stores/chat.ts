@@ -344,26 +344,25 @@ export const useChatStore = defineStore('chat', () => {
       // Refresh sessions after a new query (might have created a session)
       await fetchSessions();
 
-      // Refine title with condensed summary from the assistant response
+      // Refine title via LLM-based title generation
       if (activeSessionId.value && fullContent.trim()) {
         const session = sessions.value.find((s) => s.id === activeSessionId.value);
         if (session) {
-          // Extract first meaningful sentence: take up to 50 chars of the assistant's answer
-          const condensed = fullContent
-            .replace(/\n{2,}/g, ' ')
-            .replace(/^[#*\-\s]+/, '')
-            .slice(0, 50)
-            .trim();
-          if (condensed && condensed.length > 10 && condensed !== session.title) {
-            await renameSession(activeSessionId.value, condensed);
-            // Immediately update local sessions array so sidebar + badge reflect it
-            const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
-            if (idx !== -1) {
-              sessions.value[idx] = {
-                ...sessions.value[idx],
-                title: condensed,
-              };
+          // Use LLM to generate a concise title from the first user query
+          try {
+            const { title } = await api.generateSessionTitle(activeSessionId.value);
+            if (title?.trim() && title !== session.title) {
+              // Immediately update local sessions array so sidebar + badge reflect it
+              const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
+              if (idx !== -1) {
+                sessions.value[idx] = {
+                  ...sessions.value[idx],
+                  title: title.trim(),
+                };
+              }
             }
+          } catch (err) {
+            console.warn('[Chat] title generation failed, keeping existing title:', err);
           }
         }
       }
