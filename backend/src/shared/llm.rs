@@ -57,7 +57,7 @@ pub struct LlmClient {
 pub const SYSTEM_PROMPT: &str = "You are a helpful technical documentation assistant. \
 Answer questions based solely on the provided context. \
 If the context doesn't contain enough information, say so clearly. \
-Always cite the source document name and chunk when referencing specific information.";
+Always cite the source document name when referencing specific information. Do NOT mention chunk numbers or chunk indices.";
 
 pub const PRIMARY_MODEL: &str = "anthropic/claude-sonnet-4.6";
 pub const MAX_RETRIES: u32 = 3;
@@ -92,12 +92,7 @@ impl LlmClient {
     ) -> Result<impl Stream<Item = Result<String, AppError>>, AppError> {
         let context: Vec<String> = chunks
             .iter()
-            .map(|c| {
-                format!(
-                    "[Source: {} (chunk {})]\n{}",
-                    c.document_name, c.index, c.text
-                )
-            })
+            .map(|c| format!("[Source: {}]\n{}", c.document_name, c.text))
             .collect();
         let context_str = context.join("\n\n");
 
@@ -309,12 +304,7 @@ impl LlmClient {
     ) -> Result<String, AppError> {
         let context: Vec<String> = chunks
             .iter()
-            .map(|c| {
-                format!(
-                    "[Source: {} (chunk {})]\n{}",
-                    c.document_name, c.index, c.text
-                )
-            })
+            .map(|c| format!("[Source: {}]\n{}", c.document_name, c.text))
             .collect();
         let context_str = context.join("\n\n");
 
@@ -427,12 +417,7 @@ mod tests {
 
         let context = chunks
             .iter()
-            .map(|c| {
-                format!(
-                    "[Source: {} (chunk {})]\n{}",
-                    c.document_name, c.index, c.text
-                )
-            })
+            .map(|c| format!("[Source: {}]\n{}", c.document_name, c.text))
             .collect::<Vec<_>>()
             .join("\n\n");
 
