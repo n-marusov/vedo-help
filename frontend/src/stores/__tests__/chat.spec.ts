@@ -677,121 +677,111 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.messages[1].role).toBe('assistant');
     expect(store.messages[1].content).toBe('');
     expect(store.lastCollectionId).toBe('col-1');
+    // Session title restored from localStorage, not default "New Chat" from backend
+    const restoredSession = store.sessions.find((s) => s.id === 'session-1');
+    expect(restoredSession?.title).toBe('test query');
+    expect(restoredSession?.title).not.toBe('New Chat');
   });
 
   it('checkPendingPipeline recovers messages via polling', async () => {
-    vi.useFakeTimers();
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'session-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 0,
+      },
+    ];
 
-    try {
-      const store = useChatStore();
-      store.sessions = [
+    // Mock the polling API to return completed messages
+    apiMock.getSessionWithMessages.mockResolvedValue({
+      session: {
+        id: 'session-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+      },
+      messages: [
         {
-          id: 'session-1',
-          title: 'New Chat',
-          collection_id: 'col-1',
+          id: 'user-1',
+          session_id: 'session-1',
+          role: 'user',
+          content: 'What is RAG?',
           created_at: '2026-06-23T00:00:00Z',
-          updated_at: '2026-06-23T00:00:00Z',
-          message_count: 0,
         },
-      ];
-
-      // Mock the polling API to return completed messages
-      apiMock.getSessionWithMessages.mockResolvedValue({
-        session: {
-          id: 'session-1',
-          title: 'New Chat',
-          collection_id: 'col-1',
+        {
+          id: 'asst-1',
+          session_id: 'session-1',
+          role: 'assistant',
+          content: 'RAG stands for Retrieval-Augmented Generation',
+          sources: undefined,
+          created_at: '2026-06-23T00:01:00Z',
         },
-        messages: [
-          {
-            id: 'user-1',
-            session_id: 'session-1',
-            role: 'user',
-            content: 'What is RAG?',
-            created_at: '2026-06-23T00:00:00Z',
-          },
-          {
-            id: 'asst-1',
-            session_id: 'session-1',
-            role: 'assistant',
-            content: 'RAG stands for Retrieval-Augmented Generation',
-            sources: undefined,
-            created_at: '2026-06-23T00:01:00Z',
-          },
-        ],
-      });
+      ],
+    });
 
-      // Mock fetchSessions called after recovery
-      apiMock.get.mockResolvedValue([]);
+    // Mock fetchSessions called after recovery
+    apiMock.get.mockResolvedValue([]);
 
-      localStorage.setItem('chat_pipeline_active', 'true');
-      localStorage.setItem('chat_pipeline_session_id', 'session-1');
-      localStorage.setItem('chat_pipeline_collection_id', 'col-1');
-      localStorage.setItem('chat_pipeline_stage', 'searching');
-      localStorage.setItem('chat_pipeline_temp_title', 'test');
-      localStorage.setItem('chat_pipeline_user_query', 'What is RAG?');
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'session-1');
+    localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+    localStorage.setItem('chat_pipeline_stage', 'searching');
+    localStorage.setItem('chat_pipeline_temp_title', 'test');
+    localStorage.setItem('chat_pipeline_user_query', 'What is RAG?');
 
-      store.checkPendingPipeline();
+    store.checkPendingPipeline();
 
-      // Advance microtasks to resolve the dynamic import
-      await vi.advanceTimersByTimeAsync(1);
-      // Fire the 2s polling interval
-      await vi.advanceTimersByTimeAsync(2000);
-      // Process the async callback's continuation after await
-      await vi.advanceTimersByTimeAsync(1);
+    // Wait for the 2s polling interval to fire and recover messages
+    await vi.waitFor(
+      () => {
+        expect(store.isLoading).toBe(false);
+      },
+      { timeout: 5000, interval: 200 },
+    );
 
-      // Verify recovery
-      expect(store.isLoading).toBe(false);
-      expect(store.pipelineStage).toBeNull();
-      expect(store.messages.length).toBe(2);
-      expect(store.messages[1].content).toBe('RAG stands for Retrieval-Augmented Generation');
-      expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(store.pipelineStage).toBeNull();
+    expect(store.messages.length).toBe(2);
+    expect(store.messages[1].content).toBe('RAG stands for Retrieval-Augmented Generation');
+    expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);
 
   it('checkPendingPipeline handles 404 from polling gracefully', async () => {
-    vi.useFakeTimers();
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'session-404',
+        title: 'Deleted Session',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 0,
+      },
+    ];
 
-    try {
-      const store = useChatStore();
-      store.sessions = [
-        {
-          id: 'session-404',
-          title: 'Deleted Session',
-          collection_id: 'col-1',
-          created_at: '2026-06-23T00:00:00Z',
-          updated_at: '2026-06-23T00:00:00Z',
-          message_count: 0,
-        },
-      ];
+    apiMock.getSessionWithMessages.mockRejectedValue(new ApiError(404, 'Session not found'));
 
-      apiMock.getSessionWithMessages.mockRejectedValue(new ApiError(404, 'Session not found'));
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'session-404');
+    localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+    localStorage.setItem('chat_pipeline_stage', 'generating');
+    localStorage.setItem('chat_pipeline_temp_title', 'test');
+    localStorage.setItem('chat_pipeline_user_query', 'test query');
 
-      localStorage.setItem('chat_pipeline_active', 'true');
-      localStorage.setItem('chat_pipeline_session_id', 'session-404');
-      localStorage.setItem('chat_pipeline_collection_id', 'col-1');
-      localStorage.setItem('chat_pipeline_stage', 'generating');
-      localStorage.setItem('chat_pipeline_temp_title', 'test');
-      localStorage.setItem('chat_pipeline_user_query', 'test query');
+    store.checkPendingPipeline();
 
-      store.checkPendingPipeline();
+    // Wait for the 2s polling interval to fire; the 404 should clean up state
+    await vi.waitFor(
+      () => {
+        expect(store.isLoading).toBe(false);
+      },
+      { timeout: 5000, interval: 200 },
+    );
 
-      // Advance microtasks to resolve the dynamic import
-      await vi.advanceTimersByTimeAsync(1);
-      // Fire the 2s polling interval (triggers 404 in async callback)
-      await vi.advanceTimersByTimeAsync(2000);
-      // Process the async callback's catch block continuation
-      await vi.advanceTimersByTimeAsync(1);
-
-      // Should have recovered from 404 — clean state
-      expect(store.isLoading).toBe(false);
-      expect(store.pipelineStage).toBeNull();
-      expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(store.pipelineStage).toBeNull();
+    expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);
 
   it('sendMessage saves then clears pipeline state in localStorage', async () => {

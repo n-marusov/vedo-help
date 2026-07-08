@@ -24,6 +24,7 @@ const apiMock = vi.hoisted(() => ({
   post: vi.fn(),
   patch: vi.fn(),
   del: vi.fn(),
+  getSessionWithMessages: vi.fn(),
 }));
 
 vi.mock('@/api/client', () => ({
@@ -43,6 +44,7 @@ describe('ChatWindow (ChatView)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
+    localStorage.clear();
     setActivePinia(createPinia());
   });
 
@@ -274,6 +276,66 @@ describe('ChatWindow (ChatView)', () => {
     expect((children[0] as HTMLElement).tagName).toBe('H1');
     expect((children[0] as HTMLElement).textContent).toContain('My Chat Session');
     expect((children[1] as HTMLElement).textContent).toContain('Technical Docs');
+  });
+
+  it('restores pipeline state and displays it in toolbar after simulated reload', async () => {
+    // Override the sessions mock to return a session with default backend title
+    apiMock.get.mockImplementation((path: string) => {
+      if (path === '/sessions') {
+        return Promise.resolve([
+          {
+            id: 'sess-1',
+            title: 'New Chat',
+            collection_id: 'col-1',
+            created_at: '2026-06-23T00:00:00Z',
+            updated_at: '2026-06-23T00:00:00Z',
+            message_count: 1,
+          },
+        ]);
+      }
+      if (path === '/collections') {
+        return Promise.resolve([
+          {
+            id: 'col-1',
+            name: 'Technical Docs',
+            created_at: '2026-06-23T00:00:00Z',
+            document_count: 5,
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    // Stub getSessionWithMessages so polling does not throw
+    apiMock.getSessionWithMessages.mockResolvedValue({
+      session: { id: 'sess-1' },
+      messages: [],
+    });
+
+    // Simulate localStorage left behind by a running pipeline before reload
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'sess-1');
+    localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+    localStorage.setItem('chat_pipeline_stage', 'searching');
+    localStorage.setItem('chat_pipeline_temp_title', 'How does RAG work?');
+    localStorage.setItem('chat_pipeline_user_query', 'How does RAG work?');
+
+    const wrapper = mount(ChatView);
+
+    // Wait for onMounted chain: fetchSessions → fetchCollections → checkPendingPipeline
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextTick();
+
+    // The toolbar should show the restored temp title, not "New Chat"
+    const toolbarTitle = wrapper.find('[data-testid="toolbar-session-title"]');
+    expect(toolbarTitle.exists()).toBe(true);
+    expect(toolbarTitle.text()).toBe('How does RAG work?');
+
+    // The collection badge should appear below the title
+    const collBadge = wrapper.find('[data-testid="toolbar-collection-badge"]');
+    expect(collBadge.exists()).toBe(true);
+    expect(collBadge.text()).toContain('Technical Docs');
   });
 
   it('displays session tag with collection badge when session is active', async () => {
