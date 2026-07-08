@@ -39,6 +39,12 @@ const LS_PIPELINE_TEMP_TITLE = 'chat_pipeline_temp_title';
 const LS_PIPELINE_USER_QUERY = 'chat_pipeline_user_query';
 
 function savePipelineState(sessionId: string, collectionId: string, query: string) {
+  console.warn(
+    '[FIX] savePipelineState: saving session=%s collection=%s title=%s',
+    sessionId,
+    collectionId,
+    query.slice(0, 45).trim(),
+  );
   localStorage.setItem(LS_PIPELINE_ACTIVE, 'true');
   localStorage.setItem(LS_PIPELINE_SESSION_ID, sessionId);
   localStorage.setItem(LS_PIPELINE_COLLECTION_ID, collectionId);
@@ -72,13 +78,15 @@ export interface PendingPipelineState {
 
 function getPipelineState(): PendingPipelineState | null {
   if (localStorage.getItem(LS_PIPELINE_ACTIVE) !== 'true') return null;
-  return {
+  const state = {
     sessionId: localStorage.getItem(LS_PIPELINE_SESSION_ID) || '',
     collectionId: localStorage.getItem(LS_PIPELINE_COLLECTION_ID) || '',
     stage: localStorage.getItem(LS_PIPELINE_STAGE) || '',
     tempTitle: localStorage.getItem(LS_PIPELINE_TEMP_TITLE) || 'New Chat',
     userQuery: localStorage.getItem(LS_PIPELINE_USER_QUERY) || '',
   };
+  console.warn('[FIX] getPipelineState: found active pipeline state', JSON.stringify(state));
+  return state;
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -468,16 +476,36 @@ export const useChatStore = defineStore('chat', () => {
     const state = getPipelineState();
     if (!state) return;
 
-    console.debug('[Chat] found pending pipeline session=%s', state.sessionId);
+    console.warn(
+      '[FIX] checkPendingPipeline: restoring pipeline session=%s stage=%s title=%s',
+      state.sessionId,
+      state.stage,
+      state.tempTitle,
+    );
 
     activeSessionId.value = state.sessionId;
     pipelineStage.value = state.stage || 'connecting';
     lastCollectionId.value = state.collectionId;
 
-    // Restore temp session title into local sessions array
-    const sessIdx = sessions.value.findIndex((s) => s.id === state.sessionId);
+    // Restore temp session title — if sessions haven't been loaded yet
+    // (fetchSessions failed or is still in-flight), insert a synthetic entry
+    // so the toolbar never shows the default "New Chat" title.
+    let sessIdx = sessions.value.findIndex((s) => s.id === state.sessionId);
     if (sessIdx !== -1) {
       sessions.value[sessIdx] = { ...sessions.value[sessIdx], title: state.tempTitle };
+      console.warn('[FIX] checkPendingPipeline: restored title in existing session entry');
+    } else {
+      // Entry missing — insert a placeholder so the UI shows the temp title immediately
+      sessions.value.unshift({
+        id: state.sessionId,
+        title: state.tempTitle,
+        collection_id: state.collectionId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        message_count: 0,
+      });
+      sessIdx = 0;
+      console.warn('[FIX] checkPendingPipeline: inserted synthetic session entry with temp title');
     }
 
     // Restore active collection from session data (async import — do after setting visible state)
@@ -485,9 +513,16 @@ export const useChatStore = defineStore('chat', () => {
       ? (async () => {
           const session = sessions.value.find((s) => s.id === state.sessionId);
           if (session?.collection_id) {
-            const { useCollectionStore } = await import('@/stores/collections');
-            const collectionStore = useCollectionStore();
-            collectionStore.setActiveCollection(session.collection_id);
+            try {
+              const { useCollectionStore } = await import('@/stores/collections');
+              const collectionStore = useCollectionStore();
+              collectionStore.setActiveCollection(session.collection_id);
+            } catch (e) {
+              console.warn(
+                '[FIX] checkPendingPipeline: dynamic import of collections store failed',
+                e,
+              );
+            }
           }
         })()
       : Promise.resolve();
@@ -510,6 +545,8 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = [tempUserMsg, tempAssistMsg];
     isLoading.value = true;
 
+    console.warn('[FIX] checkPendingPipeline: messages set, isLoading=true, starting polling');
+
     await collectionPromise;
 
     // Poll the session endpoint until the assistant message has content
@@ -520,6 +557,10 @@ export const useChatStore = defineStore('chat', () => {
         if (msgs.length >= 2) {
           const lastMsg = msgs[msgs.length - 1];
           if (lastMsg.role === 'assistant' && lastMsg.content) {
+            console.warn(
+              '[FIX] checkPendingPipeline: backend completed, recovered %d messages',
+              msgs.length,
+            );
             clearInterval(pollInterval);
             messages.value = msgs;
             isLoading.value = false;
@@ -532,7 +573,7 @@ export const useChatStore = defineStore('chat', () => {
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           // Session was deleted while pipeline was running
-          console.debug('[Chat] pending session not found, cancelling recovery');
+          console.warn('[FIX] checkPendingPipeline: session 404, cancelling recovery');
           clearInterval(pollInterval);
           clearPipelineState();
           isLoading.value = false;
@@ -546,7 +587,7 @@ export const useChatStore = defineStore('chat', () => {
     setTimeout(() => {
       clearInterval(pollInterval);
       if (isLoading.value) {
-        console.warn('[Chat] pipeline recovery timed out after 5 minutes');
+        console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
         isLoading.value = false;
         pipelineStage.value = null;
         error.value = 'Pipeline recovery timed out. Please try your query again.';

@@ -37,8 +37,15 @@ onMounted(() => {
   window.addEventListener('scroll', updateNewSessionDropdownPosition, true);
 
   // Fetch sessions and collections, then check for pending pipeline
+  console.warn(
+    '[FIX] ChatView.onMounted: starting fetchSessions -> fetchCollections -> checkPendingPipeline chain',
+  );
   chatStore.fetchSessions().finally(() => {
+    console.warn('[FIX] ChatView.onMounted: fetchSessions completed, starting fetchCollections');
     collectionStore.fetchCollections().finally(() => {
+      console.warn(
+        '[FIX] ChatView.onMounted: fetchCollections completed, calling checkPendingPipeline',
+      );
       chatStore.checkPendingPipeline();
     });
   });
