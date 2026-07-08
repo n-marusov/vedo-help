@@ -29,6 +29,58 @@ function canPersistMessageAction(messageId: string): boolean {
   return !isPendingMessageId(messageId) && isUuid(messageId);
 }
 
+// ── Pipeline persistence across page reloads ──
+
+const LS_PIPELINE_ACTIVE = 'chat_pipeline_active';
+const LS_PIPELINE_SESSION_ID = 'chat_pipeline_session_id';
+const LS_PIPELINE_COLLECTION_ID = 'chat_pipeline_collection_id';
+const LS_PIPELINE_STAGE = 'chat_pipeline_stage';
+const LS_PIPELINE_TEMP_TITLE = 'chat_pipeline_temp_title';
+const LS_PIPELINE_USER_QUERY = 'chat_pipeline_user_query';
+
+function savePipelineState(sessionId: string, collectionId: string, query: string) {
+  localStorage.setItem(LS_PIPELINE_ACTIVE, 'true');
+  localStorage.setItem(LS_PIPELINE_SESSION_ID, sessionId);
+  localStorage.setItem(LS_PIPELINE_COLLECTION_ID, collectionId);
+  localStorage.setItem(LS_PIPELINE_STAGE, '');
+  localStorage.setItem(LS_PIPELINE_TEMP_TITLE, query.slice(0, 45).trim());
+  localStorage.setItem(LS_PIPELINE_USER_QUERY, query);
+}
+
+function updateSavedPipelineStage(stage: string) {
+  if (localStorage.getItem(LS_PIPELINE_ACTIVE) === 'true') {
+    localStorage.setItem(LS_PIPELINE_STAGE, stage);
+  }
+}
+
+function clearPipelineState() {
+  localStorage.removeItem(LS_PIPELINE_ACTIVE);
+  localStorage.removeItem(LS_PIPELINE_SESSION_ID);
+  localStorage.removeItem(LS_PIPELINE_COLLECTION_ID);
+  localStorage.removeItem(LS_PIPELINE_STAGE);
+  localStorage.removeItem(LS_PIPELINE_TEMP_TITLE);
+  localStorage.removeItem(LS_PIPELINE_USER_QUERY);
+}
+
+export interface PendingPipelineState {
+  sessionId: string;
+  collectionId: string;
+  stage: string;
+  tempTitle: string;
+  userQuery: string;
+}
+
+function getPipelineState(): PendingPipelineState | null {
+  if (localStorage.getItem(LS_PIPELINE_ACTIVE) !== 'true') return null;
+  return {
+    sessionId: localStorage.getItem(LS_PIPELINE_SESSION_ID) || '',
+    collectionId: localStorage.getItem(LS_PIPELINE_COLLECTION_ID) || '',
+    stage: localStorage.getItem(LS_PIPELINE_STAGE) || '',
+    tempTitle: localStorage.getItem(LS_PIPELINE_TEMP_TITLE) || 'New Chat',
+    userQuery: localStorage.getItem(LS_PIPELINE_USER_QUERY) || '',
+  };
+}
+
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<Message[]>([]);
   const isLoading = ref(false);
@@ -188,6 +240,7 @@ export const useChatStore = defineStore('chat', () => {
     lastCollectionId.value = collectionId;
     error.value = null;
     pipelineStage.value = null;
+    clearPipelineState();
     abortController = new AbortController();
 
     // Optimistic title: show user query in sidebar and badge immediately
@@ -224,6 +277,11 @@ export const useChatStore = defineStore('chat', () => {
       created_at: new Date().toISOString(),
     };
     messages.value.push(assistantMsg);
+
+    // Save pipeline state so it survives page reload
+    if (activeSessionId.value) {
+      savePipelineState(activeSessionId.value, collectionId, query);
+    }
 
     try {
       const headers: Record<string, string> = {
@@ -285,6 +343,7 @@ export const useChatStore = defineStore('chat', () => {
             const stageName = value.data?.stage_name || '';
             if (stageName) {
               pipelineStage.value = stageName;
+              updateSavedPipelineStage(stageName);
               console.debug('[Chat] pipeline stage: %s', stageName);
             }
             break;
@@ -298,6 +357,7 @@ export const useChatStore = defineStore('chat', () => {
             break;
           }
           case 'error':
+            clearPipelineState();
             pipelineStage.value = null;
             error.value = value.data?.text || value.text || 'An error occurred';
             // Remove the placeholder assistant message
@@ -305,6 +365,7 @@ export const useChatStore = defineStore('chat', () => {
             break;
           case 'done': {
             pipelineStage.value = null;
+            clearPipelineState();
             // Finalize the assistant message
             const finalMsg = messages.value[messages.value.length - 1];
             if (finalMsg?.role === 'assistant') {
@@ -368,6 +429,7 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
+        clearPipelineState();
         // User cancelled
       } else if (err instanceof ApiError) {
         error.value = err.message;
@@ -382,6 +444,7 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.pop();
       }
     } finally {
+      clearPipelineState();
       isLoading.value = false;
       abortController = null;
     }
@@ -389,10 +452,103 @@ export const useChatStore = defineStore('chat', () => {
 
   function cancelStream() {
     pipelineStage.value = null;
+    clearPipelineState();
     if (abortController) {
       abortController.abort();
       abortController = null;
     }
+  }
+
+  /**
+   * Resume a pipeline that was running when the page was reloaded.
+   * Restores temp messages + pipeline stage from localStorage and
+   * polls the session endpoint until the backend completes.
+   */
+  async function checkPendingPipeline() {
+    const state = getPipelineState();
+    if (!state) return;
+
+    console.debug('[Chat] found pending pipeline session=%s', state.sessionId);
+
+    activeSessionId.value = state.sessionId;
+    pipelineStage.value = state.stage || 'connecting';
+    lastCollectionId.value = state.collectionId;
+
+    // Restore temp session title into local sessions array
+    const sessIdx = sessions.value.findIndex((s) => s.id === state.sessionId);
+    if (sessIdx !== -1) {
+      sessions.value[sessIdx] = { ...sessions.value[sessIdx], title: state.tempTitle };
+    }
+
+    // Restore active collection from session data
+    if (state.sessionId) {
+      const session = sessions.value.find((s) => s.id === state.sessionId);
+      if (session?.collection_id) {
+        const { useCollectionStore } = await import('@/stores/collections');
+        const collectionStore = useCollectionStore();
+        collectionStore.setActiveCollection(session.collection_id);
+      }
+    }
+
+    // Create temp messages so the UI shows something while polling
+    const tempUserMsg: Message = {
+      id: `temp-${Date.now()}`,
+      session_id: state.sessionId,
+      role: 'user',
+      content: state.userQuery,
+      created_at: new Date().toISOString(),
+    };
+    const tempAssistMsg: Message = {
+      id: `temp-assist-${Date.now()}`,
+      session_id: state.sessionId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    };
+    messages.value = [tempUserMsg, tempAssistMsg];
+    isLoading.value = true;
+
+    // Poll the session endpoint until the assistant message has content
+    const pollInterval = setInterval(async () => {
+      try {
+        const result = await api.getSessionWithMessages(state.sessionId);
+        const msgs = result.messages;
+        if (msgs.length >= 2) {
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg.role === 'assistant' && lastMsg.content) {
+            clearInterval(pollInterval);
+            messages.value = msgs;
+            isLoading.value = false;
+            pipelineStage.value = null;
+            clearPipelineState();
+            await fetchSessions(); // refresh to get LLM-generated title
+            return;
+          }
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          // Session was deleted while pipeline was running
+          console.debug('[Chat] pending session not found, cancelling recovery');
+          clearInterval(pollInterval);
+          clearPipelineState();
+          isLoading.value = false;
+          pipelineStage.value = null;
+        }
+        // Other errors: keep polling
+      }
+    }, 2000);
+
+    // Safety timeout: give up after 5 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (isLoading.value) {
+        console.warn('[Chat] pipeline recovery timed out after 5 minutes');
+        isLoading.value = false;
+        pipelineStage.value = null;
+        error.value = 'Pipeline recovery timed out. Please try your query again.';
+        clearPipelineState();
+      }
+    }, 300000);
   }
 
   async function fetchSessions() {
@@ -620,6 +776,7 @@ export const useChatStore = defineStore('chat', () => {
     sendMessage,
     cancelStream,
     fetchSessions,
+    checkPendingPipeline,
     createSession,
     deleteSession,
     loadSession,

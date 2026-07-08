@@ -31,12 +31,17 @@ const exportFormatOptions = [
 ];
 
 onMounted(() => {
-  chatStore.fetchSessions();
-  collectionStore.fetchCollections();
   document.addEventListener('click', handleNewSessionClickOutside);
   document.addEventListener('keydown', handleNewSessionKeydown);
   window.addEventListener('resize', updateNewSessionDropdownPosition);
   window.addEventListener('scroll', updateNewSessionDropdownPosition, true);
+
+  // Fetch sessions and collections, then check for pending pipeline
+  chatStore.fetchSessions().finally(() => {
+    collectionStore.fetchCollections().finally(() => {
+      chatStore.checkPendingPipeline();
+    });
+  });
 });
 
 onUnmounted(() => {
@@ -705,17 +710,18 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             class="toolbar-badges"
             data-testid="toolbar-badges"
           >
+            <h1
+              class="toolbar-session-title"
+              data-testid="toolbar-session-title"
+              >{{ activeSession.title }}</h1>
             <VBadge
               v-if="activeCollectionName"
               size="sm"
               variant="info"
               data-testid="toolbar-collection-badge"
+              class="toolbar-collection-tag"
               >{{ activeCollectionName }}</VBadge
             >
-            <h1
-              class="toolbar-session-title"
-              data-testid="toolbar-session-title"
-              >{{ activeSession.title }}</h1>
           </div>
           <div
             v-else-if="activeCollectionName"
@@ -1412,8 +1418,15 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
 
 .toolbar-badges {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toolbar-collection-tag {
+  font-size: 11px;
+  opacity: 0.75;
 }
 
 .toolbar-session-title {
