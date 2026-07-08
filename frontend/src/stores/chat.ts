@@ -480,15 +480,17 @@ export const useChatStore = defineStore('chat', () => {
       sessions.value[sessIdx] = { ...sessions.value[sessIdx], title: state.tempTitle };
     }
 
-    // Restore active collection from session data
-    if (state.sessionId) {
-      const session = sessions.value.find((s) => s.id === state.sessionId);
-      if (session?.collection_id) {
-        const { useCollectionStore } = await import('@/stores/collections');
-        const collectionStore = useCollectionStore();
-        collectionStore.setActiveCollection(session.collection_id);
-      }
-    }
+    // Restore active collection from session data (async import — do after setting visible state)
+    const collectionPromise = state.sessionId
+      ? (async () => {
+          const session = sessions.value.find((s) => s.id === state.sessionId);
+          if (session?.collection_id) {
+            const { useCollectionStore } = await import('@/stores/collections');
+            const collectionStore = useCollectionStore();
+            collectionStore.setActiveCollection(session.collection_id);
+          }
+        })()
+      : Promise.resolve();
 
     // Create temp messages so the UI shows something while polling
     const tempUserMsg: Message = {
@@ -507,6 +509,8 @@ export const useChatStore = defineStore('chat', () => {
     };
     messages.value = [tempUserMsg, tempAssistMsg];
     isLoading.value = true;
+
+    await collectionPromise;
 
     // Poll the session endpoint until the assistant message has content
     const pollInterval = setInterval(async () => {

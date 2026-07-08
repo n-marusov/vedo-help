@@ -236,6 +236,46 @@ describe('ChatWindow (ChatView)', () => {
   // Chat UI polish: tests requiring store action mocking
   // ==========================================================================
 
+  it('collection badge renders below session title in toolbar', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const { useCollectionStore } = await import('@/stores/collections');
+    const chatStore = useChatStore();
+    const collectionStore = useCollectionStore();
+
+    collectionStore.collections = [
+      {
+        id: 'col-1',
+        name: 'Technical Docs',
+        created_at: '2026-06-23T00:00:00Z',
+        document_count: 5,
+      },
+    ];
+    collectionStore.activeCollectionId = 'col-1';
+
+    chatStore.sessions = [
+      {
+        id: 'sess-1',
+        title: 'My Chat Session',
+        message_count: 3,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+    chatStore.activeSessionId = 'sess-1';
+    chatStore.isLoadingSessions = false;
+    await nextTick();
+
+    const toolbarBadges = wrapper.find('[data-testid="toolbar-badges"]');
+    const children = toolbarBadges.element.children;
+
+    // First child should be the session title (h1), then the collection badge
+    expect(children.length).toBeGreaterThanOrEqual(2);
+    expect((children[0] as HTMLElement).tagName).toBe('H1');
+    expect((children[0] as HTMLElement).textContent).toContain('My Chat Session');
+    expect((children[1] as HTMLElement).textContent).toContain('Technical Docs');
+  });
+
   it('displays session tag with collection badge when session is active', async () => {
     const wrapper = mount(ChatView);
     const { useChatStore } = await import('@/stores/chat');
@@ -275,9 +315,9 @@ describe('ChatWindow (ChatView)', () => {
     expect(collBadge.exists()).toBe(true);
     expect(collBadge.text()).toContain('Technical Docs');
 
-    const sessionBadge = wrapper.find('[data-testid="toolbar-session-badge"]');
-    expect(sessionBadge.exists()).toBe(true);
-    expect(sessionBadge.text()).toContain('My Chat Session');
+    const sessionTitle = wrapper.find('[data-testid="toolbar-session-title"]');
+    expect(sessionTitle.exists()).toBe(true);
+    expect(sessionTitle.text()).toContain('My Chat Session');
   });
 
   it('renders export button when session is active', async () => {
