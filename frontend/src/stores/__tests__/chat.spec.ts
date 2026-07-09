@@ -47,6 +47,8 @@ describe('chat store — v0.3.1 actions (RED)', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    localStorage.clear();
+    globalThis.fetch = vi.fn();
     // jsdom does not provide navigator.clipboard
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn() },
@@ -644,7 +646,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.pipelineStage).toBeNull();
   });
 
-  it('checkPendingPipeline restores state from localStorage synchronously', () => {
+  it('checkPendingPipeline restores state from localStorage synchronously', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -664,8 +666,14 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     localStorage.setItem('chat_pipeline_temp_title', 'test query');
     localStorage.setItem('chat_pipeline_user_query', 'What is RAG?');
 
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    });
+
     // Call without await — synchronous restoration happens before first await
-    store.checkPendingPipeline();
+    const recovery = store.checkPendingPipeline();
 
     // Synchronous state restoration (before dynamic import & timers)
     expect(store.activeSessionId).toBe('session-1');
@@ -683,9 +691,11 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     const restoredSession = store.sessions.find((s) => s.id === 'session-1');
     expect(restoredSession?.title).toBe('test query');
     expect(restoredSession?.title).not.toBe('New Chat');
+
+    await recovery;
   });
 
-  it('checkPendingPipeline recovers messages via polling', async () => {
+  it('checkPendingPipeline recovers messages via SSE recovery', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -698,7 +708,18 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    // Mock the polling API to return completed messages
+    const encoder = new TextEncoder();
+    const donePayload = JSON.stringify({ type: 'done', data: {} });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+
     apiMock.getSessionWithMessages.mockResolvedValue({
       session: {
         id: 'session-1',
@@ -736,7 +757,6 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     store.checkPendingPipeline();
 
-    // Wait for the 2s polling interval to fire and recover messages
     await vi.waitFor(
       () => {
         expect(store.isLoading).toBe(false);
@@ -744,14 +764,19 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       { timeout: 5000, interval: 200 },
     );
 
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/query/session-1/subscribe',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer mock-token' },
+      }),
+    );
     expect(store.pipelineStage).toBeNull();
     expect(store.messages.length).toBe(2);
     expect(store.messages[1].content).toBe('RAG stands for Retrieval-Augmented Generation');
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);
 
-  it('checkPendingPipeline stops recovery when polling only returns the user message', async () => {
-    vi.useFakeTimers();
+  it('checkPendingPipeline reports interruption when SSE completion has no assistant message', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -763,6 +788,18 @@ describe('chat store — v0.3.1 actions (RED)', () => {
         message_count: 1,
       },
     ];
+
+    const encoder = new TextEncoder();
+    const donePayload = JSON.stringify({ type: 'done', data: {} });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
 
     apiMock.getSessionWithMessages.mockResolvedValue({
       session: {
@@ -791,18 +828,19 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     store.checkPendingPipeline();
     expect(store.pipelineStage).toBe('generating');
 
-    await vi.advanceTimersByTimeAsync(92000);
+    await vi.waitFor(
+      () => {
+        expect(store.isLoading).toBe(false);
+      },
+      { timeout: 5000, interval: 200 },
+    );
 
-    expect(store.isLoading).toBe(false);
     expect(store.pipelineStage).toBeNull();
-    expect(store.messages).toHaveLength(1);
     expect(store.error).toBe('Response generation was interrupted. Please retry the query.');
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
-
-    vi.useRealTimers();
   });
 
-  it('checkPendingPipeline handles 404 from polling gracefully', async () => {
+  it('checkPendingPipeline handles 404 from SSE recovery gracefully', async () => {
     const store = useChatStore();
     store.sessions = [
       {
@@ -815,7 +853,11 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    apiMock.getSessionWithMessages.mockRejectedValue(new ApiError(404, 'Session not found'));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    });
 
     localStorage.setItem('chat_pipeline_active', 'true');
     localStorage.setItem('chat_pipeline_session_id', 'session-404');
@@ -826,7 +868,6 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     store.checkPendingPipeline();
 
-    // Wait for the 2s polling interval to fire; the 404 should clean up state
     await vi.waitFor(
       () => {
         expect(store.isLoading).toBe(false);
@@ -834,6 +875,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       { timeout: 5000, interval: 200 },
     );
 
+    expect(apiMock.getSessionWithMessages).not.toHaveBeenCalled();
     expect(store.pipelineStage).toBeNull();
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);

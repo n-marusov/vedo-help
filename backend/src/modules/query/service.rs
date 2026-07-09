@@ -1,12 +1,13 @@
+use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use futures::stream::{self, Stream};
-use futures::StreamExt;
+use futures::stream::{self, StreamExt};
+use futures::Stream;
 use serde_json::json;
 use sqlx::PgPool;
-use std::sync::Mutex;
 use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
@@ -21,6 +22,83 @@ use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 use crate::shared::llm::{LlmClient, Message as LlmMessage, MAX_RETRIES};
 
+/// Status of an active RAG pipeline job, used by the SSE recovery endpoint.
+#[derive(Debug, Clone)]
+pub enum JobStatus {
+    Running,
+    Done,
+    Failed(String),
+}
+
+/// Registry of in-flight RAG pipeline jobs indexed by session ID.
+/// Each entry holds a `watch::Sender` so that the SSE subscribe handler
+/// can wait for job completion without polling the database.
+#[derive(Clone, Debug)]
+pub struct ActiveJobRegistry {
+    inner: Arc<Mutex<HashMap<uuid::Uuid, watch::Sender<JobStatus>>>>,
+}
+
+impl ActiveJobRegistry {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Register a new pipeline job and return a receiver that will be notified
+    /// when the job completes.
+    pub fn register(&self, session_id: uuid::Uuid) -> watch::Receiver<JobStatus> {
+        let (tx, rx) = watch::channel(JobStatus::Running);
+        self.inner.lock().unwrap().insert(session_id, tx);
+        tracing::debug!(
+            component = "query/service",
+            session_id = %session_id,
+            "active_job.registered"
+        );
+        rx
+    }
+
+    /// Mark a job as completed successfully.
+    pub fn complete(&self, session_id: uuid::Uuid) {
+        if let Some(tx) = self.inner.lock().unwrap().get(&session_id) {
+            let _ = tx.send(JobStatus::Done);
+            tracing::debug!(
+                component = "query/service",
+                session_id = %session_id,
+                "active_job.completed"
+            );
+        }
+    }
+
+    /// Mark a job as failed.
+    pub fn fail(&self, session_id: uuid::Uuid, error: String) {
+        if let Some(tx) = self.inner.lock().unwrap().get(&session_id) {
+            let _ = tx.send(JobStatus::Failed(error));
+            tracing::debug!(
+                component = "query/service",
+                session_id = %session_id,
+                "active_job.failed"
+            );
+        }
+    }
+
+    /// Get a receiver for an existing job. Returns `None` if no job is registered
+    /// for the given session ID.
+    pub fn get_receiver(&self, session_id: uuid::Uuid) -> Option<watch::Receiver<JobStatus>> {
+        self.inner
+            .lock()
+            .unwrap()
+            .get(&session_id)
+            .map(|tx| tx.subscribe())
+    }
+}
+
+impl Default for ActiveJobRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Service for processing RAG queries with streaming responses.
 #[derive(Clone, Debug)]
 pub struct QueryService {
@@ -28,11 +106,12 @@ pub struct QueryService {
     llm_client: LlmClient,
     embedding_client: EmbeddingClient,
     collection_repo: CollectionRepository,
-    conversation_repo: ConversationRepository,
+    pub conversation_repo: ConversationRepository,
     max_history_messages: usize,
     context_token_budget: usize,
     pub config: crate::config::AppConfig,
     settings_service: Option<SettingsService>,
+    pub active_jobs: ActiveJobRegistry,
 }
 
 impl QueryService {
@@ -62,6 +141,7 @@ impl QueryService {
             context_token_budget,
             config,
             settings_service,
+            active_jobs: ActiveJobRegistry::new(),
         }
     }
 
@@ -110,24 +190,46 @@ impl QueryService {
         let svc = self.clone();
         let owned_user_id = user_id.to_string();
 
+        // Register in active jobs registry so the SSE subscribe endpoint
+        // can be notified when the pipeline completes (recovery after reload).
+        let request_session_id = request.session_id;
+        if let Some(sid) = request_session_id {
+            svc.active_jobs.register(sid);
+        }
+
         tokio::spawn(async move {
-            if let Err(e) = Self::run_pipeline(
+            let pipeline_result = Self::run_pipeline(
                 tx.clone(),
-                svc,
+                svc.clone(),
                 request,
                 owned_user_id,
                 is_admin,
                 rag_settings,
             )
-            .await
-            {
-                tracing::error!(component = "query/service", error = %e, "query.pipeline.failed");
-                tx.send(Ok(StreamEvent {
-                    event_type: "error".to_string(),
-                    data: json!({"text": e.to_string()}),
-                }))
-                .await
-                .ok();
+            .await;
+
+            match pipeline_result {
+                Ok(()) => {
+                    if let Some(sid) = request_session_id {
+                        svc.active_jobs.complete(sid);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(
+                        component = "query/service",
+                        error = %e,
+                        "query.pipeline.failed"
+                    );
+                    if let Some(sid) = request_session_id {
+                        svc.active_jobs.fail(sid, e.to_string());
+                    }
+                    tx.send(Ok(StreamEvent {
+                        event_type: "error".to_string(),
+                        data: json!({"text": e.to_string()}),
+                    }))
+                    .await
+                    .ok();
+                }
             }
         });
 

@@ -456,6 +456,10 @@ async fn main() {
         )
         // Query routes
         .route("/api/query", post(query_handlers::query_handler))
+        .route(
+            "/api/query/:session_id/subscribe",
+            get(query_handlers::subscribe_handler),
+        )
         // Session routes
         .route("/api/sessions", get(conversations_handlers::list_sessions))
         .route(

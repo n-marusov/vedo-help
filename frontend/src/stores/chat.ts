@@ -37,8 +37,6 @@ const LS_PIPELINE_COLLECTION_ID = 'chat_pipeline_collection_id';
 const LS_PIPELINE_STAGE = 'chat_pipeline_stage';
 const LS_PIPELINE_TEMP_TITLE = 'chat_pipeline_temp_title';
 const LS_PIPELINE_USER_QUERY = 'chat_pipeline_user_query';
-const RECOVERY_POLL_INTERVAL_MS = 2000;
-const RECOVERY_USER_ONLY_TIMEOUT_MS = 90000;
 const RECOVERY_TOTAL_TIMEOUT_MS = 300000;
 
 function savePipelineState(sessionId: string, collectionId: string, query: string) {
@@ -472,7 +470,7 @@ export const useChatStore = defineStore('chat', () => {
           );
         }
         // AbortError during page navigation is expected. Keep localStorage so
-        // the next page instance can restore title, stage, and polling.
+        // the next page instance can restore title, stage, and SSE recovery.
       } else if (err instanceof ApiError) {
         error.value = err.message;
       } else if (err instanceof Error) {
@@ -505,7 +503,7 @@ export const useChatStore = defineStore('chat', () => {
   /**
    * Resume a pipeline that was running when the page was reloaded.
    * Restores temp messages + pipeline stage from localStorage and
-   * polls the session endpoint until the backend completes.
+   * subscribes to the backend recovery SSE endpoint until completion.
    */
   async function checkPendingPipeline() {
     console.warn('[FIX] checkPendingPipeline: called');
@@ -527,14 +525,14 @@ export const useChatStore = defineStore('chat', () => {
       );
       if (autoSession) {
         resolvedSessionId = autoSession.id;
-        // Update localStorage so polling can use the resolved ID
+        // Update localStorage so SSE recovery can use the resolved ID
         localStorage.setItem(LS_PIPELINE_SESSION_ID, resolvedSessionId);
         console.warn(
           '[FIX] checkPendingPipeline: resolved auto-created session %s',
           resolvedSessionId,
         );
       } else {
-        // Can't recover: set visible state but skip polling
+        // Can't recover: set visible state but skip SSE subscription
         console.warn('[FIX] checkPendingPipeline: no session match, showing temp state only');
         activeSessionId.value = null;
         pipelineStage.value = rawState.stage || 'connecting';
@@ -571,7 +569,7 @@ export const useChatStore = defineStore('chat', () => {
 
     activeSessionId.value = state.sessionId;
     // The backend can no longer stream intermediate stages to this page after F5.
-    // Show a neutral progress state while polling for the persisted assistant message.
+    // Show a neutral progress state while waiting for the recovery SSE done event.
     pipelineStage.value = 'generating';
     lastCollectionId.value = state.collectionId;
 
@@ -615,7 +613,7 @@ export const useChatStore = defineStore('chat', () => {
         })()
       : Promise.resolve();
 
-    // Create temp messages so the UI shows something while polling
+    // Create temp messages so the UI shows something while waiting for SSE recovery
     const tempUserMsg: Message = {
       id: `temp-${Date.now()}`,
       session_id: state.sessionId,
@@ -633,75 +631,94 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = [tempUserMsg, tempAssistMsg];
     isLoading.value = true;
 
-    console.warn('[FIX] checkPendingPipeline: messages set, isLoading=true, starting polling');
+    console.warn('[FIX] checkPendingPipeline: messages set, isLoading=true, starting SSE recovery');
 
     await collectionPromise;
 
-    const recoveryStartedAt = Date.now();
+    const recoveryController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      recoveryController.abort();
+    }, RECOVERY_TOTAL_TIMEOUT_MS);
 
-    // Poll the session endpoint until the assistant message has content
-    const pollInterval = setInterval(async () => {
-      try {
-        const result = await api.getSessionWithMessages(state.sessionId);
-        const msgs = result.messages;
-        if (msgs.length >= 2) {
-          const lastMsg = msgs[msgs.length - 1];
-          if (lastMsg.role === 'assistant' && lastMsg.content) {
-            console.warn(
-              '[FIX] checkPendingPipeline: backend completed, recovered %d messages',
-              msgs.length,
-            );
-            clearInterval(pollInterval);
-            messages.value = msgs;
-            isLoading.value = false;
-            pipelineStage.value = null;
-            clearPipelineState();
-            await fetchSessions(); // refresh to get LLM-generated title
-            return;
-          }
-        }
+    try {
+      const headers: Record<string, string> = {};
+      const token = getAccessToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
-        const hasUserMessage = msgs.some((msg) => msg.role === 'user');
-        const hasAssistantMessage = msgs.some((msg) => msg.role === 'assistant' && msg.content);
-        if (
-          hasUserMessage &&
-          !hasAssistantMessage &&
-          Date.now() - recoveryStartedAt >= RECOVERY_USER_ONLY_TIMEOUT_MS
-        ) {
-          console.warn(
-            '[FIX] checkPendingPipeline: user-only session did not complete during recovery',
+      const response = await fetch(`/api/query/${state.sessionId}/subscribe`, {
+        headers,
+        signal: recoveryController.signal,
+      });
+
+      if (!response.ok) {
+        throw new ApiError(response.status, response.statusText || 'Pipeline recovery failed');
+      }
+
+      if (!response.body) {
+        throw new Error('Pipeline recovery stream did not include a response body');
+      }
+
+      const stream = parseNDJSON(response.body.getReader());
+      const streamReader = stream.getReader();
+
+      while (true) {
+        const { done, value } = await streamReader.read();
+        if (done) break;
+
+        if (value.type === 'done') {
+          const result = await api.getSessionWithMessages(state.sessionId);
+          const msgs = result.messages;
+          const hasAssistantMessage = msgs.some(
+            (msg) => msg.role === 'assistant' && msg.content.trim().length > 0,
           );
-          clearInterval(pollInterval);
+
+          if (!hasAssistantMessage) {
+            throw new Error('Pipeline completed but assistant message was not persisted');
+          }
+
+          console.warn(
+            '[FIX] checkPendingPipeline: backend completed via SSE, recovered %d messages',
+            msgs.length,
+          );
           messages.value = msgs;
           isLoading.value = false;
           pipelineStage.value = null;
-          error.value = 'Response generation was interrupted. Please retry the query.';
           clearPipelineState();
+          await fetchSessions(); // refresh to get LLM-generated title
+          return;
         }
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404) {
-          // Session was deleted while pipeline was running
-          console.warn('[FIX] checkPendingPipeline: session 404, cancelling recovery');
-          clearInterval(pollInterval);
-          clearPipelineState();
-          isLoading.value = false;
-          pipelineStage.value = null;
-        }
-        // Other errors: keep polling
-      }
-    }, RECOVERY_POLL_INTERVAL_MS);
 
-    // Safety timeout: give up after 5 minutes
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      if (isLoading.value) {
-        console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
+        if (value.type === 'error') {
+          throw new Error(value.data?.text || value.text || 'Pipeline recovery failed');
+        }
+      }
+
+      throw new Error('Pipeline recovery stream ended before completion');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        console.warn('[FIX] checkPendingPipeline: subscribe 404, cancelling recovery');
+        clearPipelineState();
         isLoading.value = false;
         pipelineStage.value = null;
-        error.value = 'Pipeline recovery timed out. Please try your query again.';
-        clearPipelineState();
+        return;
       }
-    }, RECOVERY_TOTAL_TIMEOUT_MS);
+
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
+        error.value = 'Pipeline recovery timed out. Please try your query again.';
+      } else {
+        console.warn('[FIX] checkPendingPipeline: recovery failed', err);
+        error.value = 'Response generation was interrupted. Please retry the query.';
+      }
+
+      isLoading.value = false;
+      pipelineStage.value = null;
+      clearPipelineState();
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   async function fetchSessions() {
