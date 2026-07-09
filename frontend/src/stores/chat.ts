@@ -136,6 +136,7 @@ export const useChatStore = defineStore('chat', () => {
   const searchQuery = ref('');
   const sidebarCollapsed = ref(false);
   const pipelineStage = ref<string | null>(null);
+  const pipelineSessionId = ref<string | null>(null);
 
   const stageLabels: Record<string, string> = {
     embedding: 'Embedding query...',
@@ -282,6 +283,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading.value = true;
     error.value = null;
     pipelineStage.value = null;
+    pipelineSessionId.value = activeSessionId.value || null;
     streamCancelledByUser = false;
     abortController = new AbortController();
 
@@ -402,6 +404,7 @@ export const useChatStore = defineStore('chat', () => {
           }
           case 'error':
             clearPipelineState();
+            pipelineSessionId.value = null;
             pipelineStage.value = null;
             error.value = value.data?.text || value.text || 'An error occurred';
             // Remove the placeholder assistant message
@@ -409,6 +412,7 @@ export const useChatStore = defineStore('chat', () => {
             break;
           case 'done': {
             pipelineStage.value = null;
+            pipelineSessionId.value = null;
             clearPipelineState();
             // Finalize the assistant message
             const finalMsg = messages.value[messages.value.length - 1];
@@ -505,6 +509,7 @@ export const useChatStore = defineStore('chat', () => {
   function cancelStream() {
     streamCancelledByUser = true;
     pipelineStage.value = null;
+    pipelineSessionId.value = null;
     clearPipelineState();
     if (abortController) {
       abortController.abort();
@@ -547,6 +552,7 @@ export const useChatStore = defineStore('chat', () => {
         // Can't recover: set visible state but skip SSE subscription
         console.warn('[FIX] checkPendingPipeline: no session match, showing temp state only');
         activeSessionId.value = null;
+        pipelineSessionId.value = null;
         pipelineStage.value = rawState.stage || 'connecting';
         lastCollectionId.value = rawState.collectionId;
         messages.value = [
@@ -580,6 +586,7 @@ export const useChatStore = defineStore('chat', () => {
     );
 
     activeSessionId.value = state.sessionId;
+    pipelineSessionId.value = state.sessionId;
     // Show the last stage saved before reload immediately; recovery SSE will
     // continue updating it with live pipeline_stage events from the backend.
     pipelineStage.value = state.stage || 'generating';
@@ -653,6 +660,7 @@ export const useChatStore = defineStore('chat', () => {
         console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
         isLoading.value = false;
         pipelineStage.value = null;
+        pipelineSessionId.value = null;
         error.value = 'Pipeline recovery timed out. Please try your query again.';
         clearPipelineState();
       }
@@ -714,6 +722,7 @@ export const useChatStore = defineStore('chat', () => {
           messages.value = msgs;
           isLoading.value = false;
           pipelineStage.value = null;
+          pipelineSessionId.value = null;
           clearPipelineState();
           await fetchSessions(); // refresh to get LLM-generated title
           return;
@@ -731,6 +740,7 @@ export const useChatStore = defineStore('chat', () => {
         clearPipelineState();
         isLoading.value = false;
         pipelineStage.value = null;
+        pipelineSessionId.value = null;
         return;
       }
 
@@ -758,6 +768,7 @@ export const useChatStore = defineStore('chat', () => {
 
       isLoading.value = false;
       pipelineStage.value = null;
+      pipelineSessionId.value = null;
       clearPipelineState();
     } finally {
       clearTimeout(timeoutId);
@@ -813,27 +824,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function loadSession(sessionId: string) {
-    // If switching to a different session while a pipeline is active (e.g. the
-    // user clicked another session while sendMessage was streaming), abort the
-    // in-flight request and clear pipeline UI state so the status bar doesn't
-    // leak to the newly loaded session. The sendMessage catch/finally will
-    // still run and see streamCancelledByUser = true, cleaning up the rest.
-    // If switching to a different session, clear pipeline UI state and abort
-    // any in-flight request so the status bar / loading indicator don't leak
-    // from the previous session to the newly loaded one. The sendMessage
-    // catch/finally will still complete and see streamCancelledByUser = true.
-    if (activeSessionId.value && activeSessionId.value !== sessionId) {
-      isLoading.value = false;
-      pipelineStage.value = null;
-      error.value = null;
-      clearPipelineState();
-      if (abortController) {
-        streamCancelledByUser = true;
-        abortController.abort();
-        abortController = null;
-      }
-    }
-
     isSessionLoading.value = true;
     const requestId = ++loadSessionRequestId;
     try {
@@ -1033,6 +1023,7 @@ export const useChatStore = defineStore('chat', () => {
     regenerateMessage,
     copyMessage,
     pipelineStage,
+    pipelineSessionId,
     pipelineStageLabel,
   };
 });

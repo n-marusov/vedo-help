@@ -103,12 +103,37 @@ describe('ChatWindow (ChatView)', () => {
     ];
     chatStore.isLoading = true;
     chatStore.pipelineStage = 'reranking';
+    chatStore.pipelineSessionId = 'sess-1';
 
     await nextTick();
 
     const statusBar = wrapper.find('[data-testid="pipeline-status-bar"]');
     expect(statusBar.exists()).toBe(true);
     expect(statusBar.text()).toContain('Reranking results...');
+  });
+
+  it('hides pipeline stage fallback when pipeline belongs to another session', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const chatStore = useChatStore();
+
+    chatStore.activeSessionId = 'sess-2';
+    chatStore.messages = [
+      {
+        id: 'msg-1',
+        session_id: 'sess-2',
+        role: 'assistant',
+        content: 'Already answered',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+    chatStore.isLoading = true;
+    chatStore.pipelineStage = 'reranking';
+    chatStore.pipelineSessionId = 'sess-1';
+
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="pipeline-status-bar"]').exists()).toBe(false);
   });
 
   it('shows collection options when the chat collection selector is opened', async () => {

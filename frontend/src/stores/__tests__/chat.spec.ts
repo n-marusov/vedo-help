@@ -239,18 +239,17 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.messages).toEqual(messages);
   });
 
-  it('loadSession clears pipeline state when switching to a different session', async () => {
+  it('loadSession preserves pipeline state when switching to a different session', async () => {
     const store = useChatStore();
 
-    // Simulate an active pipeline for session-a
     store.activeSessionId = 'session-a';
     store.isLoading = true;
     store.pipelineStage = 'generating';
+    store.pipelineSessionId = 'session-a';
     localStorage.setItem('chat_pipeline_active', 'true');
     localStorage.setItem('chat_pipeline_session_id', 'session-a');
     localStorage.setItem('chat_pipeline_stage', 'generating');
 
-    // Mock API response for loading session-b
     const messages = [
       {
         id: 'msg-1',
@@ -267,12 +266,12 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     await store.loadSession('session-b');
 
-    // Pipeline state should be cleared
-    expect(store.isLoading).toBe(false);
-    expect(store.pipelineStage).toBeNull();
+    expect(store.isLoading).toBe(true);
+    expect(store.pipelineStage).toBe('generating');
+    expect(store.pipelineSessionId).toBe('session-a');
     expect(store.activeSessionId).toBe('session-b');
     expect(store.messages).toEqual(messages);
-    expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
+    expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
   });
 
   // --------------------------------------------------------------------------

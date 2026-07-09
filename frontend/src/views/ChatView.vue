@@ -336,9 +336,18 @@ const hasVisibleStreamingPlaceholder = computed(() => {
   return last?.role === 'assistant' && !last.content;
 });
 
+const isActiveSessionPipeline = computed(
+  () =>
+    chatStore.isLoading &&
+    !!chatStore.activeSessionId &&
+    chatStore.pipelineSessionId === chatStore.activeSessionId,
+);
+
 const shouldShowPipelineStatusBar = computed(
   () =>
-    chatStore.isLoading && !!chatStore.pipelineStageLabel && !hasVisibleStreamingPlaceholder.value,
+    isActiveSessionPipeline.value &&
+    !!chatStore.pipelineStageLabel &&
+    !hasVisibleStreamingPlaceholder.value,
 );
 
 const hasInput = computed(() => inputText.value.trim().length > 0);
@@ -839,7 +848,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             :message="msg"
             :index="idx"
             :is-streaming="
-              chatStore.isLoading &&
+              isActiveSessionPipeline &&
               idx === chatStore.messages.length - 1 &&
               msg.role === 'assistant'
             "
