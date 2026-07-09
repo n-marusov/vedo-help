@@ -1132,6 +1132,61 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_temp_title')).toBe('reload query');
   });
 
+  it('sendMessage does not corrupt messages when user switched sessions mid-stream', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+    apiMock.get.mockResolvedValue([]);
+
+    // Use a deferred fetch to control when the stream is processed
+    let resolveFetch!: (value: unknown) => void;
+    globalThis.fetch = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    // Start sendMessage — it suspends on await fetch, giving us control
+    const sendPromise = store.sendMessage('col-1', 'test');
+
+    // Simulate user switching to another session while the pipeline runs
+    store.activeSessionId = 'sess-2';
+    store.messages = [
+      {
+        id: 'm1',
+        session_id: 'sess-2',
+        role: 'user' as const,
+        content: 'other',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+
+    // Resolve fetch with a stream that produces chunks + done immediately
+    const encoder = new TextEncoder();
+    const chunkPayload = JSON.stringify({ type: 'chunk', data: { text: 'Hello World' } });
+    const donePayload = JSON.stringify({ type: 'done' });
+
+    resolveFetch({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${chunkPayload}\n`));
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+
+    await sendPromise;
+
+    // Messages for sess-2 should NOT have been corrupted by pipeline content
+    expect(store.messages).toHaveLength(1);
+    expect(store.messages[0].content).toBe('other');
+    expect(store.isLoading).toBe(false);
+    expect(store.pipelineSessionId).toBeNull();
+    expect(store.pipelineStage).toBeNull();
+  });
+
   it('cancelStream clears pipeline state for explicit user cancellation', async () => {
     const store = useChatStore();
     store.activeSessionId = 'sess-1';

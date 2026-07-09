@@ -373,12 +373,22 @@ export const useChatStore = defineStore('chat', () => {
           case 'chunk': {
             const chunkText = value.data?.text || value.text || '';
             fullContent += chunkText;
-            // Update the last assistant message content
-            const lastMsg = messages.value[messages.value.length - 1];
-            if (lastMsg?.role === 'assistant') {
-              lastMsg.content = fullContent;
-              // Force reactivity by replacing the array
-              messages.value = [...messages.value];
+            // Only write chunks to messages when viewing the pipeline session.
+            // This prevents two bugs:
+            // 1. Corrupting another session's messages with pipeline content
+            // 2. Dumping all accumulated fullContent into the empty streaming
+            //    placeholder when switching back, which fills it prematurely
+            //    and causes the fallback pipeline-status-bar to appear.
+            if (activeSessionId.value === pipelineSessionId.value) {
+              const lastMsg = messages.value[messages.value.length - 1];
+              if (lastMsg?.role === 'assistant') {
+                // Incremental append — not fullContent — so the streaming
+                // placeholder stays empty on switch-back until the next
+                // real chunk from the backend arrives.
+                lastMsg.content = (lastMsg.content || '') + chunkText;
+                // Force reactivity by replacing the array
+                messages.value = [...messages.value];
+              }
             }
             break;
           }
@@ -395,31 +405,44 @@ export const useChatStore = defineStore('chat', () => {
             break;
           }
           case 'debug': {
-            const lastMsg = messages.value[messages.value.length - 1];
-            if (lastMsg?.role === 'assistant') {
-              lastMsg.debug_data = JSON.stringify(value.data?.debug || value.data);
-              messages.value = [...messages.value];
+            // Only write debug data when viewing the pipeline session
+            if (activeSessionId.value === pipelineSessionId.value) {
+              const lastMsg = messages.value[messages.value.length - 1];
+              if (lastMsg?.role === 'assistant') {
+                lastMsg.debug_data = JSON.stringify(value.data?.debug || value.data);
+                messages.value = [...messages.value];
+              }
             }
             break;
           }
-          case 'error':
+          case 'error': {
+            const errSessionId = pipelineSessionId.value;
             clearPipelineState();
             pipelineSessionId.value = null;
             pipelineStage.value = null;
             error.value = value.data?.text || value.text || 'An error occurred';
-            // Remove the placeholder assistant message
-            messages.value.pop();
+            // Remove the placeholder assistant message only if viewing
+            // the pipeline session — otherwise we'd corrupt other sessions.
+            if (activeSessionId.value === errSessionId) {
+              messages.value.pop();
+            }
             break;
+          }
           case 'done': {
             pipelineStage.value = null;
+            const doneSessionId = pipelineSessionId.value;
             pipelineSessionId.value = null;
             clearPipelineState();
-            // Finalize the assistant message
-            const finalMsg = messages.value[messages.value.length - 1];
-            if (finalMsg?.role === 'assistant') {
-              finalMsg.content = fullContent;
-              finalMsg.sources = sources;
-              messages.value = [...messages.value];
+            // Finalize the assistant message. Only write content when
+            // viewing the pipeline session — if the user switched away,
+            // the backend already persisted the complete response.
+            if (activeSessionId.value === doneSessionId) {
+              const finalMsg = messages.value[messages.value.length - 1];
+              if (finalMsg?.role === 'assistant') {
+                finalMsg.content = fullContent;
+                finalMsg.sources = sources;
+                messages.value = [...messages.value];
+              }
             }
 
             // Temp-ID reconciliation: fields are inside `data` (Rust SSE format)
@@ -492,8 +515,11 @@ export const useChatStore = defineStore('chat', () => {
       } else if (err instanceof Error) {
         error.value = err.message;
       }
-      // Remove the placeholder assistant message on error
+      // Remove the placeholder assistant message on error.
+      // Guard by pipeline session to avoid corrupting other sessions.
+      const catchErrSessionId = pipelineSessionId.value;
       if (
+        activeSessionId.value === catchErrSessionId &&
         messages.value.length > 0 &&
         messages.value[messages.value.length - 1]?.role === 'assistant'
       ) {
