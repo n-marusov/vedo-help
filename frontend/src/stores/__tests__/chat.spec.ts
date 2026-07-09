@@ -669,7 +669,9 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     // Synchronous state restoration (before dynamic import & timers)
     expect(store.activeSessionId).toBe('session-1');
-    expect(store.pipelineStage).toBe('embedding');
+    // The original stage was saved before reload, but the new page cannot receive
+    // further SSE stage events. Recovery uses a neutral progress label while polling.
+    expect(store.pipelineStage).toBe('generating');
     expect(store.isLoading).toBe(true);
     expect(store.messages.length).toBe(2);
     expect(store.messages[0].role).toBe('user');
@@ -747,6 +749,58 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.messages[1].content).toBe('RAG stands for Retrieval-Augmented Generation');
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);
+
+  it('checkPendingPipeline stops recovery when polling only returns the user message', async () => {
+    vi.useFakeTimers();
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'session-user-only',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 1,
+      },
+    ];
+
+    apiMock.getSessionWithMessages.mockResolvedValue({
+      session: {
+        id: 'session-user-only',
+        title: 'Recovered title',
+        collection_id: 'col-1',
+      },
+      messages: [
+        {
+          id: 'user-1',
+          session_id: 'session-user-only',
+          role: 'user',
+          content: 'What is RAG?',
+          created_at: '2026-06-23T00:00:00Z',
+        },
+      ],
+    });
+
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'session-user-only');
+    localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+    localStorage.setItem('chat_pipeline_stage', 'multi_query');
+    localStorage.setItem('chat_pipeline_temp_title', 'test');
+    localStorage.setItem('chat_pipeline_user_query', 'What is RAG?');
+
+    store.checkPendingPipeline();
+    expect(store.pipelineStage).toBe('generating');
+
+    await vi.advanceTimersByTimeAsync(92000);
+
+    expect(store.isLoading).toBe(false);
+    expect(store.pipelineStage).toBeNull();
+    expect(store.messages).toHaveLength(1);
+    expect(store.error).toBe('Response generation was interrupted. Please retry the query.');
+    expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
+
+    vi.useRealTimers();
+  });
 
   it('checkPendingPipeline handles 404 from polling gracefully', async () => {
     const store = useChatStore();

@@ -688,9 +688,18 @@ impl QueryService {
         );
 
         let mut llm_event_stream = Box::pin(llm_event_stream);
+        let mut client_connected = true;
         while let Some(event) = llm_event_stream.next().await {
-            if tx.send(event).await.is_err() {
-                break;
+            if client_connected && tx.send(event).await.is_err() {
+                client_connected = false;
+                tracing::warn!(
+                    component = "query/service",
+                    session_id = request
+                        .session_id
+                        .map(|id| id.to_string())
+                        .unwrap_or_default(),
+                    "query.client_disconnected.continuing_pipeline"
+                );
             }
         }
 

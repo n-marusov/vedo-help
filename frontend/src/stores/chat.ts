@@ -37,6 +37,9 @@ const LS_PIPELINE_COLLECTION_ID = 'chat_pipeline_collection_id';
 const LS_PIPELINE_STAGE = 'chat_pipeline_stage';
 const LS_PIPELINE_TEMP_TITLE = 'chat_pipeline_temp_title';
 const LS_PIPELINE_USER_QUERY = 'chat_pipeline_user_query';
+const RECOVERY_POLL_INTERVAL_MS = 2000;
+const RECOVERY_USER_ONLY_TIMEOUT_MS = 90000;
+const RECOVERY_TOTAL_TIMEOUT_MS = 300000;
 
 function savePipelineState(sessionId: string, collectionId: string, query: string) {
   console.warn(
@@ -567,7 +570,9 @@ export const useChatStore = defineStore('chat', () => {
     );
 
     activeSessionId.value = state.sessionId;
-    pipelineStage.value = state.stage || 'connecting';
+    // The backend can no longer stream intermediate stages to this page after F5.
+    // Show a neutral progress state while polling for the persisted assistant message.
+    pipelineStage.value = 'generating';
     lastCollectionId.value = state.collectionId;
 
     // Restore temp session title — if sessions haven't been loaded yet
@@ -632,6 +637,8 @@ export const useChatStore = defineStore('chat', () => {
 
     await collectionPromise;
 
+    const recoveryStartedAt = Date.now();
+
     // Poll the session endpoint until the assistant message has content
     const pollInterval = setInterval(async () => {
       try {
@@ -653,6 +660,24 @@ export const useChatStore = defineStore('chat', () => {
             return;
           }
         }
+
+        const hasUserMessage = msgs.some((msg) => msg.role === 'user');
+        const hasAssistantMessage = msgs.some((msg) => msg.role === 'assistant' && msg.content);
+        if (
+          hasUserMessage &&
+          !hasAssistantMessage &&
+          Date.now() - recoveryStartedAt >= RECOVERY_USER_ONLY_TIMEOUT_MS
+        ) {
+          console.warn(
+            '[FIX] checkPendingPipeline: user-only session did not complete during recovery',
+          );
+          clearInterval(pollInterval);
+          messages.value = msgs;
+          isLoading.value = false;
+          pipelineStage.value = null;
+          error.value = 'Response generation was interrupted. Please retry the query.';
+          clearPipelineState();
+        }
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           // Session was deleted while pipeline was running
@@ -664,7 +689,7 @@ export const useChatStore = defineStore('chat', () => {
         }
         // Other errors: keep polling
       }
-    }, 2000);
+    }, RECOVERY_POLL_INTERVAL_MS);
 
     // Safety timeout: give up after 5 minutes
     setTimeout(() => {
@@ -676,7 +701,7 @@ export const useChatStore = defineStore('chat', () => {
         error.value = 'Pipeline recovery timed out. Please try your query again.';
         clearPipelineState();
       }
-    }, 300000);
+    }, RECOVERY_TOTAL_TIMEOUT_MS);
   }
 
   async function fetchSessions() {
