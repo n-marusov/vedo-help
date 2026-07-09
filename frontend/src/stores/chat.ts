@@ -813,6 +813,27 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function loadSession(sessionId: string) {
+    // If switching to a different session while a pipeline is active (e.g. the
+    // user clicked another session while sendMessage was streaming), abort the
+    // in-flight request and clear pipeline UI state so the status bar doesn't
+    // leak to the newly loaded session. The sendMessage catch/finally will
+    // still run and see streamCancelledByUser = true, cleaning up the rest.
+    // If switching to a different session, clear pipeline UI state and abort
+    // any in-flight request so the status bar / loading indicator don't leak
+    // from the previous session to the newly loaded one. The sendMessage
+    // catch/finally will still complete and see streamCancelledByUser = true.
+    if (activeSessionId.value && activeSessionId.value !== sessionId) {
+      isLoading.value = false;
+      pipelineStage.value = null;
+      error.value = null;
+      clearPipelineState();
+      if (abortController) {
+        streamCancelledByUser = true;
+        abortController.abort();
+        abortController = null;
+      }
+    }
+
     isSessionLoading.value = true;
     const requestId = ++loadSessionRequestId;
     try {

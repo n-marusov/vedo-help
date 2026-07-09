@@ -239,6 +239,42 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.messages).toEqual(messages);
   });
 
+  it('loadSession clears pipeline state when switching to a different session', async () => {
+    const store = useChatStore();
+
+    // Simulate an active pipeline for session-a
+    store.activeSessionId = 'session-a';
+    store.isLoading = true;
+    store.pipelineStage = 'generating';
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'session-a');
+    localStorage.setItem('chat_pipeline_stage', 'generating');
+
+    // Mock API response for loading session-b
+    const messages = [
+      {
+        id: 'msg-1',
+        session_id: 'session-b',
+        role: 'user',
+        content: 'hello',
+        created_at: '2026-06-21T00:00:00Z',
+      },
+    ];
+    apiMock.get.mockResolvedValue({
+      session: { id: 'session-b', title: 'Session B' },
+      messages,
+    });
+
+    await store.loadSession('session-b');
+
+    // Pipeline state should be cleared
+    expect(store.isLoading).toBe(false);
+    expect(store.pipelineStage).toBeNull();
+    expect(store.activeSessionId).toBe('session-b');
+    expect(store.messages).toEqual(messages);
+    expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
+  });
+
   // --------------------------------------------------------------------------
   // sendMessage — temp-ID reconciliation on done event
   // --------------------------------------------------------------------------
