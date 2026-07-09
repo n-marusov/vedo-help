@@ -823,6 +823,28 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function ensurePipelinePlaceholder(sessionId: string) {
+    if (!isLoading.value || pipelineSessionId.value !== sessionId || !pipelineStage.value) {
+      return;
+    }
+
+    const lastMessage = messages.value[messages.value.length - 1];
+    if (lastMessage?.role === 'assistant' && !lastMessage.content) {
+      return;
+    }
+
+    messages.value = [
+      ...messages.value,
+      {
+        id: `temp-assist-${Date.now()}`,
+        session_id: sessionId,
+        role: 'assistant',
+        content: '',
+        created_at: new Date().toISOString(),
+      },
+    ];
+  }
+
   async function loadSession(sessionId: string) {
     isSessionLoading.value = true;
     const requestId = ++loadSessionRequestId;
@@ -836,6 +858,7 @@ export const useChatStore = defineStore('chat', () => {
       }
       messages.value = result.messages;
       activeSessionId.value = sessionId;
+      ensurePipelinePlaceholder(sessionId);
     } catch (err) {
       if (err instanceof ApiError) {
         error.value = err.message;

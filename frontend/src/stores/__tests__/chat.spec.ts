@@ -274,6 +274,40 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
   });
 
+  it('loadSession restores streaming placeholder when returning to active pipeline session', async () => {
+    const store = useChatStore();
+
+    store.activeSessionId = 'session-b';
+    store.isLoading = true;
+    store.pipelineStage = 'reranking';
+    store.pipelineSessionId = 'session-a';
+
+    const persistedMessages = [
+      {
+        id: 'user-1',
+        session_id: 'session-a',
+        role: 'user',
+        content: 'question',
+        created_at: '2026-06-21T00:00:00Z',
+      },
+    ];
+    apiMock.get.mockResolvedValue({
+      session: { id: 'session-a', title: 'Session A' },
+      messages: persistedMessages,
+    });
+
+    await store.loadSession('session-a');
+
+    expect(store.activeSessionId).toBe('session-a');
+    expect(store.messages).toHaveLength(2);
+    expect(store.messages[0]).toEqual(persistedMessages[0]);
+    expect(store.messages[1]).toMatchObject({
+      session_id: 'session-a',
+      role: 'assistant',
+      content: '',
+    });
+  });
+
   // --------------------------------------------------------------------------
   // sendMessage — temp-ID reconciliation on done event
   // --------------------------------------------------------------------------
