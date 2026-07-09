@@ -77,6 +77,40 @@ describe('ChatWindow (ChatView)', () => {
     expect(wrapper.find('[data-testid="btn-cancel"]').exists()).toBe(true);
   });
 
+  it('shows pipeline stage fallback when no streaming placeholder is visible', async () => {
+    const wrapper = mount(ChatView);
+    const { useChatStore } = await import('@/stores/chat');
+    const chatStore = useChatStore();
+
+    chatStore.sessions = [
+      {
+        id: 'sess-1',
+        title: 'Recovered session',
+        message_count: 1,
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+    chatStore.activeSessionId = 'sess-1';
+    chatStore.messages = [
+      {
+        id: 'user-1',
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'How does RAG work?',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+    chatStore.isLoading = true;
+    chatStore.pipelineStage = 'reranking';
+
+    await nextTick();
+
+    const statusBar = wrapper.find('[data-testid="pipeline-status-bar"]');
+    expect(statusBar.exists()).toBe(true);
+    expect(statusBar.text()).toContain('Reranking results...');
+  });
+
   it('shows collection options when the chat collection selector is opened', async () => {
     mount(ChatView, {
       attachTo: document.body,

@@ -330,6 +330,17 @@ const activeCollectionName = computed(() => {
   return col?.name || '';
 });
 
+const hasVisibleStreamingPlaceholder = computed(() => {
+  if (!chatStore.isLoading || chatStore.messages.length === 0) return false;
+  const last = chatStore.messages[chatStore.messages.length - 1];
+  return last?.role === 'assistant' && !last.content;
+});
+
+const shouldShowPipelineStatusBar = computed(
+  () =>
+    chatStore.isLoading && !!chatStore.pipelineStageLabel && !hasVisibleStreamingPlaceholder.value,
+);
+
 const hasInput = computed(() => inputText.value.trim().length > 0);
 </script>
 
@@ -839,6 +850,16 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
             @regenerate="handleRegenerateMessage"
             :pipeline-stage-label="chatStore.pipelineStageLabel"
           />
+        </div>
+
+        <div
+          v-if="shouldShowPipelineStatusBar"
+          class="pipeline-status-bar"
+          data-testid="pipeline-status-bar"
+          aria-live="polite"
+        >
+          <span class="pipeline-status-dot" aria-hidden="true" />
+          <span class="pipeline-status-label">{{ chatStore.pipelineStageLabel }}</span>
         </div>
 
         <!-- Error banner -->
@@ -1559,6 +1580,37 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.pipeline-status-bar {
+  width: 100%;
+  max-width: 820px;
+  margin: var(--space-3) auto 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-muted-foreground);
+  font-size: 0.85rem;
+}
+
+.pipeline-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 16%, transparent);
+  flex-shrink: 0;
+}
+
+.pipeline-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ===== Composer ===== */
