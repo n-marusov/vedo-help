@@ -840,6 +840,41 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   });
 
+  it('checkPendingPipeline preserves pipeline state when SSE recovery is aborted by reload', async () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'session-reload',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 0,
+      },
+    ];
+
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'));
+
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'session-reload');
+    localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+    localStorage.setItem('chat_pipeline_stage', 'generating');
+    localStorage.setItem('chat_pipeline_temp_title', 'reload title');
+    localStorage.setItem('chat_pipeline_user_query', 'reload query');
+
+    await store.checkPendingPipeline();
+
+    expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
+    expect(localStorage.getItem('chat_pipeline_session_id')).toBe('session-reload');
+    expect(localStorage.getItem('chat_pipeline_collection_id')).toBe('col-1');
+    expect(localStorage.getItem('chat_pipeline_temp_title')).toBe('reload title');
+    expect(localStorage.getItem('chat_pipeline_user_query')).toBe('reload query');
+    expect(store.pipelineStage).toBe('generating');
+    expect(store.error).toBeNull();
+  });
+
   it('checkPendingPipeline handles 404 from SSE recovery gracefully', async () => {
     const store = useChatStore();
     store.sessions = [

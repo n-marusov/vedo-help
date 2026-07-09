@@ -280,6 +280,22 @@ impl QueryService {
             }
         };
 
+        // Load previous conversation history before persisting the current query.
+        // The current user query is passed to the LLM separately; loading history
+        // after early persistence would duplicate the same user message in the prompt.
+        let history = if let Some(session_id) = request.session_id {
+            svc.load_conversation_history(session_id).await?
+        } else {
+            Vec::new()
+        };
+
+        // Persist the user-visible conversation state before any slow RAG work.
+        // This is intentionally before embedding, multi-query, search, and LLM calls:
+        // if the browser reloads while those steps are running, recovery and the
+        // sessions list must already show the user message and a non-default title.
+        let user_message_id =
+            Self::persist_user_message_and_autoname_session(&svc, &request).await?;
+
         // Step 1: Embed the query
         send_stage("embedding".to_string()).await;
         let embeddings = svc
@@ -691,12 +707,7 @@ impl QueryService {
             .map(|r| r.chunk_id.to_string())
             .collect();
 
-        // Load conversation history
-        let history = if let Some(session_id) = request.session_id {
-            svc.load_conversation_history(session_id).await?
-        } else {
-            Vec::new()
-        };
+        // Use the previous history captured before early user-message persistence.
 
         // Populate debug data final answer step
         {
@@ -729,44 +740,6 @@ impl QueryService {
         }
 
         let debug_data_json = serde_json::to_string(&debug_data).unwrap_or_default();
-
-        // Persist user message (if session is present)
-        let user_message_id = if let Some(session_id) = request.session_id {
-            let user_msg_id = Uuid::new_v4();
-            let msg = Message {
-                id: user_msg_id,
-                session_id,
-                role: "user".to_string(),
-                content: request.query.clone(),
-                sources: None,
-                created_at: chrono::Utc::now(),
-                edited_at: None,
-                original_content: None,
-                deleted_at: None,
-                debug_data: None,
-            };
-            svc.conversation_repo.add_message(&msg).await?;
-
-            // Auto-name session if needed
-            let session = svc.conversation_repo.get_session(session_id).await?;
-            if session.title == "New Chat" || session.title == "New Session" {
-                let auto_title = request
-                    .query
-                    .chars()
-                    .take(50)
-                    .collect::<String>()
-                    .trim()
-                    .to_string();
-                if !auto_title.is_empty() {
-                    svc.conversation_repo
-                        .update_session(session_id, Some(auto_title), None)
-                        .await?;
-                }
-            }
-            Some(user_msg_id)
-        } else {
-            None
-        };
 
         let assistant_message_id = request.session_id.map(|_| Uuid::new_v4());
 
@@ -806,6 +779,63 @@ impl QueryService {
         }
 
         Ok(())
+    }
+
+    async fn persist_user_message_and_autoname_session(
+        svc: &QueryService,
+        request: &QueryRequest,
+    ) -> Result<Option<Uuid>, AppError> {
+        let Some(session_id) = request.session_id else {
+            return Ok(None);
+        };
+
+        let user_message_id = Uuid::new_v4();
+        let msg = Message {
+            id: user_message_id,
+            session_id,
+            role: "user".to_string(),
+            content: request.query.clone(),
+            sources: None,
+            created_at: chrono::Utc::now(),
+            edited_at: None,
+            original_content: None,
+            deleted_at: None,
+            debug_data: None,
+        };
+
+        svc.conversation_repo.add_message(&msg).await?;
+        tracing::info!(
+            component = "query/service",
+            session_id = %session_id,
+            user_message_id = %user_message_id,
+            "[FIX] query.user_message_persisted_before_pipeline"
+        );
+
+        let session = svc.conversation_repo.get_session(session_id).await?;
+        if matches!(session.title.as_str(), "New Chat" | "New Session") {
+            if let Some(auto_title) = Self::query_auto_title(&request.query) {
+                svc.conversation_repo
+                    .update_session(session_id, Some(auto_title.clone()), None)
+                    .await?;
+                tracing::info!(
+                    component = "query/service",
+                    session_id = %session_id,
+                    session_title = %auto_title,
+                    "[FIX] query.session_autonamed_before_pipeline"
+                );
+            }
+        }
+
+        Ok(Some(user_message_id))
+    }
+
+    fn query_auto_title(query: &str) -> Option<String> {
+        let title = query.trim().chars().take(50).collect::<String>();
+        if title.is_empty() {
+            None
+        } else {
+            Some(title)
+        }
     }
 
     /// Create a pipeline_stage event for SSE streaming.
@@ -1194,6 +1224,23 @@ mod tests {
 
         assert_eq!(event.event_type, "pipeline_stage");
         assert_eq!(event.data["stage_name"], "embedding");
+    }
+
+    #[test]
+    fn query_auto_title_trims_and_truncates_to_fifty_chars() {
+        let title = QueryService::query_auto_title(
+            "  12345678901234567890123456789012345678901234567890extra  ",
+        );
+
+        assert_eq!(
+            title.as_deref(),
+            Some("12345678901234567890123456789012345678901234567890")
+        );
+    }
+
+    #[test]
+    fn query_auto_title_returns_none_for_whitespace_only_query() {
+        assert_eq!(QueryService::query_auto_title("   \n\t  "), None);
     }
 
     /// Test that stage events chained before LLM events appear in the correct order.
