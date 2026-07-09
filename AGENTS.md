@@ -134,6 +134,7 @@ vedo-assistant/
 | `docker-compose.production.yml` | Production hardening (no-exposed ports, resource limits, logging) |
 | `Caddyfile` | Reverse proxy config (API, frontend, KeyCloak auth) |
 | `backend/src/modules/auth/handlers.rs` | Auth endpoints: GET /api/auth/me, POST /api/auth/logout |
+| `backend/src/modules/query/handlers.rs` | Query: POST /api/query (SSE stream), GET /api/query/:session_id/subscribe (recovery) |
 
 ## Documentation
 
@@ -142,7 +143,7 @@ vedo-assistant/
 | README | `README.md` | Project landing page |
 | Getting Started | `docs/getting-started.md` | Prerequisites, installation, first run |
 | Architecture | `docs/architecture.md` | Service overview, modules, data flow |
-| User Interface Guide | `docs/gui.md` | Chat interface, admin panel, document management |
+| User Interface Guide | `docs/gui.md` | Chat interface, pipeline recovery, admin panel, document management |
 | API Reference | `docs/api.md` | Endpoints, authentication, examples |
 | Authentication | `docs/auth.md` | KeyCloak setup, social providers, OAuth flow |
 | Configuration | `docs/configuration.md` | Environment variables, Docker settings |

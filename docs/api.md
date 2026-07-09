@@ -396,6 +396,30 @@ data: {"type": "done", "sources": [
 ]}
 ```
 
+#### `GET /api/query/{session_id}/subscribe`
+
+Recovery endpoint used after a page reload while a RAG pipeline is still running.
+Emits exactly one SSE event when the active pipeline finishes (or immediately if already complete).
+
+Requires the same authentication and session ownership rules as `GET /api/sessions/{id}`.
+
+**Response:** SSE stream with a single event.
+
+```
+data: {"type":"done","data":{}}
+```
+
+```
+data: {"type":"error","data":{"text":"LLM rate limit exceeded"}}
+```
+
+| Event type | When emitted |
+|------------|-------------|
+| `done` | Pipeline completed successfully (or was already complete when subscribed) |
+| `error` | Pipeline failed with an error description |
+
+**404 Not Found** — no active pipeline exists for this session and no completed assistant message was persisted. The frontend should stop recovery when it receives 404.
+
 ### Conversations
 
 #### `GET /api/sessions`
@@ -480,6 +504,19 @@ When `ADVANCED_RAG_ENABLED=true` (default), the query pipeline emits per-stage p
 
 Available stages: `multi_query`, `hyde`, `embedding_search`, `keyword_search`, `merge_dedup`, `reranking`, `final_answer`.
 
+#### `subscribe` recovery event
+
+When the page is reloaded during a pipeline run, the backend persists the
+pipeline state to localStorage. On the next load, the frontend calls
+`GET /api/query/{session_id}/subscribe` instead of polling. That endpoint
+emits exactly one event when the pipeline finishes:
+
+```json
+{"type": "done", "data": {}}
+```
+
+or an error event on failure.
+
 ### Message Actions
 
 #### `PATCH /api/sessions/{session_id}/messages/{message_id}`
@@ -507,7 +544,7 @@ Soft-delete a message. The message is hidden from history and export but preserv
 
 ### SSE Query `done` Event
 
-The `done` SSE event now includes message IDs for temp-ID reconciliation:
+The `done` SSE event includes message IDs for temp-ID reconciliation:
 
 ```json
 {
@@ -516,6 +553,11 @@ The `done` SSE event now includes message IDs for temp-ID reconciliation:
   "assistant_message_id": "660e8400-e29b-41d4-a716-446655440000"
 }
 ```
+
+#### Recovery route format
+
+The same `done` event shape (with empty `data: {}`) is emitted by the recovery
+endpoint `GET /api/query/{session_id}/subscribe` after the pipeline completes.
 
 ### Auth
 

@@ -23,9 +23,12 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 # Build dependencies only – cached via BuildKit mount
+# Using || true because the dummy main.rs compile is not the real binary —
+# we only care about downloading and pre-compiling crate dependencies.
+# Build output is visible (no 2>/dev/null) for debugging slow dep resolution.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release 2>/dev/null || true
+    cargo build --release || true
 
 # ====================================================================
 # Builder stage – compile the real binary

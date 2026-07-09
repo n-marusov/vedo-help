@@ -89,6 +89,23 @@ On mobile (<768px), the sidebar slides in from the left via a hamburger toggle. 
 5. After completion, sources appear below the message with a chevron toggle
 6. If the user clicks Cancel, streaming stops and the partial response is kept
 
+### Pipeline Recovery After Page Reload
+
+If the user reloads the page (F5) while a response is streaming:
+
+1. The frontend saves the pending pipeline state (session ID, collection ID, query text)
+   to `localStorage` **before** starting the stream — this survives the navigation abort
+2. On next load, `ChatView.onMounted` restores temp messages and calls
+   `GET /api/query/{session_id}/subscribe` (SSE recovery endpoint)
+3. The endpoint emits a single `done` event when the backend finishes persisting
+   the assistant message (the pipeline continues even after the original SSE stream
+   is disconnected)
+4. The frontend fetches the completed session and replaces temp messages with real data
+5. A 5-minute safety timeout aborts recovery if the pipeline never completes
+
+The backend keeps consuming the LLM stream even after SSE disconnect; the assistant
+message is always persisted on completion.
+
 ### Message Sources
 
 Click the **N sources** chevron to expand source citations:

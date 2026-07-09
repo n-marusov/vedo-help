@@ -35,5 +35,17 @@ Thumbs.db
 README.md
 CHANGELOG.md
 
+# Rust artifacts (dummy binaries left from local dev)
+rust_out.exe
+rust_out.pdb
+*.exe
+*.pdb
+
+# Local data (git clones, runtime state)
+data/
+
+# Windows junk
+nul
+
 # Tests (optional — remove if you run tests in Docker)
 tests/
