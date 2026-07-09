@@ -266,10 +266,8 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendMessage(collectionId: string, query: string) {
     isLoading.value = true;
-    lastCollectionId.value = collectionId;
     error.value = null;
     pipelineStage.value = null;
-    clearPipelineState();
     streamCancelledByUser = false;
     abortController = new AbortController();
 
