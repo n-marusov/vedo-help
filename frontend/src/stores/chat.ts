@@ -212,6 +212,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   let abortController: AbortController | null = null;
+  let streamCancelledByUser = false;
   let loadSessionRequestId = 0;
 
   function parseNDJSON(
@@ -268,6 +269,7 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null;
     pipelineStage.value = null;
     clearPipelineState();
+    streamCancelledByUser = false;
     abortController = new AbortController();
 
     // Optimistic title: show user query in sidebar and badge immediately
@@ -306,9 +308,10 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push(assistantMsg);
 
     // Save pipeline state so it survives page reload.
-    // Always save — even if activeSessionId is not yet set (backend may
-    // auto-create the session). checkPendingPipeline will resolve the
-    // correct session ID on reload.
+    // ChatView creates a session before sending, so in the common path this
+    // stores the real backend session id. If a caller still sends without an
+    // active session, checkPendingPipeline can recover by matching the newest
+    // default-titled session in the selected collection.
     savePipelineState(activeSessionId.value || '', collectionId, query);
 
     try {
@@ -457,8 +460,16 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        clearPipelineState();
-        // User cancelled
+        if (streamCancelledByUser) {
+          console.warn('[FIX] sendMessage: stream aborted by user, clearing pipeline state');
+          clearPipelineState();
+        } else {
+          console.warn(
+            '[FIX] sendMessage: stream aborted by navigation/reload, preserving pipeline state',
+          );
+        }
+        // AbortError during page navigation is expected. Keep localStorage so
+        // the next page instance can restore title, stage, and polling.
       } else if (err instanceof ApiError) {
         error.value = err.message;
       } else if (err instanceof Error) {
@@ -472,13 +483,14 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.pop();
       }
     } finally {
-      clearPipelineState();
       isLoading.value = false;
       abortController = null;
+      streamCancelledByUser = false;
     }
   }
 
   function cancelStream() {
+    streamCancelledByUser = true;
     pipelineStage.value = null;
     clearPipelineState();
     if (abortController) {

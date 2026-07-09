@@ -784,7 +784,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);
 
-  it('sendMessage saves then clears pipeline state in localStorage', async () => {
+  it('sendMessage saves then clears pipeline state in localStorage after done event', async () => {
     const store = useChatStore();
     store.activeSessionId = 'sess-1';
 
@@ -806,7 +806,45 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     await store.sendMessage('col-1', 'test query');
 
-    // After done event, pipeline state should be cleared
+    expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
+    expect(localStorage.getItem('chat_pipeline_session_id')).toBeNull();
+  });
+
+  it('sendMessage preserves pipeline state when stream aborts during page reload', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'));
+
+    await store.sendMessage('col-1', 'reload query');
+
+    expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
+    expect(localStorage.getItem('chat_pipeline_session_id')).toBe('sess-1');
+    expect(localStorage.getItem('chat_pipeline_collection_id')).toBe('col-1');
+    expect(localStorage.getItem('chat_pipeline_temp_title')).toBe('reload query');
+  });
+
+  it('cancelStream clears pipeline state for explicit user cancellation', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+
+    let rejectFetch: (reason?: unknown) => void = () => undefined;
+    globalThis.fetch = vi.fn().mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFetch = reject;
+        }),
+    );
+
+    const sendPromise = store.sendMessage('col-1', 'cancel query');
+    expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
+
+    store.cancelStream();
+    rejectFetch(new DOMException('The operation was aborted.', 'AbortError'));
+    await sendPromise;
+
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
     expect(localStorage.getItem('chat_pipeline_session_id')).toBeNull();
   });
