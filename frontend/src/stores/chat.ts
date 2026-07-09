@@ -286,10 +286,11 @@ export const useChatStore = defineStore('chat', () => {
     };
     messages.value.push(assistantMsg);
 
-    // Save pipeline state so it survives page reload
-    if (activeSessionId.value) {
-      savePipelineState(activeSessionId.value, collectionId, query);
-    }
+    // Save pipeline state so it survives page reload.
+    // Always save — even if activeSessionId is not yet set (backend may
+    // auto-create the session). checkPendingPipeline will resolve the
+    // correct session ID on reload.
+    savePipelineState(activeSessionId.value || '', collectionId, query);
 
     try {
       const headers: Record<string, string> = {
@@ -473,8 +474,55 @@ export const useChatStore = defineStore('chat', () => {
    * polls the session endpoint until the backend completes.
    */
   async function checkPendingPipeline() {
-    const state = getPipelineState();
-    if (!state) return;
+    const rawState = getPipelineState();
+    if (!rawState) return;
+
+    // Resolve session ID: if empty (savePipelineState was called before
+    // createSession returned), find the auto-created session by matching
+    // collection_id against sessions with default "New Chat" title.
+    let resolvedSessionId = rawState.sessionId;
+    if (!resolvedSessionId) {
+      const autoSession = sessions.value.find(
+        (s) =>
+          s.collection_id === rawState.collectionId &&
+          (s.title === 'New Chat' || s.title === 'New Session'),
+      );
+      if (autoSession) {
+        resolvedSessionId = autoSession.id;
+        // Update localStorage so polling can use the resolved ID
+        localStorage.setItem(LS_PIPELINE_SESSION_ID, resolvedSessionId);
+        console.warn(
+          '[FIX] checkPendingPipeline: resolved auto-created session %s',
+          resolvedSessionId,
+        );
+      } else {
+        // Can't recover: set visible state but skip polling
+        console.warn('[FIX] checkPendingPipeline: no session match, showing temp state only');
+        activeSessionId.value = null;
+        pipelineStage.value = rawState.stage || 'connecting';
+        lastCollectionId.value = rawState.collectionId;
+        messages.value = [
+          {
+            id: `temp-${Date.now()}`,
+            session_id: '',
+            role: 'user',
+            content: rawState.userQuery,
+            created_at: new Date().toISOString(),
+          },
+          {
+            id: `temp-assist-${Date.now()}`,
+            session_id: '',
+            role: 'assistant',
+            content: '',
+            created_at: new Date().toISOString(),
+          },
+        ];
+        isLoading.value = true;
+        return;
+      }
+    }
+
+    const state = { ...rawState, sessionId: resolvedSessionId };
 
     console.warn(
       '[FIX] checkPendingPipeline: restoring pipeline session=%s stage=%s title=%s',
