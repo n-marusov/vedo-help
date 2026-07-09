@@ -566,9 +566,9 @@ export const useChatStore = defineStore('chat', () => {
     );
 
     activeSessionId.value = state.sessionId;
-    // The backend can no longer stream intermediate stages to this page after F5.
-    // Show a neutral progress state while waiting for the recovery SSE done event.
-    pipelineStage.value = 'generating';
+    // Show the last stage saved before reload immediately; recovery SSE will
+    // continue updating it with live pipeline_stage events from the backend.
+    pipelineStage.value = state.stage || 'generating';
     lastCollectionId.value = state.collectionId;
 
     // Restore temp session title — if sessions haven't been loaded yet
@@ -671,6 +671,16 @@ export const useChatStore = defineStore('chat', () => {
       while (true) {
         const { done, value } = await streamReader.read();
         if (done) break;
+
+        if (value.type === 'pipeline_stage') {
+          const stageName = value.data?.stage_name || '';
+          if (stageName) {
+            pipelineStage.value = stageName;
+            updateSavedPipelineStage(stageName);
+            console.warn('[FIX] checkPendingPipeline: recovered pipeline stage %s', stageName);
+          }
+          continue;
+        }
 
         if (value.type === 'done') {
           const result = await api.getSessionWithMessages(state.sessionId);

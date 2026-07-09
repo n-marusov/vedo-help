@@ -25,7 +25,7 @@ use crate::shared::llm::{LlmClient, Message as LlmMessage, MAX_RETRIES};
 /// Status of an active RAG pipeline job, used by the SSE recovery endpoint.
 #[derive(Debug, Clone)]
 pub enum JobStatus {
-    Running,
+    Running { stage: Option<String> },
     Done,
     Failed(String),
 }
@@ -48,7 +48,7 @@ impl ActiveJobRegistry {
     /// Register a new pipeline job and return a receiver that will be notified
     /// when the job completes.
     pub fn register(&self, session_id: uuid::Uuid) -> watch::Receiver<JobStatus> {
-        let (tx, rx) = watch::channel(JobStatus::Running);
+        let (tx, rx) = watch::channel(JobStatus::Running { stage: None });
         self.inner.lock().unwrap().insert(session_id, tx);
         tracing::debug!(
             component = "query/service",
@@ -56,6 +56,21 @@ impl ActiveJobRegistry {
             "active_job.registered"
         );
         rx
+    }
+
+    /// Publish the latest visible pipeline stage for recovery subscribers.
+    pub fn update_stage(&self, session_id: uuid::Uuid, stage: String) {
+        if let Some(tx) = self.inner.lock().unwrap().get(&session_id) {
+            let _ = tx.send(JobStatus::Running {
+                stage: Some(stage.clone()),
+            });
+            tracing::debug!(
+                component = "query/service",
+                session_id = %session_id,
+                stage = stage,
+                "active_job.stage_updated"
+            );
+        }
     }
 
     /// Mark a job as completed successfully.
@@ -262,10 +277,16 @@ impl QueryService {
         let eff_multi_query_count = rag_settings.multi_query_count;
         let eff_embedding_model = rag_settings.embedding_model.clone();
 
-        // Helper to send a stage event through the channel
+        // Helper to send a stage event through the channel and publish it to
+        // the active job registry for browser-reload SSE recovery subscribers.
         let send_stage = |name: String| {
             let tx = tx.clone();
+            let active_jobs = svc.active_jobs.clone();
+            let session_id = request.session_id;
             async move {
+                if let Some(session_id) = session_id {
+                    active_jobs.update_stage(session_id, name.clone());
+                }
                 tx.send(Ok(StreamEvent {
                     event_type: "pipeline_stage".to_string(),
                     data: json!({"stage_name": name}),
@@ -1156,7 +1177,10 @@ fn parse_batch_verdicts(response: &str, chunk_count: usize) -> Vec<(usize, bool)
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_batch_verdicts, AppError, Infallible, QueryService, StreamEvent};
+    use super::{
+        parse_batch_verdicts, ActiveJobRegistry, AppError, Infallible, JobStatus, QueryService,
+        StreamEvent,
+    };
     use crate::modules::conversations::repository::ConversationRepository;
     use futures::stream;
     use futures::StreamExt;
@@ -1224,6 +1248,25 @@ mod tests {
 
         assert_eq!(event.event_type, "pipeline_stage");
         assert_eq!(event.data["stage_name"], "embedding");
+    }
+
+    #[test]
+    fn active_job_registry_publishes_recovery_stage_updates() {
+        let registry = ActiveJobRegistry::new();
+        let session_id = uuid::Uuid::new_v4();
+        let rx = registry.register(session_id);
+
+        assert!(matches!(
+            rx.borrow().clone(),
+            JobStatus::Running { stage: None }
+        ));
+
+        registry.update_stage(session_id, "reranking".to_string());
+
+        assert!(matches!(
+            rx.borrow().clone(),
+            JobStatus::Running { stage: Some(stage) } if stage == "reranking"
+        ));
     }
 
     #[test]

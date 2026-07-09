@@ -677,9 +677,8 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     // Synchronous state restoration (before dynamic import & timers)
     expect(store.activeSessionId).toBe('session-1');
-    // The original stage was saved before reload, but the new page cannot receive
-    // further SSE stage events. Recovery uses a neutral progress label while polling.
-    expect(store.pipelineStage).toBe('generating');
+    expect(store.pipelineStage).toBe('embedding');
+    expect(store.pipelineStageLabel).toBe('Embedding query...');
     expect(store.isLoading).toBe(true);
     expect(store.messages.length).toBe(2);
     expect(store.messages[0].role).toBe('user');
@@ -709,41 +708,57 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     ];
 
     const encoder = new TextEncoder();
+    const stagePayload = JSON.stringify({
+      type: 'pipeline_stage',
+      data: { stage_name: 'reranking' },
+    });
     const donePayload = JSON.stringify({ type: 'done', data: {} });
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       body: new ReadableStream({
         start(controller) {
-          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
-          controller.close();
+          controller.enqueue(encoder.encode(`data: ${stagePayload}\n`));
+          setTimeout(() => {
+            controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+            controller.close();
+          }, 20);
         },
       }),
     });
 
-    apiMock.getSessionWithMessages.mockResolvedValue({
-      session: {
-        id: 'session-1',
-        title: 'New Chat',
-        collection_id: 'col-1',
-      },
-      messages: [
-        {
-          id: 'user-1',
-          session_id: 'session-1',
-          role: 'user',
-          content: 'What is RAG?',
-          created_at: '2026-06-23T00:00:00Z',
-        },
-        {
-          id: 'asst-1',
-          session_id: 'session-1',
-          role: 'assistant',
-          content: 'RAG stands for Retrieval-Augmented Generation',
-          sources: undefined,
-          created_at: '2026-06-23T00:01:00Z',
-        },
-      ],
-    });
+    apiMock.getSessionWithMessages.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                session: {
+                  id: 'session-1',
+                  title: 'New Chat',
+                  collection_id: 'col-1',
+                },
+                messages: [
+                  {
+                    id: 'user-1',
+                    session_id: 'session-1',
+                    role: 'user',
+                    content: 'What is RAG?',
+                    created_at: '2026-06-23T00:00:00Z',
+                  },
+                  {
+                    id: 'asst-1',
+                    session_id: 'session-1',
+                    role: 'assistant',
+                    content: 'RAG stands for Retrieval-Augmented Generation',
+                    sources: undefined,
+                    created_at: '2026-06-23T00:01:00Z',
+                  },
+                ],
+              }),
+            50,
+          ),
+        ),
+    );
 
     // Mock fetchSessions called after recovery
     apiMock.get.mockResolvedValue([]);
@@ -756,6 +771,11 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     localStorage.setItem('chat_pipeline_user_query', 'What is RAG?');
 
     store.checkPendingPipeline();
+
+    await vi.waitFor(() => {
+      expect(store.pipelineStage).toBe('reranking');
+      expect(store.pipelineStageLabel).toBe('Reranking results...');
+    });
 
     await vi.waitFor(
       () => {
@@ -826,7 +846,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     localStorage.setItem('chat_pipeline_user_query', 'What is RAG?');
 
     store.checkPendingPipeline();
-    expect(store.pipelineStage).toBe('generating');
+    expect(store.pipelineStage).toBe('multi_query');
 
     await vi.waitFor(
       () => {

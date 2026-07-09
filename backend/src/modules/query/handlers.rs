@@ -20,6 +20,28 @@ fn sse_json_event(stream_event: StreamEvent) -> Event {
     Event::default().data(data_json)
 }
 
+fn job_status_event(status: JobStatus) -> Option<StreamEvent> {
+    match status {
+        JobStatus::Running { stage: Some(stage) } => Some(StreamEvent {
+            event_type: "pipeline_stage".to_string(),
+            data: serde_json::json!({"stage_name": stage}),
+        }),
+        JobStatus::Running { stage: None } => None,
+        JobStatus::Done => Some(StreamEvent {
+            event_type: "done".to_string(),
+            data: serde_json::json!({}),
+        }),
+        JobStatus::Failed(error) => Some(StreamEvent {
+            event_type: "error".to_string(),
+            data: serde_json::json!({"text": error}),
+        }),
+    }
+}
+
+fn is_terminal_job_status(status: &JobStatus) -> bool {
+    matches!(status, JobStatus::Done | JobStatus::Failed(_))
+}
+
 /// POST `/api/query`
 ///
 /// Accepts a `QueryRequest` JSON body and returns a Server-Sent Events (SSE)
@@ -65,13 +87,11 @@ pub async fn query_handler(
 /// GET `/api/query/:session_id/subscribe`
 ///
 /// Recovery endpoint used after a browser reload while a RAG pipeline is still
-/// running. It emits exactly one SSE event:
-/// - `data: {"type":"done","data":{}}` when the active pipeline finishes
-/// - `data: {"type":"error","data":{"text":"..."}}` when it fails
-///
-/// If the in-memory job is already gone but the assistant message is persisted,
-/// the endpoint emits `done` immediately. Otherwise it returns 404 so the client
-/// can stop recovery instead of polling.
+/// running. It replays the currently known pipeline stage, then emits further
+/// `pipeline_stage` updates until the active pipeline finishes with `done` or
+/// `error`. If the in-memory job is already gone but the assistant message is
+/// persisted, the endpoint emits `done` immediately. Otherwise it returns 404 so
+/// the client can stop recovery instead of polling.
 pub async fn subscribe_handler(
     user_ctx: UserContext,
     State(svc): State<QueryService>,
@@ -105,52 +125,48 @@ pub async fn subscribe_handler(
         )));
     }
 
-    let sse_stream = stream::once(async move {
-        if let Some(mut rx) = receiver {
-            match rx.borrow().clone() {
-                JobStatus::Done => {
-                    return Ok(sse_json_event(StreamEvent {
-                        event_type: "done".to_string(),
-                        data: serde_json::json!({}),
-                    }));
+    let sse_stream = if let Some(rx) = receiver {
+        stream::unfold((rx, false), |(mut rx, mut current_emitted)| async move {
+            loop {
+                let status = rx.borrow().clone();
+                if current_emitted && is_terminal_job_status(&status) {
+                    return None;
                 }
-                JobStatus::Failed(error) => {
-                    return Ok(sse_json_event(StreamEvent {
+                if !current_emitted {
+                    current_emitted = true;
+                    if let Some(event) = job_status_event(status.clone()) {
+                        tracing::info!(
+                            component = "query/handlers",
+                            event_type = event.event_type.as_str(),
+                            "[FIX] query.subscribe_recovery_event"
+                        );
+                        return Some((Ok(sse_json_event(event)), (rx, current_emitted)));
+                    }
+                    if is_terminal_job_status(&status) {
+                        return None;
+                    }
+                }
+
+                if rx.changed().await.is_err() {
+                    let event = StreamEvent {
                         event_type: "error".to_string(),
-                        data: serde_json::json!({"text": error}),
-                    }));
+                        data: serde_json::json!({"text": "Pipeline recovery stream closed"}),
+                    };
+                    return Some((Ok(sse_json_event(event)), (rx, true)));
                 }
-                JobStatus::Running => {}
+                current_emitted = false;
             }
-
-            if rx.changed().await.is_err() {
-                return Ok(sse_json_event(StreamEvent {
-                    event_type: "error".to_string(),
-                    data: serde_json::json!({"text": "Pipeline recovery stream closed"}),
-                }));
-            }
-
-            match rx.borrow().clone() {
-                JobStatus::Done => Ok(sse_json_event(StreamEvent {
-                    event_type: "done".to_string(),
-                    data: serde_json::json!({}),
-                })),
-                JobStatus::Failed(error) => Ok(sse_json_event(StreamEvent {
-                    event_type: "error".to_string(),
-                    data: serde_json::json!({"text": error}),
-                })),
-                JobStatus::Running => Ok(sse_json_event(StreamEvent {
-                    event_type: "error".to_string(),
-                    data: serde_json::json!({"text": "Pipeline recovery ended before completion"}),
-                })),
-            }
-        } else {
+        })
+        .left_stream()
+    } else {
+        stream::once(async {
             Ok(sse_json_event(StreamEvent {
                 event_type: "done".to_string(),
                 data: serde_json::json!({}),
             }))
-        }
-    });
+        })
+        .right_stream()
+    };
 
     Ok(Sse::new(sse_stream))
 }
