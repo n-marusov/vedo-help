@@ -635,6 +635,13 @@ export const useChatStore = defineStore('chat', () => {
 
     const recoveryController = new AbortController();
     const timeoutId = setTimeout(() => {
+      if (isLoading.value) {
+        console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
+        isLoading.value = false;
+        pipelineStage.value = null;
+        error.value = 'Pipeline recovery timed out. Please try your query again.';
+        clearPipelineState();
+      }
       recoveryController.abort();
     }, RECOVERY_TOTAL_TIMEOUT_MS);
 
@@ -704,12 +711,15 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       if (err instanceof DOMException && err.name === 'AbortError') {
-        console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
-        error.value = 'Pipeline recovery timed out. Please try your query again.';
-      } else {
-        console.warn('[FIX] checkPendingPipeline: recovery failed', err);
-        error.value = 'Response generation was interrupted. Please retry the query.';
+        console.warn(
+          '[FIX] checkPendingPipeline: recovery aborted by page navigation, preserving state',
+        );
+        // Page navigated away — keep localStorage so next load can retry recovery.
+        return;
       }
+
+      console.warn('[FIX] checkPendingPipeline: recovery failed', err);
+      error.value = 'Response generation was interrupted. Please retry the query.';
 
       isLoading.value = false;
       pipelineStage.value = null;
@@ -725,9 +735,11 @@ export const useChatStore = defineStore('chat', () => {
       const result = await api.get<SessionSummary[]>('/sessions');
       sessions.value = result;
     } catch (err) {
-      if (err instanceof ApiError) {
-        error.value = err.message;
+      if (err instanceof ApiError && err.status === 401) {
+        // Token expired — can happen during cold start. Just swallow.
+        return;
       }
+      console.error('[ChatView] fetchSessions error:', err);
     } finally {
       isLoadingSessions.value = false;
     }
