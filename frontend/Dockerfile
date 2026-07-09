@@ -8,8 +8,8 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-# Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+# Enable pnpm — use npm to avoid corepack DNS issues in Docker containers
+RUN npm install -g pnpm@11.9.0
 
 # Copy dependency manifests (including pnpm-workspace.yaml for pnpm 11 build approvals)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -25,8 +25,8 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+# Enable pnpm — use npm to avoid corepack DNS issues
+RUN npm install -g pnpm@11.9.0
 
 # Copy manifests and install all dependencies (including devDependencies)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -46,8 +46,8 @@ FROM node:22-alpine AS development
 
 WORKDIR /app
 
-# Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+# Enable pnpm — use npm to avoid corepack DNS issues
+RUN npm install -g pnpm@11.9.0
 
 # Copy manifests and install all dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
