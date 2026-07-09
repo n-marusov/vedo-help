@@ -45,12 +45,22 @@ function savePipelineState(sessionId: string, collectionId: string, query: strin
     collectionId,
     query.slice(0, 45).trim(),
   );
-  localStorage.setItem(LS_PIPELINE_ACTIVE, 'true');
-  localStorage.setItem(LS_PIPELINE_SESSION_ID, sessionId);
-  localStorage.setItem(LS_PIPELINE_COLLECTION_ID, collectionId);
-  localStorage.setItem(LS_PIPELINE_STAGE, '');
-  localStorage.setItem(LS_PIPELINE_TEMP_TITLE, query.slice(0, 45).trim());
-  localStorage.setItem(LS_PIPELINE_USER_QUERY, query);
+  try {
+    localStorage.setItem(LS_PIPELINE_ACTIVE, 'true');
+    localStorage.setItem(LS_PIPELINE_SESSION_ID, sessionId);
+    localStorage.setItem(LS_PIPELINE_COLLECTION_ID, collectionId);
+    localStorage.setItem(LS_PIPELINE_STAGE, '');
+    localStorage.setItem(LS_PIPELINE_TEMP_TITLE, query.slice(0, 45).trim());
+    localStorage.setItem(LS_PIPELINE_USER_QUERY, query);
+    // Verify write actually succeeded (some browsers silently fail in private mode)
+    if (localStorage.getItem(LS_PIPELINE_ACTIVE) !== 'true') {
+      console.error(
+        '[FIX] savePipelineState: localStorage write FAILED — storage may be disabled or full',
+      );
+    }
+  } catch (e) {
+    console.error('[FIX] savePipelineState: localStorage write threw', e);
+  }
 }
 
 function updateSavedPipelineStage(stage: string) {
@@ -77,7 +87,16 @@ export interface PendingPipelineState {
 }
 
 function getPipelineState(): PendingPipelineState | null {
-  if (localStorage.getItem(LS_PIPELINE_ACTIVE) !== 'true') return null;
+  const active = localStorage.getItem(LS_PIPELINE_ACTIVE);
+  console.warn(
+    '[FIX] getPipelineState: LS_PIPELINE_ACTIVE=%s LS_PIPELINE_SESSION_ID=%s',
+    active,
+    localStorage.getItem(LS_PIPELINE_SESSION_ID),
+  );
+  if (active !== 'true') {
+    console.warn('[FIX] getPipelineState: no active pipeline (active=%s)', active);
+    return null;
+  }
   const state = {
     sessionId: localStorage.getItem(LS_PIPELINE_SESSION_ID) || '',
     collectionId: localStorage.getItem(LS_PIPELINE_COLLECTION_ID) || '',
@@ -474,8 +493,12 @@ export const useChatStore = defineStore('chat', () => {
    * polls the session endpoint until the backend completes.
    */
   async function checkPendingPipeline() {
+    console.warn('[FIX] checkPendingPipeline: called');
     const rawState = getPipelineState();
-    if (!rawState) return;
+    if (!rawState) {
+      console.warn('[FIX] checkPendingPipeline: exiting — no pipeline state found');
+      return;
+    }
 
     // Resolve session ID: if empty (savePipelineState was called before
     // createSession returned), find the auto-created session by matching
