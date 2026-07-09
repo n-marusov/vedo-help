@@ -55,6 +55,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       writable: true,
       configurable: true,
     });
+    window.dispatchEvent(new Event('pageshow'));
   });
 
   it('editMessage skips pending temp IDs before calling API', async () => {
@@ -893,6 +894,91 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_user_query')).toBe('reload query');
     expect(store.pipelineStage).toBe('generating');
     expect(store.error).toBeNull();
+  });
+
+  it('checkPendingPipeline preserves state when recovery fetch fails during second reload', async () => {
+    const store = useChatStore();
+    store.sessions = [
+      {
+        id: 'session-second-reload',
+        title: 'reload title',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 1,
+      },
+    ];
+
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('network request aborted'));
+
+    localStorage.setItem('chat_pipeline_active', 'true');
+    localStorage.setItem('chat_pipeline_session_id', 'session-second-reload');
+    localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+    localStorage.setItem('chat_pipeline_stage', 'reranking');
+    localStorage.setItem('chat_pipeline_temp_title', 'reload title');
+    localStorage.setItem('chat_pipeline_user_query', 'reload query');
+
+    window.dispatchEvent(new Event('pagehide'));
+    store.checkPendingPipeline();
+
+    await vi.waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/query/session-second-reload/subscribe',
+        expect.any(Object),
+      );
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
+    expect(localStorage.getItem('chat_pipeline_session_id')).toBe('session-second-reload');
+    expect(localStorage.getItem('chat_pipeline_stage')).toBe('reranking');
+  });
+
+  it('checkPendingPipeline preserves stage across repeated reload disconnects', async () => {
+    const seedPendingPipelineState = () => {
+      localStorage.setItem('chat_pipeline_active', 'true');
+      localStorage.setItem('chat_pipeline_session_id', 'session-many-reloads');
+      localStorage.setItem('chat_pipeline_collection_id', 'col-1');
+      localStorage.setItem('chat_pipeline_stage', 'reranking');
+      localStorage.setItem('chat_pipeline_temp_title', 'reload title');
+      localStorage.setItem('chat_pipeline_user_query', 'reload query');
+    };
+
+    seedPendingPipelineState();
+
+    for (let reloadIndex = 0; reloadIndex < 3; reloadIndex += 1) {
+      window.dispatchEvent(new Event('pageshow'));
+      setActivePinia(createPinia());
+      const store = useChatStore();
+      store.sessions = [
+        {
+          id: 'session-many-reloads',
+          title: 'reload title',
+          collection_id: 'col-1',
+          created_at: '2026-06-23T00:00:00Z',
+          updated_at: '2026-06-23T00:00:00Z',
+          message_count: 1,
+        },
+      ];
+
+      globalThis.fetch = vi.fn().mockRejectedValue(new TypeError(`reload ${reloadIndex} aborted`));
+
+      const recoveryPromise = store.checkPendingPipeline();
+      expect(store.pipelineStage).toBe('reranking');
+      expect(localStorage.getItem('chat_pipeline_stage')).toBe('reranking');
+
+      window.dispatchEvent(new Event('pagehide'));
+      await recoveryPromise;
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/query/session-many-reloads/subscribe',
+        expect.any(Object),
+      );
+      expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
+      expect(localStorage.getItem('chat_pipeline_session_id')).toBe('session-many-reloads');
+      expect(localStorage.getItem('chat_pipeline_stage')).toBe('reranking');
+    }
   });
 
   it('checkPendingPipeline handles 404 from SSE recovery gracefully', async () => {

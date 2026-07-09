@@ -38,6 +38,20 @@ const LS_PIPELINE_STAGE = 'chat_pipeline_stage';
 const LS_PIPELINE_TEMP_TITLE = 'chat_pipeline_temp_title';
 const LS_PIPELINE_USER_QUERY = 'chat_pipeline_user_query';
 const RECOVERY_TOTAL_TIMEOUT_MS = 300000;
+let pageIsUnloading = false;
+
+if (typeof window !== 'undefined') {
+  const markPageUnloading = () => {
+    pageIsUnloading = true;
+    console.warn('[FIX] pipeline recovery: page unloading, preserving pending pipeline state');
+  };
+  const markPageShown = () => {
+    pageIsUnloading = false;
+  };
+  window.addEventListener('pagehide', markPageUnloading);
+  window.addEventListener('beforeunload', markPageUnloading);
+  window.addEventListener('pageshow', markPageShown);
+}
 
 function savePipelineState(sessionId: string, collectionId: string, query: string) {
   console.warn(
@@ -725,6 +739,17 @@ export const useChatStore = defineStore('chat', () => {
           '[FIX] checkPendingPipeline: recovery aborted by page navigation, preserving state',
         );
         // Page navigated away — keep localStorage so next load can retry recovery.
+        return;
+      }
+
+      if (pageIsUnloading) {
+        console.warn(
+          '[FIX] checkPendingPipeline: recovery failed during page unload, preserving state',
+          err,
+        );
+        // Browsers do not always surface reload-disconnects as DOMException
+        // AbortError. On the second F5, fetch/reader can fail with TypeError.
+        // Treat any recovery failure during unload as navigation, not terminal.
         return;
       }
 
