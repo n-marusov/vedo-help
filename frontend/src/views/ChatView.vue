@@ -37,15 +37,8 @@ onMounted(() => {
   window.addEventListener('scroll', updateNewSessionDropdownPosition, true);
 
   // Fetch sessions and collections, then check for pending pipeline
-  console.warn(
-    '[FIX] ChatView.onMounted: starting fetchSessions -> fetchCollections -> checkPendingPipeline chain',
-  );
   chatStore.fetchSessions().finally(() => {
-    console.warn('[FIX] ChatView.onMounted: fetchSessions completed, starting fetchCollections');
     collectionStore.fetchCollections().finally(() => {
-      console.warn(
-        '[FIX] ChatView.onMounted: fetchCollections completed, calling checkPendingPipeline',
-      );
       chatStore.checkPendingPipeline();
     });
   });
@@ -155,10 +148,6 @@ async function openNewSessionDropdown() {
   newSessionDropdownOpen.value = true;
   await nextTick();
   updateNewSessionDropdownPosition();
-  console.debug(
-    '[ChatView.newSession] opened collection dropdown count=%d',
-    collectionStore.collections.length,
-  );
 }
 
 function closeNewSessionDropdown() {
@@ -168,7 +157,6 @@ function closeNewSessionDropdown() {
 async function toggleNewSessionDropdown() {
   if (chatStore.isLoading || chatStore.isSessionLoading) return;
   if (collectionStore.collections.length === 0) {
-    console.debug('[ChatView.newSession] no collections available, clearing active session');
     chatStore.clearMessages();
     return;
   }
@@ -183,7 +171,6 @@ async function handleNewSessionForCollection(collectionId) {
   closeNewSessionDropdown();
   collectionStore.setActiveCollection(collectionId);
   chatStore.clearMessages();
-  console.debug('[ChatView.newSession] preparing session with collection=%s', collectionId);
   // Session will be created on first message send
 }
 
@@ -251,7 +238,6 @@ async function handleSend() {
   if (!chatStore.activeSessionId) {
     const session = await chatStore.createSession(collectionId);
     if (!session) {
-      console.warn('[ChatView] failed to create session, sending without one');
       // Continue anyway — backend will handle session-less queries
     }
   }
@@ -300,7 +286,6 @@ function handleSaveEdit({ id, content }) {
 
 async function handleExport() {
   if (chatStore.activeSessionId) {
-    console.debug('[ChatView] export format=%s', exportFormat.value);
     await chatStore.exportSession(chatStore.activeSessionId, exportFormat.value);
   }
 }

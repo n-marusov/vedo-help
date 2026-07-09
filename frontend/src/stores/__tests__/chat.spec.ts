@@ -575,7 +575,6 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     const writeTextSpy = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockRejectedValue(new Error('Clipboard blocked'));
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     store.messages = [
       {
@@ -587,11 +586,9 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       },
     ];
 
-    await store.copyMessage('msg-1');
+    await expect(store.copyMessage('msg-1')).resolves.toBeUndefined();
     expect(writeTextSpy).toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalled();
     writeTextSpy.mockRestore();
-    warnSpy.mockRestore();
   });
 
   // --------------------------------------------------------------------------

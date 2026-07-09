@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 
 const apiMock = vi.hoisted(() => ({
-  get: vi.fn((path: string) => {
+  get: vi.fn((path: string): Promise<unknown[]> => {
     if (path === '/collections') {
       return Promise.resolve([
         {
@@ -339,7 +339,7 @@ describe('ChatWindow (ChatView)', () => {
 
   it('restores pipeline state and displays it in toolbar after simulated reload', async () => {
     // Override the sessions mock to return a session with default backend title
-    apiMock.get.mockImplementation((path: string) => {
+    apiMock.get.mockImplementation((path: string): Promise<unknown[]> => {
       if (path === '/sessions') {
         return Promise.resolve([
           {

@@ -80,8 +80,8 @@ async function searchSessions() {
       from: fromVal,
       to: toVal,
     });
-  } catch (err) {
-    console.error('[SessionDebug] search failed', err);
+  } catch {
+    // Keep current session list when search fails.
   } finally {
     isLoading.value = false;
   }
@@ -90,8 +90,8 @@ async function searchSessions() {
 async function loadUsers() {
   try {
     users.value = await api.adminGetSessionUsers();
-  } catch (err) {
-    console.error('[SessionDebug] load users failed', err);
+  } catch {
+    // User filter options are optional for the debug view.
   }
 }
 
@@ -101,8 +101,8 @@ async function loadSession(id: string) {
   try {
     const result = await api.getSessionWithMessages(id);
     selectedMessages.value = result.messages;
-  } catch (err) {
-    console.error('[SessionDebug] load failed', err);
+  } catch {
+    selectedMessages.value = [];
   }
 }
 
@@ -269,11 +269,7 @@ onMounted(async () => {
               data-testid="debug-panel"
             >
               <div
-                v-for="step in steps.filter(
-                  (s) =>
-                    getStepData(getDebugForMsg(msg), s.key) ||
-                    s.status === 'active',
-                )"
+                v-for="step in steps"
                 :key="step.id"
                 class="debug-step"
                 data-testid="debug-step"
@@ -285,6 +281,15 @@ onMounted(async () => {
                       class="debug-step-name"
                       data-testid="debug-step-title"
                       >{{ step.name }}</span
+                    >
+                    <span
+                      v-if="
+                        !getStepData(getDebugForMsg(msg), step.key) &&
+                        step.status !== 'active'
+                      "
+                      class="debug-step-badge debug-step-badge--future"
+                      data-testid="debug-step-future"
+                      >v0.5</span
                     >
                   </summary>
                   <div class="debug-step-body" data-testid="debug-step-data">

@@ -43,7 +43,6 @@ let pageIsUnloading = false;
 if (typeof window !== 'undefined') {
   const markPageUnloading = () => {
     pageIsUnloading = true;
-    console.warn('[FIX] pipeline recovery: page unloading, preserving pending pipeline state');
   };
   const markPageShown = () => {
     pageIsUnloading = false;
@@ -54,12 +53,6 @@ if (typeof window !== 'undefined') {
 }
 
 function savePipelineState(sessionId: string, collectionId: string, query: string) {
-  console.warn(
-    '[FIX] savePipelineState: saving session=%s collection=%s title=%s',
-    sessionId,
-    collectionId,
-    query.slice(0, 45).trim(),
-  );
   try {
     localStorage.setItem(LS_PIPELINE_ACTIVE, 'true');
     localStorage.setItem(LS_PIPELINE_SESSION_ID, sessionId);
@@ -67,14 +60,8 @@ function savePipelineState(sessionId: string, collectionId: string, query: strin
     localStorage.setItem(LS_PIPELINE_STAGE, '');
     localStorage.setItem(LS_PIPELINE_TEMP_TITLE, query.slice(0, 45).trim());
     localStorage.setItem(LS_PIPELINE_USER_QUERY, query);
-    // Verify write actually succeeded (some browsers silently fail in private mode)
-    if (localStorage.getItem(LS_PIPELINE_ACTIVE) !== 'true') {
-      console.error(
-        '[FIX] savePipelineState: localStorage write FAILED — storage may be disabled or full',
-      );
-    }
-  } catch (e) {
-    console.error('[FIX] savePipelineState: localStorage write threw', e);
+  } catch {
+    // Storage can be disabled or full; recovery is best-effort.
   }
 }
 
@@ -103,13 +90,7 @@ export interface PendingPipelineState {
 
 function getPipelineState(): PendingPipelineState | null {
   const active = localStorage.getItem(LS_PIPELINE_ACTIVE);
-  console.warn(
-    '[FIX] getPipelineState: LS_PIPELINE_ACTIVE=%s LS_PIPELINE_SESSION_ID=%s',
-    active,
-    localStorage.getItem(LS_PIPELINE_SESSION_ID),
-  );
   if (active !== 'true') {
-    console.warn('[FIX] getPipelineState: no active pipeline (active=%s)', active);
     return null;
   }
   const state = {
@@ -119,7 +100,6 @@ function getPipelineState(): PendingPipelineState | null {
     tempTitle: localStorage.getItem(LS_PIPELINE_TEMP_TITLE) || 'New Chat',
     userQuery: localStorage.getItem(LS_PIPELINE_USER_QUERY) || '',
   };
-  console.warn('[FIX] getPipelineState: found active pipeline state', JSON.stringify(state));
   return state;
 }
 
@@ -400,7 +380,6 @@ export const useChatStore = defineStore('chat', () => {
             if (stageName) {
               pipelineStage.value = stageName;
               updateSavedPipelineStage(stageName);
-              console.debug('[Chat] pipeline stage: %s', stageName);
             }
             break;
           }
@@ -493,20 +472,15 @@ export const useChatStore = defineStore('chat', () => {
                 };
               }
             }
-          } catch (err) {
-            console.warn('[Chat] title generation failed, keeping existing title:', err);
+          } catch {
+            // Keep the existing title if title generation fails.
           }
         }
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         if (streamCancelledByUser) {
-          console.warn('[FIX] sendMessage: stream aborted by user, clearing pipeline state');
           clearPipelineState();
-        } else {
-          console.warn(
-            '[FIX] sendMessage: stream aborted by navigation/reload, preserving pipeline state',
-          );
         }
         // AbortError during page navigation is expected. Keep localStorage so
         // the next page instance can restore title, stage, and SSE recovery.
@@ -549,10 +523,8 @@ export const useChatStore = defineStore('chat', () => {
    * subscribes to the backend recovery SSE endpoint until completion.
    */
   async function checkPendingPipeline() {
-    console.warn('[FIX] checkPendingPipeline: called');
     const rawState = getPipelineState();
     if (!rawState) {
-      console.warn('[FIX] checkPendingPipeline: exiting — no pipeline state found');
       return;
     }
 
@@ -570,13 +542,8 @@ export const useChatStore = defineStore('chat', () => {
         resolvedSessionId = autoSession.id;
         // Update localStorage so SSE recovery can use the resolved ID
         localStorage.setItem(LS_PIPELINE_SESSION_ID, resolvedSessionId);
-        console.warn(
-          '[FIX] checkPendingPipeline: resolved auto-created session %s',
-          resolvedSessionId,
-        );
       } else {
         // Can't recover: set visible state but skip SSE subscription
-        console.warn('[FIX] checkPendingPipeline: no session match, showing temp state only');
         activeSessionId.value = null;
         pipelineSessionId.value = null;
         pipelineStage.value = rawState.stage || 'connecting';
@@ -604,13 +571,6 @@ export const useChatStore = defineStore('chat', () => {
 
     const state = { ...rawState, sessionId: resolvedSessionId };
 
-    console.warn(
-      '[FIX] checkPendingPipeline: restoring pipeline session=%s stage=%s title=%s',
-      state.sessionId,
-      state.stage,
-      state.tempTitle,
-    );
-
     activeSessionId.value = state.sessionId;
     pipelineSessionId.value = state.sessionId;
     // Show the last stage saved before reload immediately; recovery SSE will
@@ -624,7 +584,6 @@ export const useChatStore = defineStore('chat', () => {
     let sessIdx = sessions.value.findIndex((s) => s.id === state.sessionId);
     if (sessIdx !== -1) {
       sessions.value[sessIdx] = { ...sessions.value[sessIdx], title: state.tempTitle };
-      console.warn('[FIX] checkPendingPipeline: restored title in existing session entry');
     } else {
       // Entry missing — insert a placeholder so the UI shows the temp title immediately
       sessions.value.unshift({
@@ -636,7 +595,6 @@ export const useChatStore = defineStore('chat', () => {
         message_count: 0,
       });
       sessIdx = 0;
-      console.warn('[FIX] checkPendingPipeline: inserted synthetic session entry with temp title');
     }
 
     // Restore active collection from session data (async import — do after setting visible state)
@@ -648,11 +606,8 @@ export const useChatStore = defineStore('chat', () => {
               const { useCollectionStore } = await import('@/stores/collections');
               const collectionStore = useCollectionStore();
               collectionStore.setActiveCollection(session.collection_id);
-            } catch (e) {
-              console.warn(
-                '[FIX] checkPendingPipeline: dynamic import of collections store failed',
-                e,
-              );
+            } catch {
+              // Collection restore is best-effort during pipeline recovery.
             }
           }
         })()
@@ -676,14 +631,11 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = [tempUserMsg, tempAssistMsg];
     isLoading.value = true;
 
-    console.warn('[FIX] checkPendingPipeline: messages set, isLoading=true, starting SSE recovery');
-
     await collectionPromise;
 
     const recoveryController = new AbortController();
     const timeoutId = setTimeout(() => {
       if (isLoading.value) {
-        console.warn('[FIX] checkPendingPipeline: recovery timed out after 5 minutes');
         isLoading.value = false;
         pipelineStage.value = null;
         pipelineSessionId.value = null;
@@ -725,7 +677,6 @@ export const useChatStore = defineStore('chat', () => {
           if (stageName) {
             pipelineStage.value = stageName;
             updateSavedPipelineStage(stageName);
-            console.warn('[FIX] checkPendingPipeline: recovered pipeline stage %s', stageName);
           }
           continue;
         }
@@ -741,10 +692,6 @@ export const useChatStore = defineStore('chat', () => {
             throw new Error('Pipeline completed but assistant message was not persisted');
           }
 
-          console.warn(
-            '[FIX] checkPendingPipeline: backend completed via SSE, recovered %d messages',
-            msgs.length,
-          );
           messages.value = msgs;
           isLoading.value = false;
           pipelineStage.value = null;
@@ -762,7 +709,6 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error('Pipeline recovery stream ended before completion');
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        console.warn('[FIX] checkPendingPipeline: subscribe 404, cancelling recovery');
         clearPipelineState();
         isLoading.value = false;
         pipelineStage.value = null;
@@ -771,25 +717,17 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       if (err instanceof DOMException && err.name === 'AbortError') {
-        console.warn(
-          '[FIX] checkPendingPipeline: recovery aborted by page navigation, preserving state',
-        );
         // Page navigated away — keep localStorage so next load can retry recovery.
         return;
       }
 
       if (pageIsUnloading) {
-        console.warn(
-          '[FIX] checkPendingPipeline: recovery failed during page unload, preserving state',
-          err,
-        );
         // Browsers do not always surface reload-disconnects as DOMException
         // AbortError. On the second F5, fetch/reader can fail with TypeError.
         // Treat any recovery failure during unload as navigation, not terminal.
         return;
       }
 
-      console.warn('[FIX] checkPendingPipeline: recovery failed', err);
       error.value = 'Response generation was interrupted. Please retry the query.';
 
       isLoading.value = false;
@@ -811,7 +749,6 @@ export const useChatStore = defineStore('chat', () => {
         // Token expired — can happen during cold start. Just swallow.
         return;
       }
-      console.error('[ChatView] fetchSessions error:', err);
     } finally {
       isLoadingSessions.value = false;
     }
@@ -992,10 +929,6 @@ export const useChatStore = defineStore('chat', () => {
       (m) => m.id === assistantMessageId && m.role === 'assistant',
     );
     if (idx < 1) {
-      console.warn(
-        '[chat.regenerateMessage] no preceding user msg for assist=%s',
-        assistantMessageId,
-      );
       return;
     }
 
@@ -1008,7 +941,6 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
     if (!userQuery) {
-      console.warn('[chat.regenerateMessage] no user msg found for assist=%s', assistantMessageId);
       return;
     }
 
@@ -1023,13 +955,12 @@ export const useChatStore = defineStore('chat', () => {
   async function copyMessage(messageId: string): Promise<void> {
     const msg = messages.value.find((m) => m.id === messageId);
     if (!msg) {
-      console.warn('[chat.copyMessage] msg not found id=%s', messageId);
       return;
     }
     try {
       await navigator.clipboard.writeText(msg.content);
-    } catch (err) {
-      console.warn('[chat.copyMessage] clipboard failed id=%s', messageId, err);
+    } catch {
+      // Clipboard access can fail when blocked by browser permissions.
     }
   }
 
