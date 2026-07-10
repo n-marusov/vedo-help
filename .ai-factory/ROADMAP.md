@@ -153,6 +153,7 @@
 - [ ] **Smarter multi-turn context** — tiktoken-rs для точного подсчёта токенов вместо word-count heuristic
 - [ ] **Additional formats** — CSV, JSON, HTML-to-text
 - [ ] **Hybrid search optimization** — тюнинг BM25 параметров, weighted fusion с векторным поиском
+- [ ] **LLM API Fallback** — fallback на API https://opencode.ai/, в случае если API router.ai не доступен
 
 ---
 

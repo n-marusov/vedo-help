@@ -198,6 +198,7 @@ fn make_test_config(urls: &TestUrls, advanced_rag: bool) -> AppConfig {
         chroma_url: urls.chroma.clone(),
         llm_api_key: urls.llm_api_key.clone(),
         llm_base_url: urls.llm_base.clone(),
+        llm_fallback_base_url: urls.llm_base.clone(),
         llm_model: urls.llm_model.clone(),
         embedding_api_key: urls.llm_api_key.clone(),
         embedding_base_url: urls.llm_base.clone(),

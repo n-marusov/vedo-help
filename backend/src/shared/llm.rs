@@ -50,6 +50,7 @@ pub struct LlmClient {
     client: Client,
     api_key: String,
     base_url: String,
+    fallback_base_url: String,
     model: String,
 }
 
@@ -77,6 +78,10 @@ impl LlmClient {
             client,
             api_key: config.llm_api_key.clone(),
             base_url: config.llm_base_url.trim_end_matches('/').to_string(),
+            fallback_base_url: config
+                .llm_fallback_base_url
+                .trim_end_matches('/')
+                .to_string(),
             model: config.llm_model.clone(),
         }
     }
@@ -216,9 +221,10 @@ impl LlmClient {
         stream: bool,
     ) -> Result<reqwest::Response, AppError> {
         let mut last_error = None;
+        let mut current_base_url = self.base_url.as_str();
 
         for attempt in 1..=MAX_RETRIES {
-            match self.send_request(messages, stream).await {
+            match self.send_request(messages, stream, current_base_url).await {
                 Ok(response) => {
                     if response.status().is_success() {
                         return Ok(response);
@@ -234,11 +240,23 @@ impl LlmClient {
                             max_retries = MAX_RETRIES,
                             status = %status,
                             response_body = %body,
+                            base_url = current_base_url,
                             "send_request.retry"
                         );
                         last_error = Some(AppError::LlmError(format!(
                             "LLM API returned {status}: {body}"
                         )));
+
+                        // Fallback logic on the last primary attempt
+                        if current_base_url == self.base_url && attempt == MAX_RETRIES - 1 {
+                            tracing::info!(
+                                component = "llm",
+                                fallback_url = %self.fallback_base_url,
+                                "send_request.fallback: Switching to fallback API"
+                            );
+                            current_base_url = self.fallback_base_url.as_str();
+                        }
+
                         if attempt < MAX_RETRIES {
                             tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
                         }
@@ -254,9 +272,21 @@ impl LlmClient {
                         attempt = attempt,
                         max_retries = MAX_RETRIES,
                         error = %e,
+                        base_url = current_base_url,
                         "send_request.retry_connection"
                     );
                     last_error = Some(AppError::LlmError(format!("Request failed: {e}")));
+
+                    // Fallback logic on connection error
+                    if current_base_url == self.base_url && attempt == MAX_RETRIES - 1 {
+                        tracing::info!(
+                            component = "llm",
+                            fallback_url = %self.fallback_base_url,
+                            "send_request.fallback: Switching to fallback API due to connection error"
+                        );
+                        current_base_url = self.fallback_base_url.as_str();
+                    }
+
                     if attempt < MAX_RETRIES {
                         tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
                     }
@@ -276,6 +306,7 @@ impl LlmClient {
         &self,
         messages: &[serde_json::Value],
         stream: bool,
+        base_url: &str,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let body = json!({
             "model": self.model,
@@ -284,7 +315,7 @@ impl LlmClient {
         });
 
         self.client
-            .post(format!("{}/chat/completions", self.base_url))
+            .post(format!("{}/chat/completions", base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .headers(inject_trace_headers())
@@ -319,7 +350,7 @@ impl LlmClient {
         );
 
         let response = self
-            .send_request(&messages, false)
+            .send_request(&messages, false, &self.base_url)
             .await
             .map_err(|e| AppError::LlmError(format!("Request failed: {e}")))?;
 
@@ -371,6 +402,7 @@ impl LlmClient {
             .build()
             .map_err(|e| AppError::LlmError(format!("Failed to build health client: {e}")))?;
 
+        // Try primary API first
         let response = health_client
             .get(&self.base_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
@@ -387,9 +419,31 @@ impl LlmClient {
                 tracing::warn!(
                     component = "llm",
                     error = %e,
-                    "health.probe_error"
+                    "health.probe_error_primary: Primary API health check failed, trying fallback"
                 );
-                Err(AppError::LlmError(format!("LLM health check failed: {e}")))
+
+                // Try fallback API
+                let fallback_response = health_client
+                    .get(&self.fallback_base_url)
+                    .header("Authorization", format!("Bearer {}", self.api_key))
+                    .headers(inject_trace_headers())
+                    .send()
+                    .await;
+
+                match fallback_response {
+                    Ok(_) => {
+                        tracing::info!(component = "llm", "health.probe_fallback_ok");
+                        Ok(())
+                    }
+                    Err(fallback_err) => {
+                        tracing::error!(
+                            component = "llm",
+                            error = %fallback_err,
+                            "health.probe_error_fallback"
+                        );
+                        Err(AppError::LlmError(format!("LLM health check failed for both primary ({e}) and fallback ({fallback_err})")))
+                    }
+                }
             }
         }
     }
@@ -437,6 +491,35 @@ mod tests {
             messages[2]["content"],
             "[USER_QUERY]Tell me more[/USER_QUERY]"
         );
+    }
+
+    #[test]
+    fn test_fallback_base_url_from_config() {
+        let config = AppConfig::from_env();
+        let client = LlmClient::from_config(&config);
+        assert!(!client.fallback_base_url.is_empty());
+        assert_eq!(
+            client.fallback_base_url,
+            config.llm_fallback_base_url.trim_end_matches('/')
+        );
+    }
+
+    #[test]
+    fn test_fallback_url_differs_from_primary_by_default() {
+        let config = AppConfig::from_env();
+        let client = LlmClient::from_config(&config);
+        // Default configs: primary is routerai.ru, fallback is opencode.ai
+        assert_ne!(client.base_url, client.fallback_base_url);
+    }
+
+    #[test]
+    fn test_client_has_both_urls_stored() {
+        let config = AppConfig::from_env();
+        let client = LlmClient::from_config(&config);
+        assert!(!client.base_url.is_empty());
+        assert!(!client.fallback_base_url.is_empty());
+        assert_eq!(client.api_key, config.llm_api_key);
+        assert_eq!(client.model, config.llm_model);
     }
 }
 

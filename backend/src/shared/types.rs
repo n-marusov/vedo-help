@@ -30,6 +30,9 @@ pub enum FileType {
     Markdown,
     Docx,
     Zip,
+    Csv,
+    Json,
+    Html,
 }
 
 impl FileType {
@@ -42,6 +45,9 @@ impl FileType {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             }
             FileType::Zip => "application/zip",
+            FileType::Csv => "text/csv",
+            FileType::Json => "application/json",
+            FileType::Html => "text/html",
         }
     }
 
@@ -53,6 +59,9 @@ impl FileType {
             "md" | "markdown" => Some(FileType::Markdown),
             "docx" => Some(FileType::Docx),
             "zip" => Some(FileType::Zip),
+            "csv" => Some(FileType::Csv),
+            "json" => Some(FileType::Json),
+            "html" | "htm" => Some(FileType::Html),
             _ => None,
         }
     }

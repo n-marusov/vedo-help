@@ -47,6 +47,9 @@ fn detect_file_type(filename: &str, content: &[u8]) -> Result<FileType, AppError
                 "md" | "markdown" => Some(FileType::Markdown),
                 "docx" => Some(FileType::Docx),
                 "zip" => Some(FileType::Zip),
+                "csv" => Some(FileType::Csv),
+                "json" => Some(FileType::Json),
+                "html" | "htm" => Some(FileType::Html),
                 _ => None,
             }
         })
@@ -62,6 +65,9 @@ fn detect_file_type(filename: &str, content: &[u8]) -> Result<FileType, AppError
         FileType::Markdown => Ok(()), // No magic bytes for MD — trust extension
         FileType::Docx => validate_docx_magic(content),
         FileType::Zip => validate_zip_magic(content),
+        FileType::Csv => Ok(()), // No magic bytes for CSV — trust extension
+        FileType::Json => validate_json_magic(content),
+        FileType::Html => validate_html_magic(content),
     }?;
 
     Ok(extension)
@@ -99,6 +105,52 @@ pub fn validate_zip_magic(content: &[u8]) -> Result<(), AppError> {
         file_size = content.len(),
         "zip.magic_bytes_validated"
     );
+    Ok(())
+}
+
+/// Check JSON magic bytes: must start with `{` or `[` (after optional BOM).
+fn validate_json_magic(content: &[u8]) -> Result<(), AppError> {
+    let start = if content.len() > 3 && content[0..3] == [0xEF, 0xBB, 0xBF] {
+        3 // skip UTF-8 BOM
+    } else {
+        0
+    };
+    if content.len() <= start {
+        return Err(AppError::FileError(
+            "Invalid JSON file: empty content".to_string(),
+        ));
+    }
+    let trimmed = content[start..]
+        .iter()
+        .copied()
+        .skip_while(|&b| b == b' ' || b == b'\n' || b == b'\r' || b == b'\t')
+        .collect::<Vec<_>>();
+    if trimmed.is_empty() || (trimmed[0] != b'{' && trimmed[0] != b'[') {
+        return Err(AppError::FileError(
+            "Invalid JSON file: must start with '{' or '['".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Check HTML magic bytes: must start with `<` (after optional BOM/whitespace).
+fn validate_html_magic(content: &[u8]) -> Result<(), AppError> {
+    let start = if content.len() > 3 && content[0..3] == [0xEF, 0xBB, 0xBF] {
+        3
+    } else {
+        0
+    };
+    if content.len() <= start {
+        return Err(AppError::FileError(
+            "Invalid HTML file: empty content".to_string(),
+        ));
+    }
+    // Skip leading whitespace before checking `<`
+    if !content[start..].iter().any(|&b| b == b'<') {
+        return Err(AppError::FileError(
+            "Invalid HTML file: must contain '<' character".to_string(),
+        ));
+    }
     Ok(())
 }
 
@@ -206,5 +258,136 @@ mod tests {
         let result = validate_file(content, "data.zip");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), FileType::Zip);
+    }
+
+    // ── CSV tests ──
+
+    #[test]
+    fn test_validate_csv_valid() {
+        let content = b"name,age,city\nAlice,30,NYC\nBob,25,LA";
+        let result = validate_file(content, "data.csv");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Csv);
+    }
+
+    #[test]
+    fn test_validate_csv_empty() {
+        let result = validate_file(b"", "data.csv");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Empty file"));
+    }
+
+    // ── JSON tests ──
+
+    #[test]
+    fn test_validate_json_valid_object() {
+        let content = b"{\"key\": \"value\"}";
+        let result = validate_file(content, "data.json");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Json);
+    }
+
+    #[test]
+    fn test_validate_json_valid_array() {
+        let content = b"[1, 2, 3]";
+        let result = validate_file(content, "data.json");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Json);
+    }
+
+    #[test]
+    fn test_validate_json_invalid_start() {
+        let content = b"Not JSON content";
+        let result = validate_file(content, "data.json");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must start with"));
+    }
+
+    #[test]
+    fn test_validate_json_with_bom() {
+        let content = [0xEF, 0xBB, 0xBF, b'{', b'"', b'a', b'"', b':', b'1', b'}'];
+        let result = validate_file(&content, "data.json");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Json);
+    }
+
+    #[test]
+    fn test_validate_json_empty() {
+        let result = validate_file(b"", "data.json");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Empty file"));
+    }
+
+    // ── HTML tests ──
+
+    #[test]
+    fn test_validate_html_valid() {
+        let content = b"<html><body>Hello</body></html>";
+        let result = validate_file(content, "page.html");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Html);
+    }
+
+    #[test]
+    fn test_validate_html_short() {
+        let content = b"<p>Hi</p>";
+        let result = validate_file(content, "page.html");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Html);
+    }
+
+    #[test]
+    fn test_validate_html_invalid_no_tag() {
+        let content = b"Just plain text without any HTML tags";
+        let result = validate_file(content, "page.html");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must contain"));
+    }
+
+    #[test]
+    fn test_validate_html_empty() {
+        let result = validate_file(b"", "page.html");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_html_htm_extension() {
+        let content = b"<html>\n<body>\n<p>Test</p>\n</body>\n</html>";
+        let result = validate_file(content, "page.htm");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), FileType::Html);
+    }
+
+    // ── MIME types ──
+
+    #[test]
+    fn test_csv_mime_type() {
+        assert_eq!(FileType::Csv.mime_type(), "text/csv");
+    }
+
+    #[test]
+    fn test_json_mime_type() {
+        assert_eq!(FileType::Json.mime_type(), "application/json");
+    }
+
+    #[test]
+    fn test_html_mime_type() {
+        assert_eq!(FileType::Html.mime_type(), "text/html");
+    }
+
+    #[test]
+    fn test_from_extension_csv() {
+        assert_eq!(FileType::from_extension("data.csv"), Some(FileType::Csv));
+    }
+
+    #[test]
+    fn test_from_extension_json() {
+        assert_eq!(FileType::from_extension("data.json"), Some(FileType::Json));
+    }
+
+    #[test]
+    fn test_from_extension_html() {
+        assert_eq!(FileType::from_extension("page.html"), Some(FileType::Html));
+        assert_eq!(FileType::from_extension("page.htm"), Some(FileType::Html));
     }
 }

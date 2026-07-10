@@ -87,6 +87,7 @@ pub fn setup_test_config() -> AppConfig {
         chroma_url: "http://localhost:18000".to_string(),
         llm_api_key: "test-openrouter-key".to_string(),
         llm_base_url: "http://llm-mock:18002".to_string(),
+        llm_fallback_base_url: "http://llm-mock:18002".to_string(),
         llm_model: "test-model".to_string(),
         embedding_api_key: "test-embedding-key".to_string(),
         embedding_base_url: "https://routerai.ru/api/v1".to_string(),

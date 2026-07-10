@@ -7,7 +7,7 @@ withDefaults(
     label?: string;
   }>(),
   {
-    accept: '.pdf,.md,.txt,.html,.json,.zip',
+    accept: '.pdf,.md,.txt,.csv,.html,.htm,.json,.zip',
     label: 'Drop files here',
   },
 );

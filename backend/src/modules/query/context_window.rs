@@ -149,6 +149,30 @@ mod tests {
     }
 
     #[test]
+    fn test_count_tokens_long_text() {
+        // Longer text should produce proportionally more tokens
+        let short = "hello world";
+        let long = "hello world ".repeat(100).trim_end().to_string();
+        assert!(count_tokens(&long) > count_tokens(short));
+        assert_eq!(count_tokens(&long), 200);
+    }
+
+    #[test]
+    fn test_count_tokens_special_chars() {
+        // Word-count heuristic splits on whitespace
+        assert_eq!(count_tokens("hello-world"), 1); // hyphenated = 1 word
+        assert_eq!(count_tokens("hello world"), 2); // space-separated = 2 words
+        assert_eq!(count_tokens("don't"), 1); // contraction = 1 word
+    }
+
+    #[test]
+    fn test_count_tokens_code_snippet() {
+        // Code with special characters is counted per whitespace-delimited token
+        let code = "fn main() { println!(\"hello\"); }";
+        assert_eq!(count_tokens(code), 5); // "fn", "main()", "{", "println!(\"hello\");", "}"
+    }
+
+    #[test]
     fn test_trim_history_max_messages_cap() {
         let mut hist = Vec::new();
         for i in 0..10 {

@@ -279,7 +279,7 @@ watch(
         <input
           ref="fileInputRef"
           type="file"
-          accept=".pdf,.md,.txt,.html,.json,.zip"
+          accept=".pdf,.md,.txt,.csv,.html,.htm,.json,.zip"
           multiple
           class="dl-file-input"
           @change="handleUploadButtonChange"

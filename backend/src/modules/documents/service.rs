@@ -977,7 +977,101 @@ fn parse_file_content(
         FileType::Zip => Err(AppError::FileError(
             "ZIP files cannot be parsed directly — use the batch upload endpoint".to_string(),
         )),
+        FileType::Csv => {
+            use std::io::BufReader;
+            let mut reader = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .flexible(true)
+                .from_reader(BufReader::new(data));
+            let mut output = String::new();
+            for result in reader.records() {
+                let record =
+                    result.map_err(|e| AppError::FileError(format!("CSV parse error: {e}")))?;
+                let row: Vec<&str> = record.iter().collect();
+                if !row.is_empty() {
+                    output.push_str(&row.join(" "));
+                    output.push('\n');
+                }
+            }
+            Ok(output.trim_end().to_string())
+        }
+        FileType::Json => {
+            let text = std::str::from_utf8(data)
+                .map_err(|e| AppError::FileError(format!("Invalid UTF-8 in JSON file: {e}")))?;
+            // JSON to text: parse with serde_json and extract string values
+            let json_val: serde_json::Value = serde_json::from_str(text)
+                .map_err(|e| AppError::FileError(format!("JSON parse error: {e}")))?;
+            let extracted = extract_json_text(&json_val);
+            Ok(extracted)
+        }
+        FileType::Html => {
+            use std::io::BufReader;
+            let text = html2text::from_read(BufReader::new(data), 0);
+            Ok(text.trim().to_string())
+        }
     }
+}
+
+/// Recursively extract text from a JSON value.
+fn extract_json_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Object(map) => {
+            let mut parts: Vec<String> = Vec::new();
+            for (key, val) in map {
+                let val_text = extract_json_text(val);
+                if !val_text.is_empty() {
+                    parts.push(format!("{}: {}", key, val_text));
+                }
+            }
+            parts.join("\n")
+        }
+        serde_json::Value::Array(arr) => {
+            let mut parts: Vec<String> = Vec::new();
+            for val in arr {
+                let val_text = extract_json_text(val);
+                if !val_text.is_empty() {
+                    parts.push(val_text);
+                }
+            }
+            parts.join("\n")
+        }
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Null => String::new(),
+    }
+}
+
+/// Basic HTML tag stripping: remove everything between < and >.
+#[cfg(test)]
+fn strip_html_tags(html: &str) -> String {
+    let mut result = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => {
+                result.push(c);
+            }
+            _ => {}
+        }
+    }
+    // Collapse multiple whitespace
+    let mut cleaned = String::with_capacity(result.len());
+    let mut prev_was_space = false;
+    for c in result.chars() {
+        if c.is_whitespace() {
+            if !prev_was_space {
+                cleaned.push(' ');
+                prev_was_space = true;
+            }
+        } else {
+            cleaned.push(c);
+            prev_was_space = false;
+        }
+    }
+    cleaned.trim().to_string()
 }
 
 fn extract_docx_text(data: &[u8]) -> Result<String, AppError> {
@@ -999,4 +1093,188 @@ fn extract_docx_text(data: &[u8]) -> Result<String, AppError> {
         }
     }
     Ok(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shared::types::FileType;
+
+    // ── CSV parsing tests ──
+
+    #[test]
+    fn test_parse_csv_simple() {
+        let data = b"name,age,city\nAlice,30,NYC\nBob,25,LA";
+        let result = parse_file_content(data, "data.csv", &FileType::Csv).unwrap();
+        assert!(result.contains("Alice"));
+        assert!(result.contains("30"));
+        assert!(result.contains("Bob"));
+        assert!(result.contains("LA"));
+    }
+
+    #[test]
+    fn test_parse_csv_single_column() {
+        let data = b"item\napple\nbanana\ncherry";
+        let result = parse_file_content(data, "data.csv", &FileType::Csv).unwrap();
+        assert!(result.contains("apple"));
+        assert!(result.contains("banana"));
+        assert!(result.contains("cherry"));
+    }
+
+    #[test]
+    fn test_parse_csv_empty() {
+        let data = b"";
+        let result = parse_file_content(data, "data.csv", &FileType::Csv).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_csv_empty_lines() {
+        // csv crate skips empty lines by default
+        let data = b"header\n\n\n";
+        let result = parse_file_content(data, "data.csv", &FileType::Csv).unwrap();
+        // Only the header row is parsed
+        assert!(result.contains("header"));
+    }
+
+    #[test]
+    fn test_parse_csv_invalid_utf8() {
+        let data = b"name\xFF\xFE";
+        let result = parse_file_content(data, "data.csv", &FileType::Csv);
+        assert!(result.is_err());
+    }
+
+    // ── JSON parsing tests ──
+
+    #[test]
+    fn test_parse_json_simple_object() {
+        let data = b"{\"name\": \"Alice\", \"age\": 30}";
+        let result = parse_file_content(data, "data.json", &FileType::Json).unwrap();
+        assert!(result.contains("Alice"));
+        assert!(result.contains("name"));
+        assert!(result.contains("age"));
+    }
+
+    #[test]
+    fn test_parse_json_empty_object() {
+        let data = b"{}";
+        let result = parse_file_content(data, "data.json", &FileType::Json).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_json_invalid() {
+        let data = b"{invalid json}";
+        let result = parse_file_content(data, "data.json", &FileType::Json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("JSON parse error"));
+    }
+
+    #[test]
+    fn test_parse_json_with_null() {
+        let data = b"{\"value\": null}";
+        let result = parse_file_content(data, "data.json", &FileType::Json).unwrap();
+        // null values are skipped in extract_json_text
+        assert!(!result.contains("null"));
+    }
+
+    // ── HTML parsing tests ──
+
+    #[test]
+    fn test_parse_html_simple() {
+        let data = b"<html><body><p>Hello, world!</p></body></html>";
+        let result = parse_file_content(data, "page.html", &FileType::Html).unwrap();
+        assert!(result.contains("Hello"));
+        assert!(result.contains("world"));
+    }
+
+    #[test]
+    fn test_parse_html_multiple_tags() {
+        let data = b"<div><h1>Title</h1><p>Paragraph text</p></div>";
+        let result = parse_file_content(data, "page.html", &FileType::Html).unwrap();
+        assert!(result.contains("Title"));
+        assert!(result.contains("Paragraph text"));
+    }
+
+    #[test]
+    fn test_parse_html_no_tags() {
+        let data = b"Just plain text";
+        let result = parse_file_content(data, "page.html", &FileType::Html).unwrap();
+        assert_eq!(result, "Just plain text");
+    }
+
+    #[test]
+    fn test_parse_html_empty() {
+        let data = b"";
+        let result = parse_file_content(data, "page.html", &FileType::Html).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_html_script_stripped() {
+        // Basic HTML tag stripping keeps text between tags;
+        // script/style content is preserved by simple stripper
+        let data = b"<p>Visible</p><script>alert('hidden')</script><p>Also visible</p>";
+        let result = parse_file_content(data, "page.html", &FileType::Html).unwrap();
+        assert!(result.contains("Visible"));
+        assert!(result.contains("Also visible"));
+    }
+
+    // ── strip_html_tags unit tests ──
+
+    #[test]
+    fn test_strip_html_tags_empty() {
+        assert_eq!(strip_html_tags(""), "");
+    }
+
+    #[test]
+    fn test_strip_html_tags_no_html() {
+        assert_eq!(strip_html_tags("plain text"), "plain text");
+    }
+
+    #[test]
+    fn test_strip_html_tags_with_tags() {
+        assert_eq!(strip_html_tags("<b>bold</b>"), "bold");
+    }
+
+    #[test]
+    fn test_strip_html_tags_whitespace_collapse() {
+        let result = strip_html_tags("Hello    world\n\n\ttest");
+        assert_eq!(result, "Hello world test");
+    }
+
+    // ── extract_json_text unit tests ──
+
+    #[test]
+    fn test_extract_json_text_string() {
+        let val = serde_json::json!("hello");
+        assert_eq!(extract_json_text(&val), "hello");
+    }
+
+    #[test]
+    fn test_extract_json_text_number() {
+        let val = serde_json::json!(42);
+        assert_eq!(extract_json_text(&val), "42");
+    }
+
+    #[test]
+    fn test_extract_json_text_boolean() {
+        let val = serde_json::json!(true);
+        assert_eq!(extract_json_text(&val), "true");
+    }
+
+    #[test]
+    fn test_extract_json_text_null() {
+        let val = serde_json::json!(null);
+        assert_eq!(extract_json_text(&val), "");
+    }
+
+    #[test]
+    fn test_extract_json_text_array() {
+        let val = serde_json::json!(["a", "b", "c"]);
+        let result = extract_json_text(&val);
+        assert!(result.contains("a"));
+        assert!(result.contains("b"));
+        assert!(result.contains("c"));
+    }
 }

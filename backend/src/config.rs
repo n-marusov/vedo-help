@@ -7,6 +7,7 @@ pub struct AppConfig {
     pub chroma_url: String,
     pub llm_api_key: String,
     pub llm_base_url: String,
+    pub llm_fallback_base_url: String,
     pub llm_model: String,
     /// RouterAI embedding API key (defaults to llm_api_key)
     pub embedding_api_key: String,
@@ -69,6 +70,8 @@ impl AppConfig {
         let llm_api_key = env::var("LLM_API_KEY").unwrap_or_else(|_| String::new());
         let llm_base_url =
             env::var("LLM_BASE_URL").unwrap_or_else(|_| "https://routerai.ru/api/v1".to_string());
+        let llm_fallback_base_url = env::var("LLM_FALLBACK_BASE_URL")
+            .unwrap_or_else(|_| "https://opencode.ai/api/v1".to_string());
 
         Self {
             database_url: env::var("DATABASE_URL").unwrap_or_else(|_| {
@@ -78,6 +81,7 @@ impl AppConfig {
                 .unwrap_or_else(|_| "http://localhost:8000".to_string()),
             llm_api_key: llm_api_key.clone(),
             llm_base_url: llm_base_url.clone(),
+            llm_fallback_base_url: llm_fallback_base_url.clone(),
             llm_model: env::var("LLM_MODEL")
                 .unwrap_or_else(|_| "anthropic/claude-sonnet-4.6".to_string()),
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
