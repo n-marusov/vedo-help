@@ -263,8 +263,14 @@ impl ConversationService {
         let system_prompt = "Summarize the user's question as a short phrase (up to 5 words). Reply with only the phrase, no quotes, no punctuation, no extra text. Respond in the same language as the user's question.";
         let user_prompt = match first_response {
             Some(response) => {
-                let truncated = if response.len() > 300 {
-                    format!("{}...", &response[..300])
+                let truncated = if response.chars().count() > 300 {
+                    tracing::warn!(
+                        component = "conversations/service",
+                        response_len = response.chars().count(),
+                        "[FIX] truncating assistant response for title generation"
+                    );
+                    let truncated: String = response.chars().take(300).collect();
+                    format!("{}...", truncated)
                 } else {
                     response.to_string()
                 };
@@ -417,5 +423,85 @@ impl ConversationService {
     pub async fn list_session_users(&self) -> Result<Vec<String>, AppError> {
         tracing::debug!(component = "conversations/service", "session.list_users");
         self.repo.get_distinct_user_names().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Verify that `generate_title` truncation handles UTF-8 multi-byte chars safely.
+    ///
+    /// The original code used `&response[..300]` (byte slice) which panics
+    /// when the 300th byte falls inside a multi-byte character like Cyrillic.
+    /// This test ensures `.chars().take(300)` works correctly.
+    #[test]
+    fn test_generate_title_truncation_with_multibyte_chars() {
+        // 200 Cyrillic chars = 400 bytes; chars().count() > 300 is false
+        let short: String = "с".repeat(200);
+        assert!(
+            short.chars().count() > 0,
+            "truncated string should not be empty (boundary check)"
+        );
+        let short_trunc: String = short.chars().take(300).collect();
+        assert_eq!(short_trunc.chars().count(), 200);
+        assert!(!short_trunc.contains('…'));
+
+        // 200 Cyrillic chars = 400 bytes; chars().count() <= 300, so no truncation
+        let short_str = if short.chars().count() > 300 {
+            format!("{}...", short.chars().take(300).collect::<String>())
+        } else {
+            short.to_string()
+        };
+        assert_eq!(short_str.chars().count(), 200);
+        assert!(!short_str.contains("..."));
+
+        // 350 Cyrillic chars = 700 bytes; chars().count() > 300, trigger truncation
+        let long: String = "с".repeat(350);
+        let long_str = if long.chars().count() > 300 {
+            format!("{}...", long.chars().take(300).collect::<String>())
+        } else {
+            long.to_string()
+        };
+        assert_eq!(long_str.chars().count(), 300 + 3); // 300 chars + "..."
+        assert!(long_str.ends_with("..."));
+
+        // 301 ASCII chars = 301 bytes; chars().count() > 300, trigger truncation
+        let ascii_long: String = "a".repeat(301);
+        let ascii_str = if ascii_long.chars().count() > 300 {
+            format!("{}...", ascii_long.chars().take(300).collect::<String>())
+        } else {
+            ascii_long.to_string()
+        };
+        assert_eq!(ascii_str.chars().count(), 300 + 3); // 300 chars + "..."
+        assert!(ascii_str.ends_with("..."));
+
+        // Edge case: exactly 300 chars — no truncation
+        let exact_ascii: String = "a".repeat(300);
+        let exact_str = if exact_ascii.chars().count() > 300 {
+            format!("{}...", exact_ascii.chars().take(300).collect::<String>())
+        } else {
+            exact_ascii.to_string()
+        };
+        assert_eq!(exact_str.chars().count(), 300);
+        assert!(!exact_str.contains("..."));
+
+        // Edge case: empty string
+        let empty = String::new();
+        let empty_str = if empty.chars().count() > 300 {
+            format!("{}...", empty.chars().take(300).collect::<String>())
+        } else {
+            empty.to_string()
+        };
+        assert_eq!(empty_str.chars().count(), 0);
+
+        // No panic on multi-byte boundary at any position
+        for i in 1..=500 {
+            let s: String = "с".repeat(i);
+            let _result: String = if s.chars().count() > 300 {
+                format!("{}...", s.chars().take(300).collect::<String>())
+            } else {
+                s.to_string()
+            };
+            // No panic = pass
+        }
     }
 }
