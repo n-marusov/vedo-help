@@ -146,7 +146,7 @@ fn validate_html_magic(content: &[u8]) -> Result<(), AppError> {
         ));
     }
     // Skip leading whitespace before checking `<`
-    if !content[start..].iter().any(|&b| b == b'<') {
+    if !content[start..].contains(&b'<') {
         return Err(AppError::FileError(
             "Invalid HTML file: must contain '<' character".to_string(),
         ));
