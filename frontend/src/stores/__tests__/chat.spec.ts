@@ -35,6 +35,16 @@ vi.mock('@/api/client', () => ({
   getAccessToken: vi.fn(() => 'mock-token'),
 }));
 
+vi.mock('@/telemetry', () => ({
+  SeverityNumber: {
+    DEBUG: 5,
+    ERROR: 17,
+  },
+  logger: {
+    emit: vi.fn(),
+  },
+}));
+
 vi.mock('@/api/types', () => ({
   // Re-export types consumed by the store — the store is imported directly so
   // types must exist at runtime for the mock to work. Actual types are already
@@ -134,6 +144,71 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     });
     expect(store.messages[0].content).toBe('new content');
     expect(store.messages[0].edited_at).toBe('2026-06-21T01:00:00Z');
+  });
+
+  it('editAndResend edits the message, trims following messages, and sends the corrected query', async () => {
+    const store = useChatStore();
+    const msgId = '550e8400-e29b-41d4-a716-446655440020';
+    const assistantId = '550e8400-e29b-41d4-a716-446655440021';
+    store.activeSessionId = 'sess-1';
+    store.messages = [
+      {
+        id: msgId,
+        session_id: 'sess-1',
+        role: 'user',
+        content: 'old question',
+        created_at: '2026-06-21T00:00:00Z',
+      },
+      {
+        id: assistantId,
+        session_id: 'sess-1',
+        role: 'assistant',
+        content: 'old answer',
+        created_at: '2026-06-21T00:01:00Z',
+      },
+    ];
+
+    apiMock.editMessage.mockResolvedValue({
+      id: msgId,
+      session_id: 'sess-1',
+      role: 'user',
+      content: 'corrected question',
+      edited_at: '2026-06-21T01:00:00Z',
+      original_content: 'old question',
+      created_at: '2026-06-21T00:00:00Z',
+    });
+    apiMock.get.mockResolvedValue([]);
+
+    const encoder = new TextEncoder();
+    const donePayload = JSON.stringify({ type: 'done' });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+
+    await store.editAndResend('sess-1', msgId, 'corrected question', 'col-1');
+
+    expect(apiMock.editMessage).toHaveBeenCalledWith('sess-1', msgId, {
+      content: 'corrected question',
+    });
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/query',
+      expect.objectContaining({
+        body: JSON.stringify({
+          collection_id: 'col-1',
+          query: 'corrected question',
+          session_id: 'sess-1',
+        }),
+      }),
+    );
+    expect(store.messages.some((message) => message.id === assistantId)).toBe(false);
+    const userMessages = store.messages.filter((message) => message.role === 'user');
+    expect(userMessages[userMessages.length - 1]?.content).toBe('corrected question');
   });
 
   // --------------------------------------------------------------------------
@@ -1200,9 +1275,14 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_active')).toBe('true');
 
     store.cancelStream();
+
+    expect(store.isLoading).toBe(false);
+    expect(store.pipelineStage).toBeNull();
+    expect(store.pipelineSessionId).toBeNull();
     rejectFetch(new DOMException('The operation was aborted.', 'AbortError'));
     await sendPromise;
 
+    expect(store.isLoading).toBe(false);
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
     expect(localStorage.getItem('chat_pipeline_session_id')).toBeNull();
   });

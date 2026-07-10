@@ -77,7 +77,7 @@ On mobile (<768px), the sidebar slides in from the left via a hamburger toggle. 
 | **Avatar** | `UserAvatar` component: person silhouette for user, "V" icon for assistant. Inline SVG, zero network cost |
 | **Sources section** | Collapsible panel under assistant messages. Uses a clean chevron icon. Shows document name and relevance score |
 | **Input area** | Rounded input bar with inline send button. Textarea with auto-resize (supports Enter to send, Shift+Enter for newline). Send button lights up when text is entered |
-| **Cancel (⏹ icon)** | Appears during streaming — aborts the current LLM response |
+| **Cancel (⏹ icon)** | Appears during streaming — aborts the current LLM response and immediately switches the composer back to the send icon |
 | **Error banner** | Red bar when the API returns an error |
 
 ### Streaming Flow
@@ -87,7 +87,7 @@ On mobile (<768px), the sidebar slides in from the left via a hamburger toggle. 
 3. An empty assistant bubble appears with a **streaming glow bar** (animated gradient, replacing the old three-dot bounce)
 4. As the backend streams tokens, the assistant bubble fills in progressively with a **blinking cursor** at the end
 5. After completion, sources appear below the message with a chevron toggle
-6. If the user clicks Cancel, streaming stops and the partial response is kept
+6. If the user clicks Cancel, streaming stops, pipeline state is cleared, and the input bar immediately returns to the send icon
 
 ### Pipeline Recovery After Page Reload
 
@@ -139,7 +139,7 @@ New messages animate in with a smooth entrance effect:
 
 Each message bubble reveals an action row on hover:
 
-- **Edit (user messages only):** Pencil icon button, switches the message to a textarea with Save/Cancel buttons. Messages show a `· edited` badge after editing. The original content is preserved as an audit trail.
+- **Edit (user messages only):** Pencil icon button, switches the message to a textarea with Save/Cancel buttons. Pressing Enter in the edit textarea saves the edit; Shift+Enter keeps newline behavior. Saving an edit cancels any currently streaming response, persists the edited user message, removes the edited message and following messages from the visible conversation, then immediately sends the corrected query as a new request. Messages show a `· edited` badge after editing. The original content is preserved as an audit trail.
 - **Delete (both roles):** Trash icon button, soft-deletes the message. Deleted messages are excluded from session history and exports.
 
 ### Loading Skeletons

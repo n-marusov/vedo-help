@@ -6,6 +6,7 @@ import type {
   SessionSummary,
   StreamEvent,
 } from '@/api/types';
+import { SeverityNumber, logger } from '@/telemetry';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
@@ -209,6 +210,7 @@ export const useChatStore = defineStore('chat', () => {
 
   let abortController: AbortController | null = null;
   let streamCancelledByUser = false;
+  let _isResending = false;
   let loadSessionRequestId = 0;
 
   function parseNDJSON(
@@ -508,6 +510,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function cancelStream() {
     streamCancelledByUser = true;
+    isLoading.value = false;
     pipelineStage.value = null;
     pipelineSessionId.value = null;
     clearPipelineState();
@@ -850,6 +853,96 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  async function editAndResend(
+    sessionId: string,
+    messageId: string,
+    content: string,
+    collectionId: string,
+  ) {
+    if (!canPersistMessageAction(messageId)) {
+      logger.emit({
+        severityNumber: SeverityNumber.DEBUG,
+        severityText: 'DEBUG',
+        body: 'chat.edit_and_resend.skipped_pending_message',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          message_id: messageId,
+        },
+      });
+      return;
+    }
+
+    if (_isResending) {
+      logger.emit({
+        severityNumber: SeverityNumber.DEBUG,
+        severityText: 'DEBUG',
+        body: 'chat.edit_and_resend.skipped_concurrent',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          message_id: messageId,
+          collection_id: collectionId,
+        },
+      });
+      return;
+    }
+    _isResending = true;
+
+    logger.emit({
+      severityNumber: SeverityNumber.DEBUG,
+      severityText: 'DEBUG',
+      body: 'chat.edit_and_resend.started',
+      attributes: {
+        component: 'frontend/chat-store',
+        session_id: sessionId,
+        message_id: messageId,
+        collection_id: collectionId,
+      },
+    });
+
+    cancelStream();
+
+    try {
+      await editMessage(sessionId, messageId, content);
+      const editedIdx = messages.value.findIndex((message) => message.id === messageId);
+      if (editedIdx !== -1) {
+        messages.value.splice(editedIdx);
+      }
+
+      logger.emit({
+        severityNumber: SeverityNumber.DEBUG,
+        severityText: 'DEBUG',
+        body: 'chat.edit_and_resend.resending_query',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          message_id: messageId,
+          collection_id: collectionId,
+          trimmed_message_count: editedIdx === -1 ? 0 : editedIdx,
+        },
+      });
+
+      await sendMessage(collectionId, content);
+    } catch (err) {
+      logger.emit({
+        severityNumber: SeverityNumber.ERROR,
+        severityText: 'ERROR',
+        body: 'chat.edit_and_resend.failed',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          message_id: messageId,
+          collection_id: collectionId,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+      throw err;
+    } finally {
+      _isResending = false;
+    }
+  }
+
   async function deleteMessage(sessionId: string, messageId: string) {
     if (!canPersistMessageAction(messageId)) {
       return;
@@ -987,6 +1080,7 @@ export const useChatStore = defineStore('chat', () => {
     deleteSession,
     loadSession,
     editMessage,
+    editAndResend,
     deleteMessage,
     exportSession,
     clearMessages,

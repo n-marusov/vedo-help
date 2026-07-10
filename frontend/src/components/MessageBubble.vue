@@ -89,6 +89,13 @@ function handleRegenerate() {
   emit('regenerate', { id: props.message.id });
 }
 
+function handleEditKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    saveEdit();
+  }
+}
+
 onMounted(() => {
   // no-op: streaming state handled by the template
 });
@@ -127,6 +134,7 @@ onMounted(() => {
             v-model="draftContent"
             class="message-edit-textarea"
             data-testid="message-edit-textarea"
+            @keydown="handleEditKeydown"
           />
           <div class="message-edit-actions">
             <button
@@ -330,6 +338,7 @@ onMounted(() => {
 
 .message-assistant {
   align-self: flex-start;
+  max-width: 80%;
 }
 
 .message-avatar {
@@ -389,7 +398,7 @@ onMounted(() => {
   background: var(--msg-assistant-bg);
   color: var(--msg-assistant-text);
   border-radius: var(--msg-radius-assistant);
-  max-width: 600px;
+  width: 100%;
 }
 
 /* Inline code styling */

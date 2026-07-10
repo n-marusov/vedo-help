@@ -6,6 +6,7 @@ import VButton from '@/components/ui/VButton.vue';
 import VDialog from '@/components/ui/VDialog.vue';
 import { useChatStore } from '@/stores/chat';
 import { useCollectionStore } from '@/stores/collections';
+import { SeverityNumber, logger } from '@/telemetry';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const chatStore = useChatStore();
@@ -278,9 +279,54 @@ async function handleRegenerateMessage({ id }) {
   await chatStore.regenerateMessage(id);
 }
 
-function handleSaveEdit({ id, content }) {
-  if (chatStore.activeSessionId) {
-    chatStore.editMessage(chatStore.activeSessionId, id, content);
+async function handleSaveEdit({ id, content }) {
+  if (!chatStore.activeSessionId || !collectionStore.activeCollectionId) {
+    logger.emit({
+      severityNumber: SeverityNumber.DEBUG,
+      severityText: 'DEBUG',
+      body: 'chat_view.edit_save.skipped_missing_context',
+      attributes: {
+        component: 'frontend/chat-view',
+        message_id: id,
+        has_session: Boolean(chatStore.activeSessionId),
+        has_collection: Boolean(collectionStore.activeCollectionId),
+      },
+    });
+    return;
+  }
+
+  logger.emit({
+    severityNumber: SeverityNumber.DEBUG,
+    severityText: 'DEBUG',
+    body: 'chat_view.edit_save.resend_requested',
+    attributes: {
+      component: 'frontend/chat-view',
+      session_id: chatStore.activeSessionId,
+      message_id: id,
+      collection_id: collectionStore.activeCollectionId,
+    },
+  });
+
+  try {
+    await chatStore.editAndResend(
+      chatStore.activeSessionId,
+      id,
+      content,
+      collectionStore.activeCollectionId,
+    );
+  } catch (err) {
+    logger.emit({
+      severityNumber: SeverityNumber.ERROR,
+      severityText: 'ERROR',
+      body: 'chat_view.edit_save.failed',
+      attributes: {
+        component: 'frontend/chat-view',
+        session_id: chatStore.activeSessionId,
+        message_id: id,
+        collection_id: collectionStore.activeCollectionId,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
   }
 }
 

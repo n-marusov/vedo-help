@@ -8,7 +8,7 @@ test.describe('chat message edit/delete', () => {
   // messages to edit/delete. The `data-testid` attributes and API endpoints
   // (PATCH/DELETE /api/sessions/:sid/messages/:mid) are verified via backend
   // integration tests and frontend unit tests.
-  test.skip('hover user message → edit button visible → edit textarea → save → content updates', async ({
+  test.skip('edit user message → Enter save → current request cancels → corrected query is resent', async ({
     page,
     request,
   }) => {
@@ -54,20 +54,36 @@ test.describe('chat message edit/delete', () => {
     const textarea = page.locator('[data-testid="message-edit-textarea"]');
     await expect(textarea).toBeVisible();
 
-    // Edit and save
+    // Edit and save with Enter. Saving should PATCH the edited message and
+    // immediately send the corrected query through POST /api/query.
     await textarea.fill('Updated content');
-    await page.locator('[data-testid="message-save-btn"]').click();
-
-    // Verify PATCH request was made
-    const patchResponse = await page.waitForResponse(
+    const patchPromise = page.waitForResponse(
       (res) => res.url().includes('/messages/') && res.request().method() === 'PATCH',
+      { timeout: 30000 },
     );
-    expect(patchResponse.status()).toBe(200);
+    const resendPromise = page.waitForRequest(
+      (req) => req.url().includes('/api/query') && req.method() === 'POST',
+      { timeout: 30000 },
+    );
+    await textarea.press('Enter');
 
-    // Verify content updated in the UI
-    await expect(page.locator('[data-testid="message-content"]').first()).toContainText(
+    const patchResponse = await patchPromise;
+    expect(patchResponse.status()).toBe(200);
+    const resendRequest = await resendPromise;
+    expect(resendRequest.postDataJSON()).toMatchObject({
+      collection_id: collection.id,
+      query: 'Updated content',
+    });
+
+    // Verify the corrected query is visible as the latest user message and a new
+    // assistant response is generated after the resend.
+    await expect(page.locator('[data-testid="message-user"]').last()).toContainText(
       'Updated content',
+      { timeout: 30000 },
     );
+    await expect(page.locator('[data-testid="message-assistant"]').last()).toBeVisible({
+      timeout: 30000,
+    });
   });
 
   test.skip('hover assistant message → delete button → confirm → message removed', async ({

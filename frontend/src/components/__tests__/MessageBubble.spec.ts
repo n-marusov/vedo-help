@@ -264,6 +264,35 @@ describe('MessageBubble', () => {
     expect(wrapper.emitted('save-edit')).toBeTruthy();
   });
 
+  it('emits save-edit when Enter is pressed in edit textarea', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+
+    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
+    const textarea = wrapper.find('[data-testid="message-edit-textarea"]');
+    await textarea.setValue('Updated via Enter');
+    await textarea.trigger('keydown', { key: 'Enter' });
+
+    expect(wrapper.emitted('save-edit')).toBeTruthy();
+    expect(wrapper.emitted('save-edit')?.[0]).toEqual([
+      { id: 'msg-1', content: 'Updated via Enter' },
+    ]);
+  });
+
+  it('does not emit save-edit when Shift+Enter is pressed in edit textarea', async () => {
+    const wrapper = mount(MessageBubble, {
+      props: { message: createUserMessage() },
+    });
+
+    await wrapper.find('[data-testid="message-edit-btn"]').trigger('click');
+    const textarea = wrapper.find('[data-testid="message-edit-textarea"]');
+    await textarea.setValue('Line one');
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: true });
+
+    expect(wrapper.emitted('save-edit')).toBeFalsy();
+  });
+
   it('displays edited_at indicator when message.edited_at is set', async () => {
     const wrapper = mount(MessageBubble, {
       props: {
