@@ -212,6 +212,7 @@ export const useChatStore = defineStore('chat', () => {
   let streamCancelledByUser = false;
   let _isResending = false;
   let loadSessionRequestId = 0;
+  let pipelineSeq = 0;
 
   function parseNDJSON(
     reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -333,6 +334,7 @@ export const useChatStore = defineStore('chat', () => {
     pipelineSessionId.value = activeSessionId.value || null;
     streamCancelledByUser = false;
     abortController = new AbortController();
+    const myPipelineSeq = ++pipelineSeq;
 
     // Optimistic title: show user query in sidebar and badge immediately
     const currentSession = activeSessionId.value
@@ -591,8 +593,10 @@ export const useChatStore = defineStore('chat', () => {
       }
       // Remove the placeholder assistant message on error.
       // Guard by pipeline session to avoid corrupting other sessions.
+      // Only remove if no newer pipeline has started (pipelineSeq unchanged).
       const catchErrSessionId = pipelineSessionId.value;
       if (
+        pipelineSeq === myPipelineSeq &&
         activeSessionId.value === catchErrSessionId &&
         messages.value.length > 0 &&
         messages.value[messages.value.length - 1]?.role === 'assistant'
