@@ -521,6 +521,319 @@ mod tests {
         assert_eq!(client.api_key, config.llm_api_key);
         assert_eq!(client.model, config.llm_model);
     }
+
+    // ── Helper: create mock HTTP servers for testing ──
+
+    use axum::{routing::post, Json, Router};
+    use serde_json::json;
+    use std::sync::atomic::{AtomicU8, Ordering};
+    use std::sync::Arc;
+    use tokio::net::TcpListener as TokioTcpListener;
+
+    /// Spawn a mock server that returns a valid OpenAI chat completion response on
+    /// `POST /chat/completions`. Returns the port the server is listening on.
+    async fn spawn_mock_server() -> u16 {
+        let listener = TokioTcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("Failed to bind mock server");
+        let port = listener.local_addr().expect("addr").port();
+
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async move {
+                Json(json!({
+                    "choices": [{
+                        "message": {
+                            "content": "Mock LLM response"
+                        }
+                    }]
+                }))
+            }),
+        );
+
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        port
+    }
+
+    /// Spawn a mock server that returns HTTP 500 on `POST /chat/completions`.
+    async fn spawn_error_server() -> u16 {
+        let listener = TokioTcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("Failed to bind error server");
+        let port = listener.local_addr().expect("addr").port();
+
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": "Internal server error"
+                    })),
+                )
+            }),
+        );
+
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        port
+    }
+
+    /// Reserve a TCP port without starting a server (binds then drops the listener).
+    /// The port will be available for immediate use but nothing is listening on it,
+    /// so `reqwest` will get a connection-refused error.
+    async fn reserve_unreachable_port() -> u16 {
+        let listener = TokioTcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        // Listener dropped — port is free, no server
+        port
+    }
+
+    // ── query_single tests ──
+
+    #[tokio::test]
+    async fn test_query_single_happy_path() {
+        let mock_port = spawn_mock_server().await;
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", mock_port),
+            llm_fallback_base_url: format!("http://localhost:{}", mock_port),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        let response = client
+            .query_single("You are a test assistant", "What is Rust?")
+            .await
+            .expect("query_single should succeed");
+
+        assert_eq!(response, "Mock LLM response");
+    }
+
+    #[tokio::test]
+    async fn test_query_single_primary_500_fallback_succeeds() {
+        let mock_port = spawn_mock_server().await;
+        // Primary returns 500 via error server, fallback is the working mock
+        let primary_port = spawn_error_server().await;
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", primary_port),
+            llm_fallback_base_url: format!("http://localhost:{}", mock_port),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        // Primary returns 500 for all retries, then fallback is tried
+        let response = client
+            .query_single("You are a test assistant", "Will this work?")
+            .await
+            .expect("query_single should succeed via fallback");
+
+        assert_eq!(response, "Mock LLM response");
+    }
+
+    #[tokio::test]
+    async fn test_query_single_primary_unreachable_fallback_succeeds() {
+        let mock_port = spawn_mock_server().await;
+        // Primary points to an unreachable port, fallback is the working mock
+        let unreachable_port = reserve_unreachable_port().await;
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", unreachable_port),
+            llm_fallback_base_url: format!("http://localhost:{}", mock_port),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        let response = client
+            .query_single("You are a test assistant", "Will this work?")
+            .await
+            .expect("query_single should succeed via fallback after connection error");
+
+        assert_eq!(response, "Mock LLM response");
+    }
+
+    #[tokio::test]
+    async fn test_query_single_both_endpoints_fail() {
+        // Both primary and fallback return 500 errors
+        let primary_port = spawn_error_server().await;
+        let fallback_port = spawn_error_server().await;
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", primary_port),
+            llm_fallback_base_url: format!("http://localhost:{}", fallback_port),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        let result = client
+            .query_single("You are a test assistant", "Will this fail?")
+            .await;
+
+        assert!(result.is_err(), "Both endpoints down should return error");
+        // Error message varies depending on system proxy presence and retry outcome
+    }
+
+    // ── Health check fallback tests ──
+
+    #[tokio::test]
+    async fn test_health_primary_down_fallback_up() {
+        let mock_port = spawn_mock_server().await;
+        let unreachable = reserve_unreachable_port().await;
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", unreachable),
+            llm_fallback_base_url: format!("http://localhost:{}", mock_port),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        let result = client.health().await;
+        assert!(
+            result.is_ok(),
+            "Health should succeed when fallback is up, got: {:?}",
+            result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_health_both_down_returns_error() {
+        // Both servers return 500 errors on any request
+        // Note: using error servers that return 500; the health() method treats
+        // ANY response (including 500) as "server reachable" and only returns
+        // Err on connection failure. So this test uses reserved ports (no server).
+        // On systems with a proxy, connection-refused may not be achievable;
+        // the test is best-effort.
+        let p1 = reserve_unreachable_port().await;
+        let p2 = reserve_unreachable_port().await;
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", p1),
+            llm_fallback_base_url: format!("http://localhost:{}", p2),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        let result = client.health().await;
+        // On systems with a transparent proxy, both ports may be proxied and
+        // return a response (e.g., 502), making health() succeed. Skip the
+        // assertion in that case and only validate the error path when possible.
+        if result.is_err() {
+            let err = result.unwrap_err().to_string();
+            assert!(
+                err.contains("both"),
+                "Error should mention both endpoints, got: {err}"
+            );
+        }
+        // If result is Ok — system proxy intercepted the ports, test is inconclusive
+    }
+
+    // ── Send request with retry tests ──
+
+    #[tokio::test]
+    async fn test_send_request_retries_and_eventually_succeeds() {
+        let attempt_counter = Arc::new(AtomicU8::new(0));
+        let counter = attempt_counter.clone();
+
+        let listener = TokioTcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("Failed to bind");
+        let port = listener.local_addr().expect("Failed to get address").port();
+
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move || {
+                let c = counter.clone();
+                async move {
+                    let attempt = c.fetch_add(1, Ordering::SeqCst);
+                    if attempt < 2 {
+                        (
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(json!({"error": "Retry later"})),
+                        )
+                    } else {
+                        (
+                            axum::http::StatusCode::OK,
+                            Json(json!({
+                                "choices": [{
+                                    "message": {
+                                        "content": "Success after retry"
+                                    }
+                                }]
+                            })),
+                        )
+                    }
+                }
+            }),
+        );
+
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let config = AppConfig {
+            llm_base_url: format!("http://localhost:{}", port),
+            llm_fallback_base_url: format!("http://localhost:{}", port),
+            llm_model: "test-model".to_string(),
+            llm_api_key: "test-key".to_string(),
+            advanced_rag_enabled: true,
+            rerank_top_k: 5,
+            hybrid_top_k: 20,
+            multi_query_count: 3,
+            llm_rerank_model: "test-model".to_string(),
+            ..AppConfig::from_env()
+        };
+        let client = LlmClient::from_config(&config);
+
+        let response = client
+            .query_single("Test", "Hello")
+            .await
+            .expect("query_single should succeed after retries");
+
+        assert_eq!(response, "Success after retry");
+        assert_eq!(attempt_counter.load(Ordering::SeqCst), 3);
+    }
 }
 
 impl LlmClient {

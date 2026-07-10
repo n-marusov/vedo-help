@@ -390,6 +390,9 @@ mod tests {
             hybrid_top_k: 20,
             multi_query_count: 3,
             llm_rerank_model: "anthropic/claude-sonnet-4.6".to_string(),
+            bm25_k1: 1.2,
+            bm25_b: 0.75,
+            hybrid_search_alpha: 0.5,
         };
 
         let validator = JwtValidator::from_config(&config);

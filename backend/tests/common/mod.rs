@@ -113,6 +113,9 @@ pub fn setup_test_config() -> AppConfig {
         hybrid_top_k: 20,
         multi_query_count: 3,
         llm_rerank_model: "test-model".to_string(),
+        bm25_k1: 1.2,
+        bm25_b: 0.75,
+        hybrid_search_alpha: 0.5,
     }
 }
 
