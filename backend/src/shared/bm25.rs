@@ -106,11 +106,33 @@ pub fn build_index(
 }
 
 impl Bm25Index {
+    /// Search the index with default BM25 parameters (k1=1.2, b=0.75).
     pub fn search(&self, query: &str, top_k: usize) -> Vec<Bm25Result> {
-        tracing::trace!(component = "bm25", query = %query, "bm25.search.started");
+        self.search_with_params(query, top_k, 1.2, 0.75)
+    }
 
-        let k1 = 1.2;
-        let b = 0.75;
+    /// Search the index with configurable BM25 parameters.
+    ///
+    /// # Parameters
+    /// * `k1` — Term frequency saturation (typical range 1.2–2.0).
+    ///   Higher values increase the impact of term frequency.
+    /// * `b` — Length normalization (typical range 0.0–1.0).
+    ///   0.0 = no length normalization, 1.0 = full length normalization.
+    pub fn search_with_params(
+        &self,
+        query: &str,
+        top_k: usize,
+        k1: f64,
+        b: f64,
+    ) -> Vec<Bm25Result> {
+        tracing::trace!(
+            component = "bm25",
+            query = %query,
+            k1 = k1,
+            b = b,
+            "bm25.search_with_params.started"
+        );
+
         let tokens = tokenize(query);
         let mut scores: HashMap<String, f64> = HashMap::new();
 

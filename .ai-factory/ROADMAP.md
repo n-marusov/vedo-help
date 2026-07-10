@@ -145,15 +145,15 @@
 
 ---
 
-## Milestone: v0.5 — Advanced RAG ⏳
+## Milestone: v0.5 — Advanced RAG ✅
 
 Улучшение качества ответов: cross-encoder reranker, multi-turn context, доп. форматы.
 
-- [ ] **Cross-encoder reranker** — модель-ранжировщик (например, BAAI/bge-reranker-v2-m3) для CPU
-- [ ] **Smarter multi-turn context** — tiktoken-rs для точного подсчёта токенов вместо word-count heuristic
-- [ ] **Additional formats** — CSV, JSON, HTML-to-text
-- [ ] **Hybrid search optimization** — тюнинг BM25 параметров, weighted fusion с векторным поиском
-- [ ] **LLM API Fallback** — fallback на API https://opencode.ai/, в случае если API router.ai не доступен
+- [x] **Cross-encoder reranker** — модель-ранжировщик (например, BAAI/bge-reranker-v2-m3) для CPU
+- [x] **Smarter multi-turn context** — tiktoken-rs для точного подсчёта токенов вместо word-count heuristic
+- [x] **Additional formats** — CSV, JSON, HTML-to-text
+- [x] **Hybrid search optimization** — тюнинг BM25 параметров, weighted fusion с векторным поиском
+- [x] **LLM API Fallback** — fallback на API https://opencode.ai/, в случае если API router.ai не доступен
 
 ---
 
@@ -205,7 +205,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
 | v0.4 — Observability & Reliability | ⏳ 2/6 | Debug view ✅; deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination ❌ |
 | v0.4.2 — Advanced RAG Pipeline | 🔄 7/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization, debug data fixes |
-| v0.5 — Advanced RAG | ⏳ 0/4 | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats |
+| v0.5 — Advanced RAG | ✅ **5/5** | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats, hybrid search optimization, LLM API fallback |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
 
@@ -219,6 +219,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **v0.6 — Multi-user & Security complete (all 7 phases):** 2026-06-25
 **Debug view (v0.4):** 2026-06-26
 **RAG pipeline debug data fixes (v0.4.2):** 2026-07-07
+**v0.5 — Advanced RAG complete (all 5 tasks):** 2026-07-11
 **Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:

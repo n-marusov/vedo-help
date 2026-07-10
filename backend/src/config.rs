@@ -55,6 +55,13 @@ pub struct AppConfig {
     pub llm_rerank_model: String,
     /// Embedding model for vector search
     pub embedding_model: String,
+    /// BM25 k1 parameter (control term frequency saturation, default 1.2)
+    pub bm25_k1: f64,
+    /// BM25 b parameter (control document length normalization, default 0.75)
+    pub bm25_b: f64,
+    /// Hybrid search alpha weight (vector search weight, 0.0-1.0).
+    /// 0.0 = pure BM25, 1.0 = pure vector search.
+    pub hybrid_search_alpha: f64,
 }
 
 impl AppConfig {
@@ -143,6 +150,18 @@ impl AppConfig {
                 .expect("EMBEDDING_CACHE_SIZE must be a valid number"),
             embedding_model: env::var("EMBEDDING_MODEL")
                 .unwrap_or_else(|_| "sentence-transformers/all-minilm-l6-v2".to_string()),
+            bm25_k1: env::var("BM25_K1")
+                .unwrap_or_else(|_| "1.2".to_string())
+                .parse()
+                .expect("BM25_K1 must be a valid number"),
+            bm25_b: env::var("BM25_B")
+                .unwrap_or_else(|_| "0.75".to_string())
+                .parse()
+                .expect("BM25_B must be a valid number"),
+            hybrid_search_alpha: env::var("HYBRID_SEARCH_ALPHA")
+                .unwrap_or_else(|_| "0.5".to_string())
+                .parse()
+                .expect("HYBRID_SEARCH_ALPHA must be a valid number between 0.0 and 1.0"),
         }
     }
 }

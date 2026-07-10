@@ -114,30 +114,43 @@ pub async fn search_chunks_text(
     Ok(results)
 }
 
-/// Search chunks using BM25 keyword scoring.
+/// Search chunks using BM25 keyword scoring with default parameters (k1=1.2, b=0.75).
 ///
 /// Fetches all active chunks for a collection from PostgreSQL, builds an
 /// in-memory BM25 index, and scores them against the query. Returns results
 /// ranked by BM25 relevance score descending.
-///
-/// This replaces the old ILIKE-based phrase search with proper tokenized
-/// BM25 scoring (k1=1.2, b=0.75) so multi-word queries match individual
-/// tokens rather than requiring an exact phrase match.
-///
-/// Uses Lucene-compatible defaults (k1=1.2, b=0.75) and the same
-/// non-negative IDF variant: log(1 + (N - df + 0.5) / (df + 0.5)).
 pub async fn search_bm25(
     db: &PgPool,
     collection_id: Uuid,
     query: &str,
     top_k: usize,
 ) -> Result<Vec<ChunkSearchResult>, AppError> {
+    search_bm25_with_params(db, collection_id, query, top_k, 1.2, 0.75).await
+}
+
+/// Search chunks using BM25 keyword scoring with configurable k1 and b parameters.
+///
+/// Same as `search_bm25` but accepts BM25 tuning parameters:
+/// - `k1`: Term frequency saturation (typical 1.2–2.0). Higher = more TF impact.
+/// - `b`: Length normalization (0.0–1.0). 0 = no normalization, 1 = full.
+///
+/// Parameters are stored in the docstring so existing callers continue to work.
+pub async fn search_bm25_with_params(
+    db: &PgPool,
+    collection_id: Uuid,
+    query: &str,
+    top_k: usize,
+    k1: f64,
+    b: f64,
+) -> Result<Vec<ChunkSearchResult>, AppError> {
     tracing::debug!(
         component = "chunk_search",
         collection_id = %collection_id,
         query = %query,
         top_k = top_k,
-        "search_bm25"
+        k1 = k1,
+        b = b,
+        "search_bm25_with_params"
     );
 
     if top_k == 0 {
@@ -175,9 +188,7 @@ pub async fn search_bm25(
         "search_bm25.fetched_chunks"
     );
 
-    // 2. Build BM25 index from the chunks
-    //    Also keep a metadata map for fields that Bm25Result doesn't carry
-    //    and store full text since Bm25Result only has a 200-char snippet
+    // 2. Build BM25 index from the chunks with custom k1 and b parameters
     let mut doc_meta_map: std::collections::HashMap<
         String,
         (Uuid, String, String, String), // (document_id, document_name, source, full_text)
@@ -197,14 +208,14 @@ pub async fn search_bm25(
 
     let index = bm25::build_index(&bm25_docs);
 
-    // 3. Search using BM25
-    let bm25_results = index.search(query, top_k);
+    // 3. Search using BM25 with configurable k1, b
+    let bm25_results = index.search_with_params(query, top_k, k1, b);
 
     if bm25_results.is_empty() {
         tracing::info!(
             component = "chunk_search",
             collection_id = %collection_id,
-            "search_bm25.no_matches"
+            "search_bm25_with_params.no_matches"
         );
         return Ok(Vec::new());
     }

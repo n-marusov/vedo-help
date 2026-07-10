@@ -522,11 +522,13 @@ impl QueryService {
             let bm25_chunks = if bm25_enabled {
                 send_stage("keyword_search".to_string()).await;
                 let bm25_start = tokio::time::Instant::now();
-                let results = chunk_search::search_bm25(
+                let results = chunk_search::search_bm25_with_params(
                     svc.repo.db(),
                     request.collection_id,
                     &request.query,
                     eff_hybrid_top_k,
+                    svc.config.bm25_k1,
+                    svc.config.bm25_b,
                 )
                 .await
                 .unwrap_or_default();
@@ -552,24 +554,70 @@ impl QueryService {
             };
 
             let initial_count = all_semantic_chunks.len() + bm25_chunks.len();
+            let alpha = svc.config.hybrid_search_alpha.clamp(0.0, 1.0);
 
-            // RRF (Reciprocal Rank Fusion) — score by position in each result list
-            // A chunk at rank 3 in vector search gets 1/(60+3) contribution, plus
-            // 1/(60+7) from BM25 if it also appeared there. This fairly combines
-            // semantic and lexical relevance without comparing raw score magnitudes.
+            // Alpha-weighted RRF (Reciprocal Rank Fusion)
+            // Vector search and BM25 each contribute RRF scores separately;
+            // the final score = alpha * RRF_vector + (1-alpha) * RRF_bm25.
+            // This lets operators tune the balance between semantic and lexical
+            // relevance (alpha=1.0 = pure vector, alpha=0.0 = pure BM25).
+            //
+            // Each method's RRF scores are normalised by the total contribution
+            // from that method so that raw rank-position values do not distort
+            // the weight balance (the sum of RRF_vector entries before weighting
+            // is proportional to result set size, not relevance).
             let rrf_k = 60.0_f64;
-            let mut rrf_scores: std::collections::HashMap<String, f64> =
+            let mut rrf_vector: std::collections::HashMap<String, f64> =
+                std::collections::HashMap::new();
+            let mut rrf_bm25: std::collections::HashMap<String, f64> =
                 std::collections::HashMap::new();
 
+            let mut vector_total = 0.0_f64;
             for (i, chunk) in all_semantic_chunks.iter().enumerate() {
                 let rank = (i + 1) as f64;
-                *rrf_scores.entry(chunk.chunk_id.to_string()).or_insert(0.0) +=
-                    1.0 / (rrf_k + rank);
+                let score = 1.0 / (rrf_k + rank);
+                *rrf_vector.entry(chunk.chunk_id.to_string()).or_insert(0.0) += score;
+                vector_total += score;
             }
+            let mut bm25_total = 0.0_f64;
             for (i, chunk) in bm25_chunks.iter().enumerate() {
                 let rank = (i + 1) as f64;
-                *rrf_scores.entry(chunk.chunk_id.to_string()).or_insert(0.0) +=
-                    1.0 / (rrf_k + rank);
+                let score = 1.0 / (rrf_k + rank);
+                *rrf_bm25.entry(chunk.chunk_id.to_string()).or_insert(0.0) += score;
+                bm25_total += score;
+            }
+
+            tracing::debug!(
+                component = "query/service",
+                alpha = alpha,
+                vector_total = vector_total,
+                bm25_total = bm25_total,
+                vector_count = all_semantic_chunks.len(),
+                bm25_count = bm25_chunks.len(),
+                "hybrid_search.fusion_params"
+            );
+
+            // Compute weighted fusion score for each unique chunk
+            let mut fused_scores: std::collections::HashMap<String, f64> =
+                std::collections::HashMap::new();
+            let norm_alpha = alpha;
+            let norm_beta = 1.0 - alpha;
+
+            for (chunk_id, score) in rrf_vector {
+                let norm_v = if vector_total > 0.0 {
+                    score / vector_total
+                } else {
+                    0.0
+                };
+                *fused_scores.entry(chunk_id).or_insert(0.0) += norm_alpha * norm_v;
+            }
+            for (chunk_id, score) in rrf_bm25 {
+                let norm_b = if bm25_total > 0.0 {
+                    score / bm25_total
+                } else {
+                    0.0
+                };
+                *fused_scores.entry(chunk_id).or_insert(0.0) += norm_beta * norm_b;
             }
 
             // Track deduplicated chunks (found by BOTH search methods)
@@ -590,15 +638,14 @@ impl QueryService {
                 unique_chunks.insert(c.chunk_id.to_string(), c);
             }
 
-            // Merge and sort by RRF score (descending) so the highest-ranked
-            // chunks across both search methods appear first
+            // Merge and sort by fused score (descending)
             let mut merged: Vec<_> = unique_chunks.into_values().collect();
             merged.sort_by(|a, b| {
-                let a_score = rrf_scores
+                let a_score = fused_scores
                     .get(&a.chunk_id.to_string())
                     .copied()
                     .unwrap_or(0.0);
-                let b_score = rrf_scores
+                let b_score = fused_scores
                     .get(&b.chunk_id.to_string())
                     .copied()
                     .unwrap_or(0.0);
