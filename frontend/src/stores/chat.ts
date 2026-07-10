@@ -322,7 +322,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function sendMessage(collectionId: string, query: string) {
+  async function sendMessage(
+    collectionId: string,
+    query: string,
+    options: { existingUserMessageId?: string } = {},
+  ) {
     isLoading.value = true;
     error.value = null;
     pipelineStage.value = null;
@@ -345,15 +349,19 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
 
-    // Add user message optimistically
-    const tempUserMsg: Message = {
-      id: `temp-${Date.now()}`,
-      session_id: activeSessionId.value || '',
-      role: 'user',
-      content: query,
-      created_at: new Date().toISOString(),
-    };
-    messages.value.push(tempUserMsg);
+    // Add user message optimistically unless this is a resend from an edited
+    // persisted user message. In that case the edited message stays in place
+    // and only a fresh assistant placeholder is appended.
+    if (!options.existingUserMessageId) {
+      const tempUserMsg: Message = {
+        id: `temp-${Date.now()}`,
+        session_id: activeSessionId.value || '',
+        role: 'user',
+        content: query,
+        created_at: new Date().toISOString(),
+      };
+      messages.value.push(tempUserMsg);
+    }
 
     // Add placeholder assistant message
     const assistantMsg: Message = {
@@ -494,7 +502,12 @@ export const useChatStore = defineStore('chat', () => {
             if (doneData.user_message_id || doneData.assistant_message_id) {
               for (let i = 0; i < messages.value.length; i++) {
                 const msg = messages.value[i];
-                if (msg.role === 'user' && msg.id.startsWith('temp-') && doneData.user_message_id) {
+                if (
+                  msg.role === 'user' &&
+                  msg.id.startsWith('temp-') &&
+                  doneData.user_message_id &&
+                  !options.existingUserMessageId
+                ) {
                   messages.value[i] = {
                     ...msg,
                     id: doneData.user_message_id,
@@ -952,29 +965,63 @@ export const useChatStore = defineStore('chat', () => {
       },
     });
 
-    cancelStream();
-
     try {
+      if (isLoading.value || pipelineSessionId.value) {
+        logger.emit({
+          severityNumber: SeverityNumber.DEBUG,
+          severityText: 'DEBUG',
+          body: '[FIX] chat.edit_and_resend.cancel_active_pipeline',
+          attributes: {
+            component: 'frontend/chat-store',
+            session_id: sessionId,
+            message_id: messageId,
+            pipeline_session_id: pipelineSessionId.value,
+          },
+        });
+      }
+      cancelStream();
+
       await editMessage(sessionId, messageId, content);
       const editedIdx = messages.value.findIndex((message) => message.id === messageId);
+      let removedMessageCount = 0;
       if (editedIdx !== -1) {
-        messages.value.splice(editedIdx);
+        const messagesToRemove = messages.value.slice(editedIdx + 1);
+        removedMessageCount = messagesToRemove.length;
+        await Promise.all(
+          messagesToRemove
+            .filter((m) => canPersistMessageAction(m.id))
+            .map((m) => api.deleteMessage(sessionId, m.id)),
+        );
+        messages.value.splice(editedIdx + 1);
       }
 
       logger.emit({
         severityNumber: SeverityNumber.DEBUG,
         severityText: 'DEBUG',
-        body: 'chat.edit_and_resend.resending_query',
+        body: '[FIX] chat.edit_and_resend.pruned_stale_turn',
         attributes: {
           component: 'frontend/chat-store',
           session_id: sessionId,
           message_id: messageId,
           collection_id: collectionId,
-          trimmed_message_count: editedIdx === -1 ? 0 : editedIdx,
+          removed_message_count: removedMessageCount,
         },
       });
 
-      await sendMessage(collectionId, content);
+      logger.emit({
+        severityNumber: SeverityNumber.DEBUG,
+        severityText: 'DEBUG',
+        body: '[FIX] chat.edit_and_resend.resending_query',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          message_id: messageId,
+          collection_id: collectionId,
+          trimmed_message_count: removedMessageCount,
+        },
+      });
+
+      await sendMessage(collectionId, content, { existingUserMessageId: messageId });
     } catch (err) {
       logger.emit({
         severityNumber: SeverityNumber.ERROR,

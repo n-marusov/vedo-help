@@ -177,6 +177,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       original_content: 'old question',
       created_at: '2026-06-21T00:00:00Z',
     });
+    apiMock.deleteMessage.mockResolvedValue({});
     apiMock.get.mockResolvedValue([]);
 
     const encoder = new TextEncoder();
@@ -196,6 +197,10 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(apiMock.editMessage).toHaveBeenCalledWith('sess-1', msgId, {
       content: 'corrected question',
     });
+    // Old assistant response should be soft-deleted, but the edited user
+    // message must remain as the single user turn for the resend.
+    expect(apiMock.deleteMessage).toHaveBeenCalledTimes(1);
+    expect(apiMock.deleteMessage).toHaveBeenCalledWith('sess-1', assistantId);
     expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/query',
       expect.objectContaining({
@@ -208,7 +213,12 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     );
     expect(store.messages.some((message) => message.id === assistantId)).toBe(false);
     const userMessages = store.messages.filter((message) => message.role === 'user');
-    expect(userMessages[userMessages.length - 1]?.content).toBe('corrected question');
+    expect(userMessages).toHaveLength(1);
+    expect(userMessages[0]).toMatchObject({
+      id: msgId,
+      content: 'corrected question',
+      edited_at: '2026-06-21T01:00:00Z',
+    });
   });
 
   // --------------------------------------------------------------------------

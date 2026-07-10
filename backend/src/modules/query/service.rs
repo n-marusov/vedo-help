@@ -30,12 +30,14 @@ pub enum JobStatus {
     Failed(String),
 }
 
+type ActiveJobMap = HashMap<uuid::Uuid, (uuid::Uuid, watch::Sender<JobStatus>)>;
+
 /// Registry of in-flight RAG pipeline jobs indexed by session ID.
 /// Each entry holds a `watch::Sender` so that the SSE subscribe handler
 /// can wait for job completion without polling the database.
 #[derive(Clone, Debug)]
 pub struct ActiveJobRegistry {
-    inner: Arc<Mutex<HashMap<uuid::Uuid, watch::Sender<JobStatus>>>>,
+    inner: Arc<Mutex<ActiveJobMap>>,
 }
 
 impl ActiveJobRegistry {
@@ -45,28 +47,58 @@ impl ActiveJobRegistry {
         }
     }
 
-    /// Register a new pipeline job and return a receiver that will be notified
+    /// Register a new pipeline job and return its ID plus a receiver that will be notified
     /// when the job completes.
-    pub fn register(&self, session_id: uuid::Uuid) -> watch::Receiver<JobStatus> {
+    pub fn register(&self, session_id: uuid::Uuid) -> (uuid::Uuid, watch::Receiver<JobStatus>) {
+        let job_id = uuid::Uuid::new_v4();
         let (tx, rx) = watch::channel(JobStatus::Running { stage: None });
-        self.inner.lock().unwrap().insert(session_id, tx);
+        self.inner.lock().unwrap().insert(session_id, (job_id, tx));
         tracing::debug!(
             component = "query/service",
             session_id = %session_id,
+            job_id = %job_id,
             "active_job.registered"
         );
-        rx
+        (job_id, rx)
+    }
+
+    fn current_sender(
+        &self,
+        session_id: uuid::Uuid,
+        job_id: uuid::Uuid,
+    ) -> Option<watch::Sender<JobStatus>> {
+        self.inner
+            .lock()
+            .unwrap()
+            .get(&session_id)
+            .and_then(|(current_job_id, tx)| {
+                if *current_job_id == job_id {
+                    Some(tx.clone())
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Return whether the given job is still the latest pipeline for this session.
+    pub fn is_current(&self, session_id: uuid::Uuid, job_id: uuid::Uuid) -> bool {
+        self.inner
+            .lock()
+            .unwrap()
+            .get(&session_id)
+            .is_some_and(|(current_job_id, _)| *current_job_id == job_id)
     }
 
     /// Publish the latest visible pipeline stage for recovery subscribers.
-    pub fn update_stage(&self, session_id: uuid::Uuid, stage: String) {
-        if let Some(tx) = self.inner.lock().unwrap().get(&session_id) {
+    pub fn update_stage(&self, session_id: uuid::Uuid, job_id: uuid::Uuid, stage: String) {
+        if let Some(tx) = self.current_sender(session_id, job_id) {
             let _ = tx.send(JobStatus::Running {
                 stage: Some(stage.clone()),
             });
             tracing::debug!(
                 component = "query/service",
                 session_id = %session_id,
+                job_id = %job_id,
                 stage = stage,
                 "active_job.stage_updated"
             );
@@ -74,24 +106,26 @@ impl ActiveJobRegistry {
     }
 
     /// Mark a job as completed successfully.
-    pub fn complete(&self, session_id: uuid::Uuid) {
-        if let Some(tx) = self.inner.lock().unwrap().get(&session_id) {
+    pub fn complete(&self, session_id: uuid::Uuid, job_id: uuid::Uuid) {
+        if let Some(tx) = self.current_sender(session_id, job_id) {
             let _ = tx.send(JobStatus::Done);
             tracing::debug!(
                 component = "query/service",
                 session_id = %session_id,
+                job_id = %job_id,
                 "active_job.completed"
             );
         }
     }
 
     /// Mark a job as failed.
-    pub fn fail(&self, session_id: uuid::Uuid, error: String) {
-        if let Some(tx) = self.inner.lock().unwrap().get(&session_id) {
+    pub fn fail(&self, session_id: uuid::Uuid, job_id: uuid::Uuid, error: String) {
+        if let Some(tx) = self.current_sender(session_id, job_id) {
             let _ = tx.send(JobStatus::Failed(error));
             tracing::debug!(
                 component = "query/service",
                 session_id = %session_id,
+                job_id = %job_id,
                 "active_job.failed"
             );
         }
@@ -104,7 +138,7 @@ impl ActiveJobRegistry {
             .lock()
             .unwrap()
             .get(&session_id)
-            .map(|tx| tx.subscribe())
+            .map(|(_, tx)| tx.subscribe())
     }
 }
 
@@ -208,9 +242,7 @@ impl QueryService {
         // Register in active jobs registry so the SSE subscribe endpoint
         // can be notified when the pipeline completes (recovery after reload).
         let request_session_id = request.session_id;
-        if let Some(sid) = request_session_id {
-            svc.active_jobs.register(sid);
-        }
+        let request_job_id = request_session_id.map(|sid| svc.active_jobs.register(sid).0);
 
         tokio::spawn(async move {
             let pipeline_result = Self::run_pipeline(
@@ -219,14 +251,15 @@ impl QueryService {
                 request,
                 owned_user_id,
                 is_admin,
+                request_job_id,
                 rag_settings,
             )
             .await;
 
             match pipeline_result {
                 Ok(()) => {
-                    if let Some(sid) = request_session_id {
-                        svc.active_jobs.complete(sid);
+                    if let (Some(sid), Some(job_id)) = (request_session_id, request_job_id) {
+                        svc.active_jobs.complete(sid, job_id);
                     }
                 }
                 Err(e) => {
@@ -235,8 +268,8 @@ impl QueryService {
                         error = %e,
                         "query.pipeline.failed"
                     );
-                    if let Some(sid) = request_session_id {
-                        svc.active_jobs.fail(sid, e.to_string());
+                    if let (Some(sid), Some(job_id)) = (request_session_id, request_job_id) {
+                        svc.active_jobs.fail(sid, job_id, e.to_string());
                     }
                     tx.send(Ok(StreamEvent {
                         event_type: "error".to_string(),
@@ -262,6 +295,7 @@ impl QueryService {
         request: QueryRequest,
         _user_id: String,
         _is_admin: bool,
+        job_id: Option<Uuid>,
         rag_settings: crate::modules::settings::models::RagSettings,
     ) -> Result<(), AppError> {
         use crate::modules::query::debug_models::*;
@@ -284,8 +318,8 @@ impl QueryService {
             let active_jobs = svc.active_jobs.clone();
             let session_id = request.session_id;
             async move {
-                if let Some(session_id) = session_id {
-                    active_jobs.update_stage(session_id, name.clone());
+                if let (Some(session_id), Some(job_id)) = (session_id, job_id) {
+                    active_jobs.update_stage(session_id, job_id, name.clone());
                 }
                 tx.send(Ok(StreamEvent {
                     event_type: "pipeline_stage".to_string(),
@@ -780,6 +814,8 @@ impl QueryService {
             user_message_id,
             assistant_message_id,
             svc.conversation_repo.clone(),
+            svc.active_jobs.clone(),
+            job_id,
             debug_data_json,
         );
 
@@ -887,6 +923,8 @@ impl QueryService {
         user_message_id: Option<Uuid>,
         assistant_message_id: Option<Uuid>,
         conversation_repo: ConversationRepository,
+        active_jobs: ActiveJobRegistry,
+        job_id: Option<Uuid>,
         debug_data_json: String,
     ) -> impl Stream<Item = Result<StreamEvent, Infallible>> {
         let sources_event = StreamEvent {
@@ -924,9 +962,31 @@ impl QueryService {
             let sid = session_id;
             let fc = full_content;
 
+            let active_jobs = active_jobs;
+
             stream::once(async move {
-                // Persist the assistant message if we have both a session and a pre-generated ID
+                // Persist the assistant message only for the latest pipeline in the session.
+                // A query edited while streaming starts a replacement pipeline; the old
+                // background task may still finish, but must not resurrect stale history.
                 if let (Some(session_id), Some(asst_id_val)) = (sid, asst_id) {
+                    if let Some(job_id) = job_id {
+                        if !active_jobs.is_current(session_id, job_id) {
+                            tracing::warn!(
+                                component = "query/service",
+                                session_id = %session_id,
+                                job_id = %job_id,
+                                assistant_message_id = %asst_id_val,
+                                "[FIX] query.stale_assistant_persist_skipped"
+                            );
+                            return Ok(StreamEvent {
+                                event_type: "done".to_string(),
+                                data: json!({
+                                    "user_message_id": user_message_id,
+                                    "assistant_message_id": serde_json::Value::Null,
+                                }),
+                            });
+                        }
+                    }
                     let content = fc.lock().unwrap().clone();
                     let msg = Message {
                         id: asst_id_val,
@@ -1213,6 +1273,8 @@ mod tests {
             None,
             None,
             repo,
+            ActiveJobRegistry::new(),
+            None,
             "null".to_string(),
         ));
 
@@ -1254,14 +1316,14 @@ mod tests {
     fn active_job_registry_publishes_recovery_stage_updates() {
         let registry = ActiveJobRegistry::new();
         let session_id = uuid::Uuid::new_v4();
-        let rx = registry.register(session_id);
+        let (job_id, rx) = registry.register(session_id);
 
         assert!(matches!(
             rx.borrow().clone(),
             JobStatus::Running { stage: None }
         ));
 
-        registry.update_stage(session_id, "reranking".to_string());
+        registry.update_stage(session_id, job_id, "reranking".to_string());
 
         assert!(matches!(
             rx.borrow().clone(),
@@ -1319,6 +1381,8 @@ mod tests {
             None,
             None,
             repo,
+            ActiveJobRegistry::new(),
+            None,
             "null".to_string(),
         ));
 
