@@ -208,6 +208,7 @@ describe('chat store — v0.3.1 actions (RED)', () => {
           collection_id: 'col-1',
           query: 'corrected question',
           session_id: 'sess-1',
+          existing_user_message_id: msgId,
         }),
       }),
     );

@@ -13,6 +13,11 @@ pub struct QueryRequest {
     /// Enable debug data collection (admin users).
     #[serde(default)]
     pub debug: bool,
+    /// When resending an edited message, the ID of the existing user message
+    /// that was already persisted. The backend will skip creating a new user
+    /// message and use this ID for the pipeline's done payload.
+    #[serde(default)]
+    pub existing_user_message_id: Option<Uuid>,
 }
 
 /// A single source reference returned in the SSE "sources" event.

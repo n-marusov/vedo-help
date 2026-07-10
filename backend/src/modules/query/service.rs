@@ -348,8 +348,19 @@ impl QueryService {
         // This is intentionally before embedding, multi-query, search, and LLM calls:
         // if the browser reloads while those steps are running, recovery and the
         // sessions list must already show the user message and a non-default title.
-        let user_message_id =
-            Self::persist_user_message_and_autoname_session(&svc, &request).await?;
+        // When resending an edited message, reuse the existing user message instead
+        // of creating a duplicate — the caller already updated it via PATCH.
+        let user_message_id = if let Some(existing_id) = request.existing_user_message_id {
+            tracing::info!(
+                component = "query/service",
+                session_id = ?request.session_id,
+                existing_user_message_id = %existing_id,
+                "[FIX] query.reusing_existing_user_message"
+            );
+            Some(existing_id)
+        } else {
+            Self::persist_user_message_and_autoname_session(&svc, &request).await?
+        };
 
         // Step 1: Embed the query
         send_stage("embedding".to_string()).await;

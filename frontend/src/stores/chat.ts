@@ -396,6 +396,9 @@ export const useChatStore = defineStore('chat', () => {
       if (activeSessionId.value) {
         body.session_id = activeSessionId.value;
       }
+      if (options.existingUserMessageId) {
+        body.existing_user_message_id = options.existingUserMessageId;
+      }
 
       const response = await fetch('/api/query', {
         method: 'POST',
