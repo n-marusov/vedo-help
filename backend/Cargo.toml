@@ -62,7 +62,7 @@ opentelemetry-http = "0.27"
 text-splitter = "0.7"
 
 # File parsing
-pdf-extract = "0.7"
+pdf-extract = "0.12"
 docx-rs = "0.3"
 zip = "2"
 csv = "1.3"
