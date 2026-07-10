@@ -258,8 +258,9 @@ impl ConversationService {
             ));
         }
 
-        // Build prompt — include the assistant response for better context
-        let system_prompt = "You are a summarization assistant. Summarize the user's question as a short phrase (up to 5 words). Reply with only the phrase, no quotes, no punctuation, no extra text.";
+        // Build prompt — include the assistant response for better context.
+        // Instruct the LLM to respond in the same language as the user query.
+        let system_prompt = "Summarize the user's question as a short phrase (up to 5 words). Reply with only the phrase, no quotes, no punctuation, no extra text. Respond in the same language as the user's question.";
         let user_prompt = match first_response {
             Some(response) => {
                 let truncated = if response.len() > 300 {
