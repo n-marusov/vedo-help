@@ -903,7 +903,17 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     );
 
     // Mock fetchSessions called after recovery
-    apiMock.get.mockResolvedValue([]);
+    apiMock.get.mockResolvedValue([
+      {
+        id: 'session-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 2,
+      },
+    ]);
+    apiMock.generateSessionTitle.mockResolvedValue({ title: 'RAG Overview' });
 
     localStorage.setItem('chat_pipeline_active', 'true');
     localStorage.setItem('chat_pipeline_session_id', 'session-1');
@@ -935,6 +945,8 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(store.pipelineStage).toBeNull();
     expect(store.messages.length).toBe(2);
     expect(store.messages[1].content).toBe('RAG stands for Retrieval-Augmented Generation');
+    expect(apiMock.generateSessionTitle).toHaveBeenCalledWith('session-1');
+    expect(store.sessions[0].title).toBe('RAG Overview');
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
   }, 10000);
 
@@ -1180,12 +1192,155 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     });
 
     apiMock.get.mockResolvedValue([]);
-    apiMock.generateSessionTitle.mockResolvedValue({ title: 'Generated Title' });
+    apiMock.generateSessionTitle.mockResolvedValue({
+      title: 'Generated Title',
+    });
 
     await store.sendMessage('col-1', 'test query');
 
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
     expect(localStorage.getItem('chat_pipeline_session_id')).toBeNull();
+  });
+
+  it('sendMessage generates a compact title for the completed session after bot response', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 0,
+      },
+    ];
+
+    const encoder = new TextEncoder();
+    const chunkPayload = JSON.stringify({
+      type: 'chunk',
+      data: { text: 'This is the assistant answer.' },
+    });
+    const donePayload = JSON.stringify({ type: 'done' });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${chunkPayload}\n`));
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+
+    apiMock.get.mockResolvedValue([
+      {
+        id: 'sess-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:01:00Z',
+        message_count: 2,
+      },
+    ]);
+    apiMock.generateSessionTitle.mockResolvedValue({
+      title: 'Assistant Answer Summary',
+    });
+
+    await store.sendMessage('col-1', 'test query');
+
+    expect(apiMock.generateSessionTitle).toHaveBeenCalledWith('sess-1');
+    expect(store.sessions[0].title).toBe('Assistant Answer Summary');
+  });
+
+  it('sendMessage generates title for pipeline session even after user switches sessions', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+    store.sessions = [
+      {
+        id: 'sess-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 0,
+      },
+      {
+        id: 'sess-2',
+        title: 'Other Session',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 1,
+      },
+    ];
+
+    let resolveFetch!: (value: unknown) => void;
+    globalThis.fetch = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    const sendPromise = store.sendMessage('col-1', 'test query');
+    store.activeSessionId = 'sess-2';
+    store.messages = [
+      {
+        id: 'other-msg',
+        session_id: 'sess-2',
+        role: 'user',
+        content: 'other session message',
+        created_at: '2026-06-23T00:00:00Z',
+      },
+    ];
+
+    const encoder = new TextEncoder();
+    const chunkPayload = JSON.stringify({
+      type: 'chunk',
+      data: { text: 'Answer for first session.' },
+    });
+    const donePayload = JSON.stringify({ type: 'done' });
+    resolveFetch({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${chunkPayload}\n`));
+          controller.enqueue(encoder.encode(`data: ${donePayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+
+    apiMock.get.mockResolvedValue([
+      {
+        id: 'sess-1',
+        title: 'New Chat',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:01:00Z',
+        message_count: 2,
+      },
+      {
+        id: 'sess-2',
+        title: 'Other Session',
+        collection_id: 'col-1',
+        created_at: '2026-06-23T00:00:00Z',
+        updated_at: '2026-06-23T00:00:00Z',
+        message_count: 1,
+      },
+    ]);
+    apiMock.generateSessionTitle.mockResolvedValue({
+      title: 'First Session Answer',
+    });
+
+    await sendPromise;
+
+    expect(apiMock.generateSessionTitle).toHaveBeenCalledWith('sess-1');
+    expect(store.sessions.find((session) => session.id === 'sess-1')?.title).toBe(
+      'First Session Answer',
+    );
+    expect(store.sessions.find((session) => session.id === 'sess-2')?.title).toBe('Other Session');
   });
 
   it('sendMessage preserves pipeline state when stream aborts during page reload', async () => {
@@ -1235,7 +1390,10 @@ describe('chat store — v0.3.1 actions (RED)', () => {
 
     // Resolve fetch with a stream that produces chunks + done immediately
     const encoder = new TextEncoder();
-    const chunkPayload = JSON.stringify({ type: 'chunk', data: { text: 'Hello World' } });
+    const chunkPayload = JSON.stringify({
+      type: 'chunk',
+      data: { text: 'Hello World' },
+    });
     const donePayload = JSON.stringify({ type: 'done' });
 
     resolveFetch({

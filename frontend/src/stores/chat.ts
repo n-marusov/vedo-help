@@ -261,6 +261,67 @@ export const useChatStore = defineStore('chat', () => {
     });
   }
 
+  async function refreshGeneratedSessionTitle(sessionId: string) {
+    logger.emit({
+      severityNumber: SeverityNumber.DEBUG,
+      severityText: 'DEBUG',
+      body: '[FIX] chat.title_generation.started',
+      attributes: {
+        component: 'frontend/chat-store',
+        session_id: sessionId,
+      },
+    });
+
+    try {
+      const { title } = await api.generateSessionTitle(sessionId);
+      const nextTitle = title?.trim();
+      if (!nextTitle) {
+        logger.emit({
+          severityNumber: SeverityNumber.DEBUG,
+          severityText: 'DEBUG',
+          body: '[FIX] chat.title_generation.skipped_empty_title',
+          attributes: {
+            component: 'frontend/chat-store',
+            session_id: sessionId,
+          },
+        });
+        return;
+      }
+
+      const idx = sessions.value.findIndex((s) => s.id === sessionId);
+      if (idx !== -1) {
+        sessions.value[idx] = {
+          ...sessions.value[idx],
+          title: nextTitle,
+        };
+      } else {
+        await fetchSessions();
+      }
+
+      logger.emit({
+        severityNumber: SeverityNumber.DEBUG,
+        severityText: 'DEBUG',
+        body: '[FIX] chat.title_generation.succeeded',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          title: nextTitle,
+        },
+      });
+    } catch (err) {
+      logger.emit({
+        severityNumber: SeverityNumber.ERROR,
+        severityText: 'ERROR',
+        body: '[FIX] chat.title_generation.failed',
+        attributes: {
+          component: 'frontend/chat-store',
+          session_id: sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+    }
+  }
+
   async function sendMessage(collectionId: string, query: string) {
     isLoading.value = true;
     error.value = null;
@@ -346,6 +407,7 @@ export const useChatStore = defineStore('chat', () => {
       const streamReader = stream.getReader();
       let fullContent = '';
       let sources: string | undefined;
+      let completedSessionId: string | null = null;
 
       while (true) {
         const { done, value } = await streamReader.read();
@@ -411,12 +473,13 @@ export const useChatStore = defineStore('chat', () => {
           }
           case 'done': {
             pipelineStage.value = null;
-            const doneSessionId = pipelineSessionId.value;
-            pipelineSessionId.value = null;
-            clearPipelineState();
             // Finalize the assistant message. Only write content when
             // viewing the pipeline session — if the user switched away,
             // the backend already persisted the complete response.
+            const doneSessionId = pipelineSessionId.value;
+            completedSessionId = doneSessionId;
+            pipelineSessionId.value = null;
+            clearPipelineState();
             if (activeSessionId.value === doneSessionId) {
               const finalMsg = messages.value[messages.value.length - 1];
               if (finalMsg?.role === 'assistant') {
@@ -457,27 +520,11 @@ export const useChatStore = defineStore('chat', () => {
       // Refresh sessions after a new query (might have created a session)
       await fetchSessions();
 
-      // Refine title via LLM-based title generation
-      if (activeSessionId.value && fullContent.trim()) {
-        const session = sessions.value.find((s) => s.id === activeSessionId.value);
-        if (session) {
-          // Use LLM to generate a concise title from the first user query
-          try {
-            const { title } = await api.generateSessionTitle(activeSessionId.value);
-            if (title?.trim() && title !== session.title) {
-              // Immediately update local sessions array so sidebar + badge reflect it
-              const idx = sessions.value.findIndex((s) => s.id === activeSessionId.value);
-              if (idx !== -1) {
-                sessions.value[idx] = {
-                  ...sessions.value[idx],
-                  title: title.trim(),
-                };
-              }
-            }
-          } catch {
-            // Keep the existing title if title generation fails.
-          }
-        }
+      // Refine title via LLM-based title generation for the completed
+      // pipeline session. Do not depend on the currently selected session:
+      // users can switch chats while the stream is still running.
+      if (completedSessionId && fullContent.trim()) {
+        await refreshGeneratedSessionTitle(completedSessionId);
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -586,7 +633,10 @@ export const useChatStore = defineStore('chat', () => {
     // so the toolbar never shows the default "New Chat" title.
     let sessIdx = sessions.value.findIndex((s) => s.id === state.sessionId);
     if (sessIdx !== -1) {
-      sessions.value[sessIdx] = { ...sessions.value[sessIdx], title: state.tempTitle };
+      sessions.value[sessIdx] = {
+        ...sessions.value[sessIdx],
+        title: state.tempTitle,
+      };
     } else {
       // Entry missing — insert a placeholder so the UI shows the temp title immediately
       sessions.value.unshift({
@@ -700,7 +750,8 @@ export const useChatStore = defineStore('chat', () => {
           pipelineStage.value = null;
           pipelineSessionId.value = null;
           clearPipelineState();
-          await fetchSessions(); // refresh to get LLM-generated title
+          await fetchSessions();
+          await refreshGeneratedSessionTitle(state.sessionId);
           return;
         }
 
