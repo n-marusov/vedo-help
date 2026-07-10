@@ -59,7 +59,9 @@ const isPersistedMessage = computed(() => {
 });
 
 function startEdit() {
-  if (!isPersistedMessage.value) {
+  // User messages are always editable, even before backend persistence.
+  // Temp (unpersisted) messages are edited locally and re-sent without PATCH.
+  if (props.message.role !== 'user') {
     return;
   }
   draftContent.value = props.message.content;
@@ -194,9 +196,10 @@ onMounted(() => {
             formattedTime
           }}</span>
 
-          <!-- Copy button (both roles) -->
+          <!-- Copy button: always visible for user messages, shown for
+               persisted assistant messages only -->
           <button
-            v-if="isPersistedMessage"
+            v-if="message.role === 'user' || isPersistedMessage"
             class="message-action-btn"
             data-testid="message-copy-btn"
             :title="copyFeedback ? 'Copied!' : 'Copy'"
@@ -243,9 +246,10 @@ onMounted(() => {
             </svg>
           </button>
 
-          <!-- Edit button (user messages only) -->
+          <!-- Edit button: always visible for user messages (even during
+               streaming with temp IDs) -->
           <button
-            v-if="message.role === 'user' && isPersistedMessage"
+            v-if="message.role === 'user'"
             class="message-action-btn"
             data-testid="message-edit-btn"
             title="Edit"

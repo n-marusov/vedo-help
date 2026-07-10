@@ -505,12 +505,7 @@ export const useChatStore = defineStore('chat', () => {
             if (doneData.user_message_id || doneData.assistant_message_id) {
               for (let i = 0; i < messages.value.length; i++) {
                 const msg = messages.value[i];
-                if (
-                  msg.role === 'user' &&
-                  msg.id.startsWith('temp-') &&
-                  doneData.user_message_id &&
-                  !options.existingUserMessageId
-                ) {
+                if (msg.role === 'user' && msg.id.startsWith('temp-') && doneData.user_message_id) {
                   messages.value[i] = {
                     ...msg,
                     id: doneData.user_message_id,
@@ -526,6 +521,46 @@ export const useChatStore = defineStore('chat', () => {
                     id: doneData.assistant_message_id,
                   };
                 }
+              }
+              // Force reactivity after temp-ID changes — some Vue/Pinia
+              // edge cases may not detect array-element replacement.
+              messages.value = [...messages.value];
+            }
+
+            // Fallback: if any user message still has a temp ID after the
+            // reconciliation above, reload the session's messages from the
+            // backend to guarantee real backend UUIDs. This handles edge
+            // cases where doneData.user_message_id was null (session-less
+            // pipeline) or the replacement was missed.
+            if (
+              completedSessionId &&
+              messages.value.some((m) => m.role === 'user' && m.id.startsWith('temp-'))
+            ) {
+              try {
+                logger.emit({
+                  severityNumber: SeverityNumber.DEBUG,
+                  severityText: 'DEBUG',
+                  body: '[FIX] chat.temp_id_reconciliation_fallback',
+                  attributes: {
+                    component: 'frontend/chat-store',
+                    session_id: completedSessionId,
+                  },
+                });
+                const msgs = await api.getSessionMessages(completedSessionId);
+                if (msgs && msgs.length > 0) {
+                  messages.value = msgs;
+                }
+              } catch (fallbackErr) {
+                logger.emit({
+                  severityNumber: SeverityNumber.ERROR,
+                  severityText: 'ERROR',
+                  body: '[FIX] chat.temp_id_reconciliation_fallback_failed',
+                  attributes: {
+                    component: 'frontend/chat-store',
+                    session_id: completedSessionId,
+                    error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+                  },
+                });
               }
             }
             break;
@@ -926,20 +961,6 @@ export const useChatStore = defineStore('chat', () => {
     content: string,
     collectionId: string,
   ) {
-    if (!canPersistMessageAction(messageId)) {
-      logger.emit({
-        severityNumber: SeverityNumber.DEBUG,
-        severityText: 'DEBUG',
-        body: 'chat.edit_and_resend.skipped_pending_message',
-        attributes: {
-          component: 'frontend/chat-store',
-          session_id: sessionId,
-          message_id: messageId,
-        },
-      });
-      return;
-    }
-
     if (_isResending) {
       logger.emit({
         severityNumber: SeverityNumber.DEBUG,
@@ -956,6 +977,8 @@ export const useChatStore = defineStore('chat', () => {
     }
     _isResending = true;
 
+    const isTemp = isPendingMessageId(messageId);
+
     logger.emit({
       severityNumber: SeverityNumber.DEBUG,
       severityText: 'DEBUG',
@@ -964,6 +987,7 @@ export const useChatStore = defineStore('chat', () => {
         component: 'frontend/chat-store',
         session_id: sessionId,
         message_id: messageId,
+        is_temp: isTemp,
         collection_id: collectionId,
       },
     });
@@ -984,17 +1008,23 @@ export const useChatStore = defineStore('chat', () => {
       }
       cancelStream();
 
-      await editMessage(sessionId, messageId, content);
+      if (!isTemp) {
+        // Persisted message: PATCH backend, delete stale persisted messages
+        await editMessage(sessionId, messageId, content);
+      }
+
       const editedIdx = messages.value.findIndex((message) => message.id === messageId);
       let removedMessageCount = 0;
       if (editedIdx !== -1) {
         const messagesToRemove = messages.value.slice(editedIdx + 1);
         removedMessageCount = messagesToRemove.length;
-        await Promise.all(
-          messagesToRemove
-            .filter((m) => canPersistMessageAction(m.id))
-            .map((m) => api.deleteMessage(sessionId, m.id)),
-        );
+        if (!isTemp) {
+          await Promise.all(
+            messagesToRemove
+              .filter((m) => canPersistMessageAction(m.id))
+              .map((m) => api.deleteMessage(sessionId, m.id)),
+          );
+        }
         messages.value.splice(editedIdx + 1);
       }
 
@@ -1008,6 +1038,7 @@ export const useChatStore = defineStore('chat', () => {
           message_id: messageId,
           collection_id: collectionId,
           removed_message_count: removedMessageCount,
+          is_temp: isTemp,
         },
       });
 
@@ -1021,10 +1052,18 @@ export const useChatStore = defineStore('chat', () => {
           message_id: messageId,
           collection_id: collectionId,
           trimmed_message_count: removedMessageCount,
+          is_temp: isTemp,
         },
       });
 
-      await sendMessage(collectionId, content, { existingUserMessageId: messageId });
+      if (isTemp) {
+        // Temp (unpersisted) message: remove it and re-send via fresh pipeline.
+        // sendMessage will create a new temp user + assistant pair.
+        messages.value.splice(editedIdx, 1);
+        await sendMessage(collectionId, content);
+      } else {
+        await sendMessage(collectionId, content, { existingUserMessageId: messageId });
+      }
     } catch (err) {
       logger.emit({
         severityNumber: SeverityNumber.ERROR,

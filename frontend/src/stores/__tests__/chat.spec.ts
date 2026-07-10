@@ -1232,7 +1232,11 @@ describe('chat store — v0.3.1 actions (RED)', () => {
       type: 'chunk',
       data: { text: 'This is the assistant answer.' },
     });
-    const donePayload = JSON.stringify({ type: 'done' });
+    const donePayload = JSON.stringify({
+      type: 'done',
+      user_message_id: 'server-user-id',
+      assistant_message_id: 'server-asst-id',
+    });
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       body: new ReadableStream({
