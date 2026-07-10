@@ -1112,8 +1112,8 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   height: 100%;
   overflow: hidden;
   position: relative;
-  padding: var(--space-6);
-  gap: var(--space-6);
+  padding: var(--space-4);
+  gap: var(--space-4);
 }
 
 /* ===== Session Sidebar ===== */
@@ -1546,7 +1546,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 28px;
+  padding: 20px 24px;
   gap: 18px;
   scroll-behavior: smooth;
 }
@@ -1556,7 +1556,7 @@ const hasInput = computed(() => inputText.value.trim().length > 0);
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  max-width: 820px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 

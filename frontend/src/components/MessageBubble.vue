@@ -342,7 +342,6 @@ onMounted(() => {
 
 .message-assistant {
   align-self: flex-start;
-  max-width: 80%;
 }
 
 .message-avatar {
@@ -395,7 +394,7 @@ onMounted(() => {
   background: var(--msg-user-bg);
   color: var(--msg-user-text);
   border-radius: var(--msg-radius-user);
-  max-width: 520px;
+  max-width: 680px;
 }
 
 .message-content--assistant {

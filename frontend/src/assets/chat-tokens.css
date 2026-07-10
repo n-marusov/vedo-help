@@ -30,7 +30,7 @@
 
   /* Sizing */
   --avatar-size: 32px;
-  --max-msg-width: min(75%, 760px);
+  --max-msg-width: min(90%, 960px);
   --input-min-height: 44px;
 }
 
