@@ -978,6 +978,8 @@ fn parse_file_content(
             "ZIP files cannot be parsed directly — use the batch upload endpoint".to_string(),
         )),
         FileType::Csv => {
+            std::str::from_utf8(data)
+                .map_err(|e| AppError::FileError(format!("Invalid UTF-8 in CSV file: {e}")))?;
             use std::io::BufReader;
             let mut reader = csv::ReaderBuilder::new()
                 .has_headers(true)
@@ -1005,9 +1007,20 @@ fn parse_file_content(
             Ok(extracted)
         }
         FileType::Html => {
-            use std::io::BufReader;
-            let text = html2text::from_read(BufReader::new(data), 0);
-            Ok(text.trim().to_string())
+            let source = std::str::from_utf8(data)
+                .map_err(|e| AppError::FileError(format!("Invalid UTF-8 in HTML file: {e}")))?;
+            tracing::debug!(
+                component = "documents/service",
+                input_bytes = data.len(),
+                "[FIX] document.html_parse.start"
+            );
+            let text = strip_html_tags(source);
+            tracing::debug!(
+                component = "documents/service",
+                output_chars = text.chars().count(),
+                "[FIX] document.html_parse.success"
+            );
+            Ok(text)
         }
     }
 }
@@ -1043,7 +1056,6 @@ fn extract_json_text(value: &serde_json::Value) -> String {
 }
 
 /// Basic HTML tag stripping: remove everything between < and >.
-#[cfg(test)]
 fn strip_html_tags(html: &str) -> String {
     let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
@@ -1133,8 +1145,8 @@ mod tests {
         // csv crate skips empty lines by default
         let data = b"header\n\n\n";
         let result = parse_file_content(data, "data.csv", &FileType::Csv).unwrap();
-        // Only the header row is parsed
-        assert!(result.contains("header"));
+        // csv crate treats the first row as headers, so a header-only file has no data rows.
+        assert!(result.is_empty());
     }
 
     #[test]

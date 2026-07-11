@@ -111,9 +111,7 @@
   - [x] Pencil-дизайн: обновлён `admin.pen` с табами и экраном Session Debug
 - [x] **Deep healthcheck** — проверка зависимостей (Chroma, embedding)
 - [ ] **Per-route rate limiting** — защита `/api/query`
-- [ ] **Automated backup** — cron-контейнер или host cron для SQLite + Chroma (скрипты backup.sh/restore.sh есть, автоматизации нет)
 - [ ] **Failure notifications** — Telegram / email webhook
-- [ ] **Graceful shutdown** — корректное завершение всех контейнеров (бэкенд частично: SIGINT/SIGTERM через broadcast, контейнерная координация не реализована)
 
 ---
 

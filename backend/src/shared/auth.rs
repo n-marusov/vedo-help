@@ -393,6 +393,14 @@ mod tests {
             bm25_k1: 1.2,
             bm25_b: 0.75,
             hybrid_search_alpha: 0.5,
+            query_cache_ttl_secs: 300,
+            query_cache_max_entries: 100,
+            query_rate_limit_requests: 10,
+            query_rate_limit_window_secs: 60,
+            notification_telegram_bot_token: String::new(),
+            notification_telegram_chat_id: String::new(),
+            notification_webhook_url: String::new(),
+            notification_min_severity: "error".to_string(),
         };
 
         let validator = JwtValidator::from_config(&config);
