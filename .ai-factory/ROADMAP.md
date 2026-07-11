@@ -176,19 +176,59 @@
 > - `src/modules/auth/tests.rs` — 2 errors: function signature mismatch (v0.3.1)
 > - `cargo clippy` — 1 pre-existing `dead_code` warning
 > 
-> **Статус:** production code v0.6 работает полностью. Pre-existing test errors будут исправлены в рамках соответствующих милестоунов или отдельного cleanup.
+**Статус:** production code v0.6 работает полностью. Pre-existing test errors будут исправлены в рамках соответствующих милестоунов или отдельного cleanup.
 
 ---
 
-## Milestone: v1.0 — Production Ready ⏳
+## Milestone: v0.7 — Web Crawler & Site Ingestion ⏳
+
+Третий источник документов (после ручной загрузки и Git): краулер для индексации документации с любого сайта по URL-точке входа. Краулер обходит ссылки, извлекает текст, разбивает на чанки и индексирует в Chroma.
+
+### Ограничения и защита от злоупотреблений
+
+> **Проблема «Википедии»:** если пользователь укажет `https://en.wikipedia.org/`, краулер без ограничений попытается обойти миллионы страниц. Четыре уровня защиты работают вместе:
+>
+> 1. **Однодоменный режим** — краулер не покидает домен entry URL (из `en.wikipedia.org` не уйдёт на `commons.wikimedia.org`)
+> 2. **Префикс пути** — опциональный фильтр URL-путей (например, `/wiki/Python` — только статьи о Python, не вся Википедия)
+> 3. **Лимит страниц** — жёсткий cap (по умолчанию 100), после которого краулер останавливается
+> 4. **Максимальная глубина** — количество уровней ссылок от entry URL (по умолчанию 3)
+>
+> Все четыре механизма должны работать одновременно. UI показывает предупреждение при обнаружении крупных сайтов.
+
+### Технические решения
+
+| Аспект | Решение |
+|--------|---------|
+| HTTP-клиент | `reqwest` (async, follow-redirects) |
+| Парсинг HTML | `scraper` (CSS-селекторы) + readability-style извлечение основного контента |
+| Извлечение текста | HTML → чистый текст с сохранением структуры (заголовки, списки, ссылки) |
+| Нормализация URL | Удаление `#anchor`, сортировка query-параметров, canonical URL |
+| Rate limiting | Конфигурируемая задержка (default 1s) + уважение `robots.txt` |
+| Прогресс | SSE-события через WebSocket/API (status, pages_found, pages_indexed, current_url) |
+| Параллелизм | До 3 параллельных запросов (configurable) |
+| Формат хранения | HTML → Markdown (с ссылками и заголовками) → chunking через общий `shared/chunking.rs` |
+
+### Задачи
+
+- [ ] **Phase 1: Tests (TDD)** — E2E-тесты (Playwright), unit-тесты (crawler engine, URL normalization, content extraction, robots.txt, rate limiter, BFS), integration-тесты (DB CRUD, транзакционность cancel/delete, полный цикл краул → chunking → Chroma)
+- [ ] **Phase 2: Backend — DB + Crawler engine** — миграция (`web_crawl_jobs`, `web_crawl_pages`), Rust-модели и репозиторий, модуль `modules/web_crawl/crawler.rs` (BFS, ContentExtractor, RobotsChecker, rate limiter, broadcast progress)
+- [ ] **Phase 3: Backend — API + SSE** — REST: `POST /api/web-crawl`, `GET /api/web-crawl`, `GET /api/web-crawl/:id`, `POST /api/web-crawl/:id/cancel`, `DELETE /api/web-crawl/:id`, `POST /api/web-crawl/:id/retry`. SSE: `GET /api/web-crawl/:id/subscribe`
+- [ ] **Phase 4: Frontend** — `WebCrawlerManager.vue` (форма, jobs list, page details), таб "Web Crawl" в админ-панели, интеграция с design system
+- [ ] **Phase 5: E2E full flow** — вход → админ → URL → старт краула → прогресс → документы в коллекции → query
+
+> **Out of scope (v0.7):** headless browser для JS-рендеринга (SPA), аутентифицированный контент, автоматическое обнаружение sitemap.xml, краулинг PDF/изображений, дедупликация между разными crawl jobs.
+
+---
+
+## Milestone: v1.0 — Production Ready ✅
 
 CI/CD, performance testing, SLA, документация, мониторинг.
 
-- [ ] **CI/CD** — авто-деплой на VPS при push в main
-- [ ] **Load testing** — k6/locust, target P99 < 10s per query
-- [ ] **SLA + auto-recovery** — документированные процедуры
-- [ ] **Documentation** — GUI guide, runbook, C4 diagrams
-- [ ] **Monitoring dashboard** — cAdvisor + Prometheus или эквивалент
+- [x] **CI/CD** — авто-деплой на VPS при push в main
+- [x] **Load testing** — k6/locust, target P99 < 10s per query
+- [x] **SLA + auto-recovery** — документированные процедуры
+- [x] **Documentation** — GUI guide, runbook, C4 diagrams
+- [x] **Monitoring dashboard** — cAdvisor + Prometheus или эквивалент
 
 ---
 
@@ -205,7 +245,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.4.2 — Advanced RAG Pipeline | ✅ **21/21** | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, pipeline_stage SSE, anti-hallucination prompt, Pinia debug store, admin debug visualization |
 | v0.5 — Advanced RAG | ✅ **5/5** | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats, hybrid search optimization, LLM API fallback |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
-| v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
+| v0.7 — Web Crawler & Site Ingestion | ⏳ **0/5** | Website crawling from entry URL, BFS with depth/page limits, same-domain enforcement, path prefix scoping, robots.txt, HTML→Markdown extraction, real-time progress |
+| v1.0 — Production Ready | ✅ **5/5** | CI/CD deploy workflow ✅, k6 load testing ✅, runbook with recovery procedures ✅, C4 architecture docs ✅, Prometheus/Grafana monitoring ✅ |
 
 **Старт:** 2026-06-14
 **MVP завершён:** 2026-06-15
@@ -219,7 +260,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **RAG pipeline debug data fixes (v0.4.2):** 2026-07-07
 **v0.5 — Advanced RAG complete (all 5 tasks):** 2026-07-11
 **v0.4.2 — Advanced RAG Pipeline complete (all 21 tasks):** 2026-07-11
-**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-plan` на v1.0
+**v1.0 — Production Ready complete (all 5 tasks):** 2026-07-11
+**Что дальше:** `/aif-plan` на v0.7 (web crawler) — следующий крупный функционал
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:
   1. `/aif-plan fix "pre-existing test errors from v0.3.1 chat rework and OTel milestone"`
