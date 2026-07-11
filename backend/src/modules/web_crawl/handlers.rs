@@ -7,6 +7,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use crate::modules::auth::models::UserContext;
+use crate::modules::web_crawl::crawler::validate_crawl_url;
 use crate::modules::web_crawl::models::{
     CrawlJobDetailResponse, CrawlJobSummary, CreateCrawlJobRequest,
 };
@@ -24,11 +25,9 @@ pub async fn create_job(
     State(svc): State<WebCrawlService>,
     Json(req): Json<CreateCrawlJobRequest>,
 ) -> Result<Json<CrawlJobSummary>, AppError> {
-    // Validate URL — only HTTP/HTTPS URLs are supported
-    if !req.entry_url.starts_with("http://") && !req.entry_url.starts_with("https://") {
-        return Err(AppError::BadRequest(
-            "URL must start with http:// or https://".to_string(),
-        ));
+    // Validate URL — scheme + SSRF protection (block private/loopback/links-local hosts)
+    if let Err(msg) = validate_crawl_url(&req.entry_url) {
+        return Err(AppError::BadRequest(msg));
     }
 
     // Validate max_depth ≤ 10
@@ -45,10 +44,13 @@ pub async fn create_job(
         "create_job.start"
     );
 
-    let summary = svc.create_job(req, &user_ctx.user_id).await.map_err(|e| {
-        tracing::error!(component = "web_crawl/handlers", error = %e, "create_job.failed");
-        e
-    })?;
+    let summary = svc
+        .create_job(req, &user_ctx.user_id, user_ctx.is_admin())
+        .await
+        .map_err(|e| {
+            tracing::error!(component = "web_crawl/handlers", error = %e, "create_job.failed");
+            e
+        })?;
 
     // Automatically start crawling after creation
     if let Err(e) = svc

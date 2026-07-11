@@ -208,7 +208,7 @@ impl WebCrawler {
                 url: url.clone(),
                 title: extracted.title,
                 text: extracted.text,
-                depth: depth,
+                depth,
                 http_status: Some(http_status),
             };
 
@@ -247,6 +247,7 @@ impl WebCrawler {
 
     /// Check if a URL is allowed by robots.txt for the given domain.
     /// Returns `true` if allowed or if robots.txt cannot be fetched.
+    /// The scheme is derived from the URL itself to support both http and https sites.
     async fn check_robots_txt(&self, domain: &str, url: &str) -> Result<bool, AppError> {
         let path = extract_path(url);
 
@@ -264,7 +265,12 @@ impl WebCrawler {
         }
 
         // Fetch robots.txt with 2-second timeout
-        let robots_url = format!("https://{domain}/robots.txt");
+        let scheme = if url.starts_with("https://") {
+            "https"
+        } else {
+            "http"
+        };
+        let robots_url = format!("{scheme}://{domain}/robots.txt");
         let fetch_result =
             tokio::time::timeout(Duration::from_secs(2), self.client.get(&robots_url).send()).await;
 
@@ -344,9 +350,15 @@ impl WebCrawler {
     }
 
     /// Check if a path is allowed given a list of disallowed paths.
+    /// A disallow rule matches if the path starts with the rule, or if the
+    /// rule has a trailing slash and the path matches the rule without it.
     fn is_path_allowed(disallowed: &[String], path: &str) -> bool {
         for disallow in disallowed {
             if path.starts_with(disallow) {
+                return false;
+            }
+            // Handle trailing-slash rules: Disallow: /admin/ should also block /admin
+            if disallow.ends_with('/') && path == disallow.trim_end_matches('/') {
                 return false;
             }
         }
@@ -357,7 +369,7 @@ impl WebCrawler {
     fn extract_origin(url: &str) -> String {
         let parts: Vec<&str> = url.split('/').collect();
         if parts.len() >= 3 {
-            format!("{}//{}", parts[0], parts[1])
+            format!("{}//{}", parts[0], parts[2])
         } else {
             url.to_string()
         }
@@ -465,9 +477,9 @@ impl ContentExtractor {
     /// Recursively collect text from DOM nodes, with heading-to-markdown conversion.
     fn collect_text_recursive<'a>(
         node: &scraper::element_ref::ElementRef<'a>,
-        document: &'a Html,
+        _document: &'a Html,
         base_url: &str,
-        depth: usize,
+        _depth: usize,
         parts: &mut Vec<String>,
         seen: &mut std::collections::HashSet<String>,
     ) {
@@ -558,12 +570,12 @@ impl ContentExtractor {
         // Collect children text
         let children: Vec<_> = node.children().collect();
         for child in &children {
-            if let Some(child_ref) = scraper::element_ref::ElementRef::wrap(child.clone()) {
+            if let Some(child_ref) = scraper::element_ref::ElementRef::wrap(*child) {
                 Self::collect_text_recursive(
                     &child_ref,
-                    document,
+                    _document,
                     base_url,
-                    depth + 1,
+                    _depth + 1,
                     parts,
                     seen,
                 );
@@ -621,6 +633,153 @@ pub fn normalize_url(url: &str) -> String {
     without_fragment.trim_end_matches('/').to_string()
 }
 
+/// Check if a hostname is a private/loopback/link-local address that must not be crawled.
+/// Blocks hostnames that resolve to or match:
+/// - `localhost` and `*.localhost`
+/// - IPv4 loopback (`127.x.x.x`)
+/// - IPv4 private ranges (`10.x`, `172.16–31.x`, `192.168.x`)
+/// - IPv4 link-local (`169.254.x`, including AWS metadata `169.254.169.254`)
+/// - IPv6 loopback (`::1`)
+/// - IPv6 link-local (`fe80::`)
+/// - IPv4-mapped IPv6 (`::ffff:127.x.x.x` etc.)
+///
+/// This is a parsing-only check (no DNS lookup) — sufficient to reject plain IP literals
+/// and `localhost` hostnames. For a production crawler, a DNS-resolve + IP check is
+/// the only airtight approach, as `attacker.com` could resolve to `127.0.0.1`.
+/// The check below covers the common SSRF vectors without introducing async DNS resolution.
+pub fn is_private_host(host: &str) -> bool {
+    let h = host.to_lowercase();
+
+    // Extract the bare host (no port, no brackets) from common formats:
+    //   example.com           → example.com
+    //   example.com:8080      → example.com
+    //   127.0.0.1             → 127.0.0.1
+    //   127.0.0.1:8080        → 127.0.0.1
+    //   [::1]                 → ::1
+    //   [::1]:8080            → ::1
+    //   ::1                   → ::1 (no brackets, has multiple ':')
+    //   ::ffff:127.0.0.1      → ::ffff:127.0.0.1
+    let bare = if h.starts_with('[') {
+        // Bracketed IPv6: [addr] or [addr]:port
+        h.trim_start_matches('[').split(']').next().unwrap_or(&h)
+    } else {
+        let colon_count = h.matches(':').count();
+        if colon_count > 1 {
+            // Bare IPv6 (no brackets, multiple ':') — no port strip
+            &h
+        } else if colon_count == 1 {
+            // host:port or IPv4:port
+            h.rsplit_once(':').map(|(p, _)| p).unwrap_or(&h)
+        } else {
+            // No colon — plain hostname or IPv4
+            &h
+        }
+    };
+
+    if bare == "localhost" || bare.ends_with(".localhost") {
+        return true;
+    }
+
+    // IPv6 loopback / link-local (strip zone id after %)
+    let bare6 = bare.split('%').next().unwrap_or(bare);
+    if bare6 == "::1" || bare6 == "0:0:0:0:0:0:0:1" {
+        return true;
+    }
+    if bare6.starts_with("fe80:") {
+        return true;
+    }
+    // IPv4-mapped IPv6: ::ffff:127.0.0.1 etc.
+    if let Some(rest) = bare6
+        .strip_prefix("::ffff:")
+        .or_else(|| bare6.strip_prefix("0:0:0:0:0:0:ffff:"))
+    {
+        return is_ipv4_private(rest);
+    }
+
+    // IPv4 literal
+    is_ipv4_private(bare)
+}
+
+/// Check if an IPv4 string belongs to a private/loopback/link-local range.
+fn is_ipv4_private(ip: &str) -> bool {
+    let parts: Vec<&str> = ip.split('.').collect();
+    if parts.len() != 4 {
+        return false;
+    }
+    let octets: Vec<u8> = parts.iter().filter_map(|p| p.parse().ok()).collect();
+    if octets.len() != 4 {
+        return false;
+    }
+    let [a, b, _c, _d] = [octets[0], octets[1], octets[2], octets[3]];
+
+    // 127/8 — loopback (covers 127.0.0.1, 127.255.255.255, etc.)
+    if a == 127 {
+        return true;
+    }
+    // 10/8 — private
+    if a == 10 {
+        return true;
+    }
+    // 172.16–172.31 — private
+    if a == 172 && (16..=31).contains(&b) {
+        return true;
+    }
+    // 192.168/16 — private
+    if a == 192 && b == 168 {
+        return true;
+    }
+    // 169.254/16 — link-local (AWS metadata, GCP metadata)
+    if a == 169 && b == 254 {
+        return true;
+    }
+    // 0.0.0.0/8 — "this network" (should not be crawled)
+    if a == 0 {
+        return true;
+    }
+
+    false
+}
+
+/// Validate a crawl target URL for SSRF safety.
+/// Returns `Ok(())` if the URL scheme is http(s) and the host is **not** private/loopback.
+/// Returns `Err` with a human-readable message otherwise.
+pub fn validate_crawl_url(url: &str) -> Result<(), String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("URL must start with http:// or https://".to_string());
+    }
+    let after_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or("");
+    let host_port = after_scheme.split('/').next().unwrap_or(after_scheme);
+    // Strip user info if present (user:pass@host)
+    let host_port = host_port.rsplit('@').next().unwrap_or(host_port);
+    // Split host from port (careful with IPv6)
+    let host = if host_port.starts_with('[') {
+        // [IPv6]:port
+        host_port
+            .trim_start_matches('[')
+            .split(']')
+            .next()
+            .unwrap_or(host_port)
+    } else {
+        host_port
+            .rsplit_once(':')
+            .map(|(h, _)| h)
+            .unwrap_or(host_port)
+    };
+
+    if host.is_empty() {
+        return Err("URL must have a host".to_string());
+    }
+    if is_private_host(host) {
+        return Err(format!(
+            "Crawling private/loopback addresses is blocked: {host}"
+        ));
+    }
+    Ok(())
+}
+
 /// Check if a URL belongs to the same domain as the entry URL.
 /// Performs exact domain match — subdomains are NOT considered the same domain.
 pub fn is_same_domain(url: &str, entry_url: &str) -> bool {
@@ -659,7 +818,11 @@ pub fn extract_path(url: &str) -> String {
 }
 
 /// Resolve a relative URL against a base URL.
+/// Absolute URLs (http://, https://) are returned unchanged.
 pub fn resolve_url(base: &str, relative: &str) -> String {
+    if relative.starts_with("http://") || relative.starts_with("https://") {
+        return relative.to_string();
+    }
     if relative.starts_with('/') {
         let origin = base.split('/').take(3).collect::<Vec<_>>().join("/");
         format!("{}{}", origin, relative)
@@ -895,6 +1058,81 @@ mod tests {
         assert_eq!(
             resolve_url("https://example.com/docs/", "guide.html"),
             "https://example.com/docs/guide.html"
+        );
+    }
+
+    // ── SSRF validation tests ──
+
+    #[test]
+    fn test_validate_crawl_url_accepts_public_urls() {
+        assert!(validate_crawl_url("https://example.com").is_ok());
+        assert!(validate_crawl_url("http://example.com/page").is_ok());
+        assert!(validate_crawl_url("https://docs.example.com:8443/path").is_ok());
+    }
+
+    #[test]
+    fn test_validate_crawl_url_rejects_non_http() {
+        assert!(validate_crawl_url("ftp://example.com").is_err());
+        assert!(validate_crawl_url("file:///etc/passwd").is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_url_rejects_localhost() {
+        assert!(validate_crawl_url("http://localhost/admin").is_err());
+        assert!(validate_crawl_url("http://127.0.0.1:8080").is_err());
+        assert!(validate_crawl_url("https://127.255.255.255").is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_url_rejects_private_ranges() {
+        assert!(validate_crawl_url("http://10.0.0.1").is_err());
+        assert!(validate_crawl_url("http://172.16.0.1").is_err());
+        assert!(validate_crawl_url("http://192.168.1.1").is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_url_rejects_link_local() {
+        // AWS metadata endpoint
+        assert!(validate_crawl_url("http://169.254.169.254/latest/meta-data/").is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_url_rejects_ipv6_loopback() {
+        assert!(validate_crawl_url("http://[::1]/").is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_url_rejects_zero_network() {
+        assert!(validate_crawl_url("http://0.0.0.0/").is_err());
+    }
+
+    #[test]
+    fn test_is_private_host_rejects_mapped_ipv4() {
+        assert!(is_private_host("::ffff:127.0.0.1"));
+        assert!(is_private_host("[::ffff:10.0.0.1]:8080"));
+    }
+
+    // ── robots.txt trailing slash tests ──
+
+    #[test]
+    fn test_robots_txt_trailing_slash_rule_matches_bare_path() {
+        let disallowed = vec!["/admin/".to_string()];
+        assert!(!WebCrawler::is_path_allowed(&disallowed, "/admin"));
+        assert!(!WebCrawler::is_path_allowed(&disallowed, "/admin/"));
+        assert!(!WebCrawler::is_path_allowed(&disallowed, "/admin/page"));
+    }
+
+    // ── resolve_url absolute URL passthrough tests ──
+
+    #[test]
+    fn test_resolve_url_passes_absolute_urls() {
+        assert_eq!(
+            resolve_url("https://example.com/base", "https://valid.com/page"),
+            "https://valid.com/page"
+        );
+        assert_eq!(
+            resolve_url("https://example.com/base", "http://other.com/path"),
+            "http://other.com/path"
         );
     }
 }

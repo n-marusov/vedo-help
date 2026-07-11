@@ -596,32 +596,54 @@ impl WebCrawlRepository {
     }
 
     /// Batch-update page status and http_status for all pages of a job.
+    /// Update the status of pages by job, optionally filtered by the current status.
+    /// When `filter_status` is `Some`, only pages with that status are updated.
+    /// This prevents resetting successfully indexed pages during a retry.
     pub async fn update_pages_status_by_job(
         &self,
         job_id: Uuid,
         status: &str,
         http_status: Option<i32>,
+        filter_status: Option<&str>,
     ) -> Result<u64, AppError> {
         tracing::debug!(
             component = "web_crawl/repository",
             job_id = %job_id,
             status = %status,
+            filter_status = ?filter_status,
             "update_pages_status.entry"
         );
 
-        let result = sqlx::query(
-            r#"
-            UPDATE web_crawl_pages
-            SET status = $1,
-                http_status = COALESCE($2, http_status)
-            WHERE job_id = $3
-            "#,
-        )
-        .bind(status)
-        .bind(http_status)
-        .bind(job_id)
-        .execute(&self.db)
-        .await
+        let result = if let Some(filter) = filter_status {
+            sqlx::query(
+                r#"
+                UPDATE web_crawl_pages
+                SET status = $1,
+                    http_status = COALESCE($2, http_status)
+                WHERE job_id = $3 AND status = $4
+                ""#,
+            )
+            .bind(status)
+            .bind(http_status)
+            .bind(job_id)
+            .bind(filter)
+            .execute(&self.db)
+            .await
+        } else {
+            sqlx::query(
+                r#"
+                UPDATE web_crawl_pages
+                SET status = $1,
+                    http_status = COALESCE($2, http_status)
+                WHERE job_id = $3
+                ""#,
+            )
+            .bind(status)
+            .bind(http_status)
+            .bind(job_id)
+            .execute(&self.db)
+            .await
+        }
         .map_err(|e| {
             tracing::error!(
                 component = "web_crawl/repository",
@@ -638,6 +660,53 @@ impl WebCrawlRepository {
             job_id = %job_id,
             updated = updated,
             "update_pages_status.exit"
+        );
+        Ok(updated)
+    }
+
+    /// Update the status of a single page by ID.
+    pub async fn update_page_status(
+        &self,
+        page_id: Uuid,
+        status: &str,
+        http_status: Option<i32>,
+    ) -> Result<u64, AppError> {
+        tracing::debug!(
+            component = "web_crawl/repository",
+            page_id = %page_id,
+            status = %status,
+            "update_page_status.entry"
+        );
+
+        let result = sqlx::query(
+            r#"
+            UPDATE web_crawl_pages
+            SET status = $1,
+                http_status = COALESCE($2, http_status)
+            WHERE id = $3
+            ""#,
+        )
+        .bind(status)
+        .bind(http_status)
+        .bind(page_id)
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                component = "web_crawl/repository",
+                error = %e,
+                query = "UPDATE web_crawl_pages SET status WHERE id",
+                "update_page_status.sql_error"
+            );
+            AppError::InternalError(format!("Failed to update page status: {e}"))
+        })?;
+
+        let updated = result.rows_affected();
+        tracing::debug!(
+            component = "web_crawl/repository",
+            page_id = %page_id,
+            updated = updated,
+            "update_page_status.exit"
         );
         Ok(updated)
     }
