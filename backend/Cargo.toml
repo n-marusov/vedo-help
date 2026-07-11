@@ -77,6 +77,7 @@ hex = "0.4"
 # Web crawling
 scraper = "0.22"
 robotstxt = "0.3"
+url = "2"
 
 # On Windows, bundle OpenSSL to avoid runtime crashes in libgit2
 # when system OpenSSL is missing or mismatched.

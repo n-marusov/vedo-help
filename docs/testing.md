@@ -1,4 +1,4 @@
-[← Deployment](deployment.md) · [Back to README](../README.md) · [Technical Spec →](technical-specification-rag-system.md)
+[← Deployment](deployment.md) · [Back to README](../README.md) · [Web Crawler →](web-crawler.md)
 
 # Тестирование
 

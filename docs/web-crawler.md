@@ -1,3 +1,5 @@
+[← Testing](testing.md) · [Back to README](../README.md) · [Monitoring →](monitoring.md)
+
 # Web Crawler & Site Ingestion
 
 > Feature overview for ingesting documents from websites via a BFS web crawler.
@@ -143,3 +145,9 @@ Streams real-time crawl progress as Server-Sent Events. Polls every 2 seconds an
 | No pages discovered | robots.txt blocking or wrong prefix | Check robots.txt and path prefix |
 | Unexpected pages | No path prefix set | Add path prefix to limit scope |
 | Slow crawl | Rate limiting delay | Reduce `delay_ms` in config |
+
+## See Also
+
+- [API Reference](api.md) — web crawl endpoints
+- [User Interface Guide](gui.md) — Admin panel source tabs
+- [Architecture](architecture.md) — ingestion data flow

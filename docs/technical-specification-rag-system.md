@@ -1,3 +1,5 @@
+[← C4 Architecture](c4-architecture.md) · [Back to README](../README.md)
+
 # Technical Specification: VEDO hub RAG Assistant (Personal Edition with CI)
 
 > **Version:** 1.1-personal-ci  

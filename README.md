@@ -22,25 +22,27 @@ open http://localhost:5173
 
 ## Key Features
 
-- **Multi-format ingestion** — Upload PDF, Markdown, and DOCX files singly or in ZIP batches (up to 50 MB)
-- **RAG pipeline** — Parse, chunk, embed (sentence-transformers), index into Chroma vector DB
-- **Grounded answers** — LLM responses with source citations from retrieved document chunks
-- **Collection management** — Create, delete, and switch between document collections
-- **Conversation history** — Persistent chat sessions with export and deletion
-- **Streaming responses** — SSE-based real-time answer generation in the Vue 3 UI
+- **Multi-format ingestion** — Upload PDF, Markdown, DOCX, text, HTML, JSON, CSV, and ZIP batches (up to 50 MB)
+- **Multi-source indexing** — Ingest manual uploads, Git repositories, and web crawls into Chroma
+- **Advanced RAG pipeline** — Multi-Query, HyDE, hybrid vector + BM25 keyword search, reranking, and citations
+- **Grounded answers** — Streaming SSE responses with source references from retrieved document chunks
+- **Admin operations** — Collections, documents, Git sync, web crawl jobs, health, statistics, and runtime settings
+- **Secure access** — KeyCloak OIDC login with guest/user/admin roles and audited API activity
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
 | Backend API | Rust (axum, sqlx, tokio) |
-| Embedding Service | Python (FastAPI, sentence-transformers) |
+| Embeddings | RouterAI-compatible `/v1/embeddings` API with local LRU cache |
 | Vector Database | Chroma |
 | Frontend | Vue 3 + TypeScript (Pinia, Vue Router) |
-| Metadata Storage | SQLite |
+| Metadata Storage | PostgreSQL 16 |
+| Authentication | KeyCloak 26 (OIDC/OAuth2, RBAC) |
 | Reverse Proxy | Caddy (auto TLS) |
+| Observability | OpenTelemetry, Prometheus, Grafana, cAdvisor |
 | CI/CD | GitHub Actions |
-| LLM Gateway | RouterAI API |
+| LLM Gateway | RouterAI API with fallback base URL |
 
 ---
 
@@ -56,7 +58,11 @@ open http://localhost:5173
 | [Configuration](docs/configuration.md) | Environment variables, Docker settings |
 | [Deployment](docs/deployment.md) | VPS setup, Docker Compose, CI/CD |
 | [Testing](docs/testing.md) | Manual test execution guide |
-| [Technical Spec](docs/technical-specification-rag-system.md) | Full system specification (source of truth) |
+| [Web Crawler](docs/web-crawler.md) | Website ingestion workflow and crawl job API |
+| [Monitoring](docs/monitoring.md) | Prometheus, Grafana, cAdvisor, OTel Collector |
+| [Runbook](docs/runbook.md) | Production operations and incident response |
+| [C4 Architecture](docs/c4-architecture.md) | C4 context, container, component, deployment diagrams |
+| [Technical Spec](docs/technical-specification-rag-system.md) | Full system specification and requirements |
 
 ## License
 

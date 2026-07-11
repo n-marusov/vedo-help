@@ -121,21 +121,11 @@ impl WebCrawlService {
         let svc = self.clone();
         tokio::spawn(async move {
             let cancel_rx = cancel_tx.subscribe();
-            let (progress_tx, _) = broadcast::channel::<CrawlProgress>(32);
 
             let config: CrawlConfig =
                 serde_json::from_value(job.config.clone()).unwrap_or_default();
 
-            let result = svc
-                .crawler
-                .crawl(
-                    &job.entry_url,
-                    &config,
-                    progress_tx,
-                    cancel_rx,
-                    job.collection_id,
-                )
-                .await;
+            let result = svc.crawler.crawl(&job.entry_url, &config, cancel_rx).await;
 
             match result {
                 Ok(pages) => {
@@ -191,6 +181,32 @@ impl WebCrawlService {
                                     error = %e,
                                     url = %page.url,
                                     "start_crawl.update_page_status_failed"
+                                );
+                            }
+                            svc.set_crawl_progress(
+                                job_id,
+                                CrawlProgress {
+                                    pages_found: total,
+                                    pages_indexed: indexed,
+                                    current_url: page.url.clone(),
+                                    phase: "indexing".to_string(),
+                                },
+                            );
+                            continue;
+                        }
+
+                        // Skip pages with empty or very short content
+                        if page.text.trim().is_empty() || page.text.len() < 50 {
+                            if let Err(e) = svc
+                                .repo
+                                .update_page_status(crawl_page.id, "crawled", page.http_status)
+                                .await
+                            {
+                                tracing::error!(
+                                    component = "web_crawl/service",
+                                    error = %e,
+                                    url = %page.url,
+                                    "start_crawl.update_page_status_crawled_failed"
                                 );
                             }
                             svc.set_crawl_progress(

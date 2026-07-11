@@ -4167,6 +4167,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "url",
  "uuid",
  "walkdir",
  "zip 2.4.2",

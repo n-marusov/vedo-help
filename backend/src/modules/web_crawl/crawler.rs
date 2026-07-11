@@ -7,9 +7,8 @@ use reqwest::Client;
 use scraper::{Html, Selector};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
-use uuid::Uuid;
 
-use crate::modules::web_crawl::models::{CrawlConfig, CrawlProgress, CrawledPage};
+use crate::modules::web_crawl::models::{CrawlConfig, CrawledPage};
 use crate::shared::error::AppError;
 
 /// Web crawler using BFS with same-domain enforcement, depth/pages limits,
@@ -56,15 +55,13 @@ impl WebCrawler {
     /// Crawl a site starting from `entry_url` using BFS.
     ///
     /// Returns a list of crawled pages with extracted text content.
-    /// Sends progress updates via `progress_tx` and respects cancellation via `cancel_rx`.
+    /// Respects cancellation via `cancel_rx`.
     #[allow(clippy::too_many_arguments)]
     pub async fn crawl(
         &self,
         entry_url: &str,
         config: &CrawlConfig,
-        progress_tx: broadcast::Sender<CrawlProgress>,
         mut cancel_rx: broadcast::Receiver<()>,
-        _collection_id: Uuid,
     ) -> Result<Vec<CrawledPage>, AppError> {
         let origin = Self::extract_origin(entry_url);
         let max_depth = config.max_depth;
@@ -75,13 +72,10 @@ impl WebCrawler {
         let mut visited: HashSet<String> = HashSet::new();
         let mut queue: VecDeque<(String, u32)> = VecDeque::new();
         let mut results: Vec<CrawledPage> = Vec::new();
-        let base_depth = 0u32;
 
         // Normalize entry URL and add to queue
         let normalized_entry = normalize_url(entry_url);
-        queue.push_back((normalized_entry.clone(), base_depth));
-
-        let mut pages_discovered: i32 = 0;
+        queue.push_back((normalized_entry.clone(), 0));
 
         while let Some((url, depth)) = queue.pop_front() {
             // Check cancellation
@@ -160,16 +154,6 @@ impl WebCrawler {
 
             // Rate limit
             sleep(delay).await;
-
-            // Update progress
-            pages_discovered += 1;
-            let progress = CrawlProgress {
-                pages_found: pages_discovered,
-                pages_indexed: 0,
-                current_url: url.clone(),
-                phase: "crawling".to_string(),
-            };
-            let _ = progress_tx.send(progress);
 
             // Fetch page
             let response = match self.client.get(&url).send().await {
@@ -627,10 +611,41 @@ impl ContentExtractor {
     }
 }
 
-/// Normalize a URL by stripping the fragment and removing trailing slashes.
+/// Normalize a URL by stripping the fragment, sorting query parameters,
+/// and removing trailing slashes.
 pub fn normalize_url(url: &str) -> String {
-    let without_fragment = url.split('#').next().unwrap_or(url);
-    without_fragment.trim_end_matches('/').to_string()
+    // Parse with url::Url for proper normalization
+    match url::Url::parse(url) {
+        Ok(mut parsed) => {
+            // Remove fragment
+            parsed.set_fragment(None);
+
+            // Sort query parameters for consistent deduplication
+            // (e.g., ?b=2&a=1 becomes ?a=1&b=2)
+            let mut pairs: Vec<(String, String)> = parsed
+                .query_pairs()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
+            if !pairs.is_empty() {
+                pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
+                let sorted_query: String = pairs
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<_>>()
+                    .join("&");
+                parsed.set_query(Some(&sorted_query));
+            }
+
+            // Remove trailing slash from path (preserving empty path)
+            let path = parsed.path().to_string();
+            if path.len() > 1 && path.ends_with('/') {
+                parsed.set_path(path.trim_end_matches('/'));
+            }
+
+            parsed.to_string()
+        }
+        Err(_) => url.to_string(),
+    }
 }
 
 /// Check if a hostname is a private/loopback/link-local address that must not be crawled.
@@ -781,11 +796,23 @@ pub fn validate_crawl_url(url: &str) -> Result<(), String> {
 }
 
 /// Check if a URL belongs to the same domain as the entry URL.
+/// Compares scheme + host + port for exact match.
 /// Performs exact domain match — subdomains are NOT considered the same domain.
 pub fn is_same_domain(url: &str, entry_url: &str) -> bool {
-    // Remove trailing slash from entry_url for consistent matching
-    let entry = entry_url.trim_end_matches('/');
-    url.starts_with(&format!("{}/", entry)) || url == entry
+    let parsed_url = url::Url::parse(url).ok();
+    let parsed_entry = url::Url::parse(entry_url).ok();
+
+    match (parsed_url, parsed_entry) {
+        (Some(u), Some(e)) => {
+            // Compare scheme + host + port for an exact match
+            u.scheme() == e.scheme() && u.host_str() == e.host_str() && u.port() == e.port()
+        }
+        _ => {
+            // Fallback: string-based check for malformed URLs
+            let entry = entry_url.trim_end_matches('/');
+            url.starts_with(&format!("{}/", entry)) || url == entry
+        }
+    }
 }
 
 /// Check if the URL's path starts with the given prefix.
