@@ -1,0 +1,61 @@
+# Prometheus configuration for VEDO hub RAG Assistant
+# Scrapes cAdvisor for container metrics and OTel collector for application metrics.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+  # External labels for cross-system correlation
+  external_labels:
+    environment: production
+    cluster: vedo-hub
+
+# Alerting configuration (placeholder — add alertmanager later)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Rule files (optional)
+rule_files: []
+
+scrape_configs:
+  # cAdvisor — container-level resource metrics (CPU, memory, network, disk)
+  - job_name: cadvisor
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - cadvisor:8080
+        labels:
+          service: infrastructure
+
+  # OTel collector — application-level metrics (Rust/Python via OTLP → prometheus exporter)
+  - job_name: otel-collector
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - otel-collector:9090
+        labels:
+          service: application
+
+  # Backend — direct metrics endpoint (if available)
+  - job_name: backend
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - backend:3000
+        labels:
+          service: backend
+    metrics_path: /metrics
+    # Ignore missing /metrics endpoint — backend may not expose one yet
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__scheme__]
+        target_label: __scheme__
+    # Fallback: skip if /metrics returns non-200
+    # Prometheus handles this by marking the target as down

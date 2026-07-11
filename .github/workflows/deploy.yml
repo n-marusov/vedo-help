@@ -1,0 +1,213 @@
+# Deploy — Docker build, registry push, and VPS deploy
+#
+# Triggered on:
+#   - Push to `main` (after CI passes)
+#   - Tag push matching `v*` (e.g. v1.0.0)
+#
+# Required GitHub secrets:
+#   DEPLOY_HOST: SSH user@host for production VPS
+#   DEPLOY_SSH_KEY: SSH private key for VPS access
+#   DEPLOY_KNOWN_HOSTS: SSH host keys for DEPLOY_HOST
+#   DEPLOY_PATH: Project directory on the VPS
+#
+# Optional GitHub secrets (fallback to defaults in CI):
+#   LLM_API_KEY: required if running E2E against Docker stack
+#   VEDO_DB_PASSWORD, KEYCLOAK_DB_PASSWORD, etc.: for .env.test
+#
+# Jobs:
+#   1. build-and-push — multi-arch Docker images, cache via BuildKit
+#   2. e2e — Playwright E2E against the test Docker stack (depends on build)
+#   3. deploy — SSH into VPS, pull new images, roll update (main only)
+#   4. release — GitHub Release with changelog (tags only)
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_USER: ${{ github.actor }}
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  build-and-push:
+    name: Build & push Docker images
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Extract metadata (frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  e2e:
+    name: E2E tests (Docker stack)
+    needs: build-and-push
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start test Docker stack
+        run: |
+          docker compose --env-file .env.test -f docker-compose.test.yml up -d --quiet-pull
+
+      - name: Wait for all services healthy
+        run: |
+          chmod +x scripts/check-container-health.sh
+          for i in $(seq 1 30); do
+            if bash scripts/check-container-health.sh docker-compose.test.yml; then
+              echo "All services healthy after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Timed out waiting for services"
+              docker compose --env-file .env.test -f docker-compose.test.yml ps
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Run Playwright E2E tests
+        run: |
+          docker compose --env-file .env.test -f docker-compose.test.yml \
+            --profile test-runner run --rm frontend-tests
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose --env-file .env.test -f docker-compose.test.yml down -v
+
+  deploy:
+    name: Deploy to VPS
+    needs: e2e
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known_hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          if_key_exists: replace
+
+      - name: Pull new images and roll update
+        run: |
+          ssh -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_HOST }}" "
+            cd ${{ secrets.DEPLOY_PATH }} &&
+            docker compose -f docker-compose.yml -f docker-compose.production.yml pull backend frontend &&
+            docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --no-deps --pull always backend frontend
+          "
+
+      - name: Wait for health and smoke test
+        run: |
+          sleep 15
+          ssh -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_HOST }}" "
+            cd ${{ secrets.DEPLOY_PATH }} &&
+            bash scripts/smoke-test.sh --production --quick
+          "
+
+      - name: Prune old images
+        run: |
+          ssh -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_HOST }}" "
+            docker image prune -f
+          "
+
+  release:
+    name: Create GitHub Release
+    needs: build-and-push
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify multi-arch manifest
+        run: |
+          docker buildx imagetools inspect ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          docker buildx imagetools inspect ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          configuration: |
+            {
+              "categories": [
+                {"title": "Features", "labels": ["feat", "feature"]},
+                {"title": "Bug Fixes", "labels": ["fix", "bug"]},
+                {"title": "Documentation", "labels": ["docs"]},
+                {"title": "Chores", "labels": ["chore"]}
+              ]
+            }
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          generate_release_notes: false

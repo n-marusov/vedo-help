@@ -33,6 +33,14 @@ exporters:
     sampling_initial: 5
     sampling_thereafter: 200
 
+  prometheus:
+    endpoint: 0.0.0.0:9090
+    namespace: vedo
+    const_labels:
+      environment: ${ENVIRONMENT}
+    resource_to_telemetry_conversion:
+      enabled: true
+
 service:
   pipelines:
     logs:
@@ -60,3 +68,4 @@ service:
         - batch
       exporters:
         - debug
+        - prometheus

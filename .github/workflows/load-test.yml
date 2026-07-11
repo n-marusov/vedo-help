@@ -1,0 +1,148 @@
+# Load test workflow — manual trigger via workflow_dispatch
+# Spins up the Docker test stack, runs k6 scenarios, and publishes results.
+#
+# Required GitHub secrets:
+#   LLM_API_KEY: RouterAI API key for LLM queries
+#   POSTGRES_PASSWORD, VEDO_DB_PASSWORD, KEYCLOAK_DB_PASSWORD: PostgreSQL passwords
+#   VEDO_BACKEND_CLIENT_SECRET: KeyCloak client secret for backend service
+
+name: Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Load test scenario to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+          - soak
+          - full
+      base_url:
+        description: 'Base URL for tests (default: http://backend:3000)'
+        required: false
+        default: 'http://localhost:3000'
+      collection_id:
+        description: 'Collection ID for queries (optional)'
+        required: false
+        default: ''
+
+jobs:
+  k6:
+    name: k6 — ${{ github.event.inputs.scenario || 'load' }}
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env.test from secrets
+        run: |
+          cat > .env.test << EOF
+          LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD || 'test-postgres-password' }}
+          VEDO_DB_PASSWORD=${{ secrets.VEDO_DB_PASSWORD || 'test-vedo-password' }}
+          KEYCLOAK_DB_PASSWORD=${{ secrets.KEYCLOAK_DB_PASSWORD || 'test-keycloak-password' }}
+          VEDO_BACKEND_CLIENT_SECRET=${{ secrets.VEDO_BACKEND_CLIENT_SECRET || 'test-vedo-backend-secret' }}
+          VEDO_ADMIN_PASSWORD=admin
+          VEDO_ALICE_PASSWORD=password
+          VEDO_GUEST_PASSWORD=guest
+          EOF
+
+      - name: Start Docker test stack
+        run: |
+          docker compose --env-file .env.test -f docker-compose.test.yml up -d --quiet-pull
+
+      - name: Wait for all services healthy
+        run: |
+          for i in $(seq 1 30); do
+            if bash scripts/check-container-health.sh docker-compose.test.yml; then
+              echo "All services healthy after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Timed out waiting for services"
+              docker compose --env-file .env.test -f docker-compose.test.yml ps
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Install k6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/k6.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/k6.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run k6 — ${{ github.event.inputs.scenario || 'load' }}
+        id: k6_run
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:3000' }}
+          COLLECTION_ID: ${{ github.event.inputs.collection_id || '' }}
+        run: |
+          mkdir -p load-tests/results
+
+          SCENARIO="${{ github.event.inputs.scenario || 'load' }}"
+
+          case "$SCENARIO" in
+            smoke)
+              k6 run --out json=load-tests/results/smoke.json load-tests/smoke-test.js \
+                --summary-export=load-tests/results/smoke-summary.json
+              ;;
+            load)
+              k6 run --out json=load-tests/results/load.json load-tests/load-test.js \
+                --summary-export=load-tests/results/load-summary.json
+              ;;
+            stress)
+              k6 run --out json=load-tests/results/stress.json load-tests/stress-test.js \
+                --summary-export=load-tests/results/stress-summary.json
+              ;;
+            soak)
+              k6 run --out json=load-tests/results/soak.json load-tests/soak-test.js \
+                --summary-export=load-tests/results/soak-summary.json
+              ;;
+            full)
+              k6 run --out json=load-tests/results/smoke.json load-tests/smoke-test.js \
+                --summary-export=load-tests/results/smoke-summary.json
+              k6 run --out json=load-tests/results/load.json load-tests/load-test.js \
+                --summary-export=load-tests/results/load-summary.json
+              k6 run --out json=load-tests/results/stress.json load-tests/stress-test.js \
+                --summary-export=load-tests/results/stress-summary.json
+              k6 run --out json=load-tests/results/soak.json load-tests/soak-test.js \
+                --summary-export=load-tests/results/soak-summary.json
+              ;;
+          esac
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results-${{ github.event.inputs.scenario || 'load' }}
+          path: load-tests/results/
+
+      - name: Teardown
+        if: always()
+        run: docker compose --env-file .env.test -f docker-compose.test.yml down -v
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "## k6 Load Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scenario:** ${{ github.event.inputs.scenario || 'load' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Base URL:** ${{ github.event.inputs.base_url || 'http://localhost:3000' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if ls load-tests/results/*-summary.json 2>/dev/null; then
+            for f in load-tests/results/*-summary.json; do
+              echo "### $(basename $f)" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              cat "$f" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            done
+          fi

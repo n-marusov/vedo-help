@@ -1,5 +1,8 @@
 # VEDO hub RAG Assistant
 
+[![CI](https://img.shields.io/github/actions/workflow/status/vedo-hub/vedo-rag-assistant/ci.yml?branch=main&label=CI)](https://github.com/vedo-hub/vedo-rag-assistant/actions)
+![Production](https://img.shields.io/badge/status-production-green)
+
 > AI-powered Q&A system for technical documentation with RAG.
 
 Ingest PDF, Markdown, and DOCX documents — index them in a vector database — ask questions and get grounded answers with citations via an LLM.

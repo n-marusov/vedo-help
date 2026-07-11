@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # Test environment secrets (configure in GitHub repository secrets)
+  # LLM_API_KEY: required for Docker stack tests
+  # POSTGRES_PASSWORD, VEDO_DB_PASSWORD, KEYCLOAK_DB_PASSWORD: required
+  # VEDO_BACKEND_CLIENT_SECRET: required
+
 jobs:
   compose-lint:
     name: Docker Compose config lint
@@ -26,9 +32,6 @@ jobs:
   playwright:
     name: Playwright E2E
     runs-on: ubuntu-22.04
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
@@ -43,15 +46,51 @@ jobs:
         run: corepack enable && corepack prepare pnpm@11.9.0 --activate
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: cd frontend && pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: cd frontend && npx playwright install --with-deps chromium
 
       - name: Build frontend
-        run: pnpm run build
+        run: cd frontend && pnpm run build
+
+      - name: Start Docker test stack
+        run: |
+          # Create .env.test from available secrets
+          cat > .env.test << 'EOF'
+          LLM_API_KEY=${{ secrets.LLM_API_KEY }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD || 'test-postgres-password' }}
+          VEDO_DB_PASSWORD=${{ secrets.VEDO_DB_PASSWORD || 'test-vedo-password' }}
+          KEYCLOAK_DB_PASSWORD=${{ secrets.KEYCLOAK_DB_PASSWORD || 'test-keycloak-password' }}
+          VEDO_BACKEND_CLIENT_SECRET=${{ secrets.VEDO_BACKEND_CLIENT_SECRET || 'test-vedo-backend-secret' }}
+          VEDO_ADMIN_PASSWORD=admin
+          VEDO_ALICE_PASSWORD=password
+          VEDO_GUEST_PASSWORD=guest
+          EOF
+          docker compose --env-file .env.test -f docker-compose.test.yml up -d --quiet-pull
+
+      - name: Wait for all services healthy
+        run: |
+          for i in $(seq 1 30); do
+            if bash scripts/check-container-health.sh docker-compose.test.yml; then
+              echo "All services healthy after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Timed out waiting for services"
+              docker compose --env-file .env.test -f docker-compose.test.yml ps
+              exit 1
+            fi
+            sleep 2
+          done
 
       - name: Run Playwright tests (chromium)
-        run: pnpm run test:e2e --project=chromium
+        run: cd frontend && pnpm run test:e2e --project=chromium
         env:
           CI: true
+          VITE_API_PROXY_TARGET: http://localhost:13000
+          VITE_KEYCLOAK_PROXY_TARGET: http://localhost:18080
+
+      - name: Teardown
+        if: always()
+        run: docker compose --env-file .env.test -f docker-compose.test.yml down -v

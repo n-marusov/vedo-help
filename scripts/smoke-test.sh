@@ -5,9 +5,12 @@
 # Runs a full startup smoke test: compose up + port checks + health endpoints.
 #
 # Usage:
-#   ./scripts/smoke-test.sh            # full smoke test (no teardown)
-#   ./scripts/smoke-test.sh --cleanup  # teardown only
-#   ./scripts/smoke-test.sh --full     # full test + teardown
+#   ./scripts/smoke-test.sh                       # development smoke test (no teardown)
+#   ./scripts/smoke-test.sh --cleanup             # teardown only
+#   ./scripts/smoke-test.sh --full                # development test + teardown
+#   ./scripts/smoke-test.sh --production          # production smoke test (uses -f docker-compose.production.yml)
+#   ./scripts/smoke-test.sh --production --full   # production test + teardown
+#   ./scripts/smoke-test.sh --quick               # quick smoke (health endpoints only)
 #
 # Exit codes:
 #   0 — all checks passed
@@ -19,6 +22,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+COMPOSE_PROD_FILE="$PROJECT_DIR/docker-compose.production.yml"
+
+# Determine compose files to use
+COMPOSE_FILES=(-f "$COMPOSE_FILE")
+MODE="development"
+IS_PRODUCTION=false
 
 # Colors
 RED='\033[0;31m'
@@ -51,12 +60,21 @@ check_compose_file() {
         return 1
     fi
     pass "docker-compose.yml found"
+
+    if $IS_PRODUCTION; then
+        if [[ ! -f "$COMPOSE_PROD_FILE" ]]; then
+            fail "docker-compose.production.yml not found at $COMPOSE_PROD_FILE"
+            return 1
+        fi
+        pass "docker-compose.production.yml found"
+    fi
+
     return 0
 }
 
 start_services() {
     info "Starting all services via docker compose..."
-    docker compose -f "$COMPOSE_FILE" up --build -d 2>&1 || {
+    docker compose "${COMPOSE_FILES[@]}" up --build -d 2>&1 || {
         fail "docker compose up failed"
         return 1
     }
@@ -73,13 +91,13 @@ wait_for_service() {
     while [[ $attempt -lt $max_attempts ]]; do
         # Check container health via Docker Compose healthcheck status
         local status
-        status=$(docker compose -f "$COMPOSE_FILE" ps --format json "$service" 2>/dev/null | python -c "import sys,json; print(json.load(sys.stdin).get('Health',''))" 2>/dev/null || echo "")
+        status=$(docker compose "${COMPOSE_FILES[@]}" ps --format json "$service" 2>/dev/null | python -c "import sys,json; print(json.load(sys.stdin).get('Health',''))" 2>/dev/null || echo "")
         if [[ "$status" == "healthy" ]]; then
             pass "$name is healthy"
             return 0
         fi
         # Fallback: check if container is running and log no crash
-        if docker compose -f "$COMPOSE_FILE" ps "$service" 2>/dev/null | grep -q "Up"; then
+        if docker compose "${COMPOSE_FILES[@]}" ps "$service" 2>/dev/null | grep -q "Up"; then
             sleep 2
             ((attempt+=2)) || true
             continue
@@ -90,7 +108,7 @@ wait_for_service() {
 
     # Final attempt with verbose output
     info "Last attempt — checking $name logs..."
-    docker compose -f "$COMPOSE_FILE" logs --tail=20 "$service" 2>/dev/null || true
+    docker compose "${COMPOSE_FILES[@]}" logs --tail=20 "$service" 2>/dev/null || true
 
     fail "$name did not become healthy within ${max_attempts}s"
     return 1
@@ -105,39 +123,111 @@ check_health_endpoints() {
         pass "Backend /health — 200 OK"
     else
         fail "Backend /health failed"
-        docker compose -f "$COMPOSE_FILE" logs --tail=10 backend 2>/dev/null || true
+        docker compose "${COMPOSE_FILES[@]}" logs --tail=10 backend 2>/dev/null || true
         all_ok=false
     fi
 
-    # Frontend serves on 80
+    # Frontend responds — try port 80 (production/CI), fall back to 5173 (dev override)
+    local frontend_port=80
     info "Checking frontend (nginx) responds..."
-    if curl -sf "http://localhost:80/" >/dev/null 2>&1; then
-        pass "Frontend (nginx) — 200 OK"
+    if curl -sf "http://localhost:${frontend_port}/" >/dev/null 2>&1; then
+        pass "Frontend (nginx) — 200 OK on port ${frontend_port}"
+    elif curl -sf "http://localhost:5173/" >/dev/null 2>&1; then
+        frontend_port=5173
+        pass "Frontend (Vite dev) — 200 OK on port ${frontend_port}"
     else
-        fail "Frontend (nginx) failed"
-        docker compose -f "$COMPOSE_FILE" logs --tail=10 frontend 2>/dev/null || true
+        fail "Frontend failed (tried ports 80 and 5173)"
+        docker compose "${COMPOSE_FILES[@]}" logs --tail=10 frontend 2>/dev/null || true
         all_ok=false
     fi
 
-    $all_ok
+    # KeyCloak health (token endpoint)
+    info "Checking KeyCloak health..."
+    if curl -sf "http://localhost:8080/realms/vedo/.well-known/openid-configuration" >/dev/null 2>&1; then
+        pass "KeyCloak — realm reachable"
+    else
+        fail "KeyCloak health check failed"
+        docker compose "${COMPOSE_FILES[@]}" logs --tail=10 keycloak 2>/dev/null || true
+        all_ok=false
+    fi
+
+    # PostgreSQL health
+    info "Checking PostgreSQL health..."
+    if docker compose "${COMPOSE_FILES[@]}" exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+        pass "PostgreSQL — pg_isready"
+    else
+        fail "PostgreSQL health check failed"
+        all_ok=false
+    fi
+
+    # OTel collector health (gRPC port probe via HTTP extension)
+    info "Checking OTel collector health..."
+    if docker compose "${COMPOSE_FILES[@]}" exec -T otel-collector wget -q -O /dev/null http://localhost:13133 2>/dev/null || \
+       docker compose "${COMPOSE_FILES[@]}" ps --format json otel-collector 2>/dev/null | python -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('Health')=='healthy' else 1)" 2>/dev/null; then
+        pass "OTel collector — healthy"
+    else
+        # Fallback: check container is up
+        if docker compose "${COMPOSE_FILES[@]}" ps otel-collector 2>/dev/null | grep -q "Up"; then
+            pass "OTel collector — running (no health endpoint)"
+        else
+            fail "OTel collector not running"
+            all_ok=false
+        fi
+    fi
+
+    # Caddy routing verification (production mode only)
+    if $IS_PRODUCTION; then
+        info "Checking Caddy routing..."
+        if curl -sf "http://localhost:80/api/health" >/dev/null 2>&1; then
+            pass "Caddy — routes /api/* to backend"
+        else
+            fail "Caddy routing check failed"
+            docker compose "${COMPOSE_FILES[@]}" logs --tail=10 caddy 2>/dev/null || true
+            all_ok=false
+        fi
+
+        info "Checking Caddy serves frontend..."
+        if curl -sf "http://localhost:80/" >/dev/null 2>&1; then
+            pass "Caddy — serves frontend"
+        else
+            fail "Caddy frontend routing failed"
+            all_ok=false
+        fi
+    else
+        info "Skipping Caddy routing checks (development mode — no Caddy)"
+    fi
+
+    if ! $all_ok; then
+        return 1
+    fi
+    return 0
 }
 
 check_no_crash_loops() {
     local all_ok=true
+    local services=(chroma backend frontend)
 
-    for service in chroma backend frontend; do
+    # In production mode, also check Caddy and keycloak
+    if $IS_PRODUCTION; then
+        services+=(caddy keycloak)
+    fi
+
+    for service in "${services[@]}"; do
         local restart_count
-        restart_count=$(docker compose -f "$COMPOSE_FILE" ps --format json "$service" 2>/dev/null | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('RestartCount',0))" 2>/dev/null || echo "0")
+        restart_count=$(docker compose "${COMPOSE_FILES[@]}" ps --format json "$service" 2>/dev/null | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('RestartCount',0))" 2>/dev/null || echo "0")
         if [[ "$restart_count" -gt 2 ]]; then
             fail "$service has restarted $restart_count times (crash loop?)"
-            docker compose -f "$COMPOSE_FILE" logs --tail=20 "$service" 2>/dev/null || true
+            docker compose "${COMPOSE_FILES[@]}" logs --tail=20 "$service" 2>/dev/null || true
             all_ok=false
         else
             pass "$service restart count: $restart_count"
         fi
     done
 
-    $all_ok
+    if ! $all_ok; then
+        return 1
+    fi
+    return 0
 }
 
 check_service_logs_no_errors() {
@@ -145,21 +235,24 @@ check_service_logs_no_errors() {
 
     # Backend should have no ERROR-level logs after startup
     local errors
-    errors=$(docker compose -f "$COMPOSE_FILE" logs --tail=50 backend 2>/dev/null | grep -c '"level":"ERROR"' || true)
+    errors=$(docker compose "${COMPOSE_FILES[@]}" logs --tail=50 backend 2>/dev/null | grep -c '"level":"ERROR"' || true)
     if [[ "$errors" -gt 0 ]]; then
         fail "Backend logs contain $errors ERROR entries"
-        docker compose -f "$COMPOSE_FILE" logs --tail=30 backend 2>/dev/null | grep '"level":"ERROR"' || true
+        docker compose "${COMPOSE_FILES[@]}" logs --tail=30 backend 2>/dev/null | grep '"level":"ERROR"' || true
         all_ok=false
     else
         pass "Backend logs have no ERROR entries"
     fi
 
-    $all_ok
+    if ! $all_ok; then
+        return 1
+    fi
+    return 0
 }
 
 cleanup() {
     info "Stopping and removing containers..."
-    docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+    docker compose "${COMPOSE_FILES[@]}" down -v 2>/dev/null || true
     pass "Cleanup complete"
 }
 
@@ -169,17 +262,24 @@ cleanup() {
 
 DO_CLEANUP=false
 DO_FULL=false
+DO_QUICK=false
 
 for arg in "$@"; do
     case "$arg" in
-        --cleanup) DO_CLEANUP=true ;;
-        --full)    DO_FULL=true ;;
+        --cleanup)    DO_CLEANUP=true ;;
+        --full)       DO_FULL=true ;;
+        --quick)      DO_QUICK=true ;;
+        --production|-p)
+            IS_PRODUCTION=true
+            MODE="production"
+            COMPOSE_FILES=(-f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE")
+            ;;
         *)         echo "Unknown option: $arg"; exit 1 ;;
     esac
 done
 
 echo "═══════════════════════════════════════════════════════════════"
-echo "  VEDO hub — Smoke Test"
+echo "  VEDO hub — Smoke Test ($MODE)"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 
@@ -187,6 +287,25 @@ echo ""
 if $DO_CLEANUP && ! $DO_FULL; then
     cleanup
     exit 0
+fi
+
+# Phase 0: Quick check (health endpoints only, no service management)
+if $DO_QUICK; then
+    info "Phase 0: Quick health check"
+    check_health_endpoints || ((FAILURES++))
+    echo ""
+    # Still check for crash loops in quick mode
+    check_no_crash_loops || ((FAILURES++))
+    echo ""
+    # Summary for quick mode
+    echo "═══════════════════════════════════════════════════════════════"
+    if [[ "$FAILURES" -eq 0 ]]; then
+        echo -e "  ${GREEN}All quick smoke checks passed!${NC}"
+    else
+        echo -e "  ${RED}$FAILURES quick smoke check failure(s)${NC}"
+    fi
+    echo "═══════════════════════════════════════════════════════════════"
+    exit "$FAILURES"
 fi
 
 # Phase 1: Prerequisites
@@ -204,6 +323,8 @@ echo ""
 info "Phase 3: Service health checks"
 wait_for_service "Chroma"     "chroma"    || ((FAILURES++))
 wait_for_service "Backend"    "backend"   || ((FAILURES++))
+wait_for_service "KeyCloak"   "keycloak"  || ((FAILURES++))
+wait_for_service "PostgreSQL" "db"        || ((FAILURES++))
 echo ""
 
 # Phase 4: Endpoint verification

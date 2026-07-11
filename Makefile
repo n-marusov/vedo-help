@@ -2,14 +2,53 @@
 .PHONY: dev-up dev-down prod-up prod-down docker-logs docker-health docker-shell
 .PHONY: dev-build dev-build-backend dev-build-frontend build-all
 .PHONY: prod-build prod-build-backend prod-build-frontend
+.PHONY: backup restore backup-schedule
+.PHONY: smoke prod-smoke docker-login docker-push deploy
+.PHONY: load-test load-test-full load-test-compare
 
 # VEDO hub RAG Assistant — Makefile
+
+# Default container registry namespace
+REGISTRY_NS ?= ghcr.io/vedo
+# Default version tag for docker-push
+VERSION ?= $(shell git rev-parse --short HEAD)
 
 # === Smoke Test ===
 
 smoke: ## Run smoke tests (start services via Docker Compose and verify health)
 	@echo "Running smoke tests..."
 	@bash scripts/smoke-test.sh --full
+
+prod-smoke: ## Run smoke tests with production compose profile
+	@echo "Running production smoke tests..."
+	@bash scripts/smoke-test.sh --production --full
+
+# === Docker Registry ===
+
+docker-login: ## Log in to GitHub Container Registry (usage: make docker-login GITHUB_TOKEN=ghp_...)
+	@echo "Logging in to ghcr.io..."
+	@echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_USER:-$(shell whoami)}" --password-stdin
+
+docker-push: ## Build & push images to registry (usage: REGISTRY_NS=ghcr.io/my-org make docker-push VERSION=v1.0.0)
+	@echo "Building and pushing images..."
+	docker compose build --parallel
+	@for svc in backend frontend; do \
+		img=$$(docker compose images -q $$svc); \
+		if [ -z "$$img" ]; then \
+			echo "ERROR: No image found for $$svc — was the build successful?"; \
+			exit 1; \
+		fi; \
+		docker tag "$$img" $(REGISTRY_NS)/$$svc:$(VERSION); \
+		docker push $(REGISTRY_NS)/$$svc:$(VERSION); \
+	done
+
+deploy: ## Deploy to production VPS (run smoke tests before deploy)
+	@echo "Running pre-deploy smoke tests..."
+	@bash scripts/smoke-test.sh --production --quick
+	@echo ""
+	@echo "To deploy via CI, push to main: git push origin main"
+	@echo "To deploy manually:"
+	@echo "  ssh <host> 'cd <project-dir> && docker compose pull && docker compose up -d --no-deps backend frontend'"
 
 # === Docker Development ===
 
@@ -72,6 +111,76 @@ docker-shell: ## Open shell in a container (usage: make docker-shell SVC=backend
 
 docker-clean: ## Remove all stopped containers and unused volumes
 	docker compose down -v --remove-orphans
+
+# === Backup & Restore ===
+
+backup: ## Run backup script (usage: make backup ARGS="--prod")
+	bash scripts/backup.sh $(ARGS)
+
+restore: ## Run restore script (usage: make restore ARGS="<vedo_dump> <keycloak_dump> [chroma_archive]")
+	bash scripts/restore.sh $(ARGS)
+
+backup-schedule: ## Print instructions for scheduling automated backups
+	@echo "To schedule daily backups, add a cron job or systemd timer:"
+	@echo ""
+	@echo "  # ── Cron (daily at 2am) ──────────────────────────────────"
+	@echo "  0 2 * * * cd $(PWD) && bash scripts/backup.sh --prod >> /var/log/vedo-backup.log 2>&1"
+	@echo ""
+	@echo "  # ── systemd timer (daily at 2am) ─────────────────────────"
+	@echo "  # /etc/systemd/system/vedo-backup.service"
+	@echo "  [Unit]"
+	@echo "  Description=VEDO hub daily backup"
+	@echo "  [Service]"
+	@echo "  Type=oneshot"
+	@echo "  WorkingDirectory=$(PWD)"
+	@echo "  ExecStart=/usr/bin/bash scripts/backup.sh --prod"
+	@echo "  StandardOutput=append:/var/log/vedo-backup.log"
+	@echo "  StandardError=append:/var/log/vedo-backup.log"
+	@echo ""
+	@echo "  # /etc/systemd/system/vedo-backup.timer"
+	@echo "  [Unit]"
+	@echo "  Description=Daily VEDO hub backup timer"
+	@echo "  [Timer]"
+	@echo "  OnCalendar=daily"
+	@echo "  Persistent=true"
+	@echo "  [Install]"
+	@echo "  WantedBy=timers.target"
+	@echo ""
+	@echo "  # Enable:"
+	@echo "  sudo systemctl daemon-reload"
+	@echo "  sudo systemctl enable --now vedo-backup.timer"
+	@echo ""
+	@echo "  # Verify:"
+	@echo "  sudo systemctl list-timers --all | grep vedo"
+
+# === Load Testing ===
+
+load-test: ## Run smoke + load test scenarios
+	@echo "Running load tests (smoke + load)..."
+	k6 run load-tests/smoke-test.js
+	@echo "Smoke test passed. Running load test..."
+	k6 run load-tests/load-test.js
+
+load-test-full: ## Run all 4 load test scenarios (smoke, load, stress, soak)
+	@echo "Running full load test suite..."
+	k6 run load-tests/smoke-test.js
+	@echo ""
+	@echo "=== Load Test ==="
+	k6 run load-tests/load-test.js
+	@echo ""
+	@echo "=== Stress Test ==="
+	k6 run load-tests/stress-test.js
+	@echo ""
+	@echo "=== Soak Test (30 min) ==="
+	k6 run load-tests/soak-test.js
+
+load-test-compare: ## Compare current results against baseline
+	@echo "Load test comparison (run a load test first to generate baseline)"
+	@echo "Usage: k6 run --out json=load-tests/results.json load-tests/load-test.js"
+	@echo ""
+	@echo "To compare two result files:"
+	@echo "  k6 run --out json=load-tests/new.json load-tests/load-test.js"
+	@echo "  # Then compare manually or with a diff tool"
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \

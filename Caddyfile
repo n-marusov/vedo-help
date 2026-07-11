@@ -1,26 +1,89 @@
 # VEDO hub Caddyfile
 # Reverse proxy configuration
 
+{
+	# Structured access logging to stderr for Docker
+	log {
+		output stderr
+		format json
+	}
+}
+
 # Production (auto TLS via Let's Encrypt)
 example.com {
-    handle_path /auth/* {
-        reverse_proxy keycloak:8080
-    }
-    reverse_proxy /api/* backend:3000
-    reverse_proxy / backend:80
-    tls your-email@example.com
+	# Route directive for explicit handler ordering
+	route {
+		# Security headers for all responses
+		header {
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://routerai.ru;"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		}
 
-    header /api {
-        RateLimit-Limit 30
-        RateLimit-Remaining 30
-    }
+		# API rate limiting
+		header /api {
+			RateLimit-Limit 30
+			RateLimit-Remaining 30
+		}
+
+		# Auth routes
+		handle_path /auth/* {
+			reverse_proxy keycloak:8080
+		}
+
+		# API routes
+		reverse_proxy /api/* backend:3000
+
+		# Frontend
+		reverse_proxy / frontend:80
+	}
+
+	# Custom error pages
+	handle_errors {
+		@404 status 404
+		respond @404 `{"error":"Not Found","status":404}` 404 {
+			header Content-Type "application/json"
+		}
+
+		@500 status 500
+		respond @500 `{"error":"Internal Server Error","status":500}` 500 {
+			header Content-Type "application/json"
+		}
+	}
+
+	tls your-email@example.com
 }
 
 # Development
 :80 {
-    handle_path /auth/* {
-        reverse_proxy keycloak:8080
-    }
-    reverse_proxy /api/* backend:3000
-    reverse_proxy / frontend:80
+	route {
+		header {
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://routerai.ru;"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		}
+
+		handle_path /auth/* {
+			reverse_proxy keycloak:8080
+		}
+
+		reverse_proxy /api/* backend:3000
+		reverse_proxy / frontend:80
+	}
+
+	handle_errors {
+		@404 status 404
+		respond @404 `{"error":"Not Found","status":404}` 404 {
+			header Content-Type "application/json"
+		}
+
+		@500 status 500
+		respond @500 `{"error":"Internal Server Error","status":500}` 500 {
+			header Content-Type "application/json"
+		}
+	}
 }
