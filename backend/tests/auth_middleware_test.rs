@@ -37,6 +37,7 @@ use vedo_backend::modules::git_sync::{repository::GitRepoRepository, service::Gi
 use vedo_backend::modules::query::{repository::QueryRepository, service::QueryService};
 use vedo_backend::shared::auth::{authenticate_request, SharedJwtValidator};
 use vedo_backend::shared::llm::LlmClient;
+use vedo_backend::shared::response_cache::ResponseCache;
 
 mod common;
 
@@ -65,7 +66,8 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
         embedding_client.clone(),
         None,
     );
-    let conversation_service = ConversationService::new(conversation_repo);
+    let conversation_service = ConversationService::new(conversation_repo, llm_client.clone());
+    let response_cache = ResponseCache::new(100, 300);
     let query_service = QueryService::new(
         db,
         &chroma_url,
@@ -76,6 +78,7 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
         6000,
         config,
         None,
+        response_cache,
     );
     let git_sync_service = GitSyncService::new(
         git_repo_repo,

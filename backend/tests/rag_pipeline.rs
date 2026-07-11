@@ -28,6 +28,7 @@ use vedo_backend::modules::query::service::QueryService;
 use vedo_backend::shared::chroma_client::ChromaClient;
 use vedo_backend::shared::embedding_client::EmbeddingClient;
 use vedo_backend::shared::llm::LlmClient;
+use vedo_backend::shared::response_cache::ResponseCache;
 
 mod common;
 
@@ -224,6 +225,17 @@ fn make_test_config(urls: &TestUrls, advanced_rag: bool) -> AppConfig {
         hybrid_top_k: 20,
         multi_query_count: 3,
         llm_rerank_model: urls.llm_model.clone(),
+        bm25_k1: 1.2,
+        bm25_b: 0.75,
+        hybrid_search_alpha: 0.5,
+        query_cache_ttl_secs: 300,
+        query_cache_max_entries: 100,
+        query_rate_limit_requests: 10,
+        query_rate_limit_window_secs: 60,
+        notification_telegram_bot_token: String::new(),
+        notification_telegram_chat_id: String::new(),
+        notification_webhook_url: String::new(),
+        notification_min_severity: "error".to_string(),
     }
 }
 
@@ -282,6 +294,7 @@ async fn test_rag_pipeline_full_flow() {
 
     // Set up QueryService
     let llm_client = LlmClient::from_config(&config);
+    let response_cache = ResponseCache::new(100, 300);
 
     let query_service = QueryService::new(
         pool.clone(),
@@ -293,6 +306,7 @@ async fn test_rag_pipeline_full_flow() {
         6000,
         config,
         None,
+        response_cache,
     );
 
     // Execute query
@@ -301,6 +315,7 @@ async fn test_rag_pipeline_full_flow() {
         query: "What is VEDO hub RAG assistant?".to_string(),
         session_id: None,
         debug: true,
+        existing_user_message_id: None,
     };
 
     eprintln!("\n=== Executing RAG query ===");
@@ -408,6 +423,7 @@ async fn test_rag_pipeline_debug_data_flow() {
     .await;
 
     let llm_client = LlmClient::from_config(&config);
+    let response_cache = ResponseCache::new(100, 300);
 
     let query_service = QueryService::new(
         pool.clone(),
@@ -419,6 +435,7 @@ async fn test_rag_pipeline_debug_data_flow() {
         6000,
         config,
         None,
+        response_cache,
     );
 
     // Insert a session so FK constraint on messages is satisfied
@@ -443,6 +460,7 @@ async fn test_rag_pipeline_debug_data_flow() {
         query: "What is VEDO hub?".to_string(),
         session_id: Some(session_id),
         debug: true,
+        existing_user_message_id: None,
     };
 
     let stream = query_service
@@ -621,6 +639,7 @@ async fn test_rag_pipeline_advanced_disabled() {
     .await;
 
     let llm_client = LlmClient::from_config(&config);
+    let response_cache = ResponseCache::new(100, 300);
 
     let query_service = QueryService::new(
         pool.clone(),
@@ -632,6 +651,7 @@ async fn test_rag_pipeline_advanced_disabled() {
         6000,
         config,
         None,
+        response_cache,
     );
 
     let request = QueryRequest {
@@ -639,6 +659,7 @@ async fn test_rag_pipeline_advanced_disabled() {
         query: "What is VEDO hub?".to_string(),
         session_id: None,
         debug: true,
+        existing_user_message_id: None,
     };
 
     let stream = query_service

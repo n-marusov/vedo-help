@@ -708,6 +708,7 @@ async fn test_concurrent_sync_on_same_repo_is_safe() {
             &first_ids,
             &first_embeddings,
             &first_metadatas,
+            &[] as &[String],
         )
         .await
         .expect("first sync embeddings");
@@ -742,6 +743,7 @@ async fn test_concurrent_sync_on_same_repo_is_safe() {
             &second_ids,
             &second_embeddings,
             &second_metadatas,
+            &[] as &[String],
         )
         .await
         .expect("second sync embeddings");

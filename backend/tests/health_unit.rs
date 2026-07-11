@@ -80,7 +80,7 @@ impl HealthProbe for CallTrackerProbe {
 #[tokio::test]
 async fn test_all_healthy_status() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(OkProbe { name: "Chroma" })
         .register(OkProbe { name: "PostgreSQL" })
         .register(OkProbe { name: "Embedding" })
@@ -118,7 +118,7 @@ async fn test_all_healthy_status() {
 #[tokio::test]
 async fn test_chroma_down_degraded() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(ErrProbe {
         name: "Chroma",
         error: AppError::ChromaError("Connection refused".to_string()),
@@ -149,7 +149,7 @@ async fn test_chroma_down_degraded() {
 #[tokio::test]
 async fn test_llm_down_degraded() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(OkProbe { name: "Chroma" })
         .register(OkProbe { name: "PostgreSQL" })
         .register(OkProbe { name: "Embedding" })
@@ -172,7 +172,7 @@ async fn test_llm_down_degraded() {
 #[tokio::test]
 async fn test_db_down_unhealthy() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(OkProbe { name: "Chroma" })
         .register(ErrProbe {
             name: "PostgreSQL",
@@ -204,7 +204,7 @@ async fn test_db_down_unhealthy() {
 #[tokio::test]
 async fn test_embedding_and_chroma_down_degraded_db_ok() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(ErrProbe {
         name: "Chroma",
         error: AppError::ChromaError("down".to_string()),
@@ -230,7 +230,7 @@ async fn test_embedding_and_chroma_down_degraded_db_ok() {
 #[tokio::test]
 async fn test_report_serialization_to_json() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(OkProbe { name: "Chroma" }).register(ErrProbe {
         name: "PostgreSQL",
         error: AppError::ChromaError("down".to_string()),
@@ -254,7 +254,7 @@ async fn test_report_serialization_to_json() {
 #[tokio::test]
 async fn test_report_serialization_lowercase_json_values() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(OkProbe { name: "Embedding" })
         .register(ErrProbe {
             name: "LLM",
@@ -329,7 +329,7 @@ async fn test_concurrent_probe_execution() {
         }
     }
 
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(TimestampProbe {
         name: "ProbeA",
         delay_ms: 100,
@@ -358,7 +358,7 @@ async fn test_concurrent_probe_execution() {
 #[tokio::test]
 async fn test_empty_probes() {
     // Arrange
-    let svc = HealthService::new();
+    let svc = HealthService::new(None);
 
     // Act
     let report = svc.check_all().await;
@@ -371,7 +371,7 @@ async fn test_empty_probes() {
 #[tokio::test]
 async fn test_latency_ms_tracked() {
     // Arrange
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     // Use a probe with artificial delay
     svc.register(LatencyProbe {
         name: "SlowService",
@@ -412,7 +412,7 @@ async fn test_all_probes_are_called() {
     let called_a = Arc::new(AtomicBool::new(false));
     let called_b = Arc::new(AtomicBool::new(false));
 
-    let mut svc = HealthService::new();
+    let mut svc = HealthService::new(None);
     svc.register(CallTrackerProbe {
         name: "ProbeA",
         called: called_a.clone(),

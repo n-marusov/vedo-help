@@ -57,7 +57,7 @@ impl HealthProbe for ErrProbe {
 // ---------------------------------------------------------------------------
 
 fn build_default_router() -> Router {
-    let mut health_service = HealthService::new();
+    let mut health_service = HealthService::new(None);
     health_service.register(OkProbe("Chroma"));
     health_service.register(OkProbe("PostgreSQL"));
     health_service.register(OkProbe("Embedding"));
@@ -273,7 +273,7 @@ async fn test_deep_healthcheck_rejects_delete() {
 #[ignore]
 async fn test_deep_healthcheck_status_values() {
     // Arrange — create a router with an unhealthy Chroma probe
-    let mut health_service = HealthService::new();
+    let mut health_service = HealthService::new(None);
     health_service.register(OkProbe("PostgreSQL"));
     health_service.register(ErrProbe("Chroma"));
     health_service.register(OkProbe("Embedding"));

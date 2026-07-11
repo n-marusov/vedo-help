@@ -23,11 +23,14 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 - **Frontend:** Vue 3 + TypeScript (streaming responses via SSE, DeepSeek-style chat UI)
 - **Testing:** Vitest + @vue/test-utils + jsdom
 - **Design Tokens:** CSS custom properties (chat-tokens.css) for spacing, colors, animations
-- **Database:** SQLite (via sqlx) for metadata and conversation history
-- **Deployment:** Docker Compose with Caddy reverse proxy (VPS)
-- **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests)
+- **Database:** PostgreSQL 16 (via sqlx) for metadata and conversation history
+- **Deployment:** Docker Compose with Caddy reverse proxy (VPS), systemd backup timer
+- **CI/CD:** GitHub Actions (biome check, clippy, unit tests, integration tests, E2E with Docker stack, auto-deploy on main)
 - **LLM Gateway:** RouterAI API (configurable model)
 - **Authentication:** KeyCloak 26 (OIDC/OAuth2) with PostgreSQL storage
+- **Monitoring:** Prometheus + Grafana (cAdvisor container metrics), OTel Collector
+- **Load Testing:** k6 (smoke, load, stress, soak scenarios)
+- **Health Checks:** Deep healthcheck endpoint with per-service probes and notifications
 - **Authorization:** Three-tier RBAC (guest/user/admin)
 - **Advanced RAG:** Configurable pipeline with Multi-Query, HyDE, BM25 keyword search, and LLM reranking
 
@@ -51,7 +54,7 @@ Key environment variables for the advanced RAG pipeline:
 
 ## Architecture Notes
 
-The system follows a four-service microservices architecture:
+The system follows a multi-service microservices architecture:
 
 1. **backend** (Rust/axum) — REST API for upload, query, collection management, conversation history (embeddings via RouterAI API)
 3. **chroma** — Vector database for semantic search
@@ -70,5 +73,5 @@ See `.ai-factory/ARCHITECTURE.md` for detailed architecture guidelines.
 - **Security:** KeyCloak JWT token authentication, file validation (MIME + magic bytes), rate limiting, CORS
 - **Logging:** Docker journald driver with structured tags
 - **Reliability:** Graceful shutdown, retry logic for embeddings, health check endpoints
-- **Data:** SQLite for persistent metadata, Chroma for vector storage, automated backup/restore scripts
+- **Data:** PostgreSQL for persistent metadata, Chroma for vector storage, automated backup/restore scripts (pg_dump + tarball)
 - **Constraints:** Single-developer scope, no Kubernetes, no performance budgets, no coverage thresholds

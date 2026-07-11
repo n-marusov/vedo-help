@@ -40,6 +40,20 @@ fail()  { echo -e "  ${RED}✗${NC} $1"; }
 info()  { echo -e "  ${YELLOW}→${NC} $1"; }
 
 FAILURES=0
+GLOBAL_START=$(date +%s)
+
+phase_time() {
+    local label="$1"
+    local now=$(date +%s)
+    local elapsed=$(( now - GLOBAL_START ))
+    local minutes=$(( elapsed / 60 ))
+    local seconds=$(( elapsed % 60 ))
+    if [ "$minutes" -gt 0 ]; then
+        printf "  [%dm%02ds]" "$minutes" "$seconds"
+    else
+        printf "  [%ds]" "$seconds"
+    fi
+}
 
 check_docker_installed() {
     if ! command -v docker &>/dev/null; then
@@ -291,7 +305,7 @@ fi
 
 # Phase 0: Quick check (health endpoints only, no service management)
 if $DO_QUICK; then
-    info "Phase 0: Quick health check"
+    info "Phase 0: Quick health check$(phase_time "Quick check")"
     check_health_endpoints || ((FAILURES++))
     echo ""
     # Still check for crash loops in quick mode
@@ -300,27 +314,27 @@ if $DO_QUICK; then
     # Summary for quick mode
     echo "═══════════════════════════════════════════════════════════════"
     if [[ "$FAILURES" -eq 0 ]]; then
-        echo -e "  ${GREEN}All quick smoke checks passed!${NC}"
+        echo -e "  ${GREEN}All quick smoke checks passed!${NC}$(phase_time 'Total')"
     else
-        echo -e "  ${RED}$FAILURES quick smoke check failure(s)${NC}"
+        echo -e "  ${RED}$FAILURES quick smoke check failure(s)${NC}$(phase_time 'Total')"
     fi
     echo "═══════════════════════════════════════════════════════════════"
     exit "$FAILURES"
 fi
 
 # Phase 1: Prerequisites
-info "Phase 1: Prerequisites"
+info "Phase 1: Prerequisites$(phase_time "Prerequisites")"
 check_docker_installed || ((FAILURES++))
 check_compose_file || ((FAILURES++))
 echo ""
 
 # Phase 2: Start services
-info "Phase 2: Starting services"
+info "Phase 2: Starting services$(phase_time "Starting services")"
 start_services || { cleanup; exit 1; }
 echo ""
 
 # Phase 3: Wait for health
-info "Phase 3: Service health checks"
+info "Phase 3: Service health checks$(phase_time "Health checks")"
 wait_for_service "Chroma"     "chroma"    || ((FAILURES++))
 wait_for_service "Backend"    "backend"   || ((FAILURES++))
 wait_for_service "KeyCloak"   "keycloak"  || ((FAILURES++))
@@ -328,12 +342,12 @@ wait_for_service "PostgreSQL" "db"        || ((FAILURES++))
 echo ""
 
 # Phase 4: Endpoint verification
-info "Phase 4: Endpoint verification"
+info "Phase 4: Endpoint verification$(phase_time "Endpoint verification")"
 check_health_endpoints || ((FAILURES++))
 echo ""
 
 # Phase 5: Stability checks
-info "Phase 5: Stability checks"
+info "Phase 5: Stability checks$(phase_time "Stability checks")"
 check_no_crash_loops || ((FAILURES++))
 check_service_logs_no_errors || ((FAILURES++))
 echo ""
@@ -341,10 +355,10 @@ echo ""
 # Summary
 echo "═══════════════════════════════════════════════════════════════"
 if [[ "$FAILURES" -eq 0 ]]; then
-    echo -e "  ${GREEN}All smoke tests passed!${NC}"
+    echo -e "  ${GREEN}All smoke tests passed!${NC}$(phase_time 'Total')"
     echo "═══════════════════════════════════════════════════════════════"
 else
-    echo -e "  ${RED}$FAILURES smoke test failure(s)${NC}"
+    echo -e "  ${RED}$FAILURES smoke test failure(s)${NC}$(phase_time 'Total')"
     echo "═══════════════════════════════════════════════════════════════"
 fi
 echo ""

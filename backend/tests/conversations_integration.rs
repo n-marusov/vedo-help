@@ -42,6 +42,7 @@ use vedo_backend::modules::conversations::models::{Message, Session};
 use vedo_backend::modules::conversations::repository::ConversationRepository;
 use vedo_backend::modules::conversations::service::ConversationService;
 use vedo_backend::shared::auth::{AuthInfo, AuthUser};
+use vedo_backend::shared::llm::LlmClient;
 
 /// Test harness with a real PostgreSQL pool and a conversation-only router.
 ///
@@ -54,7 +55,10 @@ struct TestApp {
 /// Build the test app: fresh DB (migrations + truncate) and a minimal conversation router.
 async fn spawn_app() -> TestApp {
     let db = common::setup_test_db().await;
-    let svc = ConversationService::new(ConversationRepository::new(db.clone()));
+    let svc = ConversationService::new(
+        ConversationRepository::new(db.clone()),
+        LlmClient::from_config(&common::setup_test_config()),
+    );
 
     let test_auth = AuthInfo {
         user: AuthUser {

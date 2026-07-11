@@ -28,6 +28,8 @@ mod common;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use vedo_backend::shared::llm::LlmClient;
+
 use vedo_backend::modules::conversations::models::{Message, Session};
 use vedo_backend::modules::conversations::repository::ConversationRepository;
 use vedo_backend::modules::conversations::service::ConversationService;
@@ -168,7 +170,9 @@ async fn test_export_markdown_includes_all_live_messages_only() {
     let live = repo.get_messages(session.id).await.expect("get_messages");
     assert_eq!(live.len(), 2, "soft-deleted excluded");
 
-    let svc = ConversationService::new(repo);
+    let config = common::setup_test_config();
+    let llm = LlmClient::from_config(&config);
+    let svc = ConversationService::new(repo, llm);
     let md = svc
         .export_session_markdown(session.id, "test-user", false)
         .await
