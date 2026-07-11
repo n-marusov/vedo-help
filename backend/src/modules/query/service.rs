@@ -21,6 +21,7 @@ use crate::shared::chunk_search;
 use crate::shared::embedding_client::EmbeddingClient;
 use crate::shared::error::AppError;
 use crate::shared::llm::{LlmClient, Message as LlmMessage, MAX_RETRIES};
+use crate::shared::response_cache::ResponseCache;
 
 /// Status of an active RAG pipeline job, used by the SSE recovery endpoint.
 #[derive(Debug, Clone)]
@@ -161,6 +162,7 @@ pub struct QueryService {
     pub config: crate::config::AppConfig,
     settings_service: Option<SettingsService>,
     pub active_jobs: ActiveJobRegistry,
+    pub response_cache: ResponseCache,
 }
 
 impl QueryService {
@@ -176,6 +178,7 @@ impl QueryService {
         context_token_budget: usize,
         config: crate::config::AppConfig,
         settings_service: Option<SettingsService>,
+        response_cache: ResponseCache,
     ) -> Self {
         let repo = QueryRepository::new(db.clone(), chroma_url);
         let conversation_repo = ConversationRepository::new(db);
@@ -191,6 +194,7 @@ impl QueryService {
             config,
             settings_service,
             active_jobs: ActiveJobRegistry::new(),
+            response_cache,
         }
     }
 
@@ -232,7 +236,67 @@ impl QueryService {
                 .with_env_overrides(&self.config)
         };
 
-        // Create channel and spawn pipeline in background task.
+        // 2. Compute cache key and check response cache
+        let cache_key = ResponseCache::make_key(&request.query, &request.collection_id);
+
+        if let Some(cached) = self.response_cache.get(&cache_key).await {
+            tracing::info!(
+                component = "query/service",
+                cache = "hit",
+                "query.cache_hit"
+            );
+
+            // Persist user message before returning cached response
+            let um_id = if request.session_id.is_some() {
+                Self::persist_user_message_and_autoname_session(self, &request).await?
+            } else {
+                None
+            };
+
+            let answer = cached.answer;
+            let sources = cached.sources;
+            let assistant_message_id = request.session_id.map(|_| Uuid::new_v4());
+
+            // Build a channel and send cached response events
+            let (tx, rx) = mpsc::channel::<Result<StreamEvent, Infallible>>(32);
+            let tx_clone = tx.clone();
+            tokio::spawn(async move {
+                // Send chunk event
+                let _ = tx_clone
+                    .send(Ok(StreamEvent {
+                        event_type: "chunk".to_string(),
+                        data: json!({"text": answer}),
+                    }))
+                    .await;
+                // Send sources event with cache_hit flag
+                let _ = tx
+                    .send(Ok(StreamEvent {
+                        event_type: "sources".to_string(),
+                        data: json!({"sources": sources, "cache_hit": true}),
+                    }))
+                    .await;
+                // Send done event
+                let _ = tx
+                    .send(Ok(StreamEvent {
+                        event_type: "done".to_string(),
+                        data: json!({
+                            "user_message_id": um_id,
+                            "assistant_message_id": assistant_message_id,
+                        }),
+                    }))
+                    .await;
+            });
+
+            return Ok(ReceiverStream::new(rx));
+        }
+
+        tracing::info!(
+            component = "query/service",
+            cache = "miss",
+            "query.cache_miss"
+        );
+
+        // 3. Create channel and spawn pipeline in background task.
         // The SSE response starts immediately — stage events arrive as each
         // pipeline step completes, giving the frontend real-time progress.
         let (tx, rx) = mpsc::channel::<Result<StreamEvent, Infallible>>(64);
@@ -253,6 +317,7 @@ impl QueryService {
                 is_admin,
                 request_job_id,
                 rag_settings,
+                Some(cache_key),
             )
             .await;
 
@@ -297,6 +362,7 @@ impl QueryService {
         _is_admin: bool,
         job_id: Option<Uuid>,
         rag_settings: crate::modules::settings::models::RagSettings,
+        cache_key: Option<String>,
     ) -> Result<(), AppError> {
         use crate::modules::query::debug_models::*;
 
@@ -875,6 +941,8 @@ impl QueryService {
             svc.active_jobs.clone(),
             job_id,
             debug_data_json,
+            Some(svc.response_cache.clone()),
+            cache_key,
         );
 
         let mut llm_event_stream = Box::pin(llm_event_stream);
@@ -984,7 +1052,10 @@ impl QueryService {
         active_jobs: ActiveJobRegistry,
         job_id: Option<Uuid>,
         debug_data_json: String,
+        response_cache: Option<ResponseCache>,
+        cache_key: Option<String>,
     ) -> impl Stream<Item = Result<StreamEvent, Infallible>> {
+        let sources_for_cache = sources.clone();
         let sources_event = StreamEvent {
             event_type: "sources".to_string(),
             data: json!({"sources": sources}),
@@ -1021,6 +1092,8 @@ impl QueryService {
             let fc = full_content;
 
             let active_jobs = active_jobs;
+            let cache = response_cache;
+            let ck = cache_key;
 
             stream::once(async move {
                 // Persist the assistant message only for the latest pipeline in the session.
@@ -1051,7 +1124,9 @@ impl QueryService {
                         session_id,
                         role: "assistant".to_string(),
                         content,
-                        sources: Some(serde_json::to_string(&sources).unwrap_or_default()),
+                        sources: Some(
+                            serde_json::to_string(&sources_for_cache).unwrap_or_default(),
+                        ),
                         created_at: chrono::Utc::now(),
                         edited_at: None,
                         original_content: None,
@@ -1069,6 +1144,24 @@ impl QueryService {
                             component = "query/service",
                             assistant_message_id = %asst_id_val,
                             "query.assistant_message_persisted"
+                        );
+                    }
+                }
+
+                // Store successful LLM response in cache
+                if let (Some(ref cache), Some(ref key)) = (cache, ck) {
+                    let content = fc.lock().unwrap().clone();
+                    if !content.is_empty() {
+                        let cached = crate::shared::response_cache::CachedResponse {
+                            answer: content,
+                            sources: sources_for_cache.clone(),
+                            cached_at: chrono::Utc::now(),
+                        };
+                        cache.set(key.clone(), cached).await;
+                        tracing::debug!(
+                            component = "query/service",
+                            cache_key = %key,
+                            "query.cache_stored"
                         );
                     }
                 }
@@ -1334,6 +1427,8 @@ mod tests {
             ActiveJobRegistry::new(),
             None,
             "null".to_string(),
+            None,
+            None,
         ));
 
         let events: Vec<StreamEvent> = stream
@@ -1442,6 +1537,8 @@ mod tests {
             ActiveJobRegistry::new(),
             None,
             "null".to_string(),
+            None,
+            None,
         ));
 
         let full_stream = stage_stream.chain(llm_event_stream);

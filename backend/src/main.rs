@@ -50,8 +50,11 @@ use vedo_backend::shared::{
     error::AppError,
     health::{HealthProbe, HealthReport, HealthService, HealthStatus},
     llm::LlmClient,
+    notifications::NotificationService,
     pricing::PricingCache,
+    rate_limit::{rate_limit_query, QueryRateLimiter, RateLimiter},
     rbac,
+    response_cache::ResponseCache,
 };
 
 /// Initialize OpenTelemetry tracing pipeline with dual output:
@@ -247,8 +250,52 @@ async fn main() {
     // LLM client
     let llm_client = LlmClient::from_config(&config);
 
+    // Notification service — sends alerts via Telegram/webhook on system degradation.
+    // Initialized only when at least one channel is configured.
+    let notification_min_severity = match config.notification_min_severity.to_lowercase().as_str() {
+        "error" => tracing::Level::ERROR,
+        "warn" | "warning" => tracing::Level::WARN,
+        "info" => tracing::Level::INFO,
+        "debug" => tracing::Level::DEBUG,
+        "trace" => tracing::Level::TRACE,
+        _ => {
+            tracing::warn!(
+                component = "main",
+                raw = %config.notification_min_severity,
+                "notification.invalid_severity, defaulting to error"
+            );
+            tracing::Level::ERROR
+        }
+    };
+    let notification_service = NotificationService::from_config(
+        if config.notification_telegram_bot_token.is_empty() {
+            None
+        } else {
+            Some(config.notification_telegram_bot_token.clone())
+        },
+        if config.notification_telegram_chat_id.is_empty() {
+            None
+        } else {
+            Some(config.notification_telegram_chat_id.clone())
+        },
+        if config.notification_webhook_url.is_empty() {
+            None
+        } else {
+            Some(config.notification_webhook_url.clone())
+        },
+        Some(notification_min_severity),
+    );
+    if notification_service.is_some() {
+        tracing::info!(component = "main", "notification_service.initialized");
+    } else {
+        tracing::info!(
+            component = "main",
+            "notification_service.disabled (no channels configured)"
+        );
+    }
+
     // Health service — register downstream dependency probes
-    let mut health_service = HealthService::new();
+    let mut health_service = HealthService::new(notification_service);
     health_service.register(chroma_client.clone());
     health_service.register(embedding_client.clone());
     health_service.register(llm_client.clone());
@@ -261,6 +308,26 @@ async fn main() {
         std::time::Duration::from_secs(900),
     );
     tracing::info!(component = "main", "pricing_cache.initialized");
+
+    // Response cache — lightweight in-memory LRU for LLM query responses.
+    // Reduces LLM costs and latency for repeated questions about the same collection.
+    let response_cache =
+        ResponseCache::new(config.query_cache_max_entries, config.query_cache_ttl_secs);
+    tracing::info!(
+        component = "main",
+        capacity = config.query_cache_max_entries,
+        ttl_secs = config.query_cache_ttl_secs,
+        "response_cache.initialized"
+    );
+
+    // Query rate limiter — per-role tokens for the /api/query endpoint.
+    // Three tiers: guest (5/min), user (20/min), admin (60/min).
+    let query_rate_limiter = Arc::new(QueryRateLimiter {
+        guest: Arc::new(RateLimiter::new(5, 60)),
+        user: Arc::new(RateLimiter::new(20, 60)),
+        admin: Arc::new(RateLimiter::new(60, 60)),
+    });
+    tracing::info!(component = "main", "query_rate_limiter.initialized");
 
     // Wrap DB pool as a HealthProbe
     struct DbProbe {
@@ -332,6 +399,7 @@ async fn main() {
         config.llm_context_token_budget,
         config.clone(),
         Some(settings_service.clone()),
+        response_cache.clone(),
     );
     let audit_service = AuditService::new(audit_repo);
 
@@ -455,7 +523,10 @@ async fn main() {
             delete(git_sync_handlers::delete_repo),
         )
         // Query routes
-        .route("/api/query", post(query_handlers::query_handler))
+        .route(
+            "/api/query",
+            post(query_handlers::query_handler).layer(middleware::from_fn(rate_limit_query)),
+        )
         .route(
             "/api/query/:session_id/subscribe",
             get(query_handlers::subscribe_handler),
@@ -506,6 +577,8 @@ async fn main() {
         .layer(Extension(jwt_validator))
         // Audit service for middleware
         .layer(Extension(audit_service.clone()))
+        // Query rate limiter for middleware
+        .layer(Extension(query_rate_limiter))
         // Security headers — outer layer covering all routes
         .layer(middleware::from_fn_with_state(
             config.environment.clone(),
@@ -547,6 +620,7 @@ async fn main() {
             settings_service,
             health_service,
             pricing_cache,
+            response_cache,
         });
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
@@ -584,6 +658,7 @@ pub struct AppState {
     pub settings_service: SettingsService,
     pub health_service: HealthService,
     pub pricing_cache: PricingCache,
+    pub response_cache: ResponseCache,
 }
 
 impl FromRef<AppState> for DocumentService {
@@ -637,6 +712,12 @@ impl FromRef<AppState> for HealthService {
 impl FromRef<AppState> for PricingCache {
     fn from_ref(state: &AppState) -> Self {
         state.pricing_cache.clone()
+    }
+}
+
+impl FromRef<AppState> for ResponseCache {
+    fn from_ref(state: &AppState) -> Self {
+        state.response_cache.clone()
     }
 }
 

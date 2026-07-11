@@ -6,9 +6,11 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 use crate::shared::error::AppError;
+use crate::shared::notifications::{alert_types, NotificationService};
 
 /// Trait for health probe implementations.
 ///
@@ -91,9 +93,13 @@ pub struct HealthReport {
 ///
 /// Probes all registered downstream dependencies concurrently and produces an
 /// aggregated `HealthReport` with per-service latencies and error details.
+/// Optionally sends notifications on health status transitions.
 #[derive(Clone)]
 pub struct HealthService {
     probes: Vec<ProbeEntry>,
+    notification_service: Option<NotificationService>,
+    /// Tracks the previous health status to detect transitions.
+    previous_status: Arc<Mutex<HealthStatus>>,
 }
 
 /// Internal pairing of a probe instance with an explicit name.
@@ -117,9 +123,16 @@ impl ProbeEntry {
 }
 
 impl HealthService {
-    /// Create a new health service with the given probes.
-    pub fn new() -> Self {
-        Self { probes: Vec::new() }
+    /// Create a new health service with optional notifications.
+    ///
+    /// When a `NotificationService` is provided, alerts are sent on health
+    /// status transitions (Healthy → Degraded, Degraded → Unhealthy, etc.).
+    pub fn new(notification_service: Option<NotificationService>) -> Self {
+        Self {
+            probes: Vec::new(),
+            notification_service,
+            previous_status: Arc::new(Mutex::new(HealthStatus::Healthy)),
+        }
     }
 
     /// Register a probe.
@@ -223,16 +236,94 @@ impl HealthService {
             HealthStatus::Healthy
         };
 
+        // Send notification on health status transitions
+        self.notify_on_transition(&status, &checks).await;
+
         HealthReport {
             status,
             checks,
             timestamp,
         }
     }
+
+    /// Send notification if the health status has transitioned.
+    ///
+    /// Alerts are sent on:
+    /// - Healthy → Degraded: `health_degraded` notification
+    /// - Healthy → Unhealthy: `health_unhealthy` notification
+    /// - Degraded → Unhealthy: `health_unhealthy` notification
+    ///
+    /// Recovery transitions (back to Healthy) are logged but not notified.
+    async fn notify_on_transition(&self, new_status: &HealthStatus, checks: &[ServiceCheck]) {
+        let Some(ref notification_svc) = self.notification_service else {
+            return;
+        };
+
+        let mut prev = self.previous_status.lock().await;
+        let previous_status = prev.clone();
+
+        // No transition — skip notification
+        if previous_status == *new_status {
+            return;
+        }
+
+        // Build a summary of failed probes
+        let failed_probes: Vec<&str> = checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Unhealthy)
+            .map(|c| c.name.as_str())
+            .collect();
+        let failed_summary = if failed_probes.is_empty() {
+            "none".to_string()
+        } else {
+            failed_probes.join(", ")
+        };
+
+        match new_status {
+            HealthStatus::Degraded => {
+                tracing::info!(
+                    component = "notifications",
+                    alert_type = "health_degraded",
+                    failed_probes = %failed_summary,
+                    "notification.health_alert"
+                );
+                notification_svc.send_alert(
+                    alert_types::HEALTH_DEGRADED,
+                    tracing::Level::WARN,
+                    "⚠️ Service Degraded",
+                    &format!("The following dependencies are unhealthy:\n{failed_summary}"),
+                );
+            }
+            HealthStatus::Unhealthy => {
+                tracing::info!(
+                    component = "notifications",
+                    alert_type = "health_unhealthy",
+                    failed_probes = %failed_summary,
+                    "notification.health_alert"
+                );
+                notification_svc.send_alert(
+                    alert_types::HEALTH_UNHEALTHY,
+                    tracing::Level::ERROR,
+                    "🚨 Service Unhealthy",
+                    &format!("Critical service failure. Unhealthy dependencies:\n{failed_summary}"),
+                );
+            }
+            HealthStatus::Healthy => {
+                tracing::info!(
+                    component = "notifications",
+                    alert_type = "health_recovered",
+                    "notification.health_recovered"
+                );
+            }
+        }
+
+        // Update previous status
+        *prev = new_status.clone();
+    }
 }
 
 impl Default for HealthService {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }

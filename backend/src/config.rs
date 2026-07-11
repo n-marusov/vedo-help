@@ -62,6 +62,28 @@ pub struct AppConfig {
     /// Hybrid search alpha weight (vector search weight, 0.0-1.0).
     /// 0.0 = pure BM25, 1.0 = pure vector search.
     pub hybrid_search_alpha: f64,
+
+    // ── Response Caching (v0.3) ──
+    /// TTL for cached query responses in seconds.
+    pub query_cache_ttl_secs: u64,
+    /// Maximum number of cached query responses.
+    pub query_cache_max_entries: usize,
+
+    // ── Per-Route Rate Limiting (v0.4) ──
+    /// Default max requests per rate-limit window.
+    pub query_rate_limit_requests: u64,
+    /// Rate-limit window in seconds.
+    pub query_rate_limit_window_secs: u64,
+
+    // ── Failure Notifications (v0.4) ──
+    /// Telegram bot token for notifications (empty = disabled).
+    pub notification_telegram_bot_token: String,
+    /// Telegram chat ID for notifications.
+    pub notification_telegram_chat_id: String,
+    /// Webhook URL for notifications (empty = disabled).
+    pub notification_webhook_url: String,
+    /// Minimum severity for notifications (error, warn, info).
+    pub notification_min_severity: String,
 }
 
 impl AppConfig {
@@ -162,6 +184,29 @@ impl AppConfig {
                 .unwrap_or_else(|_| "0.5".to_string())
                 .parse()
                 .expect("HYBRID_SEARCH_ALPHA must be a valid number between 0.0 and 1.0"),
+            query_cache_ttl_secs: env::var("QUERY_CACHE_TTL_SECS")
+                .unwrap_or_else(|_| "300".to_string())
+                .parse()
+                .expect("QUERY_CACHE_TTL_SECS must be a valid number"),
+            query_cache_max_entries: env::var("QUERY_CACHE_MAX_ENTRIES")
+                .unwrap_or_else(|_| "100".to_string())
+                .parse()
+                .expect("QUERY_CACHE_MAX_ENTRIES must be a valid number"),
+            query_rate_limit_requests: env::var("QUERY_RATE_LIMIT_REQUESTS")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()
+                .expect("QUERY_RATE_LIMIT_REQUESTS must be a valid number"),
+            query_rate_limit_window_secs: env::var("QUERY_RATE_LIMIT_WINDOW_SECS")
+                .unwrap_or_else(|_| "60".to_string())
+                .parse()
+                .expect("QUERY_RATE_LIMIT_WINDOW_SECS must be a valid number"),
+            notification_telegram_bot_token: env::var("NOTIFICATION_TELEGRAM_BOT_TOKEN")
+                .unwrap_or_default(),
+            notification_telegram_chat_id: env::var("NOTIFICATION_TELEGRAM_CHAT_ID")
+                .unwrap_or_default(),
+            notification_webhook_url: env::var("NOTIFICATION_WEBHOOK_URL").unwrap_or_default(),
+            notification_min_severity: env::var("NOTIFICATION_MIN_SEVERITY")
+                .unwrap_or_else(|_| "error".to_string()),
         }
     }
 }
