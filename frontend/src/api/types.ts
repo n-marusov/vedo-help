@@ -159,6 +159,58 @@ export interface SyncStatusResponse {
   progress?: SyncProgress;
 }
 
+// ── Web Crawl Types ──
+
+export interface CrawlJobSummary {
+  id: string;
+  entry_url: string;
+  config: Record<string, unknown>;
+  status: 'idle' | 'crawling' | 'completed' | 'cancelled' | 'error';
+  pages_found: number;
+  pages_indexed: number;
+  collection_id: string;
+  collection_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCrawlJobRequest {
+  entry_url: string;
+  collection_id: string;
+  config?: {
+    max_depth?: number;
+    max_pages?: number;
+    delay_ms?: number;
+    path_prefix?: string;
+  };
+}
+
+export interface CrawlPage {
+  id: string;
+  job_id: string;
+  url: string;
+  depth: number;
+  status: string;
+  http_status?: number;
+  title?: string;
+  created_at: string;
+}
+
+export interface CrawlJobDetailResponse {
+  id: string;
+  entry_url: string;
+  config: Record<string, unknown>;
+  status: string;
+  pages_found: number;
+  pages_indexed: number;
+  collection_id: string;
+  collection_name: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+  pages: CrawlPage[];
+}
+
 // ── Session Debug Types (Admin Panel) ──
 
 export interface SearchResultItem {
@@ -330,7 +382,7 @@ export interface ModelsResponse {
 export interface ChunkSearchParams {
   q?: string;
   search_type?: 'text' | 'semantic';
-  source?: 'upload' | 'git';
+  source?: 'upload' | 'git' | 'web';
   limit?: number;
   offset?: number;
   top_k?: number;

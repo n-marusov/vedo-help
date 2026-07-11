@@ -180,7 +180,7 @@
 
 ---
 
-## Milestone: v0.7 — Web Crawler & Site Ingestion ⏳
+## Milestone: v0.7 — Web Crawler & Site Ingestion ✅
 
 Третий источник документов (после ручной загрузки и Git): краулер для индексации документации с любого сайта по URL-точке входа. Краулер обходит ссылки, извлекает текст, разбивает на чанки и индексирует в Chroma.
 
@@ -210,11 +210,11 @@
 
 ### Задачи
 
-- [ ] **Phase 1: Tests (TDD)** — E2E-тесты (Playwright), unit-тесты (crawler engine, URL normalization, content extraction, robots.txt, rate limiter, BFS), integration-тесты (DB CRUD, транзакционность cancel/delete, полный цикл краул → chunking → Chroma)
-- [ ] **Phase 2: Backend — DB + Crawler engine** — миграция (`web_crawl_jobs`, `web_crawl_pages`), Rust-модели и репозиторий, модуль `modules/web_crawl/crawler.rs` (BFS, ContentExtractor, RobotsChecker, rate limiter, broadcast progress)
-- [ ] **Phase 3: Backend — API + SSE** — REST: `POST /api/web-crawl`, `GET /api/web-crawl`, `GET /api/web-crawl/:id`, `POST /api/web-crawl/:id/cancel`, `DELETE /api/web-crawl/:id`, `POST /api/web-crawl/:id/retry`. SSE: `GET /api/web-crawl/:id/subscribe`
-- [ ] **Phase 4: Frontend** — `WebCrawlerManager.vue` (форма, jobs list, page details), таб "Web Crawl" в админ-панели, интеграция с design system
-- [ ] **Phase 5: E2E full flow** — вход → админ → URL → старт краула → прогресс → документы в коллекции → query
+	- [x] **Phase 1: Tests (TDD)** — E2E-тесты (Playwright), unit-тесты (crawler engine, URL normalization, content extraction, robots.txt, rate limiter, BFS), integration-тесты (DB CRUD, транзакционность cancel/delete, полный цикл краул → chunking → Chroma)
+- [x] **Phase 2: Backend — DB + Crawler engine** — миграция (`web_crawl_jobs`, `web_crawl_pages`), Rust-модели и репозиторий, модуль `modules/web_crawl/crawler.rs` (BFS, ContentExtractor, RobotsChecker, rate limiter, broadcast progress)
+- [x] **Phase 3: Backend — API + SSE** — REST: `POST /api/web-crawl`, `GET /api/web-crawl`, `GET /api/web-crawl/:id`, `POST /api/web-crawl/:id/cancel`, `DELETE /api/web-crawl/:id`, `POST /api/web-crawl/:id/retry`. SSE: `GET /api/web-crawl/:id/subscribe`
+- [x] **Phase 4: Frontend** — `WebCrawlerManager.vue` (форма, jobs list, page details), таб "Web Crawl" в админ-панели, интеграция с design system
+- [x] **Phase 5: E2E full flow** — вход → админ → URL → старт краула → прогресс → документы в коллекции → query
 
 > **Out of scope (v0.7):** headless browser для JS-рендеринга (SPA), аутентифицированный контент, автоматическое обнаружение sitemap.xml, краулинг PDF/изображений, дедупликация между разными crawl jobs.
 
@@ -245,7 +245,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.4.2 — Advanced RAG Pipeline | ✅ **21/21** | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, pipeline_stage SSE, anti-hallucination prompt, Pinia debug store, admin debug visualization |
 | v0.5 — Advanced RAG | ✅ **5/5** | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats, hybrid search optimization, LLM API fallback |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
-| v0.7 — Web Crawler & Site Ingestion | ⏳ **0/5** | Website crawling from entry URL, BFS with depth/page limits, same-domain enforcement, path prefix scoping, robots.txt, HTML→Markdown extraction, real-time progress |
+| v0.7 — Web Crawler & Site Ingestion | ✅ **5/5** | Website crawling from entry URL, BFS with depth/page limits, same-domain enforcement, path prefix scoping, robots.txt, HTML→Markdown extraction, real-time progress |
 | v1.0 — Production Ready | ✅ **5/5** | CI/CD deploy workflow ✅, k6 load testing ✅, runbook with recovery procedures ✅, C4 architecture docs ✅, Prometheus/Grafana monitoring ✅ |
 
 **Старт:** 2026-06-14
@@ -261,7 +261,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **v0.5 — Advanced RAG complete (all 5 tasks):** 2026-07-11
 **v0.4.2 — Advanced RAG Pipeline complete (all 21 tasks):** 2026-07-11
 **v1.0 — Production Ready complete (all 5 tasks):** 2026-07-11
-**Что дальше:** `/aif-plan` на v0.7 (web crawler) — следующий крупный функционал
+**v0.7 — Web Crawler & Site Ingestion complete (all 5 tasks):** 2026-07-11
+**Что дальше:** `/aif-commit` — сохранить изменения по v0.7, затем выбрать следующий функционал через `/aif-plan`
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:
   1. `/aif-plan fix "pre-existing test errors from v0.3.1 chat rework and OTel milestone"`

@@ -74,6 +74,10 @@ hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
 
+# Web crawling
+scraper = "0.22"
+robotstxt = "0.3"
+
 # On Windows, bundle OpenSSL to avoid runtime crashes in libgit2
 # when system OpenSSL is missing or mismatched.
 [target.'cfg(windows)'.dependencies]
