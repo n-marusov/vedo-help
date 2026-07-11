@@ -85,7 +85,7 @@ vedo-assistant/
 │       ├── chatTokens.ts       # Chat design token logging utility
 │       ├── utils/              # Shared utilities
 │       │   └── markdown.ts      # Markdown renderer with highlight.js & GFM
-│       ├── stores/             # Pinia stores (chat, documents, collections)
+│       ├── stores/             # Pinia stores (chat, documents, collections, ragDebug)
 │       └── views/              # ChatView, AdminView, LoginView, CallbackView, AvatarPreviewView
 ├── keycloak/                    # Keycloak configuration
 │   └── realm-import.json.template  # Realm template (no secrets, env vars substituted at runtime)

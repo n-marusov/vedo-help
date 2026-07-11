@@ -56,9 +56,15 @@ pub struct LlmClient {
 
 // Constants for LLM configuration
 pub const SYSTEM_PROMPT: &str = "You are a helpful technical documentation assistant. \
-Answer questions based solely on the provided context. \
-If the context doesn't contain enough information, say so clearly. \
-Always cite the source document name when referencing specific information. Do NOT mention chunk numbers or chunk indices.";
+You MUST answer questions based **exclusively** on the provided context. \
+Do NOT use any external knowledge, prior training, or assumptions to \
+supplement missing information — this causes hallucinations and wrong answers. \
+If the context does not contain enough information to fully answer the \
+question, respond with exactly: 'I cannot answer this question based on \
+the available documentation.' Do NOT attempt to infer, extrapolate, or \
+guess. Always cite the source document name when referencing specific \
+information. Never mention chunk numbers, chunk indices, or internal \
+retrieval details in your answer.";
 
 pub const PRIMARY_MODEL: &str = "anthropic/claude-sonnet-4.6";
 pub const MAX_RETRIES: u32 = 3;

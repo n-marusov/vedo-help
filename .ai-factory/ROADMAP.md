@@ -117,7 +117,7 @@
 
 ---
 
-## Milestone: v0.4.2 — Advanced RAG Pipeline (Multi-Query, HyDE, Hybrid Search, Reranking) 🔄
+## Milestone: v0.4.2 — Advanced RAG Pipeline (Multi-Query, HyDE, Hybrid Search, Reranking) ✅
 
 Полный 7-шаговый RAG-пайплайн с визуализацией всех шагов в админ-панели (по методичке День 2).
 
@@ -132,9 +132,9 @@
 - [x] **Frontend: API types** — новые `StreamEvent` типы (`pipeline_stage`), расширенный `SourceRef`
 - [x] **Frontend: Debug panel v2** — `SessionDebug.vue`: 7 динамических секций под каждый шаг (реальные данные или заглушки)
 - [x] **Frontend: Admin RAG Debug tab** — обновление SessionDebug.vue: фильтр по User ID, поиск по содержимому сообщений
-- [ ] **Backend: Новые SSE-типы событий** — `pipeline_stage` события для реального времени
-- [ ] **Backend: Ужесточение anti-hallucination промпта**
-- [ ] **Frontend: Pinia debug store** — `stores/ragDebug.ts`
+- [x] **Backend: Новые SSE-типы событий** — `pipeline_stage` события через SSE-канал в `run_pipeline`, обработка на фронтенде в SSE-парсере `chat.ts`, recovery через `subscribe_handler`
+- [x] **Backend: Ужесточение anti-hallucination промпта** — `SYSTEM_PROMPT` в `shared/llm.rs`: явный запрет внешних знаний, обязательный отказ при недостатке контекста
+- [x] **Frontend: Pinia debug store** — `stores/ragDebug.ts`: выделенное хранилище для pipelineStage, debugData, setPipelineStage/setDebugData/reset
 - [x] **Backend: Динамическая размерность эмбеддинга + реальный query_snippet** — исправление хардкода `384` на `embedding.len()`, замена статической строки "Multi-query with HyDE" на эффективный поисковый запрос
 - [x] **Backend: Детальные чанки во всех шагах отладки** — `MergeDedupStep.results`, `RerankResult.text_snippet`
 - [x] **Backend: Заполнение FinalAnswerStep** — model, chunks_in_context, prompt_preview, latency, токены
@@ -204,7 +204,7 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 | v0.3 — Admin Panel & Production Polish | ⏳ **13/14** | Collection & document management, confidence indicator, ZIP upload ✅; Git sync ✅; ADMIN_API_KEY removed ✅; document re-indexing ✅; bulk deletion ✅; VToast feedback ✅; optimistic UX ✅; embedding submission ✅; graceful degradation ~ (retry + embedding cache ✅, fallback LLM out of scope, response caching ❌) |
 | v0.3.1 — Basic Q&A Logic & Chat Rework | ✅ **8/8** | Streaming ✅; LLM error handling ✅; message editing & deletion ✅; context management ✅; chat export UI ✅; empty state & loading skeletons ✅; Chat UI polish ✅ (implementation complete, pending Pencil design verification); admin panel & repo sync fix ✅ |
 | v0.4 — Observability & Reliability | ⏳ 2/6 | Debug view ✅; deep healthcheck, rate limit, backup automation, alerts, graceful shutdown coordination ❌ |
-| v0.4.2 — Advanced RAG Pipeline | 🔄 7/14 | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, admin debug visualization, debug data fixes |
+| v0.4.2 — Advanced RAG Pipeline | ✅ **21/21** | Multi-query, HyDE, BM25, LLM reranking, 7-step pipeline, pipeline_stage SSE, anti-hallucination prompt, Pinia debug store, admin debug visualization |
 | v0.5 — Advanced RAG | ✅ **5/5** | Cross-encoder reranker, tiktoken multi-turn, CSV/JSON/HTML formats, hybrid search optimization, LLM API fallback |
 | v0.6 — Multi-user & Security | ✅ **6/6** | Auth, multi-tenancy, RBAC, audit, CORS, SAST |
 | v1.0 — Production Ready | ⏳ 0/5 | CI/CD, perf, SLA, docs, monitoring |
@@ -220,7 +220,8 @@ CI/CD, performance testing, SLA, документация, мониторинг.
 **Debug view (v0.4):** 2026-06-26
 **RAG pipeline debug data fixes (v0.4.2):** 2026-07-07
 **v0.5 — Advanced RAG complete (all 5 tasks):** 2026-07-11
-**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-implement` на v0.4.2 (Advanced RAG Pipeline)
+**v0.4.2 — Advanced RAG Pipeline complete (all 21 tasks):** 2026-07-11
+**Что дальше:** `/aif-implement` — завершение v0.4 (deep healthcheck, rate limiting, backup automation), затем `/aif-plan` на v1.0
 
 **Pre-requisite:** Before starting v0.4, fix pre-existing test errors от v0.3.1/OTel:
   1. `/aif-plan fix "pre-existing test errors from v0.3.1 chat rework and OTel milestone"`
