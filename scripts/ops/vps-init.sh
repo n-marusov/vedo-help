@@ -191,10 +191,11 @@ ok "Firewall configured: SSH, HTTP, HTTPS allowed"
 # 8. Create project directory
 # ════════════════════════════════════════════════════════════════
 
-info "Creating project directory: ${DEPLOY_PATH}"
-mkdir -p "${DEPLOY_PATH}"
-chown "${DEPLOY_USER}:${DEPLOY_USER}" "${DEPLOY_PATH}"
-ok "Project directory created and owned by '${DEPLOY_USER}'"
+info "Creating project directory tree: ${DEPLOY_PATH}"
+mkdir -p "${DEPLOY_PATH}/deploy/docker"
+mkdir -p "${DEPLOY_PATH}/scripts"
+chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "${DEPLOY_PATH}"
+ok "Project directory tree created and owned by '${DEPLOY_USER}'"
 
 # ════════════════════════════════════════════════════════════════
 # 9. Set up Docker network
