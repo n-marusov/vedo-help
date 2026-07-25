@@ -262,6 +262,36 @@ vedo-assistant/
 
 `backend/tests/common/mod.rs` exposes `setup_test_db()` and `require_chroma(url)` preflights that fail in ~2 s with an actionable panic naming the recovery command (`docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d`), instead of waiting 30 s for `PoolTimedOut` that masks real regressions. The `rag_pipeline` binary's tests are `#[ignore]`d — run with `cargo test --test rag_pipeline -- --ignored` against a live `LLM_API_KEY`/Chroma/llm-mock stack. `auth_middleware_test`'s routing-policy tests use `build_router_only` (lazy pool) and stay green without Docker; only stateful tests use `build_test_router`.
 
+## Build & Development Commands
+
+This project uses a [Makefile](Makefile) for build automation. Run `make help` to see all available targets.
+
+### Common commands
+
+| Command | Description |
+|---------|-------------|
+| `make build` | Build backend and frontend |
+| `make test` | Run all tests (backend + frontend) |
+| `make lint` | Run all linters |
+| `make format` | Format all code |
+| `make dev-up` | Start development environment in Docker |
+| `make dev-logs` | Follow development logs |
+| `make check` | Format + lint + test (fail-fast) |
+| `make clean` | Remove build artifacts |
+| `make ci` | Run full CI pipeline (backend + frontend) |
+| `make install` | Install dependencies (backend + frontend) |
+| `make env-setup` | Create .env from .env.example |
+| `make docker-config-validate` | Validate rendered Docker Compose config |
+| `make smoke-dns` | Verify Docker DNS and HTTPS reachability |
+
+### Test environment
+
+```bash
+make test-env      # Start test environment
+make test          # Run all tests
+make test-env-down # Stop and clean test environment
+```
+
 ## CRITICAL: Post-Implementation Checklist
 
 After **any** implementation task, before marking it as complete:

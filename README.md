@@ -20,6 +20,21 @@ docker compose --env-file .env -f deploy/docker/compose.yml up -d
 open http://localhost:5173
 ```
 
+### Quick Commands
+
+This project uses a **Makefile** (`make help`) for common tasks:
+
+| Command | Description |
+|---------|-------------|
+| `make dev-up` | Start dev environment |
+| `make build` | Build backend + frontend |
+| `make test` | Run all tests |
+| `make lint` | Run linters |
+| `make ci` | Full CI pipeline |
+| `make install` | Install dependencies |
+| `make clean` | Remove build artifacts |
+| `make help` | Show all targets |
+
 ## Key Features
 
 - **Multi-format ingestion** — Upload PDF, Markdown, DOCX, text, HTML, JSON, CSV, and ZIP batches (up to 50 MB)
