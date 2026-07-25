@@ -24,7 +24,7 @@ jobs:
 
     services:
       chroma:
-        image: chromadb/chroma:0.6.3
+        image: chromadb/chroma:0.6.2
         env:
           IS_PERSISTENT: "FALSE"
         ports:
@@ -35,6 +35,21 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --health-start-period 30s
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vedo
+          POSTGRES_PASSWORD: test-vedo-password
+          POSTGRES_DB: vedo
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
 
     steps:
       - uses: actions/checkout@v4
@@ -71,11 +86,12 @@ jobs:
         run: cargo install cargo-audit --locked && cargo audit
         working-directory: backend
 
-      - name: Integration tests (requires Chroma service)
+      - name: Integration tests (requires Chroma + PostgreSQL)
         run: cargo test --test integration
         working-directory: backend
         env:
           CHROMA_URL: http://localhost:8000
+          DATABASE_URL: postgres://vedo:test-vedo-password@localhost:15432/vedo
 
   frontend:
     runs-on: ubuntu-latest
