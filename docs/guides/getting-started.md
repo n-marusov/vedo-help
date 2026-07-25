@@ -70,8 +70,16 @@ docker compose --env-file .env -f deploy/docker/compose.yml up -d
 make dev-up
 ```
 
-The override file (`deploy/docker/compose.override.yml`) is auto-merged and enables hot-reload for application services:
+The override file (`deploy/docker/compose.override.yml`) is auto-merged when using Makefile targets.
+For development with hot-reload, use the included override:
 
+```bash
+make dev-up
+# or explicitly:
+docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.override.yml up -d
+```
+
+The override enables:
 - Backend auto-restarts on Rust file changes via `cargo watch`
 - Frontend refreshes via Vite dev server on port `5173`
 

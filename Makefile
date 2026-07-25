@@ -15,6 +15,9 @@ COMPOSE_DIR := deploy/docker
 # finds the project-root .env (compose files are now under deploy/docker/).
 COMPOSE_BASE := docker compose --env-file .env -f $(COMPOSE_DIR)/compose.yml
 
+# Dev compose: includes override for Vite dev server with hot-reload on port 5173.
+COMPOSE_DEV := $(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.override.yml
+
 # Default container registry namespace
 REGISTRY_NS ?= ghcr.io/vedo
 # Default version tag for docker-push
@@ -61,13 +64,13 @@ deploy: ## Deploy to production VPS (run smoke tests before deploy)
 # === Docker Development ===
 
 dev-up: ## Start development environment
-	$(COMPOSE_BASE) up -d --parallel
+	$(COMPOSE_DEV) up -d --parallel
 
 dev-down: ## Stop development environment
-	$(COMPOSE_BASE) down
+	$(COMPOSE_DEV) down
 
 dev-logs: ## Follow development logs
-	$(COMPOSE_BASE) logs -f
+	$(COMPOSE_DEV) logs -f
 
 # === Docker Production ===
 
@@ -81,16 +84,16 @@ prod-build: ## Build all production images (parallel)
 	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml build --parallel
 
 build-all: ## Build all development images (parallel)
-	$(COMPOSE_BASE) build --parallel
+	$(COMPOSE_DEV) build --parallel
 
 dev-build: ## Build all development images (alias for build-all)
-	$(COMPOSE_BASE) build --parallel
+	$(COMPOSE_DEV) build --parallel
 
 dev-build-backend: ## Build only backend (development)
-	$(COMPOSE_BASE) build backend
+	$(COMPOSE_DEV) build backend
 
 dev-build-frontend: ## Build only frontend (development)
-	$(COMPOSE_BASE) build frontend
+	$(COMPOSE_DEV) build frontend
 
 prod-build-backend: ## Build only backend (production)
 	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml build backend
@@ -113,10 +116,10 @@ docker-validate: ## Validate Docker Compose config
 	@bash scripts/ci/validate-docker-compose.sh
 
 docker-shell: ## Open shell in a container (usage: make docker-shell SVC=backend)
-	$(COMPOSE_BASE) exec $(SVC) sh
+	$(COMPOSE_DEV) exec $(SVC) sh
 
 docker-clean: ## Remove all stopped containers and unused volumes
-	$(COMPOSE_BASE) down -v --remove-orphans
+	$(COMPOSE_DEV) down -v --remove-orphans
 
 # === Backup & Restore ===
 
