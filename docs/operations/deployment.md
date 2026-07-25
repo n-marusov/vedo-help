@@ -81,7 +81,7 @@ Caddy automatically provisions and renews Let's Encrypt TLS certificates.
 ### Step 3: Start production stack
 
 ```bash
-docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d
+docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d
 ```
 
 The production override:
@@ -336,10 +336,10 @@ First build downloads all packages. Subsequent builds reuse cached tarballs inst
 
 ```bash
 # Build all services in parallel (development)
-docker compose build --parallel
+docker compose --env-file .env -f deploy/docker/compose.yml build --parallel
 
 # Build all services in parallel (production)
-docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml build --parallel
+docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml build --parallel
 ```
 
 ### Selective Builds

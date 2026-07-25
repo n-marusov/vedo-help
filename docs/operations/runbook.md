@@ -3,6 +3,10 @@
 # Production Runbook
 
 > Operational procedures for the VEDO hub RAG Assistant production deployment.
+>
+> **Note:** All `docker compose` commands below assume you're in the project root
+> and pass `--env-file .env` for proper variable resolution (compose files are
+> now under `deploy/docker/`, but `.env` stays at the project root).
 
 ## Deployment
 

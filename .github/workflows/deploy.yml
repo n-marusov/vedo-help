@@ -163,8 +163,8 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_HOST }}" "
             cd ${{ secrets.DEPLOY_PATH }} &&
-            docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml pull backend frontend &&
-            docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d --no-deps --pull always backend frontend
+            docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml pull backend frontend &&
+            docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d --no-deps --pull always backend frontend
           "
 
       - name: Wait for health and smoke test

@@ -34,7 +34,7 @@ Other variables have sensible defaults — see [Configuration](../operations/con
 ### 3. Start all services
 
 ```bash
-docker compose up -d
+docker compose --env-file .env -f deploy/docker/compose.yml up -d
 ```
 
 This starts the core development stack:
@@ -64,7 +64,7 @@ Open `http://localhost:5173` in your browser. You should see the chat interface.
 
 ```bash
 # Using docker compose directly (override is auto-merged)
-docker compose up -d
+docker compose --env-file .env -f deploy/docker/compose.yml up -d
 
 # Or using Make targets
 make dev-up

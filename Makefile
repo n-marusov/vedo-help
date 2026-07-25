@@ -11,6 +11,10 @@
 # Compose files base path
 COMPOSE_DIR := deploy/docker
 
+# Base compose command: pass --env-file .env explicitly so Docker Compose
+# finds the project-root .env (compose files are now under deploy/docker/).
+COMPOSE_BASE := docker compose --env-file .env -f $(COMPOSE_DIR)/compose.yml
+
 # Default container registry namespace
 REGISTRY_NS ?= ghcr.io/vedo
 # Default version tag for docker-push
@@ -28,15 +32,15 @@ prod-smoke: ## Run smoke tests with production compose profile
 
 # === Docker Registry ===
 
-docker-login: ## Log in to GitHub Container Registry (usage: make docker-login GITHUB_TOKEN=ghp_...)
+docker-login: ## Log in to GitHub Container Registry
 	@echo "Logging in to ghcr.io..."
 	@echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_USER:-$(shell whoami)}" --password-stdin
 
-docker-push: ## Build & push images to registry (usage: REGISTRY_NS=ghcr.io/my-org make docker-push VERSION=v1.0.0)
+docker-push: ## Build & push images to registry
 	@echo "Building and pushing images..."
-	docker compose -f $(COMPOSE_DIR)/compose.yml build --parallel
+	$(COMPOSE_BASE) build --parallel
 	@for svc in backend frontend; do \
-		img=$$(docker compose -f $(COMPOSE_DIR)/compose.yml images -q $$svc); \
+		img=$$($(COMPOSE_BASE) images -q $$svc); \
 		if [ -z "$$img" ]; then \
 			echo "ERROR: No image found for $$svc — was the build successful?"; \
 			exit 1; \
@@ -51,68 +55,68 @@ deploy: ## Deploy to production VPS (run smoke tests before deploy)
 	@echo ""
 	@echo "To deploy via CI, push to main: git push origin main"
 	@echo "To deploy manually:"
-	@echo "  ssh <host> 'cd <project-dir> && docker compose pull && docker compose up -d --no-deps backend frontend'"
+	@echo "  ssh <host> 'cd <project-dir> && docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml pull backend frontend'"
+	@echo "  ssh <host> 'cd <project-dir> && docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d --no-deps backend frontend'"
 
 # === Docker Development ===
 
-dev-up: ## Start development environment (parallel build)
-	docker compose -f $(COMPOSE_DIR)/compose.yml up -d --parallel
+dev-up: ## Start development environment
+	$(COMPOSE_BASE) up -d --parallel
 
 dev-down: ## Stop development environment
-	docker compose -f $(COMPOSE_DIR)/compose.yml down
+	$(COMPOSE_BASE) down
 
 dev-logs: ## Follow development logs
-	docker compose -f $(COMPOSE_DIR)/compose.yml logs -f
+	$(COMPOSE_BASE) logs -f
 
 # === Docker Production ===
 
 prod-up: ## Start production environment
-	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml up -d
+	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml up -d
 
 prod-down: ## Stop production environment
-	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml down
+	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml down
 
 prod-build: ## Build all production images (parallel)
-	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml build --parallel
+	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml build --parallel
 
 build-all: ## Build all development images (parallel)
-	docker compose -f $(COMPOSE_DIR)/compose.yml build --parallel
+	$(COMPOSE_BASE) build --parallel
 
 dev-build: ## Build all development images (alias for build-all)
-	docker compose -f $(COMPOSE_DIR)/compose.yml build --parallel
+	$(COMPOSE_BASE) build --parallel
 
 dev-build-backend: ## Build only backend (development)
-	docker compose -f $(COMPOSE_DIR)/compose.yml build backend
+	$(COMPOSE_BASE) build backend
 
 dev-build-frontend: ## Build only frontend (development)
-	docker compose -f $(COMPOSE_DIR)/compose.yml build frontend
+	$(COMPOSE_BASE) build frontend
 
 prod-build-backend: ## Build only backend (production)
-	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml build backend
+	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml build backend
 
 prod-build-frontend: ## Build only frontend (production)
-	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml build frontend
+	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/compose.production.yml build frontend
 
 # === Docker Utilities ===
 
 docker-logs: ## View container logs (usage: make docker-logs ARGS="backend")
-	docker compose -f $(COMPOSE_DIR)/compose.yml logs -f $(ARGS)
+	$(COMPOSE_BASE) logs -f $(ARGS)
 
 docker-health: ## Check container health status
-	docker compose -f $(COMPOSE_DIR)/compose.yml ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
+	$(COMPOSE_BASE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
 
-docker-health-check: ## Verify all containers are healthy (exit 0 only if all healthy)
+docker-health-check: ## Verify all containers are healthy
 	@bash scripts/ops/check-container-health.sh $(COMPOSE_DIR)/compose.yml $(COMPOSE_DIR)/compose.override.yml
 
-docker-validate: ## Validate Docker Compose config for common service URL misconfigurations
+docker-validate: ## Validate Docker Compose config
 	@bash scripts/ci/validate-docker-compose.sh
 
-
 docker-shell: ## Open shell in a container (usage: make docker-shell SVC=backend)
-	docker compose -f $(COMPOSE_DIR)/compose.yml exec $(SVC) sh
+	$(COMPOSE_BASE) exec $(SVC) sh
 
 docker-clean: ## Remove all stopped containers and unused volumes
-	docker compose -f $(COMPOSE_DIR)/compose.yml down -v --remove-orphans
+	$(COMPOSE_BASE) down -v --remove-orphans
 
 # === Backup & Restore ===
 
@@ -163,7 +167,7 @@ load-test: ## Run smoke + load test scenarios
 	@echo "Smoke test passed. Running load test..."
 	k6 run tests/load/load-test.js
 
-load-test-full: ## Run all 4 load test scenarios (smoke, load, stress, soak)
+load-test-full: ## Run all 4 load test scenarios
 	@echo "Running full load test suite..."
 	k6 run tests/load/smoke-test.js
 	@echo ""
@@ -190,7 +194,7 @@ help: ## Show this help
 
 # === Testing ===
 
-test-env: ## Start test environment (docker-compose.test.yml)
+test-env: ## Start test environment
 	docker compose --env-file .env.test -f $(COMPOSE_DIR)/compose.test.yml up -d
 	@echo "Waiting for all services to be healthy..."
 	@sleep 10
@@ -208,7 +212,7 @@ test-e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
 	docker compose --env-file .env.test -f $(COMPOSE_DIR)/compose.test.yml \
 		--profile test-runner run --rm frontend-tests
 
-test:keycloak-template: ## Validate keycloak realm template substitution (no Docker needed)
+test:keycloak-template: ## Validate keycloak realm template substitution
 	@bash scripts/ci/validate-keycloak-template.sh
 
 lint: ## Run all linters

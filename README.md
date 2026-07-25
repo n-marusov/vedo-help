@@ -14,7 +14,7 @@ Ingest PDF, Markdown, and DOCX documents — index them in a vector database —
 cp .env.example .env    # edit LLM_API_KEY
 
 # 2. Start all services
-docker compose -f deploy/docker/compose.yml up -d
+docker compose --env-file .env -f deploy/docker/compose.yml up -d
 
 # 3. Open the UI
 open http://localhost:5173
