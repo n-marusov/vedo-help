@@ -24,6 +24,7 @@ use axum::{
     routing::{delete, get, post},
     Extension, Router,
 };
+use sqlx::PgPool;
 use tower::util::ServiceExt;
 
 use vedo_backend::modules::collections::{
@@ -45,8 +46,57 @@ mod common;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Auth middleware mirror shared by both builders. See [`build_test_router`] and
+/// [`build_router_only`] for the DB-policy split.
+async fn auth_middleware(
+    Extension(jwt_validator): Extension<Option<SharedJwtValidator>>,
+    req: axum::http::Request<axum::body::Body>,
+    next: middleware::Next,
+) -> Result<axum::response::Response, axum::response::Response> {
+    match authenticate_request(req.headers(), jwt_validator.as_ref()).await {
+        Ok(auth_info) => {
+            let mut req = req;
+            req.extensions_mut().insert(auth_info);
+            Ok(next.run(req).await)
+        }
+        Err(response) => Err(response),
+    }
+}
+
+/// Build a router backed by an **eagerly connected** PostgreSQL pool.
+///
+/// Use for any test that exercises a real handler body touching the DB. The
+/// routing-policy tests in this file (401/200 assertions over stub handlers)
+/// do **not** need a live DB and should use [`build_router_only`] instead —
+/// otherwise their failure mode when Docker is down is a 30 s `PoolTimedOut`
+/// that masks real regressions.
+#[allow(dead_code)]
 async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     let db = common::setup_test_db().await;
+    build_router_with_pool(db, validator).await
+}
+
+/// Build a router with a **lazy** (never-connecting) PostgreSQL pool.
+///
+/// Intended only for tests that assert routing/middleware behavior with stub
+/// handlers (`|| async {}`); the lazy pool exists solely to satisfy
+/// `QueryService::new(db, …)` and friends at construction time and is never
+/// awaited. This keeps the routing-policy tests green on a host with no
+/// Docker, so a missing test stack no longer produces a false `FAILED`.
+async fn build_router_only(validator: Option<SharedJwtValidator>) -> Router {
+    // Lazy pool — never establishes a TCP connection. Mirrors the pattern used
+    // by `query/service.rs` unit tests for DB-free `QueryService` construction.
+    let db: PgPool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect_lazy("postgres://localhost/nonexistent")
+        .expect("[FIX] lazy pool for build_router_only");
+    build_router_with_pool(db, validator).await
+}
+
+/// Shared router assembly used by both [`build_test_router`] and
+/// [`build_router_only`]. The only difference between the two entry points is
+/// whether `db` actually connects to PostgreSQL.
+async fn build_router_with_pool(db: PgPool, validator: Option<SharedJwtValidator>) -> Router {
     let config = common::setup_test_config();
     let chroma_url = config.chroma_url.clone();
     let embedding_client =
@@ -121,22 +171,6 @@ async fn build_test_router(validator: Option<SharedJwtValidator>) -> Router {
     impl FromRef<AppState> for GitSyncService {
         fn from_ref(state: &AppState) -> Self {
             state.git_sync_service.clone()
-        }
-    }
-
-    // Auth middleware (mirrors main.rs auth_middleware)
-    async fn auth_middleware(
-        Extension(jwt_validator): Extension<Option<SharedJwtValidator>>,
-        req: axum::http::Request<axum::body::Body>,
-        next: middleware::Next,
-    ) -> Result<axum::response::Response, axum::response::Response> {
-        match authenticate_request(req.headers(), jwt_validator.as_ref()).await {
-            Ok(auth_info) => {
-                let mut req = req;
-                req.extensions_mut().insert(auth_info);
-                Ok(next.run(req).await)
-            }
-            Err(response) => Err(response),
         }
     }
 
@@ -227,7 +261,10 @@ const PROTECTED_ROUTES_NO_PARAMS: &[(&str, Method)] = &[
 
 #[tokio::test]
 async fn test_all_protected_routes_return_401_without_auth() {
-    let app = build_test_router(None).await;
+    // Routing policy only — stub handlers never touch the DB. Use
+    // `build_router_only` so this test stays green on a host with no Docker
+    // and surfaces real auth regressions, not `PoolTimedOut`.
+    let app = build_router_only(None).await;
 
     for (path, method) in PROTECTED_ROUTES_NO_PARAMS {
         let req = unauthorized_request(method.clone(), path);
@@ -243,7 +280,8 @@ async fn test_all_protected_routes_return_401_without_auth() {
 
 #[tokio::test]
 async fn test_all_protected_routes_return_401_with_invalid_token() {
-    let app = build_test_router(None).await;
+    // See note on `test_all_protected_routes_return_401_without_auth`.
+    let app = build_router_only(None).await;
 
     for (path, method) in PROTECTED_ROUTES_NO_PARAMS {
         let req = make_request(method.clone(), path, Some("invalid-jwt-token"));
@@ -263,21 +301,6 @@ async fn test_all_protected_routes_return_401_with_invalid_token() {
 
 /// Make a minimal router with a single {id} route to isolate path-param issues.
 async fn build_minimal_router() -> Router {
-    async fn auth_middleware(
-        Extension(jwt_validator): Extension<Option<SharedJwtValidator>>,
-        req: axum::http::Request<axum::body::Body>,
-        next: middleware::Next,
-    ) -> Result<axum::response::Response, axum::response::Response> {
-        match authenticate_request(req.headers(), jwt_validator.as_ref()).await {
-            Ok(auth_info) => {
-                let mut req = req;
-                req.extensions_mut().insert(auth_info);
-                Ok(next.run(req).await)
-            }
-            Err(response) => Err(response),
-        }
-    }
-
     Router::new()
         .route("/api/collections/{id}", get(|| async {}))
         .route("/api/collections/{id}", delete(|| async {}))
@@ -313,7 +336,8 @@ async fn test_path_param_routes_return_401_without_auth() {
 
 #[tokio::test]
 async fn test_webhook_endpoint_public() {
-    let app = build_test_router(None).await;
+    // Routing policy only — see note on the 401-without-auth test.
+    let app = build_router_only(None).await;
     let req = unauthorized_request(Method::POST, "/api/git-sync/webhook");
     let response = app.oneshot(req).await.unwrap();
     assert_ne!(
@@ -327,7 +351,9 @@ async fn test_webhook_endpoint_public() {
 /// without an Authorization header.
 #[tokio::test]
 async fn test_health_endpoint_public() {
-    let app = build_test_router(None).await;
+    // Routing policy only — health endpoint registration must come AFTER the
+    // `route_layer` so Docker healthchecks can call it without auth.
+    let app = build_router_only(None).await;
     let req = unauthorized_request(Method::GET, "/health");
     let response = app.oneshot(req).await.unwrap();
     assert_eq!(
@@ -343,7 +369,8 @@ async fn test_health_endpoint_public() {
 
 #[tokio::test]
 async fn test_protected_routes_count_matches_expectations() {
-    let app = build_test_router(None).await;
+    // Routing policy only — see note on the 401-without-auth test.
+    let app = build_router_only(None).await;
     let mut count_401 = 0u32;
 
     for (path, method) in PROTECTED_ROUTES_NO_PARAMS {

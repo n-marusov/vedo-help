@@ -157,8 +157,8 @@ This builds and pushes images, then creates a GitHub Release with an auto-genera
 
 | Endpoint | Service | Expected Response |
 |----------|---------|-------------------|
-| `GET /api/health` | Backend | `OK` |
-| `GET /health` | Embedding | `{"status": "ok"}` |
+| `GET /health` | Backend | `OK` |
+| `GET /api/health/deep` | Backend | JSON dependency status for PostgreSQL, Chroma, embeddings, and LLM |
 | gRPC health probe | OTel Collector | `localhost:4317` (via grpc_health_probe) |
 
 Docker Compose uses `restart: unless-stopped` on all services for automatic recovery. Health checks are defined for every service in `docker-compose.yml` and use `depends_on` with `condition: service_healthy`.
@@ -172,7 +172,6 @@ Production operation scripts are available in `scripts/`:
 | `scripts/backup.sh` | Backup PostgreSQL databases (vedo + keycloak) and Chroma vector store |
 | `scripts/restore.sh` | Restore PostgreSQL databases and Chroma from a previous backup |
 | `scripts/smoke-test.sh` | Smoke test — start services and verify health endpoints |
-| `scripts/smoke-test-dns.sh` | DNS resolution test for embedding service (VPN-independent) |
 
 ## Backup & Restore
 

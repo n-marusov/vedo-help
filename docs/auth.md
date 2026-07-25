@@ -218,7 +218,7 @@ Default admin console: `http://localhost:8080/admin/master/console/#/vedo-hub`
 
 ### Production
 
-The production stack (`docker-compose.production.yml`) **includes KeyCloak** — it is required for all authentication. The legacy `ADMIN_API_KEY` mechanism has been removed. Every API request must carry a valid KeyCloak-issued JWT.
+The production stack (`docker-compose.production.yml`) **includes KeyCloak** — it is required for all authentication. The legacy static API-key mechanism has been removed. Every API request must carry a valid KeyCloak-issued JWT.
 
 ---
 
@@ -226,23 +226,24 @@ The production stack (`docker-compose.production.yml`) **includes KeyCloak** —
 
 The backend validates tokens in `backend/src/shared/auth.rs`:
 
-1. **Fast path (API key):** If the Bearer token matches `ADMIN_API_KEY`, authenticate immediately as `AuthInfo::ApiKey`
-2. **JWT path:** If the token is not the API key, validate it as a KeyCloak JWT:
-   - Fetch JWKS from `{keycloak_url}/realms/vedo-hub/protocol/openid-connect/certs`
-   - Cache JWKS for 1 hour (TTL: 3600s)
-   - Validate signature, issuer (`{keycloak_url}/realms/vedo-hub`), audience (`vedo-backend`), and expiration
-   - 30-second clock skew leeway
-3. **Fallback:** If neither matches, return `401 Unauthorized`
+1. Extract the Bearer JWT from the `Authorization` header.
+2. Fetch and cache JWKS from the configured KeyCloak JWKS URL.
+3. Validate signature, issuer, audience (`KEYCLOAK_CLIENT_ID`, default `vedo-backend`), expiration, and clock skew.
+4. Build `AuthInfo` from JWT claims, including `sub`, username/display name, email, provider, and realm roles.
+5. Reject missing or invalid tokens with `401 Unauthorized`.
 
-### API Key vs JWT
+Admin routes additionally use RBAC middleware and require the `admin` realm role.
 
-| Feature | API Key | JWT (KeyCloak) |
-|---------|---------|----------------|
-| User identity | Single `admin` user | Multi-user (sub claim) |
-| Roles | Implicit admin | From JWT `roles` claim |
-| Expiry | Never (manual rotation) | Configurable (via KeyCloak) |
-| Setup | Set `ADMIN_API_KEY` | Requires KeyCloak stack |
-| Operations | Sync (no network calls) | Async (JWKS fetch) |
+### JWT-only Authentication
+
+| Feature | Current behavior |
+|---------|------------------|
+| User identity | From KeyCloak JWT `sub` claim |
+| Roles | From KeyCloak realm roles |
+| Expiry | Configurable in KeyCloak |
+| Setup | KeyCloak realm + `vedo-frontend` / `vedo-backend` clients |
+| JWKS access | Backend uses `KEYCLOAK_JWKS_URL` / internal Docker URL |
+| Issuer validation | Backend uses `KEYCLOAK_PUBLIC_URL` / browser-visible issuer |
 
 ---
 

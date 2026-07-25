@@ -18,7 +18,7 @@ VEDO hub RAG Assistant ingests documents (PDF, Markdown, DOCX), indexes them in 
 ## Tech Stack
 
 - **Backend:** Rust (axum framework, sqlx, tokio, serde, tracing, jsonwebtoken, git2, hmac, sha2)
-- **Embedding Service:** RouterAI API (OpenAI-compatible `/v1/embeddings`, replaces local Python service)
+- **Embeddings:** RouterAI API (OpenAI-compatible `/v1/embeddings`, no local Python embedding container)
 - **Vector Database:** Chroma (chromadb/chroma:latest)
 - **Frontend:** Vue 3 + TypeScript (streaming responses via SSE, DeepSeek-style chat UI)
 - **Testing:** Vitest + @vue/test-utils + jsdom

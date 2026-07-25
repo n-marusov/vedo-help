@@ -22,7 +22,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::json;
-use vedo_backend::shared::ChromaClient;
 
 mod common;
 
@@ -151,7 +150,7 @@ async fn test_create_and_list_repo_contract() {
 /// verify files indexed > 0 and chunks can be queried via Chroma.
 #[tokio::test]
 async fn test_sync_markdown_repo_from_local_fixture() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let collection_name = unique_collection("git_sync_fixture");
 
     // 1. Create Chroma collection
@@ -263,7 +262,7 @@ async fn test_sync_markdown_repo_from_local_fixture() {
 /// Add a new .md file + commit → trigger sync again → verify incremental chunk count > original.
 #[tokio::test]
 async fn test_incremental_sync_detects_changes() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let collection_name = unique_collection("git_sync_incremental");
 
     client
@@ -330,7 +329,7 @@ async fn test_incremental_sync_detects_changes() {
 /// Create + sync → DELETE repo → verify local clone dir removed.
 #[tokio::test]
 async fn test_delete_repo_cleans_up() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let collection_name = unique_collection("git_sync_delete");
 
     // 1. Create collection
@@ -384,7 +383,7 @@ async fn test_delete_repo_cleans_up() {
 /// Create bare repo with no .md files → sync → verify files_indexed: 0.
 #[tokio::test]
 async fn test_sync_empty_repo() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let collection_name = unique_collection("git_sync_empty");
 
     // 1. Create empty fixture repo (no .md files)
@@ -462,7 +461,7 @@ async fn test_sync_empty_repo() {
 /// → sync → verify both indexed.
 #[tokio::test]
 async fn test_sync_repo_with_nested_dirs() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let collection_name = unique_collection("git_sync_nested");
 
     // 1. Create fixture with nested directories
@@ -666,7 +665,7 @@ async fn test_sync_status_transitions_contract() {
 /// The backend should either queue the second request or return 409 Conflict.
 #[tokio::test]
 async fn test_concurrent_sync_on_same_repo_is_safe() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let collection_name = unique_collection("git_sync_concurrent");
 
     // 1. Create collection

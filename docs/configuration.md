@@ -38,7 +38,6 @@ Copy `.env.example` to `.env` and set the required values. Most variables have d
 | `EMBEDDING_BASE_URL` | RouterAI API base URL for embeddings (defaults to `LLM_BASE_URL`) | `https://routerai.ru/api/v1` |
 | `EMBEDDING_MODEL` | RouterAI embedding model identifier | `sentence-transformers/all-minilm-l6-v2` |
 | `EMBEDDING_CACHE_SIZE` | Max entries in local embedding LRU cache | `1000` |
-| `LLM_FALLBACK_BASE_URL` | Fallback LLM API base URL when primary API fails | `https://opencode.ai/api/v1` |
 | `ADVANCED_RAG_ENABLED` | Enable Multi-Query, HyDE, hybrid search, and reranking | `true` |
 | `RERANK_TOP_K` | Chunks kept after reranking | `5` |
 | `HYBRID_TOP_K` | Initial chunks to retrieve per search pass | `20` |
@@ -103,8 +102,10 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 | Volume | Mount Point | Service | Purpose |
 |--------|------------|---------|---------|
 | `chroma_data` | `/chroma/chroma` | chroma | Vector index persistence |
-| `db_data` | `/var/lib/postgresql/data` | db | PostgreSQL data for app + KeyCloak databases |
-| `keycloak_db_data` | `/var/lib/postgresql/data` | keycloak-db | KeyCloak PostgreSQL data |
+| `db_data` | `/var/lib/postgresql/data` | db | PostgreSQL data for application and KeyCloak databases |
+| `keycloak_import` | `/opt/keycloak/data/import` | keycloak-init | Generated realm import file |
+| `otel_data` | Collector storage directory | otel-collector | OpenTelemetry collector state |
+| `git_repos` | `/app/data/git-repos` | backend | Cloned Git repositories for sync jobs |
 
 ## File Upload Limits
 

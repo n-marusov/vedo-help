@@ -1,11 +1,10 @@
 /// Integration tests for the Chroma vector database.
 ///
 /// These tests connect to a real Chroma instance and verify full CRUD operations.
-/// They are ignored by default (`cargo test` skips them) — run explicitly:
-///
-/// ```bash
-/// cargo test --test integration
-/// ```
+/// They use `common::require_chroma` as a preflight: if Chroma is not reachable
+/// within 2 seconds, the test panics with an actionable message naming the URL
+/// and the recovery command, instead of hanging on a TCP dial. See
+/// `AGENTS.md` "Test services preflight".
 ///
 /// Or against a custom URL:
 ///
@@ -23,7 +22,6 @@ use uuid::Uuid;
 
 use vedo_backend::modules::query::repository::QueryRepository;
 use vedo_backend::shared::llm::LlmClient;
-use vedo_backend::shared::ChromaClient;
 
 mod common;
 
@@ -67,7 +65,7 @@ fn unique_collection(_prefix: &str) -> String {
 
 #[tokio::test]
 async fn test_create_and_delete_collection() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("create_delete");
 
     // Create
@@ -97,7 +95,7 @@ async fn test_create_and_delete_collection() {
 
 #[tokio::test]
 async fn test_double_create_same_collection_succeeds() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("double_create");
 
     // First creation should succeed
@@ -121,7 +119,7 @@ async fn test_double_create_same_collection_succeeds() {
 
 #[tokio::test]
 async fn test_delete_nonexistent_collection_fails() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("nonexistent_delete");
 
     let result = client.delete_collection(&name).await;
@@ -133,7 +131,7 @@ async fn test_delete_nonexistent_collection_fails() {
 
 #[tokio::test]
 async fn test_create_collection_with_special_chars_in_name() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("special name with spaces");
 
     client
@@ -153,7 +151,7 @@ async fn test_create_collection_with_special_chars_in_name() {
 
 #[tokio::test]
 async fn test_add_and_query_embeddings() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("add_query");
 
     // Setup
@@ -204,7 +202,7 @@ async fn test_add_and_query_embeddings() {
 
 #[tokio::test]
 async fn test_query_returns_top_k() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("top_k");
 
     // Setup
@@ -264,7 +262,7 @@ async fn test_query_returns_top_k() {
 
 #[tokio::test]
 async fn test_delete_document_removes_from_results() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("delete_doc");
 
     // Setup
@@ -327,7 +325,7 @@ async fn test_delete_document_removes_from_results() {
 
 #[tokio::test]
 async fn test_delete_multiple_documents() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("delete_multi");
 
     // Setup
@@ -382,7 +380,7 @@ async fn test_delete_multiple_documents() {
 
 #[tokio::test]
 async fn test_query_empty_collection_returns_no_results() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("empty_query");
 
     // Setup
@@ -415,7 +413,7 @@ async fn test_query_empty_collection_returns_no_results() {
 
 #[tokio::test]
 async fn test_full_crud_lifecycle() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("lifecycle");
 
     // 1. Create
@@ -476,7 +474,7 @@ async fn test_create_collection_with_uuid_name() {
     // Regression: the backend uses UUIDs as Chroma collection names to work around
     // Chroma's ASCII-only naming constraint. Verify that UUID-formatted strings
     // (36 chars, hex + hyphens) are accepted.
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let uuid = uuid::Uuid::new_v4();
     let name = uuid.to_string();
 
@@ -503,7 +501,7 @@ async fn test_create_collection_with_uuid_name() {
 
 #[tokio::test]
 async fn test_query_with_where_active_filter() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("where_active");
 
     // Setup
@@ -571,7 +569,7 @@ async fn test_query_with_where_active_filter() {
 
 #[tokio::test]
 async fn test_delete_where_removes_specific_document_chunks() {
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("delete_where_test");
 
     // Setup
@@ -633,8 +631,7 @@ async fn test_delete_where_removes_specific_document_chunks() {
 
 #[tokio::test]
 async fn test_query_repository_applies_active_filter() {
-    let db_url = env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:18000".to_string());
-    let client = ChromaClient::new(&db_url);
+    let client = common::require_chroma(&chroma_url()).await;
     let name = unique_collection("query_repo_active");
 
     // Setup Chroma collection with mixed active/inactive metadata
@@ -710,7 +707,8 @@ async fn test_query_repository_applies_active_filter() {
         .expect("should insert inactive chunk");
 
     // Create QueryRepository
-    let repo = QueryRepository::new(pool, &db_url);
+    // `db_url` was here historically; reuse `chroma_url()` (same env-var-derived value).
+    let repo = QueryRepository::new(pool, &chroma_url());
 
     // Query Chroma through the repository — now applies the active-only filter
     // (T8.2 implemented: query_chroma passes `where: {"is_active": true}`)
@@ -753,7 +751,7 @@ async fn test_create_collection_with_cyrillic_name_fails() {
     // Regression: document the Chroma constraint so future developers know.
     // Non-ASCII names like "Техническая документация" are rejected.
     // The backend works around this by using UUID as the Chroma collection name.
-    let client = ChromaClient::new(&chroma_url());
+    let client = common::require_chroma(&chroma_url()).await;
     let name = format!("test_{}_{}", "кириллица", uuid::Uuid::new_v4());
 
     let result = client.create_collection(&name).await;
