@@ -67,13 +67,20 @@ if getent group docker >/dev/null; then
     usermod -aG docker "${DEPLOY_USER}"
 fi
 
-# ── 2. Update system packages ──
+# ── 2. Clean up stale Docker repo from previous failed runs ──
+if [ -f /etc/apt/sources.list.d/docker.list ]; then
+    info "Removing stale Docker apt source (will be re-created with correct OS)..."
+    rm -f /etc/apt/sources.list.d/docker.list
+    ok "Stale docker.list removed"
+fi
+
+# ── 3. Update system packages ──
 info "Updating system packages..."
 apt-get update -qq
 apt-get upgrade -y -qq
 ok "System packages updated"
 
-# ── 3. Install prerequisites ──
+# ── 4. Install prerequisites ──
 info "Installing prerequisites..."
 apt-get install -y -qq \
     ca-certificates \
@@ -86,7 +93,7 @@ apt-get install -y -qq \
 ok "Prerequisites installed"
 
 # ════════════════════════════════════════════════════════════════
-# 4. Install Docker
+# 5. Install Docker
 # ════════════════════════════════════════════════════════════════
 
 if command -v docker &>/dev/null; then
@@ -134,7 +141,7 @@ if ! docker compose version &>/dev/null; then
 fi
 ok "Docker Compose plugin: $(docker compose version)"
 
-# ── 5. Configure Docker daemon ──
+# ── 6. Configure Docker daemon ──
 info "Configuring Docker daemon..."
 mkdir -p /etc/docker
 cat > /etc/docker/daemon.json << 'DOCKEREOF'
@@ -161,7 +168,7 @@ usermod -aG docker "${DEPLOY_USER}"
 ok "User '${DEPLOY_USER}' added to docker group"
 
 # ════════════════════════════════════════════════════════════════
-# 6. Configure firewall (UFW)
+# 7. Configure firewall (UFW)
 # ════════════════════════════════════════════════════════════════
 
 info "Configuring firewall (UFW)..."
@@ -181,7 +188,7 @@ ufw --force enable
 ok "Firewall configured: SSH, HTTP, HTTPS allowed"
 
 # ════════════════════════════════════════════════════════════════
-# 7. Create project directory
+# 8. Create project directory
 # ════════════════════════════════════════════════════════════════
 
 info "Creating project directory: ${DEPLOY_PATH}"
@@ -190,7 +197,7 @@ chown "${DEPLOY_USER}:${DEPLOY_USER}" "${DEPLOY_PATH}"
 ok "Project directory created and owned by '${DEPLOY_USER}'"
 
 # ════════════════════════════════════════════════════════════════
-# 8. Set up Docker network
+# 9. Set up Docker network
 # ════════════════════════════════════════════════════════════════
 
 info "Creating Docker internal network (if not exists)..."
@@ -199,7 +206,7 @@ docker network inspect internal >/dev/null 2>&1 || \
 ok "Docker network 'internal' ready"
 
 # ════════════════════════════════════════════════════════════════
-# 9. Summary
+# 10. Summary
 # ════════════════════════════════════════════════════════════════
 
 echo ""
