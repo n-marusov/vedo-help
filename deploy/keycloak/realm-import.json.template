@@ -48,10 +48,10 @@
 			"serviceAccountsEnabled": false,
 			"authorizationServicesEnabled": false,
 			"protocol": "openid-connect",
-			"rootUrl": "http://localhost:5173",
+			"rootUrl": "http://localhost",
 			"baseUrl": "/",
-			"redirectUris": ["http://localhost:5173/*", "http://localhost:80/*"],
-			"webOrigins": ["http://localhost:5173", "http://localhost:80"],
+			"redirectUris": ["*"],
+			"webOrigins": ["+"],
 			"protocolMappers": [
 				{
 					"name": "audience-vedo-backend",
