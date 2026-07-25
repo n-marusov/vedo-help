@@ -41,6 +41,10 @@ test.describe('Web Crawl: UI and backend integration', () => {
       timeout: 5000,
     });
 
+    // Open the create dialog first
+    await page.locator('button', { hasText: '+ New Crawl' }).click();
+    await expect(page.locator('.dialog-overlay')).toBeVisible();
+
     // Try to start crawl with empty URL
     await page.locator('[data-testid="btn-web-crawl-start"]').click();
     await expect(page.locator('[data-testid="web-crawl-url-error"]')).toBeVisible();
@@ -59,6 +63,10 @@ test.describe('Web Crawl: UI and backend integration', () => {
     await expect(page.locator('[data-testid="web-crawl-manager"]')).toBeVisible({
       timeout: 5000,
     });
+
+    // Open the create dialog first
+    await page.locator('button', { hasText: '+ New Crawl' }).click();
+    await expect(page.locator('.dialog-overlay')).toBeVisible();
 
     // Verify configuration form elements exist
     await expect(page.locator('[data-testid="web-crawl-url-input"]')).toBeVisible();

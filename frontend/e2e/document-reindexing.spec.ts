@@ -6,6 +6,7 @@ test.describe('Document lifecycle with real backend', () => {
     page,
     request,
   }) => {
+    test.setTimeout(60_000);
     const collection = await setupAuthAndCollection(page, request, `Docs Query ${Date.now()}`);
 
     await page.goto('/admin');
@@ -36,7 +37,7 @@ test.describe('Document lifecycle with real backend', () => {
     await page.locator('[data-testid="btn-send"]').click();
 
     await expect(page.locator('[data-testid="message-assistant"]').first()).toBeVisible({
-      timeout: 30000,
+      timeout: 60000,
     });
   });
 

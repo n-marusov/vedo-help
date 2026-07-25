@@ -143,7 +143,7 @@ test.describe('Web Crawl: full E2E flow', () => {
 
     // Click + New Crawl button
     await page.locator('button', { hasText: '+ New Crawl' }).click();
-    await expect(page.locator('.v-dialog')).toBeVisible();
+    await expect(page.locator('.dialog-overlay')).toBeVisible();
 
     // Verify form elements
     await expect(page.locator('[data-testid="web-crawl-url-input"]')).toBeVisible();

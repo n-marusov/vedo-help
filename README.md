@@ -61,6 +61,42 @@ This project uses a **Makefile** (`make help`) for common tasks:
 
 ---
 
+## Testing
+
+### Unit & Integration
+
+```bash
+make test          # Backend unit + integration + frontend unit
+make ci            # Full CI pipeline (format + lint + test + build)
+```
+
+### E2E (Playwright)
+
+E2E-тесты запускаются в Docker-контейнере `frontend-tests` внутри тестовой сети.
+Покрытие: аутентификация, чат-интерфейс, RAG-флоу, API backend (37 API-тестов), git-синхронизация и др.
+
+```bash
+# 1. Поднять тестовое окружение (PostgreSQL, Chroma, KeyCloak, backend)
+make test-env
+
+# 2. Запустить E2E-тесты
+make test-e2e
+
+# 3. Остановить и очистить
+make test-env-down
+```
+
+Для отладки можно запустить Playwright локально (тестовое окружение должно работать):
+
+```bash
+cd frontend
+npm run test:e2e        # CLI-прогон
+npm run test:e2e:ui     # UI-режим Playwright
+npm run test:e2e:debug  # Пошаговая отладка
+```
+
+Подробнее — [Testing Guide](docs/guides/testing.md).
+
 ## Documentation
 
 | Guide | Description |

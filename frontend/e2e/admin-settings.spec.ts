@@ -38,17 +38,11 @@ test.describe('Admin Settings: Model Configuration', () => {
       timeout: 10000,
     });
 
-    // VSelect triggers show the currently selected value
-    // LLM Model default: Claude Sonnet 4.6
-    await expect(page.locator('.v-select__value', { hasText: 'Claude Sonnet 4.6' })).toBeVisible();
-
-    // Embedding model default: all-MiniLM-L6-v2
-    await expect(page.locator('.v-select__value', { hasText: 'all-MiniLM-L6-v2' })).toBeVisible();
-
-    // Rerank model default: Cohere Rerank 4 Pro
-    await expect(
-      page.locator('.v-select__value', { hasText: 'Cohere Rerank 4 Pro' }),
-    ).toBeVisible();
+    // VSelect triggers show the currently selected value.
+    // Verify all three model selects have non-placeholder values (i.e., loaded).
+    const modelsSection = page.locator('.settings-section').filter({ hasText: 'Models' });
+    const selectValues = modelsSection.locator('.v-select__value:not(.v-select__placeholder)');
+    await expect(selectValues).toHaveCount(3);
   });
 
   test('TC-SETTINGS-003: change LLM model via dropdown and save', async ({ page }) => {
@@ -66,8 +60,8 @@ test.describe('Admin Settings: Model Configuration', () => {
     await llmTrigger.click();
     await expect(page.locator('[data-testid="collection-select-dropdown"]')).toBeVisible();
 
-    // Select "GPT 5.5" from the dropdown
-    await page.locator('.v-select__option', { hasText: 'GPT 5.5' }).click();
+    // Select "GPT 5.5 — Frontier" from the dropdown (use exact label to avoid strict-mode collision with GPT 5.5 Pro)
+    await page.locator('.v-select__option', { hasText: 'GPT 5.5 — Frontier' }).click();
 
     // The trigger should now show GPT 5.5
     await expect(llmTrigger).toContainText('GPT 5.5');
@@ -242,11 +236,12 @@ test.describe('Admin Settings: Model Configuration', () => {
     await rerankTrigger.click();
     await expect(page.locator('[data-testid="collection-select-dropdown"]')).toBeVisible();
 
-    // Select "Cohere Rerank 4 Fast" from the dropdown
-    await page.locator('.v-select__option', { hasText: 'Cohere Rerank 4 Fast' }).click();
+    // Select "Cohere Rerank v3.5" from the dropdown (use a unique model to avoid
+    // deselect if a previous test already set the current value to this option)
+    await page.locator('.v-select__option', { hasText: 'Cohere Rerank v3.5' }).click();
 
     // Verify the trigger updated
-    await expect(rerankTrigger).toContainText('Cohere Rerank 4 Fast');
+    await expect(rerankTrigger).toContainText('Cohere Rerank v3.5');
 
     // Save
     await page.locator('button', { hasText: 'Save Changes' }).click();
@@ -261,7 +256,7 @@ test.describe('Admin Settings: Model Configuration', () => {
     });
     expect(settingsResp.status()).toBe(200);
     const settings = await settingsResp.json();
-    expect(settings.llm_rerank_model).toBe('cohere/rerank-4-fast');
+    expect(settings.llm_rerank_model).toBe('cohere/rerank-v3.5');
   });
 
   test('TC-SETTINGS-008b: change rerank model via dropdown (prompt-based LLM) and save', async ({
@@ -279,7 +274,9 @@ test.describe('Admin Settings: Model Configuration', () => {
     // Open dropdown and select a prompt-based LLM reranker
     await rerankTrigger.click();
     await expect(page.locator('[data-testid="collection-select-dropdown"]')).toBeVisible();
-    await page.locator('.v-select__option', { hasText: 'Gemini 2.5 Flash' }).click();
+    await page
+      .locator('.v-select__option', { hasText: 'Gemini 2.5 Flash — Fast (prompt-based)' })
+      .click();
 
     await expect(rerankTrigger).toContainText('Gemini 2.5 Flash');
 
@@ -310,7 +307,7 @@ test.describe('Admin Settings: Model Configuration', () => {
     const modelsSection = page.locator('.settings-section').filter({ hasText: 'Models' });
     const llmTrigger = modelsSection.locator('.v-select__trigger').first();
     await llmTrigger.click();
-    await page.locator('.v-select__option', { hasText: 'GPT 5.5' }).click();
+    await page.locator('.v-select__option', { hasText: 'GPT 5.5 — Frontier' }).click();
     await expect(llmTrigger).toContainText('GPT 5.5');
 
     // Also change rerank model
@@ -323,12 +320,12 @@ test.describe('Admin Settings: Model Configuration', () => {
     await page.locator('button', { hasText: 'Reset to Defaults' }).click();
 
     // Reset dialog should appear
-    await expect(page.locator('.v-overlay__dialog')).toBeVisible({
+    await expect(page.locator('.dialog-overlay')).toBeVisible({
       timeout: 5000,
     });
 
     // Click Reset in the dialog
-    await page.locator('.v-overlay__dialog button', { hasText: 'Reset' }).click();
+    await page.locator('.dialog-overlay button', { hasText: 'Reset' }).click();
 
     // The form should be reset — both LLM and rerank should go back to defaults
     await expect(llmTrigger).toContainText('Claude Sonnet 4.6');

@@ -121,7 +121,7 @@ test.describe('Chat session switching controls', () => {
 
     // --- Step 1: Select a session ---
     await page.locator('[data-testid="session-item"]').first().click();
-    await expect(page.locator('[data-testid="toolbar-session-badge"]')).toContainText(
+    await expect(page.locator('[data-testid="toolbar-session-title"]')).toContainText(
       'Selected Session',
     );
 

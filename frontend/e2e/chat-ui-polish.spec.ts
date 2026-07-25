@@ -184,6 +184,7 @@ test.describe('Chat UI Polish: message actions', () => {
   });
 
   test('TC-POLISH-006: regenerate button triggers new response', async ({ page, request }) => {
+    test.setTimeout(60_000);
     const collection = await setupAuthAndCollection(page, request, `Regen ${Date.now()}`);
 
     await page.goto('/');
@@ -194,6 +195,13 @@ test.describe('Chat UI Polish: message actions', () => {
     await page.locator('[data-testid="btn-send"]').click();
     await page.waitForSelector('[data-testid="message-assistant"]', {
       timeout: 30000,
+    });
+
+    // Wait for SSE done event to complete and message to be persisted.
+    // The regenerate button only appears when isPersistedMessage === true
+    // (message.id does not start with 'temp-').
+    await expect(page.locator('[data-testid="message-regenerate-btn"]').first()).toBeVisible({
+      timeout: 30_000,
     });
 
     // Click regenerate on assistant message
