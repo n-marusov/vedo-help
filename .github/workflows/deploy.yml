@@ -127,6 +127,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate .env.test
+        run: |
+          cat > .env.test << 'EOF'
+          COMPOSE_PROJECT_NAME=vedo-test
+          LLM_API_KEY=dummy-test-key
+          POSTGRES_PASSWORD=test-postgres-password
+          VEDO_DB_PASSWORD=test-vedo-password
+          KEYCLOAK_DB_PASSWORD=test-keycloak-password
+          KEYCLOAK_ADMIN_PASSWORD=test-admin-password
+          KEYCLOAK_ADMIN=admin
+          VEDO_BACKEND_CLIENT_SECRET=test-vedo-backend-secret
+          VEDO_ADMIN_PASSWORD=test-admin
+          VEDO_ALICE_PASSWORD=password
+          VEDO_GUEST_PASSWORD=guest
+          EOF
+
       - name: Start test Docker stack
         run: |
           docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d --quiet-pull
