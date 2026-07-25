@@ -1,6 +1,6 @@
-# docker-compose.yml — Base configuration (shared between dev and prod)
-# Dev: docker compose up (auto-merges docker-compose.override.yml)
-# Prod: docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+# compose.yml — Base configuration (shared between dev and prod)
+# Dev: docker compose -f deploy/docker/compose.yml up (auto-merges compose.override.yml)
+# Prod: docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d
 
 name: ${COMPOSE_PROJECT_NAME:-vedo}
 
@@ -29,9 +29,9 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../../backend
       target: production
-    env_file: .env
+    env_file: ../../.env
     environment:
       # Keep issuer validation aligned with browser-issued tokens while letting
       # the backend fetch JWKS over Docker's internal network.
@@ -67,7 +67,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../../frontend
       target: production
     networks:
       - internal
@@ -90,7 +90,7 @@ services:
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-CHANGEME-keycloak-password}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ../../scripts/ops/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     networks:
       - internal
     restart: unless-stopped
@@ -113,7 +113,7 @@ services:
       - 1.1.1.1
     volumes:
       - keycloak_import:/import
-      - ./keycloak/realm-import.json.template:/template:ro
+      - ../keycloak/realm-import.json.template:/template:ro
     environment:
       VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:-changeme-vedo-backend-secret}
       VEDO_ADMIN_PASSWORD: ${VEDO_ADMIN_PASSWORD:-admin}
@@ -142,7 +142,6 @@ services:
         echo "[keycloak-init] Substituting template..."
         cp /template /import/realm-import.json
         sed -i 's|[$][{]VEDO_BACKEND_CLIENT_SECRET[}]|'"$$VEDO_BACKEND_CLIENT_SECRET"'|g' /import/realm-import.json
-        sed -i 's|[$][{]VEDO_ADMIN_PASSWORD[}]|'"$$VEDO_ADMIN_PASSWORD"'|g' /import/realm-import.json
         sed -i 's|[$][{]VEDO_ALICE_PASSWORD[}]|'"$$VEDO_ALICE_PASSWORD"'|g' /import/realm-import.json
         sed -i 's|[$][{]VEDO_GUEST_PASSWORD[}]|'"$$VEDO_GUEST_PASSWORD"'|g' /import/realm-import.json
         chmod 644 /import/realm-import.json
@@ -187,7 +186,7 @@ services:
     command:
       - --config=/etc/otel-collector-config.yaml
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+      - ../otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
       - otel_data:/data
     networks:
       - internal

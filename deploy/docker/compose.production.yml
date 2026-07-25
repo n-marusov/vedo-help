@@ -1,5 +1,5 @@
-# docker-compose.production.yml — Production hardening
-# Usage: docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+# compose.production.yml — Production hardening
+# Usage: docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d
 # NOTE: No ports exposed on infrastructure services (chroma). They communicate
 # via Docker network only. Only Caddy exposes ports 80/443 to the host.
 
@@ -160,7 +160,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     networks:
       - internal
@@ -184,8 +184,8 @@ services:
     image: grafana/grafana:latest
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
     networks:
       - internal
     restart: unless-stopped

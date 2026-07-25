@@ -1,4 +1,4 @@
-import CollectionManager from '@/components/CollectionManager.vue';
+import CollectionManager from '@/components/features/documents/CollectionManager.vue';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

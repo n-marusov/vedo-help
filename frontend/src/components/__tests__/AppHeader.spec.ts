@@ -5,7 +5,7 @@ import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { h } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
-import AppHeader from '../AppHeader.vue';
+import AppHeader from '../layout/AppHeader.vue';
 
 /**
  * Build a mock JWT with proper base64url-encoded UTF-8 payload.

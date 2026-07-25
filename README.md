@@ -14,7 +14,7 @@ Ingest PDF, Markdown, and DOCX documents — index them in a vector database —
 cp .env.example .env    # edit LLM_API_KEY
 
 # 2. Start all services
-docker compose up -d
+docker compose -f deploy/docker/compose.yml up -d
 
 # 3. Open the UI
 open http://localhost:5173
@@ -50,19 +50,19 @@ open http://localhost:5173
 
 | Guide | Description |
 |-------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, installation, first run |
-| [Architecture](docs/architecture.md) | Service overview, modules, data flow |
-| [User Interface Guide](docs/gui.md) | Chat interface, admin panel, document management |
-| [API Reference](docs/api.md) | Endpoints, authentication, examples |
-| [Authentication](docs/auth.md) | KeyCloak setup, social providers, OAuth flow |
-| [Configuration](docs/configuration.md) | Environment variables, Docker settings |
-| [Deployment](docs/deployment.md) | VPS setup, Docker Compose, CI/CD |
-| [Testing](docs/testing.md) | Manual test execution guide |
-| [Web Crawler](docs/web-crawler.md) | Website ingestion workflow and crawl job API |
-| [Monitoring](docs/monitoring.md) | Prometheus, Grafana, cAdvisor, OTel Collector |
-| [Runbook](docs/runbook.md) | Production operations and incident response |
-| [C4 Architecture](docs/c4-architecture.md) | C4 context, container, component, deployment diagrams |
-| [Technical Spec](docs/technical-specification-rag-system.md) | Full system specification and requirements |
+| [Getting Started](docs/guides/getting-started.md) | Prerequisites, installation, first run |
+| [Architecture](docs/operations/architecture.md) | Service overview, modules, data flow |
+| [User Interface Guide](docs/guides/gui.md) | Chat interface, admin panel, document management |
+| [API Reference](docs/reference/api.md) | Endpoints, authentication, examples |
+| [Authentication](docs/operations/auth.md) | KeyCloak setup, social providers, OAuth flow |
+| [Configuration](docs/operations/configuration.md) | Environment variables, Docker settings |
+| [Deployment](docs/operations/deployment.md) | VPS setup, Docker Compose, CI/CD |
+| [Testing](docs/guides/testing.md) | Manual test execution guide |
+| [Web Crawler](docs/guides/web-crawler.md) | Website ingestion workflow and crawl job API |
+| [Monitoring](docs/operations/monitoring.md) | Prometheus, Grafana, cAdvisor, OTel Collector |
+| [Runbook](docs/operations/runbook.md) | Production operations and incident response |
+| [C4 Architecture](docs/reference/c4-architecture.md) | C4 context, container, component, deployment diagrams |
+| [Technical Spec](docs/reference/technical-specification-rag-system.md) | Full system specification and requirements |
 
 ## License
 

@@ -548,9 +548,9 @@ export const useChatStore = defineStore('chat', () => {
                     session_id: completedSessionId,
                   },
                 });
-                const msgs = await api.getSessionMessages(completedSessionId);
-                if (msgs && msgs.length > 0) {
-                  messages.value = msgs;
+                const msgs = await api.getSessionWithMessages(completedSessionId);
+                if (msgs && msgs.messages.length > 0) {
+                  messages.value = msgs.messages;
                 }
               } catch (fallbackErr) {
                 logger.emit({

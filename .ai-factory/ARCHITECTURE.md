@@ -84,23 +84,31 @@ frontend/
 ├── Dockerfile
 ├── vite.config.ts
 ├── tsconfig.json
+├── e2e/                      # Playwright e2e tests
 └── src/
     ├── main.ts
     ├── App.vue
-    ├── components/               # Reusable UI components
-    │   ├── ChatWindow.vue
-    │   ├── MessageBubble.vue
-    │   ├── DocumentList.vue
-    │   └── CollectionManager.vue
-    ├── stores/                   # Pinia stores
-    │   ├── chat.ts
-    │   ├── documents.ts
-    │   └── collections.ts
-    ├── composables/              # Shared composition functions
-    │   └── useStreamingChat.ts
-    └── views/                    # Page-level views
+    ├── components/
+    │   ├── ui/                # Atomic UI components (Pencil design system)
+    │   ├── features/          # Feature-specific components
+    │   │   ├── chat/          # MessageBubble, SessionDebug
+    │   │   ├── documents/     # DocumentList, CollectionManager
+    │   │   ├── collections/   # CollectionSelector
+    │   │   ├── git/           # GitRepoManager
+    │   │   ├── crawl/         # WebCrawlManager
+    │   │   ├── settings/      # SettingsPanel
+    │   │   └── admin/         # StatsPanel, ChunkBrowser
+    │   └── layout/            # AppHeader, LoginButtons, HealthStatus
+    ├── stores/                # Pinia stores
+    ├── composables/           # Shared composition functions
+    ├── api/                   # API client and types
+    ├── assets/                # CSS design tokens
+    └── views/                 # Page-level views
         ├── ChatView.vue
-        └── AdminView.vue
+        ├── AdminView.vue
+        ├── LoginView.vue
+        ├── CallbackView.vue
+        └── AvatarPreviewView.vue
 ```
 
 ## Dependency Rules

@@ -6,7 +6,7 @@ set -euo pipefail
 echo "Validating Docker Compose configuration..."
 
 # Extract the rendered compose config as environment list
-ENV_LIST=$(docker compose run --rm backend env 2>/dev/null || docker compose config 2>/dev/null | grep -oP '(?<=      )[A-Z_]+=.*' || true)
+ENV_LIST=$(docker compose -f deploy/docker/compose.yml run --rm backend env 2>/dev/null || docker compose -f deploy/docker/compose.yml config 2>/dev/null | grep -oP '(?<=      )[A-Z_]+=.*' || true)
 
 if [ -z "$ENV_LIST" ]; then
     echo "WARN: Could not extract environment from Docker Compose. Skipping validation."

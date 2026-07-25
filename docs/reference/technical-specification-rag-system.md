@@ -1,4 +1,4 @@
-[← C4 Architecture](c4-architecture.md) · [Back to README](../README.md)
+[← C4 Architecture](c4-architecture.md) · [Back to README](../../README.md)
 
 # Technical Specification: VEDO hub RAG Assistant
 
@@ -196,7 +196,7 @@ Required production inputs:
 - `VEDO_BACKEND_CLIENT_SECRET`
 - Public URLs/hosts for frontend, backend, and KeyCloak.
 
-Key runtime knobs are documented in [Configuration](configuration.md).
+Key runtime knobs are documented in [Configuration](../operations/configuration.md).
 
 ## 9. Testing and Validation
 
@@ -209,12 +209,12 @@ Expected validation layers:
 - Docker Compose validation scripts for ports, URLs, migrations, and KeyCloak template.
 - Smoke tests for development and production Compose stacks.
 
-See [Testing](testing.md) for manual execution guidance.
+See [Testing](../guides/testing.md) for manual execution guidance.
 
 ## 10. Deployment Requirements
 
 - Development starts with `docker compose up -d` and automatically merges `docker-compose.override.yml`.
-- Production uses `docker-compose.yml` + `docker-compose.production.yml`.
+- Production uses `deploy/docker/compose.yml` + `deploy/docker/compose.production.yml`.
 - Caddy terminates TLS and proxies browser/API traffic.
 - CI/CD builds backend/frontend images and deploys to VPS on `main` according to GitHub Actions workflows.
 - Backups should be scheduled with the provided backup timer script.
@@ -232,6 +232,6 @@ See [Testing](testing.md) for manual execution guidance.
 
 ## See Also
 
-- [Architecture](architecture.md) — current service/module architecture
-- [Configuration](configuration.md) — environment variables
-- [Deployment](deployment.md) — production setup
+- [Architecture](../operations/architecture.md) — current service/module architecture
+- [Configuration](../operations/configuration.md) — environment variables
+- [Deployment](../operations/deployment.md) — production setup

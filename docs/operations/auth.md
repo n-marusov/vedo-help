@@ -1,4 +1,4 @@
-[← API Reference](api.md) · [Back to README](../README.md) · [Configuration →](configuration.md)
+[← API Reference](../reference/api.md) · [Back to README](../../README.md) · [Configuration →](configuration.md)
 
 # Authentication
 
@@ -206,7 +206,7 @@ See [Configuration](configuration.md) for the full reference.
 
 ### Development
 
-KeyCloak runs alongside other services via `docker-compose.yml`:
+KeyCloak runs alongside other services via `deploy/docker/compose.yml`:
 
 ```bash
 docker compose up -d
@@ -287,8 +287,8 @@ Admin routes additionally use RBAC middleware and require the `admin` realm role
 
 - [Configuration](configuration.md) — all environment variables
 - [Deployment](deployment.md) — production setup
-- [Getting Started](getting-started.md) — installation and first run
-- [API Reference](api.md) — `/api/auth/me` and `/api/auth/logout` endpoints
+- [Getting Started](../guides/getting-started.md) — installation and first run
+- [API Reference](../reference/api.md) — `/api/auth/me` and `/api/auth/logout` endpoints
 - `keycloak/realm-import.json.template` — realm configuration template (no secrets)
 - `keycloak/realm-import.json` — **generated at runtime** by `keycloak-init` container (gitignored, never committed)
 - `frontend/src/composables/useOidcAuth.ts` — PKCE flow implementation

@@ -1,6 +1,6 @@
 import { api } from '@/api/client';
 import type { Message, SessionSummary } from '@/api/types';
-import SessionDebug from '@/components/SessionDebug.vue';
+import SessionDebug from '@/components/features/chat/SessionDebug.vue';
 import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -1,7 +1,7 @@
 import type { Message } from '@/api/types';
 import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
-import MessageBubble from '../MessageBubble.vue';
+import MessageBubble from '../features/chat/MessageBubble.vue';
 
 const createUserMessage = (overrides: Partial<Message> = {}): Message => ({
   id: 'msg-1',

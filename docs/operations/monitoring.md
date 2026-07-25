@@ -1,4 +1,4 @@
-[← Web Crawler](web-crawler.md) · [Back to README](../README.md) · [Runbook →](runbook.md)
+[← Web Crawler](../guides/web-crawler.md) · [Back to README](../../README.md) · [Runbook →](runbook.md)
 
 # Monitoring
 
@@ -191,5 +191,5 @@ docker compose logs --tail=100 otel-collector | grep -E '"severityText"|"body"'
 
 - [Runbook](runbook.md) — incident response procedures
 - [Deployment](deployment.md) — environment configuration
-- [Architecture](c4-architecture.md) — C4 model diagrams
+- [Architecture](../reference/c4-architecture.md) — C4 model diagrams
 - [Configuration](configuration.md) — environment variables reference

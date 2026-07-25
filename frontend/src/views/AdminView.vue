@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import ChunkBrowser from '@/components/ChunkBrowser.vue';
-import CollectionManager from '@/components/CollectionManager.vue';
-import DocumentList from '@/components/DocumentList.vue';
-import GitRepoManager from '@/components/GitRepoManager.vue';
-import HealthStatus from '@/components/HealthStatus.vue';
-import SessionDebug from '@/components/SessionDebug.vue';
-import SettingsPanel from '@/components/SettingsPanel.vue';
-import StatsPanel from '@/components/StatsPanel.vue';
-import WebCrawlManager from '@/components/WebCrawlManager.vue';
+import ChunkBrowser from '@/components/features/admin/ChunkBrowser.vue';
+import StatsPanel from '@/components/features/admin/StatsPanel.vue';
+import SessionDebug from '@/components/features/chat/SessionDebug.vue';
+import WebCrawlManager from '@/components/features/crawl/WebCrawlManager.vue';
+import CollectionManager from '@/components/features/documents/CollectionManager.vue';
+import DocumentList from '@/components/features/documents/DocumentList.vue';
+import GitRepoManager from '@/components/features/git/GitRepoManager.vue';
+import SettingsPanel from '@/components/features/settings/SettingsPanel.vue';
+import HealthStatus from '@/components/layout/HealthStatus.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
 import { onMounted, ref, watch } from 'vue';

@@ -76,7 +76,7 @@ RUN addgroup -S vedo && \
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copy custom nginx config with SPA routing
-COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy the production build output
 COPY --from=builder /app/dist /usr/share/nginx/html

@@ -1,4 +1,4 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.md) · [User Interface Guide →](gui.md)
+[← Getting Started](../guides/getting-started.md) · [Back to README](../../README.md) · [User Interface Guide →](../guides/gui.md)
 
 # Architecture
 
@@ -93,7 +93,7 @@ KeyCloak 26 provides authentication via the OAuth 2.0 Authorization Code flow wi
 - **Realm:** `vedo-hub` with three-tier RBAC (`guest`, `user`, `admin`)
 - **Clients:** `vedo-frontend` (public, PKCE) and `vedo-backend` (confidential, service accounts)
 - **Social Identity Providers:** Yandex, VK ID, Mail.ru (optional, enabled via env vars)
-- **Realm import:** `keycloak/realm-import.json.template` with env var substitution on startup (no credentials in repo)
+- **Realm import:** `deploy/keycloak/realm-import.json.template` with env var substitution on startup (no credentials in repo)
 
 All authentication is handled exclusively by KeyCloak JWT tokens — the legacy API key mechanism has been removed.
 
@@ -272,6 +272,6 @@ Each pipeline stage populates the assistant message's `debug_data` JSON field:
 
 ## See Also
 
-- [Getting Started](getting-started.md) — installation and first run
-- [API Reference](api.md) — endpoint details
+- [Getting Started](../guides/getting-started.md) — installation and first run
+- [API Reference](../reference/api.md) — endpoint details
 - [Deployment](deployment.md) — production setup

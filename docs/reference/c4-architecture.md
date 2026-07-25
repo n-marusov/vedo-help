@@ -1,4 +1,4 @@
-[← Runbook](runbook.md) · [Back to README](../README.md) · [Technical Spec →](technical-specification-rag-system.md)
+[← Runbook](../operations/runbook.md) · [Back to README](../../README.md) · [Technical Spec →](technical-specification-rag-system.md)
 
 # C4 Architecture Diagrams
 
@@ -178,7 +178,7 @@ C4Deployment
 
 ## See Also
 
-- [Runbook](runbook.md) — operational procedures
-- [Monitoring](monitoring.md) — dashboards and alerts
-- [Deployment](deployment.md) — setup and configuration
-- [Architecture](architecture.md) — service interaction overview
+- [Runbook](../operations/runbook.md) — operational procedures
+- [Monitoring](../operations/monitoring.md) — dashboards and alerts
+- [Deployment](../operations/deployment.md) — setup and configuration
+- [Architecture](../operations/architecture.md) — service interaction overview

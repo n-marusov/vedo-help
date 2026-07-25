@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
-import GitRepoManager from '../GitRepoManager.vue';
+import GitRepoManager from '../features/git/GitRepoManager.vue';
 
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),

@@ -5,8 +5,8 @@
 
 set -e
 
-COMPOSE_FILE="${1:-docker-compose.yml}"
-OVERRIDE_FILE="${2:-docker-compose.override.yml}"
+COMPOSE_FILE="${1:-deploy/docker/compose.yml}"
+OVERRIDE_FILE="${2:-deploy/docker/compose.override.yml}"
 
 if [ ! -f "$COMPOSE_FILE" ]; then
 	echo "ERROR: Compose file not found: $COMPOSE_FILE"

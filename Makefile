@@ -8,6 +8,9 @@
 
 # VEDO hub RAG Assistant — Makefile
 
+# Compose files base path
+COMPOSE_DIR := deploy/docker
+
 # Default container registry namespace
 REGISTRY_NS ?= ghcr.io/vedo
 # Default version tag for docker-push
@@ -17,11 +20,11 @@ VERSION ?= $(shell git rev-parse --short HEAD)
 
 smoke: ## Run smoke tests (start services via Docker Compose and verify health)
 	@echo "Running smoke tests..."
-	@bash scripts/smoke-test.sh --full
+	bash scripts/ops/smoke-test.sh --full
 
 prod-smoke: ## Run smoke tests with production compose profile
 	@echo "Running production smoke tests..."
-	@bash scripts/smoke-test.sh --production --full
+	@bash scripts/ops/smoke-test.sh --production --full
 
 # === Docker Registry ===
 
@@ -31,9 +34,9 @@ docker-login: ## Log in to GitHub Container Registry (usage: make docker-login G
 
 docker-push: ## Build & push images to registry (usage: REGISTRY_NS=ghcr.io/my-org make docker-push VERSION=v1.0.0)
 	@echo "Building and pushing images..."
-	docker compose build --parallel
+	docker compose -f $(COMPOSE_DIR)/compose.yml build --parallel
 	@for svc in backend frontend; do \
-		img=$$(docker compose images -q $$svc); \
+		img=$$(docker compose -f $(COMPOSE_DIR)/compose.yml images -q $$svc); \
 		if [ -z "$$img" ]; then \
 			echo "ERROR: No image found for $$svc — was the build successful?"; \
 			exit 1; \
@@ -44,7 +47,7 @@ docker-push: ## Build & push images to registry (usage: REGISTRY_NS=ghcr.io/my-o
 
 deploy: ## Deploy to production VPS (run smoke tests before deploy)
 	@echo "Running pre-deploy smoke tests..."
-	@bash scripts/smoke-test.sh --production --quick
+	@bash scripts/ops/smoke-test.sh --production --quick
 	@echo ""
 	@echo "To deploy via CI, push to main: git push origin main"
 	@echo "To deploy manually:"
@@ -53,78 +56,77 @@ deploy: ## Deploy to production VPS (run smoke tests before deploy)
 # === Docker Development ===
 
 dev-up: ## Start development environment (parallel build)
-	docker compose up -d --parallel
+	docker compose -f $(COMPOSE_DIR)/compose.yml up -d --parallel
 
 dev-down: ## Stop development environment
-	docker compose down
+	docker compose -f $(COMPOSE_DIR)/compose.yml down
 
 dev-logs: ## Follow development logs
-	docker compose logs -f
+	docker compose -f $(COMPOSE_DIR)/compose.yml logs -f
 
 # === Docker Production ===
 
 prod-up: ## Start production environment
-	docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml up -d
 
 prod-down: ## Stop production environment
-	docker compose -f docker-compose.yml -f docker-compose.production.yml down
+	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml down
 
 prod-build: ## Build all production images (parallel)
-	docker compose -f docker-compose.yml -f docker-compose.production.yml build --parallel
+	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml build --parallel
 
 build-all: ## Build all development images (parallel)
-	docker compose build --parallel
+	docker compose -f $(COMPOSE_DIR)/compose.yml build --parallel
 
 dev-build: ## Build all development images (alias for build-all)
-	docker compose build --parallel
+	docker compose -f $(COMPOSE_DIR)/compose.yml build --parallel
 
 dev-build-backend: ## Build only backend (development)
-	docker compose build backend
+	docker compose -f $(COMPOSE_DIR)/compose.yml build backend
 
 dev-build-frontend: ## Build only frontend (development)
-	docker compose build frontend
+	docker compose -f $(COMPOSE_DIR)/compose.yml build frontend
 
 prod-build-backend: ## Build only backend (production)
-	docker compose -f docker-compose.yml -f docker-compose.production.yml build backend
+	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml build backend
 
 prod-build-frontend: ## Build only frontend (production)
-	docker compose -f docker-compose.yml -f docker-compose.production.yml build frontend
+	docker compose -f $(COMPOSE_DIR)/compose.yml -f $(COMPOSE_DIR)/compose.production.yml build frontend
 
 # === Docker Utilities ===
 
 docker-logs: ## View container logs (usage: make docker-logs ARGS="backend")
-	docker compose logs -f $(ARGS)
+	docker compose -f $(COMPOSE_DIR)/compose.yml logs -f $(ARGS)
 
 docker-health: ## Check container health status
-	docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
+	docker compose -f $(COMPOSE_DIR)/compose.yml ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
 
 docker-health-check: ## Verify all containers are healthy (exit 0 only if all healthy)
-	@bash scripts/check-container-health.sh docker-compose.yml docker-compose.override.yml
+	@bash scripts/ops/check-container-health.sh $(COMPOSE_DIR)/compose.yml $(COMPOSE_DIR)/compose.override.yml
 
 docker-validate: ## Validate Docker Compose config for common service URL misconfigurations
-	@bash scripts/validate-docker-compose.sh
-
+	@bash scripts/ci/validate-docker-compose.sh
 
 
 docker-shell: ## Open shell in a container (usage: make docker-shell SVC=backend)
-	docker compose exec $(SVC) sh
+	docker compose -f $(COMPOSE_DIR)/compose.yml exec $(SVC) sh
 
 docker-clean: ## Remove all stopped containers and unused volumes
-	docker compose down -v --remove-orphans
+	docker compose -f $(COMPOSE_DIR)/compose.yml down -v --remove-orphans
 
 # === Backup & Restore ===
 
 backup: ## Run backup script (usage: make backup ARGS="--prod")
-	bash scripts/backup.sh $(ARGS)
+	bash scripts/ops/backup.sh $(ARGS)
 
 restore: ## Run restore script (usage: make restore ARGS="<vedo_dump> <keycloak_dump> [chroma_archive]")
-	bash scripts/restore.sh $(ARGS)
+	bash scripts/ops/restore.sh $(ARGS)
 
 backup-schedule: ## Print instructions for scheduling automated backups
 	@echo "To schedule daily backups, add a cron job or systemd timer:"
 	@echo ""
 	@echo "  # ── Cron (daily at 2am) ──────────────────────────────────"
-	@echo "  0 2 * * * cd $(PWD) && bash scripts/backup.sh --prod >> /var/log/vedo-backup.log 2>&1"
+	@echo "  0 2 * * * cd $(PWD) && bash scripts/ops/backup.sh --prod >> /var/log/vedo-backup.log 2>&1"
 	@echo ""
 	@echo "  # ── systemd timer (daily at 2am) ─────────────────────────"
 	@echo "  # /etc/systemd/system/vedo-backup.service"
@@ -133,7 +135,7 @@ backup-schedule: ## Print instructions for scheduling automated backups
 	@echo "  [Service]"
 	@echo "  Type=oneshot"
 	@echo "  WorkingDirectory=$(PWD)"
-	@echo "  ExecStart=/usr/bin/bash scripts/backup.sh --prod"
+	@echo "  ExecStart=/usr/bin/bash scripts/ops/backup.sh --prod"
 	@echo "  StandardOutput=append:/var/log/vedo-backup.log"
 	@echo "  StandardError=append:/var/log/vedo-backup.log"
 	@echo ""
@@ -157,29 +159,29 @@ backup-schedule: ## Print instructions for scheduling automated backups
 
 load-test: ## Run smoke + load test scenarios
 	@echo "Running load tests (smoke + load)..."
-	k6 run load-tests/smoke-test.js
+	k6 run tests/load/smoke-test.js
 	@echo "Smoke test passed. Running load test..."
-	k6 run load-tests/load-test.js
+	k6 run tests/load/load-test.js
 
 load-test-full: ## Run all 4 load test scenarios (smoke, load, stress, soak)
 	@echo "Running full load test suite..."
-	k6 run load-tests/smoke-test.js
+	k6 run tests/load/smoke-test.js
 	@echo ""
 	@echo "=== Load Test ==="
-	k6 run load-tests/load-test.js
+	k6 run tests/load/load-test.js
 	@echo ""
 	@echo "=== Stress Test ==="
-	k6 run load-tests/stress-test.js
+	k6 run tests/load/stress-test.js
 	@echo ""
 	@echo "=== Soak Test (30 min) ==="
-	k6 run load-tests/soak-test.js
+	k6 run tests/load/soak-test.js
 
 load-test-compare: ## Compare current results against baseline
 	@echo "Load test comparison (run a load test first to generate baseline)"
-	@echo "Usage: k6 run --out json=load-tests/results.json load-tests/load-test.js"
+	@echo "Usage: k6 run --out json=tests/load/results.json tests/load/load-test.js"
 	@echo ""
 	@echo "To compare two result files:"
-	@echo "  k6 run --out json=load-tests/new.json load-tests/load-test.js"
+	@echo "  k6 run --out json=tests/load/new.json tests/load/load-test.js"
 	@echo "  # Then compare manually or with a diff tool"
 
 help: ## Show this help
@@ -189,13 +191,13 @@ help: ## Show this help
 # === Testing ===
 
 test-env: ## Start test environment (docker-compose.test.yml)
-	docker compose --env-file .env.test -f docker-compose.test.yml up -d
+	docker compose --env-file .env.test -f $(COMPOSE_DIR)/compose.test.yml up -d
 	@echo "Waiting for all services to be healthy..."
 	@sleep 10
-	@docker compose --env-file .env.test -f docker-compose.test.yml ps
+	@docker compose --env-file .env.test -f $(COMPOSE_DIR)/compose.test.yml ps
 
 test-env-down: ## Stop and clean test environment
-	docker compose --env-file .env.test -f docker-compose.test.yml down -v
+	docker compose --env-file .env.test -f $(COMPOSE_DIR)/compose.test.yml down -v
 
 test: ## Run all tests (backend + frontend)
 	cd backend && cargo test --lib
@@ -203,11 +205,11 @@ test: ## Run all tests (backend + frontend)
 	cd frontend && pnpm test
 
 test-e2e: ## Run Playwright e2e inside test_internal network (requires test-env)
-	docker compose --env-file .env.test -f docker-compose.test.yml \
+	docker compose --env-file .env.test -f $(COMPOSE_DIR)/compose.test.yml \
 		--profile test-runner run --rm frontend-tests
 
 test:keycloak-template: ## Validate keycloak realm template substitution (no Docker needed)
-	@bash scripts/validate-keycloak-template.sh
+	@bash scripts/ci/validate-keycloak-template.sh
 
 lint: ## Run all linters
 	cd backend && cargo clippy -- -D warnings
@@ -226,7 +228,7 @@ check: validate-migrations format lint test ## Format + lint + test (fail-fast)
 # === Migration Validation ===
 
 validate-migrations: ## Validate sqlx migration files (duplicates, gaps, naming)
-	@bash scripts/validate-migrations.sh --git
+	@bash scripts/ci/validate-migrations.sh --git
 
 # === Coverage ===
 

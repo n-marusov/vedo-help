@@ -18,7 +18,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 import { useCollectionStore } from '@/stores/collections';
-import DocumentList from '../DocumentList.vue';
+import DocumentList from '../features/documents/DocumentList.vue';
 
 const fixture = [
   {

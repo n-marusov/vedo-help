@@ -115,19 +115,19 @@ jobs:
 
       - name: Start test Docker stack
         run: |
-          docker compose --env-file .env.test -f docker-compose.test.yml up -d --quiet-pull
+          docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d --quiet-pull
 
       - name: Wait for all services healthy
         run: |
-          chmod +x scripts/check-container-health.sh
+          chmod +x scripts/ops/check-container-health.sh
           for i in $(seq 1 30); do
-            if bash scripts/check-container-health.sh docker-compose.test.yml; then
+            if bash scripts/ops/check-container-health.sh deploy/docker/compose.test.yml; then
               echo "All services healthy after ${i}s"
               break
             fi
             if [ "$i" -eq 30 ]; then
               echo "Timed out waiting for services"
-              docker compose --env-file .env.test -f docker-compose.test.yml ps
+              docker compose --env-file .env.test -f deploy/docker/compose.test.yml ps
               exit 1
             fi
             sleep 2
@@ -135,13 +135,13 @@ jobs:
 
       - name: Run Playwright E2E tests
         run: |
-          docker compose --env-file .env.test -f docker-compose.test.yml \
+          docker compose --env-file .env.test -f deploy/docker/compose.test.yml \
             --profile test-runner run --rm frontend-tests
 
       - name: Teardown
         if: always()
         run: |
-          docker compose --env-file .env.test -f docker-compose.test.yml down -v
+          docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v
 
   deploy:
     name: Deploy to VPS
@@ -163,8 +163,8 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_HOST }}" "
             cd ${{ secrets.DEPLOY_PATH }} &&
-            docker compose -f docker-compose.yml -f docker-compose.production.yml pull backend frontend &&
-            docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --no-deps --pull always backend frontend
+            docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml pull backend frontend &&
+            docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d --no-deps --pull always backend frontend
           "
 
       - name: Wait for health and smoke test
@@ -172,7 +172,7 @@ jobs:
           sleep 15
           ssh -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_HOST }}" "
             cd ${{ secrets.DEPLOY_PATH }} &&
-            bash scripts/smoke-test.sh --production --quick
+            bash scripts/ops/smoke-test.sh --production --quick
           "
 
       - name: Prune old images

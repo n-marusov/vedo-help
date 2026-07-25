@@ -1,4 +1,4 @@
-[← Testing](testing.md) · [Back to README](../README.md) · [Monitoring →](monitoring.md)
+[← Testing](testing.md) · [Back to README](../../README.md) · [Monitoring →](../operations/monitoring.md)
 
 # Web Crawler & Site Ingestion
 
@@ -148,6 +148,6 @@ Streams real-time crawl progress as Server-Sent Events. Polls every 2 seconds an
 
 ## See Also
 
-- [API Reference](api.md) — web crawl endpoints
+- [API Reference](../reference/api.md) — web crawl endpoints
 - [User Interface Guide](gui.md) — Admin panel source tabs
-- [Architecture](architecture.md) — ingestion data flow
+- [Architecture](../operations/architecture.md) — ingestion data flow

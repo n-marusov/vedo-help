@@ -1,4 +1,4 @@
-[← Monitoring](monitoring.md) · [Back to README](../README.md) · [C4 Architecture →](c4-architecture.md)
+[← Monitoring](monitoring.md) · [Back to README](../../README.md) · [C4 Architecture →](../reference/c4-architecture.md)
 
 # Production Runbook
 
@@ -21,10 +21,10 @@ Monitor the workflow at: `https://github.com/<org>/vedo-rag-assistant/actions`
 
 ```bash
 # Pull latest images
-docker compose -f docker-compose.yml -f docker-compose.production.yml pull backend frontend
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml pull backend frontend
 
 # Roll update (no-deps to avoid restarting infrastructure)
-docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --no-deps backend frontend
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d --no-deps backend frontend
 
 # Verify
 bash scripts/smoke-test.sh --production --quick
@@ -34,11 +34,11 @@ bash scripts/smoke-test.sh --production --quick
 
 ```bash
 # Pull a specific version
-docker compose -f docker-compose.yml -f docker-compose.production.yml pull backend:<previous-version>
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml pull backend:<previous-version>
 
 # Tag and deploy
 docker tag ghcr.io/<org>/backend:<previous-version> ghcr.io/<org>/backend:latest
-docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --no-deps backend
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d --no-deps backend
 ```
 
 ## Backup & Restore
@@ -190,17 +190,17 @@ See [Monitoring](monitoring.md) for detailed dashboard and alert information.
 ### Grafana Admin Password
 
 1. Set `GF_SECURITY_ADMIN_PASSWORD` in `.env`
-2. Restart Grafana: `docker compose -f docker-compose.yml -f docker-compose.production.yml up -d grafana`
+2. Restart Grafana: `docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d grafana`
 
 ### KeyCloak Admin Password
 
 1. Set `KEYCLOAK_ADMIN_PASSWORD` in `.env`
-2. Restart KeyCloak: `docker compose -f docker-compose.yml -f docker-compose.production.yml up -d keycloak`
+2. Restart KeyCloak: `docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d keycloak`
 
 ### PostgreSQL Passwords
 
 1. Update passwords in `.env` (`POSTGRES_PASSWORD`, `VEDO_DB_PASSWORD`, `KEYCLOAK_DB_PASSWORD`)
-2. Restart all services: `docker compose -f docker-compose.yml -f docker-compose.production.yml down && docker compose -f docker-compose.yml -f docker-compose.production.yml up -d`
+2. Restart all services: `docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml down && docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d`
 
 > ⚠️ Rotating PostgreSQL passwords requires updating all services that connect to the database.
 
@@ -251,4 +251,4 @@ docker compose logs --tail=50 otel-collector
 
 - [Deployment Guide](deployment.md) — environment setup and configuration
 - [Monitoring](monitoring.md) — dashboards, alerts, and metrics
-- [Architecture](c4-architecture.md) — C4 model diagrams
+- [Architecture](../reference/c4-architecture.md) — C4 model diagrams

@@ -1,4 +1,4 @@
-[← Deployment](deployment.md) · [Back to README](../README.md) · [Web Crawler →](web-crawler.md)
+[← Deployment](../operations/deployment.md) · [Back to README](../../README.md) · [Web Crawler →](web-crawler.md)
 
 # Тестирование
 
@@ -126,7 +126,7 @@ rustc --version && cargo --version && node --version && npm --version && uv --ve
 
 ## Тестовое окружение (Docker Compose)
 
-Интеграционные и E2E-тесты требуют запущенной тестовой инфраструктуры. Для этого используется `docker-compose.test.yml`.
+Интеграционные и E2E-тесты требуют запущенной тестовой инфраструктуры. Для этого используется `deploy/docker/compose.test.yml`.
 
 ### Запуск тестового окружения
 
@@ -137,14 +137,14 @@ make test-env
 Эта команда эквивалентна:
 
 ```bash
-docker compose --env-file .env.test -f docker-compose.test.yml up -d
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d
 ```
 
 После запуска ожидается ~10 секунд для инициализации всех сервисов и выводится таблица их статуса.
 
 ### Состав тестового окружения
 
-В `docker-compose.test.yml` поднимаются следующие сервисы:
+В `deploy/docker/compose.test.yml` поднимаются следующие сервисы:
 
 | Сервис | Проброшенный порт (по умолчанию) | Назначение |
 |--------|----------------------------------|------------|
@@ -382,7 +382,7 @@ make test-e2e
 Команда `make test-e2e` выполняет:
 
 ```bash
-docker compose --env-file .env.test -f docker-compose.test.yml \
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml \
   --profile test-runner run --rm frontend-tests
 ```
 
@@ -587,13 +587,13 @@ make lint     # линтинг всех сервисов
 5. **Проверка логов тестового окружения:**
 
     ```bash
-    docker compose --env-file .env.test -f docker-compose.test.yml logs -f backend
+    docker compose --env-file .env.test -f deploy/docker/compose.test.yml logs -f backend
     ```
 
 6. **Запуск одного E2E-теста:** Для запуска конкретного файла внутри контейнера можно изменить команду:
 
     ```bash
-    docker compose --env-file .env.test -f docker-compose.test.yml \
+    docker compose --env-file .env.test -f deploy/docker/compose.test.yml \
       --profile test-runner run --rm frontend-tests \
       /bin/sh -c "npm ci && npx playwright test e2e/login.spec.ts"
     ```
@@ -603,5 +603,5 @@ make lint     # линтинг всех сервисов
 ## See Also
 
 - [Getting Started](getting-started.md) — установка и первый запуск
-- [Configuration](configuration.md) — переменные окружения
-- [Deployment](deployment.md) — развёртывание на продакшн
+- [Configuration](../operations/configuration.md) — переменные окружения
+- [Deployment](../operations/deployment.md) — развёртывание на продакшн

@@ -1,4 +1,4 @@
-[← Configuration](configuration.md) · [Back to README](../README.md) · [Testing →](testing.md)
+[← Configuration](configuration.md) · [Back to README](../../README.md) · [Testing →](../guides/testing.md)
 
 # Deployment
 
@@ -81,7 +81,7 @@ Caddy automatically provisions and renews Let's Encrypt TLS certificates.
 ### Step 3: Start production stack
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d
 ```
 
 The production override:
@@ -107,7 +107,7 @@ header /api {
 }
 ```
 
-Adjust the limit in `Caddyfile` as needed.
+Adjust the limit in `Caddyfile` (`deploy/docker/Caddyfile`) as needed.
 
 ## CI/CD Pipeline
 
@@ -161,7 +161,7 @@ This builds and pushes images, then creates a GitHub Release with an auto-genera
 | `GET /api/health/deep` | Backend | JSON dependency status for PostgreSQL, Chroma, embeddings, and LLM |
 | gRPC health probe | OTel Collector | `localhost:4317` (via grpc_health_probe) |
 
-Docker Compose uses `restart: unless-stopped` on all services for automatic recovery. Health checks are defined for every service in `docker-compose.yml` and use `depends_on` with `condition: service_healthy`.
+Docker Compose uses `restart: unless-stopped` on all services for automatic recovery. Health checks are defined for every service in `deploy/docker/compose.yml` and use `depends_on` with `condition: service_healthy`.
 
 ## Operations Scripts
 
@@ -178,10 +178,10 @@ Production operation scripts are available in `scripts/`:
 ### Automated backup
 
 ```bash
-# Development (uses docker-compose.yml + docker-compose.override.yml)
+# Development (uses deploy/docker/compose.yml + deploy/docker/compose.override.yml)
 ./scripts/backup.sh
 
-# Production (uses docker-compose.yml + docker-compose.production.yml)
+# Production (uses deploy/docker/compose.yml + deploy/docker/compose.production.yml)
 ./scripts/backup.sh --prod
 ```
 
@@ -199,15 +199,15 @@ Backups older than 30 days are automatically pruned.
 
 ```bash
 # vedo database
-docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T db \\
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml exec -T db \\
   pg_dump -U vedo vedo > backups/vedo-$(date +%Y%m%d).sql
 
 # keycloak database
-docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T db \\
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml exec -T db \\
   pg_dump -U keycloak keycloak > backups/keycloak-$(date +%Y%m%d).sql
 
 # Chroma vectors
-docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T chroma \\
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml exec -T chroma \\
   tar czf - -C /chroma/chroma . > backups/chroma-$(date +%Y%m%d).tar.gz
 ```
 
@@ -286,7 +286,7 @@ Make sure to use the full project path when running from cron.
 
 ## Production Hardening
 
-The `docker-compose.production.yml` overlay applies:
+The `deploy/docker/compose.production.yml` overlay applies:
 
 - **Read-only filesystem** on all services (except Chroma)
 - **No-new-privileges** security option
@@ -339,7 +339,7 @@ First build downloads all packages. Subsequent builds reuse cached tarballs inst
 docker compose build --parallel
 
 # Build all services in parallel (production)
-docker compose -f docker-compose.yml -f docker-compose.production.yml build --parallel
+docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml build --parallel
 ```
 
 ### Selective Builds
@@ -378,4 +378,4 @@ make prod-build-embedding
 
 - [Configuration](configuration.md) — environment variables reference
 - [Architecture](architecture.md) — service interaction overview
-- [Getting Started](getting-started.md) — local development setup
+- [Getting Started](../guides/getting-started.md) — local development setup

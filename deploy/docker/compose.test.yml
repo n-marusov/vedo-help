@@ -1,12 +1,12 @@
-# docker-compose.test.yml — test environment for integration and e2e tests
+# compose.test.yml — test environment for integration and e2e tests
 #
-# Mirrors docker-compose.yml where possible, but uses .env.test values and
+# Mirrors compose.yml where possible, but uses .env.test values and
 # Docker service names for service-to-service communication.
 #
 # Usage:
-#   docker compose --env-file .env.test -f docker-compose.test.yml up -d
-#   docker compose --env-file .env.test -f docker-compose.test.yml --profile test-runner run --rm frontend-tests
-#   docker compose --env-file .env.test -f docker-compose.test.yml down -v
+#   docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d
+#   docker compose --env-file .env.test -f deploy/docker/compose.test.yml --profile test-runner run --rm frontend-tests
+#   docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v
 
 name: ${COMPOSE_PROJECT_NAME:-vedo-test}
 
@@ -37,9 +37,9 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../../backend
       target: production
-    env_file: .env.test
+    env_file: ../../.env.test
     environment:
       # Browser-issued tokens in the test runner use the internal KeyCloak URL.
       KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://keycloak:8080}
@@ -80,7 +80,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../../frontend
       target: development
     environment:
       NODE_ENV: test
@@ -110,7 +110,7 @@ services:
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
     volumes:
       - test_db_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ../../scripts/ops/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     ports:
       - "${TEST_DB_PORT:-15432}:5432"
     networks:
@@ -132,7 +132,7 @@ services:
       - 1.1.1.1
     volumes:
       - test_keycloak_import:/import
-      - ./keycloak/realm-import.json.template:/template:ro
+      - ../keycloak/realm-import.json.template:/template:ro
     environment:
       VEDO_BACKEND_CLIENT_SECRET: ${VEDO_BACKEND_CLIENT_SECRET:?VEDO_BACKEND_CLIENT_SECRET is required}
       VEDO_ADMIN_PASSWORD: ${VEDO_ADMIN_PASSWORD:?VEDO_ADMIN_PASSWORD is required}
@@ -160,7 +160,6 @@ services:
         fi
         cp /template /import/realm-import.json
         sed -i 's|[$][{]VEDO_BACKEND_CLIENT_SECRET[}]|'"$$VEDO_BACKEND_CLIENT_SECRET"'|g' /import/realm-import.json
-        sed -i 's|[$][{]VEDO_ADMIN_PASSWORD[}]|'"$$VEDO_ADMIN_PASSWORD"'|g' /import/realm-import.json
         sed -i 's|[$][{]VEDO_ALICE_PASSWORD[}]|'"$$VEDO_ALICE_PASSWORD"'|g' /import/realm-import.json
         sed -i 's|[$][{]VEDO_GUEST_PASSWORD[}]|'"$$VEDO_GUEST_PASSWORD"'|g' /import/realm-import.json
         # Test runs use parallel token requests; disable lockouts in disposable test realm.
@@ -204,7 +203,7 @@ services:
 
   llm-mock:
     build:
-      context: ./docker/test/llm-mock
+      context: ../../docker/test/llm-mock
     ports:
       - "${TEST_LLM_MOCK_PORT:-18002}:18002"
     networks:
@@ -238,7 +237,7 @@ services:
       E2E_PASSWORD: ${VEDO_ADMIN_PASSWORD:?VEDO_ADMIN_PASSWORD is required}
       VEDO_ADMIN_PASSWORD: ${VEDO_ADMIN_PASSWORD:?VEDO_ADMIN_PASSWORD is required}
     volumes:
-      - ./frontend:/work/frontend
+      - ../../frontend:/work/frontend
       - frontend_test_node_modules:/work/frontend/node_modules
     networks:
       - test_internal

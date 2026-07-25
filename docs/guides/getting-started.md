@@ -1,4 +1,4 @@
-[Back to README](../README.md) · [Architecture →](architecture.md)
+[Back to README](../../README.md) · [Architecture →](../operations/architecture.md)
 
 # Getting Started
 
@@ -29,7 +29,7 @@ Edit `.env` and set at least this:
 LLM_API_KEY=sk-or-v1-your-routerai-key
 ```
 
-Other variables have sensible defaults — see [Configuration](configuration.md).
+Other variables have sensible defaults — see [Configuration](../operations/configuration.md).
 
 ### 3. Start all services
 
@@ -70,7 +70,7 @@ docker compose up -d
 make dev-up
 ```
 
-The override file (`docker-compose.override.yml`) is auto-merged and enables hot-reload for application services:
+The override file (`deploy/docker/compose.override.yml`) is auto-merged and enables hot-reload for application services:
 
 - Backend auto-restarts on Rust file changes via `cargo watch`
 - Frontend refreshes via Vite dev server on port `5173`
@@ -92,6 +92,6 @@ make check      # Format + lint + test (fail-fast)
 
 ## See Also
 
-- [Architecture](architecture.md) — service overview and data flow
-- [API Reference](api.md) — REST API endpoints
-- [Configuration](configuration.md) — environment variables reference
+- [Architecture](../operations/architecture.md) — service overview and data flow
+- [API Reference](../reference/api.md) — REST API endpoints
+- [Configuration](../operations/configuration.md) — environment variables reference

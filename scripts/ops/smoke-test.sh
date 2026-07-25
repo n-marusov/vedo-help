@@ -21,8 +21,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
-COMPOSE_PROD_FILE="$PROJECT_DIR/docker-compose.production.yml"
+COMPOSE_FILE="$PROJECT_DIR/deploy/docker/compose.yml"
+COMPOSE_PROD_FILE="$PROJECT_DIR/deploy/docker/compose.production.yml"
 
 # Determine compose files to use
 COMPOSE_FILES=(-f "$COMPOSE_FILE")

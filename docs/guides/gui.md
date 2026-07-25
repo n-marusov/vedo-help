@@ -1,4 +1,4 @@
-[← Architecture](architecture.md) · [Back to README](../README.md) · [API Reference →](api.md)
+[← Architecture](../operations/architecture.md) · [Back to README](../../README.md) · [API Reference →](../reference/api.md)
 
 # User Interface Guide
 
@@ -407,6 +407,6 @@ Admin view adapts similarly — panels stack vertically at narrow widths.
 
 ## See Also
 
-- [Architecture](architecture.md) — component structure and data flow
-- [API Reference](api.md) — REST endpoints called by the frontend
+- [Architecture](../operations/architecture.md) — component structure and data flow
+- [API Reference](../reference/api.md) — REST endpoints called by the frontend
 - [Getting Started](getting-started.md) — installation and first run

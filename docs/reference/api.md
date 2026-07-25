@@ -1,4 +1,4 @@
-[← User Interface Guide](gui.md) · [Back to README](../README.md) · [Auth →](auth.md)
+[← User Interface Guide](../guides/gui.md) · [Back to README](../../README.md) · [Auth →](../operations/auth.md)
 
 # API Reference
 
@@ -19,7 +19,7 @@ Authorization: Bearer <ACCESS_TOKEN>
 
 Requests without a valid token return `401 Unauthorized`.
 
-Obtain an access token via the OAuth 2.0 Authorization Code flow with PKCE (see [Auth](auth.md)).
+Obtain an access token via the OAuth 2.0 Authorization Code flow with PKCE (see [Auth](../operations/auth.md)).
 
 ## Standard Error Format
 
@@ -763,7 +763,7 @@ Retry failed pages in an existing crawl job.
 
 Stream crawl progress as SSE until the job reaches a terminal state.
 
-See [Web Crawler](web-crawler.md) for limits, UI flow, and troubleshooting.
+See [Web Crawler](../guides/web-crawler.md) for limits, UI flow, and troubleshooting.
 
 ---
 
@@ -779,6 +779,6 @@ A machine-readable [OpenAPI 3.1 specification](openapi.yaml) is also available.
 
 ## See Also
 
-- [Configuration](configuration.md) — environment variables and API keys
-- [Architecture](architecture.md) — data flow and service interaction
-- [Web Crawler](web-crawler.md) — website ingestion API and workflow
+- [Configuration](../operations/configuration.md) — environment variables and API keys
+- [Architecture](../operations/architecture.md) — data flow and service interaction
+- [Web Crawler](../guides/web-crawler.md) — website ingestion API and workflow

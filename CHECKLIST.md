@@ -40,7 +40,7 @@
 
 ```bash
 # Перед запуском тестового окружения — удалить старые volumes
-docker compose --env-file .env.test -f docker-compose.test.yml down -v
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v
 
 # Проверить, что миграции не были изменены после применения:
 bash scripts/validate-migrations.sh --git
@@ -54,7 +54,7 @@ migration N was previously applied but is missing / has been modified
 
 **Что делать:**
 
-1. `docker compose --env-file .env.test -f docker-compose.test.yml down -v` — удалить
+1. `docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v` — удалить
    volumes и пересоздать БД с нуля
 2. Убедиться, что `bash scripts/validate-migrations.sh` проходит
 3. Если ошибка повторяется — проверить, что файлы миграций в `backend/migrations/`
@@ -78,14 +78,14 @@ Chroma и БД.
 
 ```bash
 # Удалить старые volumes (если не делали)
-docker compose --env-file .env.test -f docker-compose.test.yml down -v
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v
 
 # Запустить все сервисы тестового окружения
-docker compose --env-file .env.test -f docker-compose.test.yml up -d
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d
 
 # Дождаться, пока все сервисы станут healthy
 # (6 сервисов: chroma, backend, frontend, db, keycloak, llm-mock)
-docker compose --env-file .env.test -f docker-compose.test.yml ps
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml ps
 ```
 
 ### Frontend unit-тесты (Vitest)
@@ -142,7 +142,7 @@ cd backend && cargo test --test integration -- --test-threads=1
 ### E2E тесты (Playwright)
 
 Playwright целиком выполняется внутри `frontend-tests`-контейнера из
-`docker-compose.test.yml` (образ `mcr.microsoft.com/playwright`) в сети `test_internal`.
+`deploy/docker/compose.test.yml` (образ `mcr.microsoft.com/playwright`) в сети `test_internal`.
 Браузер и Vite dev-server запускаются в том же контейнере, а все запросы к backend и
 KeyCloak идут по Docker service names — `http://backend:3000` и `http://keycloak:8080`.
 Порты на `localhost` для E2E **не пробрасываются и не используются**.
@@ -162,14 +162,14 @@ self-healthcheck'ов контейнера».
 ```bash
 # Терминал 1: тестовое окружение уже запущено (см. выше)
 # Терминал 2: запустить Playwright-контейнер из профиля test-runner
-docker compose --env-file .env.test -f docker-compose.test.yml \
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml \
   --profile test-runner run --rm frontend-tests
 ```
 
 Для отладки — интерактивная shell в том же контейнере (остаётся в `test_internal`):
 
 ```bash
-docker compose --env-file .env.test -f docker-compose.test.yml \
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml \
   --profile test-runner run --rm --entrypoint sh frontend-tests
 # внутри контейнера:
 npm ci
@@ -202,7 +202,7 @@ npx playwright test e2e/api-backend.spec.ts --grep "TC-API-020"
 
 ```bash
 # Остановить и очистить volumes (тестовые данные не нужны)
-docker compose --env-file .env.test -f docker-compose.test.yml down -v
+docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v
 ```
 
 ### Полный прогон одной командой

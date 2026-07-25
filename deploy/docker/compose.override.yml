@@ -1,4 +1,4 @@
-# docker-compose.override.yml — Development overrides (auto-merged by docker compose up)
+# compose.override.yml — Development overrides (auto-merged by docker compose up)
 
 services:
   backend:
@@ -13,10 +13,10 @@ services:
       - "${BACKEND_PORT:-3000}:3000"
       - "2345:2345" # Debug port (Delve)
     volumes:
-      - ./backend/src:/app/src
-      - ./backend/Cargo.toml:/app/Cargo.toml
-      - ./backend/Cargo.lock:/app/Cargo.lock
-      - ./backend/migrations:/app/migrations
+      - ../../backend/src:/app/src
+      - ../../backend/Cargo.toml:/app/Cargo.toml
+      - ../../backend/Cargo.lock:/app/Cargo.lock
+      - ../../backend/migrations:/app/migrations
     environment:
       RUST_LOG: debug
       CARGO_TARGET_DIR: /app/target
@@ -36,12 +36,12 @@ services:
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/index.html:/app/index.html
-      - ./frontend/vite.config.ts:/app/vite.config.ts
-      - ./frontend/tsconfig.json:/app/tsconfig.json
-      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
-      - ./frontend/package.json:/app/package.json
+      - ../../frontend/src:/app/src
+      - ../../frontend/index.html:/app/index.html
+      - ../../frontend/vite.config.ts:/app/vite.config.ts
+      - ../../frontend/tsconfig.json:/app/tsconfig.json
+      - ../../frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ../../frontend/package.json:/app/package.json
     environment:
       NODE_ENV: development
       VITE_KEYCLOAK_PROXY_TARGET: http://keycloak:8080

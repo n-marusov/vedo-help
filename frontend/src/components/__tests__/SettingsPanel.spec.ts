@@ -1,4 +1,4 @@
-import SettingsPanel from '@/components/SettingsPanel.vue';
+import SettingsPanel from '@/components/features/settings/SettingsPanel.vue';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';

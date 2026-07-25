@@ -2,7 +2,7 @@
 // Plain JS per project convention: template-only or composition-api views
 // use `<script setup>` without `lang="ts"`. Sub-components in `components/`
 // may opt into TypeScript with `lang="ts"` when they validate complex props.
-import LoginButtons from '@/components/LoginButtons.vue';
+import LoginButtons from '@/components/layout/LoginButtons.vue';
 import VThemeToggle from '@/components/ui/VThemeToggle.vue';
 import { redirectToRegistration } from '@/composables/useOidcAuth';
 import { onMounted } from 'vue';

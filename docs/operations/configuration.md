@@ -1,4 +1,4 @@
-[← Auth](auth.md) · [Back to README](../README.md) · [Deployment →](deployment.md)
+[← Auth](auth.md) · [Back to README](../../README.md) · [Deployment →](deployment.md)
 
 # Configuration
 
@@ -138,6 +138,6 @@ The backend uses `tiktoken-rs` (`cl100k_base` encoding) for accurate BPE token c
 
 ## See Also
 
-- [Getting Started](getting-started.md) — installation guide
+- [Getting Started](../guides/getting-started.md) — installation guide
 - [Deployment](deployment.md) — production configuration
-- [API Reference](api.md) — authentication details
+- [API Reference](../reference/api.md) — authentication details

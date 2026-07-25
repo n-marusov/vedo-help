@@ -32,6 +32,21 @@ vedo-assistant/
 │   ├── rules/
 │   │   └── base.md             # Project conventions and code rules
 │   └── qa/                     # QA artifacts
+├── deploy/                      # Docker/SRE инфраструктура развёртывания
+│   ├── docker/
+│   │   ├── compose.yml          # Base compose (chroma, backend, frontend, db, keycloak, otel-collector)
+│   │   ├── compose.override.yml # Development overrides (hot-reload, debug ports)
+│   │   ├── compose.production.yml  # Production hardening + monitoring
+│   │   ├── compose.test.yml     # Test environment for integration and E2E tests
+│   │   └── Caddyfile            # Reverse proxy (security headers, error pages, structured logs)
+│   ├── otel/
+│   │   └── otel-collector-config.yaml  # OTel collector configuration
+│   ├── prometheus/
+│   │   └── prometheus.yml       # Scrape configs (cAdvisor, OTel, backend)
+│   ├── grafana/
+│   │   └── provisioning/...     # Grafana datasource + dashboard configs
+│   └── keycloak/
+│       └── realm-import.json.template  # Realm template (no secrets, env vars substituted at runtime)
 ├── backend/                    # Rust/axum REST API
 │   ├── src/
 │   │   ├── main.rs             # Server startup, router wiring
@@ -59,9 +74,10 @@ vedo-assistant/
 │   │       └── types.rs        # Shared type definitions
 │   └── tests/
 │       ├── common/mod.rs    # Test helpers (PostgreSQL test config)
-│       └── integration.rs   # Chroma integration tests (requires Chroma service)
+│       └── *.rs             # Integration test binaries (flat — Rust discovery)
 ├── frontend/                   # Vue 3 + TypeScript SPA
 │   ├── vitest.config.ts        # Vitest configuration
+│   ├── e2e/                    # Playwright e2e tests
 │   └── src/
 │       ├── api/                # API client and type definitions
 │       ├── assets/
@@ -78,90 +94,82 @@ vedo-assistant/
 │       │   │   ├── VLabel.vue        # Field label with required state
 │       │   │   ├── VProgressBar.vue   # Animated progress bar
 │       │   │   ├── VDropZone.vue     # File drop zone (drag & drop)
-│       │   │   ├── VThemeToggle.vue  # Dark/light theme toggle (design: Component/ToggleButton)
+│       │   │   ├── VThemeToggle.vue  # Dark/light theme toggle
 │       │   │   ├── VToast.vue        # Toast notification (auto-dismiss)
+│       │   │   ├── VDatePicker.vue   # Date picker
+│       │   │   ├── VSkeleton.vue     # Loading skeleton
 │       │   │   ├── UserAvatar.vue    # Legacy avatar (deprecated, use VAvatar)
 │       │   │   └── __tests__/  # Unit tests for UI atoms
-│       │   ├── __tests__/      # Unit tests for components
-│       │   ├── SettingsPanel.vue  # Runtime settings editor
-│       │   ├── WebCrawlManager.vue  # Web crawl job management
-│       │   ├── MessageBubble.vue  # Message display with markdown, sources
-│       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
-│       │   ├── DocumentList.vue  # Document upload & listing with progress
-│       │   └── GitRepoManager.vue  # Git repo connect, sync, delete
-│       ├── chatTokens.ts       # Chat design token logging utility
-│       ├── utils/              # Shared utilities
-│       │   └── markdown.ts      # Markdown renderer with highlight.js & GFM
-│       ├── stores/             # Pinia stores (chat, documents, collections, ragDebug)
+│       │   ├── features/       # Feature-specific components
+│       │   │   ├── chat/       # MessageBubble, SessionDebug
+│       │   │   ├── documents/  # DocumentList, CollectionManager
+│       │   │   ├── collections/# CollectionSelector
+│       │   │   ├── git/        # GitRepoManager
+│       │   │   ├── crawl/      # WebCrawlManager
+│       │   │   ├── settings/   # SettingsPanel
+│       │   │   └── admin/      # StatsPanel, ChunkBrowser
+│       │   └── layout/         # AppHeader, LoginButtons, HealthStatus
+│       ├── stores/             # Pinia stores (chat, documents, collections, auth, ragDebug, stats)
+│       ├── composables/        # useOidcAuth, useStreamingChat, useTheme
+│       ├── utils/              # markdown.ts (highlight.js & GFM)
 │       └── views/              # ChatView, AdminView, LoginView, CallbackView, AvatarPreviewView
-├── keycloak/                    # Keycloak configuration
-│   └── realm-import.json.template  # Realm template (no secrets, env vars substituted at runtime)
-├── docs/
-│   ├── getting-started.md      # Installation guide
-│   ├── architecture.md         # Service overview, data flow
-│   ├── gui.md                  # Chat/admin interface guide
-│   ├── api.md                  # Endpoint reference
-│   ├── auth.md                 # KeyCloak setup and OAuth flow
-│   ├── configuration.md        # Environment variables
-│   ├── deployment.md           # Production setup, CI/CD, monitoring
-│   ├── testing.md              # Manual test execution guide
-│   ├── web-crawler.md          # Website ingestion guide
-│   ├── monitoring.md           # Monitoring stack (Prometheus, Grafana, cAdvisor)
-│   ├── runbook.md              # Production runbook (deploy, backup, incident response)
-│   ├── c4-architecture.md      # C4 model diagrams (context, container, component, deployment)
-│   └── technical-specification-rag-system.md  # Current technical requirements
-├── frontend/e2e/              # Playwright e2e tests
-│   ├── login.spec.ts          # Auth & login page tests
-│   ├── chat-window.spec.ts    # Chat layout & input tests
-│   ├── message-bubble.spec.ts # Message rendering & sources
-│   ├── navigation.spec.ts     # Routing & responsive layout
-│   ├── avatar.spec.ts         # Avatar component preview
-│   ├── theme-switching.spec.ts# Dark/light theme toggle across pages
-│   ├── rag-flow.spec.ts       # RAG flow: upload → query → sources
-│   ├── api-backend.spec.ts    # API tests without browser (37 tests)
 ├── .github/                    # GitHub Actions CI/CD
 │   └── workflows/
 │       ├── ci.yml             # Backend + frontend CI (format, lint, test, build)
 │       ├── e2e.yml            # Playwright E2E tests in CI (with Docker test stack)
+│       ├── cd.yml             # Docker build, push, VPS deploy, GitHub Release (was deploy.yml)
 │       ├── codeql.yml         # CodeQL security analysis
-│       └── deploy.yml         # Docker build, push, VPS deploy, GitHub Release
-├── .env.production.example     # Production environment variable template
-├── grafana/                    # Grafana provisioning
-│   └── provisioning/
-│       ├── datasources/prometheus.yml  # Prometheus datasource config
-│       └── dashboards/dashboards.yml   # Dashboard provider config
-├── load-tests/                 # k6 load testing scripts
-│   ├── options.js             # Shared k6 config and helpers
-│   ├── smoke-test.js          # Single-user smoke test
-│   ├── load-test.js           # Sustained load test (10 VUs)
-│   ├── stress-test.js         # Step ramp-up stress test
-│   └── soak-test.js           # 30-min soak test for memory leaks
-├── prometheus/                 # Prometheus configuration
-│   └── prometheus.yml         # Scrape configs (cAdvisor, OTel, backend)
+│       └── load-test.yml      # k6 load test scenarios (manual dispatch)
+├── docs/
+│   ├── guides/                 # User guides
+│   │   ├── getting-started.md  # Installation guide
+│   │   ├── gui.md              # Chat/admin interface guide
+│   │   ├── web-crawler.md      # Website ingestion guide
+│   │   └── testing.md          # Manual test execution guide
+│   ├── reference/              # Technical documentation
+│   │   ├── api.md              # Endpoint reference
+│   │   ├── openapi.yaml        # OpenAPI specification
+│   │   ├── c4-architecture.md  # C4 model diagrams
+│   │   └── technical-specification-rag-system.md  # Current requirements
+│   └── operations/             # Operations & administration
+│       ├── architecture.md     # Service overview, data flow
+│       ├── configuration.md    # Environment variables
+│       ├── deployment.md       # Production setup, CI/CD
+│       ├── auth.md             # KeyCloak setup and OAuth flow
+│       ├── monitoring.md       # Monitoring stack
+│       └── runbook.md          # Production runbook
 ├── scripts/
-│   ├── backup.sh              # Backup PostgreSQL (vedo + keycloak) and Chroma
-│   ├── restore.sh             # Restore PostgreSQL and Chroma from backups
-│   ├── smoke-test.sh          # Smoke test with --production and --quick flags
-│   ├── install-backup-timer.sh # Install systemd backup timer
-│   ├── check-container-health.sh  # Container health check
-│   ├── validate-migrations.sh  # Migration validation
-│   ├── validate-compose-ports.sh  # Port uniqueness validation
-│   ├── validate-keycloak-template.sh  # KeyCloak template validation
-│   ├── validate-docker-compose.sh  # Docker Compose URL config validation
-│   └── init-db.sh             # PostgreSQL init script (vedo + keycloak databases)
+│   ├── dev/                    # Developer scripts
+│   │   ├── run-backend-tests.sh
+│   │   └── fix-llm-prompt.ps1
+│   ├── ci/                     # CI/CD scripts
+│   │   ├── validate-compose-ports.sh
+│   │   ├── validate-docker-compose.sh
+│   │   ├── validate-keycloak-template.sh
+│   │   └── validate-migrations.sh
+│   └── ops/                    # Operations scripts
+│       ├── backup.sh
+│       ├── restore.sh
+│       ├── check-container-health.sh
+│       ├── install-backup-timer.sh
+│       ├── init-db.sh
+│       └── smoke-test.sh
+├── tests/
+│   └── load/                   # k6 load testing scripts
+│       ├── options.js
+│       ├── smoke-test.js
+│       ├── load-test.js
+│       ├── stress-test.js
+│       └── soak-test.js
 ├── AGENTS.md                   # This file — project map for AI agents
-├── opencode.json               # MCP server configuration
-├── docker-compose.yml          # Base Docker Compose (chroma, backend, frontend, db, keycloak, otel-collector)
-├── docker-compose.override.yml # Development overrides (hot-reload, debug ports)
-├── docker-compose.production.yml  # Production hardening + monitoring (Caddy, cAdvisor, Prometheus, Grafana)
-├── docker-compose.test.yml     # Test environment for integration and E2E tests
-├── Caddyfile                   # Reverse proxy (security headers, error pages, structured logs)
-├── otel-collector-config.yaml  # OTel collector (OTLP receiver, batch, Prometheus metrics exporter)
 ├── Makefile                    # Developer tooling (smoke, prod-smoke, docker-login, backup, load-test, etc.)
 ├── rust-toolchain.toml         # Rust toolchain config
 ├── CHECKLIST.md                # Post-implementation checklist
 ├── .editorconfig               # Editor settings
 ├── .env.example                # Environment variable template
+├── .env.production.example     # Production environment variable template
+├── .gitignore
+├── LICENSE
 └── README.md                   # Project overview
 ```
 
@@ -169,23 +177,22 @@ vedo-assistant/
 
 | File | Purpose |
 |------|---------|
-| `docs/technical-specification-rag-system.md` | Full technical spec — the source of truth for all design decisions |
+| `docs/reference/technical-specification-rag-system.md` | Full technical spec — the source of truth for all design decisions |
 | `.ai-factory/DESCRIPTION.md` | Condensed project description for AI agents |
 | `.ai-factory/config.yaml` | AI Factory configuration (language, paths, git workflow) |
 | `.ai-factory/ARCHITECTURE.md` | Architecture pattern and folder structure guidelines |
-| `docker-compose.yml` | Base Docker Compose (chroma, backend, frontend, db, keycloak-init, keycloak, otel-collector) |
-| `docker-compose.override.yml` | Development overrides (hot-reload, debug ports) |
-| `docker-compose.production.yml` | Production hardening + monitoring (Caddy, cAdvisor, Prometheus, Grafana) |
-| `docker-compose.test.yml` | Test environment for integration and E2E tests |
-| `Caddyfile` | Reverse proxy with security headers, error pages, structured logging |
-| `scripts/smoke-test.sh` | Smoke test script with --production and --quick flags |
-| `scripts/backup.sh` | Backup PostgreSQL (vedo + keycloak) and Chroma |
-| `.github/workflows/deploy.yml` | CI/CD: Docker build, push, VPS deploy, GitHub Release |
-| `docker-compose.production.yml` | Production services + monitoring stack |
-| `prometheus/prometheus.yml` | Prometheus scrape config |
-| `docs/runbook.md` | Production runbook with incident response |
-| `docs/c4-architecture.md` | C4 architecture diagrams (Mermaid) |
-| `docs/monitoring.md` | Monitoring stack documentation |
+| `deploy/docker/compose.yml` | Base Docker Compose (chroma, backend, frontend, db, keycloak-init, keycloak, otel-collector) |
+| `deploy/docker/compose.override.yml` | Development overrides (hot-reload, debug ports) |
+| `deploy/docker/compose.production.yml` | Production hardening + monitoring (Caddy, cAdvisor, Prometheus, Grafana) |
+| `deploy/docker/compose.test.yml` | Test environment for integration and E2E tests |
+| `deploy/docker/Caddyfile` | Reverse proxy with security headers, error pages, structured logging |
+| `scripts/ops/smoke-test.sh` | Smoke test script with --production and --quick flags |
+| `scripts/ops/backup.sh` | Backup PostgreSQL (vedo + keycloak) and Chroma |
+| `.github/workflows/cd.yml` | CI/CD: Docker build, push, VPS deploy, GitHub Release |
+| `deploy/prometheus/prometheus.yml` | Prometheus scrape config |
+| `docs/operations/runbook.md` | Production runbook with incident response |
+| `docs/reference/c4-architecture.md` | C4 architecture diagrams (Mermaid) |
+| `docs/operations/monitoring.md` | Monitoring stack documentation |
 | `backend/src/modules/auth/handlers.rs` | Auth endpoints: GET /api/auth/me, POST /api/auth/logout |
 | `backend/src/modules/query/handlers.rs` | Query: POST /api/query (SSE stream), GET /api/query/:session_id/subscribe (recovery) |
 
@@ -194,19 +201,19 @@ vedo-assistant/
 | Document | Path | Description |
 |----------|------|-------------|
 | README | `README.md` | Project landing page |
-| Getting Started | `docs/getting-started.md` | Prerequisites, installation, first run |
-| Architecture | `docs/architecture.md` | Service overview, modules, data flow |
-| User Interface Guide | `docs/gui.md` | Chat interface, pipeline recovery, admin panel, document management |
-| API Reference | `docs/api.md` | Endpoints, authentication, examples |
-| Authentication | `docs/auth.md` | KeyCloak setup, social providers, OAuth flow |
-| Configuration | `docs/configuration.md` | Environment variables, Docker settings |
-| Deployment | `docs/deployment.md` | VPS setup, Docker Compose, CI/CD |
-| Testing | `docs/testing.md` | Manual test execution guide |
-| Web Crawler | `docs/web-crawler.md` | Website ingestion workflow |
-| Monitoring | `docs/monitoring.md` | Monitoring stack |
-| Runbook | `docs/runbook.md` | Production operations |
-| C4 Architecture | `docs/c4-architecture.md` | C4 model diagrams |
-| Technical Spec | `docs/technical-specification-rag-system.md` | Current requirements |
+| Getting Started | `docs/guides/getting-started.md` | Prerequisites, installation, first run |
+| Architecture | `docs/operations/architecture.md` | Service overview, modules, data flow |
+| User Interface Guide | `docs/guides/gui.md` | Chat interface, pipeline recovery, admin panel, document management |
+| API Reference | `docs/reference/api.md` | Endpoints, authentication, examples |
+| Authentication | `docs/operations/auth.md` | KeyCloak setup, social providers, OAuth flow |
+| Configuration | `docs/operations/configuration.md` | Environment variables, Docker settings |
+| Deployment | `docs/operations/deployment.md` | VPS setup, Docker Compose, CI/CD |
+| Testing | `docs/guides/testing.md` | Manual test execution guide |
+| Web Crawler | `docs/guides/web-crawler.md` | Website ingestion workflow |
+| Monitoring | `docs/operations/monitoring.md` | Monitoring stack |
+| Runbook | `docs/operations/runbook.md` | Production operations |
+| C4 Architecture | `docs/reference/c4-architecture.md` | C4 model diagrams |
+| Technical Spec | `docs/reference/technical-specification-rag-system.md` | Current requirements |
 
 ## AI Context Files
 
@@ -229,18 +236,18 @@ vedo-assistant/
   - Correct: First `git checkout main`, then `git pull origin main`
 - For Docker Compose service-to-service communication, use Docker service names and container ports (`http://chroma:8000`, `http://backend:3000`, `http://keycloak:8080`). Do not use `localhost` for calls from one container to another; reserve `localhost` for browser/public URLs, host-published ports, and container self-healthchecks.
 - When calling Chroma API from the backend, never pass user-supplied display names directly to `create_collection` or `delete_collection` — Chroma accepts only ASCII alphanumeric, underscores, and hyphens in collection names. Use the collection UUID (`id.to_string()`) instead. The `QueryService` already uses UUID as the collection name; keep this pattern consistent.
-- Before implementing any feature, reference `.ai-factory/DESCRIPTION.md` and `docs/technical-specification-rag-system.md` for requirements and design decisions.
+- Before implementing any feature, reference `.ai-factory/DESCRIPTION.md` and `docs/reference/technical-specification-rag-system.md` for requirements and design decisions.
 - For deployment-related tasks, consult Section 7 of the technical specification.
 - Before running DB round-trip tests (`--test *_unit`) or integration tests, always ensure the test database is in a clean state:
   ```
-  docker compose --env-file .env.test -f docker-compose.test.yml down -v
-  docker compose --env-file .env.test -f docker-compose.test.yml up -d
+  docker compose --env-file .env.test -f deploy/docker/compose.test.yml down -v
+  docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d
   ```
   Stale Docker volumes from previous migration states cause cascading failures where all DB tests
   (`documents_db_unit`, `git_sync_unit`) report `NotFound` or FK violations — these are false
   positives from a dirty database, not real bugs. If you see 14/14 tests failing unexpectedly,
   suspect stale volumes first.
-- After modifying any migration file, run `bash scripts/validate-migrations.sh --git` to check
+- After modifying any migration file, run `bash scripts/ci/validate-migrations.sh --git` to check
   for checksum drift. Changing a migration file after it has been applied will cause
   `migration N was previously applied but has been modified` errors on next startup.
 - Run each `--test *_unit` binary separately — do NOT use `--test *_unit` wildcard.
@@ -253,7 +260,7 @@ vedo-assistant/
 
 ### Test services preflight
 
-`backend/tests/common/mod.rs` exposes `setup_test_db()` and `require_chroma(url)` preflights that fail in ~2 s with an actionable panic naming the recovery command (`docker compose --env-file .env.test -f docker-compose.test.yml up -d`), instead of waiting 30 s for `PoolTimedOut` that masks real regressions. The `rag_pipeline` binary's tests are `#[ignore]`d — run with `cargo test --test rag_pipeline -- --ignored` against a live `LLM_API_KEY`/Chroma/llm-mock stack. `auth_middleware_test`'s routing-policy tests use `build_router_only` (lazy pool) and stay green without Docker; only stateful tests use `build_test_router`.
+`backend/tests/common/mod.rs` exposes `setup_test_db()` and `require_chroma(url)` preflights that fail in ~2 s with an actionable panic naming the recovery command (`docker compose --env-file .env.test -f deploy/docker/compose.test.yml up -d`), instead of waiting 30 s for `PoolTimedOut` that masks real regressions. The `rag_pipeline` binary's tests are `#[ignore]`d — run with `cargo test --test rag_pipeline -- --ignored` against a live `LLM_API_KEY`/Chroma/llm-mock stack. `auth_middleware_test`'s routing-policy tests use `build_router_only` (lazy pool) and stay green without Docker; only stateful tests use `build_test_router`.
 
 ## CRITICAL: Post-Implementation Checklist
 

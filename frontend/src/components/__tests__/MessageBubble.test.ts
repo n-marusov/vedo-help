@@ -1,5 +1,5 @@
 import type { Message } from '@/api/types';
-import MessageBubble from '@/components/MessageBubble.vue';
+import MessageBubble from '@/components/features/chat/MessageBubble.vue';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it } from 'vitest';
