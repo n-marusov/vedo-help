@@ -93,18 +93,29 @@ if command -v docker &>/dev/null; then
     ok "Docker already installed: $(docker --version)"
 else
     info "Installing Docker..."
+
+    # Detect OS: Ubuntu uses 'ubuntu' codename, Debian uses 'debian'
+    OS_ID="$(. /etc/os-release && echo "${ID}")"
+    case "${OS_ID}" in
+        ubuntu) DOCKER_OS="ubuntu" ;;
+        debian) DOCKER_OS="debian" ;;
+        *)      err "Unsupported OS '${OS_ID}' — only Ubuntu and Debian are supported." ;;
+    esac
+    ok "Detected OS: ${OS_ID}, using Docker repo: ${DOCKER_OS}"
+
     install -m 0755 -d /etc/apt/keyrings
 
     # Add Docker's official GPG key
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+    curl -fsSL "https://download.docker.com/linux/${DOCKER_OS}/gpg" | \
         gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
-    # Add the repository
+    # Add the repository — use VERSION_CODENAME (works on both Ubuntu and Debian)
+    DISTRO_CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-      https://download.docker.com/linux/ubuntu \
-      $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      https://download.docker.com/linux/${DOCKER_OS} \
+      ${DISTRO_CODENAME} stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
     apt-get update -qq
     apt-get install -y -qq \
