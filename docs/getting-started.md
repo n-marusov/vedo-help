@@ -37,16 +37,17 @@ Other variables have sensible defaults — see [Configuration](configuration.md)
 docker compose up -d
 ```
 
-This starts six services:
+This starts the core development stack:
 
 | Service | Port (dev) | Description |
 |---------|-----------|-------------|
-| `chroma` | — | Vector database (internal) |
-| `embedding` | `8001` | Python embedding API |
-| `backend` | `3000` | Rust REST API |
-| `frontend` | `5173` (dev) | Vue 3 web interface |
+| `chroma` | internal | Vector database |
+| `backend` | `3000` | Rust REST API and RAG orchestrator |
+| `frontend` | `5173` (dev override) | Vue 3 web interface |
+| `db` | internal | PostgreSQL 16 for app metadata and KeyCloak |
+| `keycloak-init` | — | Realm template validation/substitution |
 | `keycloak` | `8080` | OIDC/OAuth2 identity provider |
-| `keycloak-db` | — | PostgreSQL for KeyCloak data |
+| `otel-collector` | internal | OpenTelemetry collector |
 
 ### 4. Verify it works
 
@@ -69,25 +70,24 @@ docker compose up -d
 make dev-up
 ```
 
-The override file (`docker-compose.override.yml`) is auto-merged and enables hot-reload for all three services:
+The override file (`docker-compose.override.yml`) is auto-merged and enables hot-reload for application services:
 
 - Backend auto-restarts on Rust file changes via `cargo watch`
-- Embedding service reloads on Python changes via `uvicorn --reload`
 - Frontend refreshes via Vite dev server on port `5173`
 
 ### Common Make targets
 
 ```bash
-make test       # Run all tests (backend + frontend + embedding)
-make lint       # Run all linters
-make format     # Format all code
+make test       # Run backend/frontend tests configured by the project
+make lint       # Run Rust clippy and frontend Biome checks
+make format     # Format Rust and frontend code
 make check      # Format + lint + test (fail-fast)
 ```
 
 ## Next Steps
 
 1. Create a collection in the admin panel (`/admin`)
-2. Upload documents (PDF, Markdown, or DOCX)
+2. Add sources: upload documents, connect a Git repository, or start a web crawl
 3. Ask questions in the chat interface
 
 ## See Also

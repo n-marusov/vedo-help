@@ -43,7 +43,10 @@ vedo-assistant/
 │   │   │   ├── query/          # RAG pipeline, Q&A
 │   │   │   ├── conversations/  # Chat sessions, messages
 │   │   │   ├── auth/           # Auth endpoints (me, logout), UserContext
-│   │   │   └── git_sync/        # Git repository sync (clone, pull, parse, index)
+│   │   │   ├── git_sync/       # Git repository sync (clone, pull, parse, index)
+│   │   │   ├── web_crawl/      # Website crawl jobs, pages, SSE progress
+│   │   │   ├── audit/          # Admin audit log
+│   │   │   └── settings/       # Runtime settings and model catalog
 │   │   └── shared/
 │   │       ├── auth.rs         # Bearer token middleware
 │   │       ├── error.rs        # Unified AppError enum
@@ -55,7 +58,7 @@ vedo-assistant/
 │   │       ├── rate_limit.rs   # Body size limiting
 │   │       └── types.rs        # Shared type definitions
 │   └── tests/
-│       ├── common/mod.rs    # Test helpers (in-memory SQLite, test config)
+│       ├── common/mod.rs    # Test helpers (PostgreSQL test config)
 │       └── integration.rs   # Chroma integration tests (requires Chroma service)
 ├── frontend/                   # Vue 3 + TypeScript SPA
 │   ├── vitest.config.ts        # Vitest configuration
@@ -80,6 +83,8 @@ vedo-assistant/
 │       │   │   ├── UserAvatar.vue    # Legacy avatar (deprecated, use VAvatar)
 │       │   │   └── __tests__/  # Unit tests for UI atoms
 │       │   ├── __tests__/      # Unit tests for components
+│       │   ├── SettingsPanel.vue  # Runtime settings editor
+│       │   ├── WebCrawlManager.vue  # Web crawl job management
 │       │   ├── MessageBubble.vue  # Message display with markdown, sources
 │       │   ├── CollectionManager.vue  # Collection CRUD with dialogs
 │       │   ├── DocumentList.vue  # Document upload & listing with progress
@@ -92,15 +97,19 @@ vedo-assistant/
 ├── keycloak/                    # Keycloak configuration
 │   └── realm-import.json.template  # Realm template (no secrets, env vars substituted at runtime)
 ├── docs/
-│   ├── technical-specification-rag-system.md  # Full technical specification
 │   ├── getting-started.md      # Installation guide
 │   ├── architecture.md         # Service overview, data flow
-│   ├── c4-architecture.md      # C4 model diagrams (context, container, component, deployment)
+│   ├── gui.md                  # Chat/admin interface guide
 │   ├── api.md                  # Endpoint reference
+│   ├── auth.md                 # KeyCloak setup and OAuth flow
 │   ├── configuration.md        # Environment variables
 │   ├── deployment.md           # Production setup, CI/CD, monitoring
+│   ├── testing.md              # Manual test execution guide
+│   ├── web-crawler.md          # Website ingestion guide
 │   ├── monitoring.md           # Monitoring stack (Prometheus, Grafana, cAdvisor)
-│   └── runbook.md              # Production runbook (deploy, backup, incident response)
+│   ├── runbook.md              # Production runbook (deploy, backup, incident response)
+│   ├── c4-architecture.md      # C4 model diagrams (context, container, component, deployment)
+│   └── technical-specification-rag-system.md  # Current technical requirements
 ├── frontend/e2e/              # Playwright e2e tests
 │   ├── login.spec.ts          # Auth & login page tests
 │   ├── chat-window.spec.ts    # Chat layout & input tests
@@ -193,10 +202,11 @@ vedo-assistant/
 | Configuration | `docs/configuration.md` | Environment variables, Docker settings |
 | Deployment | `docs/deployment.md` | VPS setup, Docker Compose, CI/CD |
 | Testing | `docs/testing.md` | Manual test execution guide |
-| Technical Spec | `docs/technical-specification-rag-system.md` | Full technical specification (source of truth) |
-| C4 Architecture | `docs/c4-architecture.md` | C4 model diagrams (context, container, component, deployment) |
-| Monitoring | `docs/monitoring.md` | Monitoring stack (Prometheus, Grafana, cAdvisor) |
-| Runbook | `docs/runbook.md` | Production runbook (deploy, backup, incident response) |
+| Web Crawler | `docs/web-crawler.md` | Website ingestion workflow |
+| Monitoring | `docs/monitoring.md` | Monitoring stack |
+| Runbook | `docs/runbook.md` | Production operations |
+| C4 Architecture | `docs/c4-architecture.md` | C4 model diagrams |
+| Technical Spec | `docs/technical-specification-rag-system.md` | Current requirements |
 
 ## AI Context Files
 
@@ -240,6 +250,10 @@ vedo-assistant/
   - **Rust** (`backend/`): `cargo fmt` and `cargo clippy` — rustfmt uses default settings (no custom config).
   - **TypeScript/Vue** (`frontend/`): `npx biome format` and `npx biome check` — configured via `frontend/biome.json`.
   Do not rely solely on the agent's own code style preferences; the project's tool configs are the source of truth.
+
+### Test services preflight
+
+`backend/tests/common/mod.rs` exposes `setup_test_db()` and `require_chroma(url)` preflights that fail in ~2 s with an actionable panic naming the recovery command (`docker compose --env-file .env.test -f docker-compose.test.yml up -d`), instead of waiting 30 s for `PoolTimedOut` that masks real regressions. The `rag_pipeline` binary's tests are `#[ignore]`d — run with `cargo test --test rag_pipeline -- --ignored` against a live `LLM_API_KEY`/Chroma/llm-mock stack. `auth_middleware_test`'s routing-policy tests use `build_router_only` (lazy pool) and stay green without Docker; only stateful tests use `build_test_router`.
 
 ## CRITICAL: Post-Implementation Checklist
 

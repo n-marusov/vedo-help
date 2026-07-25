@@ -1,3 +1,5 @@
+[← Monitoring](monitoring.md) · [Back to README](../README.md) · [C4 Architecture →](c4-architecture.md)
+
 # Production Runbook
 
 > Operational procedures for the VEDO hub RAG Assistant production deployment.

@@ -1,9 +1,18 @@
 #![allow(dead_code)]
 
+use std::time::Duration;
+
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
 use vedo_backend::config::AppConfig;
+use vedo_backend::shared::chroma_client::ChromaClient;
+
+/// Test preflight timeout: connection attempts must fail in <=2 s so a missing
+/// Docker test stack surfaces as an actionable panic instead of a 30 s
+/// `PoolTimedOut` that masks real regressions. See `AGENTS.md` "Test services
+/// preflight".
+const TEST_PREFLIGHT_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Create a PostgreSQL test pool with fresh data but without re-running migrations
 /// (migrations are idempotent via `sqlx::migrate!().run()`).
@@ -40,11 +49,33 @@ pub async fn setup_test_db() -> PgPool {
         redact_url(&target_url)
     );
 
-    let pool = PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&target_url)
-        .await
-        .expect("Failed to connect to test database");
+    let pool = tokio::time::timeout(TEST_PREFLIGHT_TIMEOUT, async {
+        PgPoolOptions::new()
+            .max_connections(10)
+            .acquire_timeout(TEST_PREFLIGHT_TIMEOUT)
+            .connect(&target_url)
+            .await
+    })
+    .await
+    .unwrap_or_else(|_elapsed| {
+        panic!(
+            "[FIX] test database unreachable at {} within {:?}. \
+             Start the Docker test stack before running DB-backed tests:\n  \
+             docker compose --env-file .env.test -f docker-compose.test.yml up -d\n\
+             See AGENTS.md \"Test services preflight\".",
+            redact_url(&target_url),
+            TEST_PREFLIGHT_TIMEOUT
+        )
+    })
+    .unwrap_or_else(|e| {
+        panic!(
+            "[FIX] test database connection refused at {}: {e}. \
+             Start the Docker test stack:\n  \
+             docker compose --env-file .env.test -f docker-compose.test.yml up -d\n\
+             See AGENTS.md \"Test services preflight\".",
+            redact_url(&target_url)
+        )
+    });
 
     // Run migrations — idempotent via sqlx (only applies unapplied migrations).
     // Previously this function dropped _sqlx_migrations and re-ran everything,
@@ -60,7 +91,7 @@ pub async fn setup_test_db() -> PgPool {
 
     // Clean all tables for a fresh test state.
     tracing::info!("[integration] truncating test tables for fresh state");
-    sqlx::query("TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections CASCADE")
+    sqlx::query("TRUNCATE TABLE git_repositories, messages, sessions, chunks, documents, collections, web_crawl_jobs, web_crawl_pages CASCADE")
         .execute(&pool)
         .await
         .expect("Failed to truncate test tables");
@@ -116,6 +147,64 @@ pub fn setup_test_config() -> AppConfig {
         bm25_k1: 1.2,
         bm25_b: 0.75,
         hybrid_search_alpha: 0.5,
+        query_cache_ttl_secs: 300,
+        query_cache_max_entries: 100,
+        query_rate_limit_requests: 10,
+        query_rate_limit_window_secs: 60,
+        notification_telegram_bot_token: String::new(),
+        notification_telegram_chat_id: String::new(),
+        notification_webhook_url: String::new(),
+        notification_min_severity: String::new(),
+    }
+}
+
+/// Preflight a Chroma service at `chroma_url`. Issues a 2 s heartbeat probe
+/// and panics with an actionable message naming the URL and recovery command
+/// when Chroma is not reachable. Returns a `ChromaClient` whose underlying
+/// `reqwest::Client` is bounded to the same 2 s timeout, so per-request hangs
+/// cannot exceed the preflight latency.
+///
+/// Use at the top of every Chroma-touching integration test in place of
+/// `ChromaClient::new(chroma_url())`. See `AGENTS.md` "Test services preflight".
+pub async fn require_chroma(chroma_url: &str) -> ChromaClient {
+    let probe_client = reqwest::Client::builder()
+        .timeout(TEST_PREFLIGHT_TIMEOUT)
+        .build()
+        .expect("[FIX] reqwest client for Chroma preflight");
+
+    let heartbeat = format!("{}/api/v1/heartbeat", chroma_url.trim_end_matches('/'));
+    tracing::info!("[FIX] chroma preflight: GET {}", heartbeat);
+
+    let probe =
+        tokio::time::timeout(TEST_PREFLIGHT_TIMEOUT, probe_client.get(&heartbeat).send()).await;
+
+    match probe {
+        Ok(Ok(resp)) if resp.status().is_success() => {
+            tracing::info!("[FIX] chroma preflight OK",);
+            ChromaClient::new_with_client(chroma_url, probe_client)
+        }
+        Ok(Ok(resp)) => {
+            panic!(
+                "[FIX] Chroma reachable at {chroma_url} but heartbeat returned HTTP {}. \
+                 Container may be unhealthy; restart the test stack:\n  \
+                 docker compose --env-file .env.test -f docker-compose.test.yml restart chroma\n\
+                 See AGENTS.md \"Test services preflight\".",
+                resp.status()
+            )
+        }
+        Ok(Err(e)) => panic!(
+            "[FIX] Chroma not reachable at {chroma_url}: {e}. \
+             Start the Docker test stack:\n  \
+             docker compose --env-file .env.test -f docker-compose.test.yml up -d chroma\n\
+             See AGENTS.md \"Test services preflight\"."
+        ),
+        Err(_elapsed) => panic!(
+            "[FIX] Chroma not reachable at {chroma_url} within {:?} (hang/no-route). \
+             Start the Docker test stack:\n  \
+             docker compose --env-file .env.test -f docker-compose.test.yml up -d chroma\n\
+             See AGENTS.md \"Test services preflight\".",
+            TEST_PREFLIGHT_TIMEOUT
+        ),
     }
 }
 

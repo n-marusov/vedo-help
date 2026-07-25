@@ -4,41 +4,60 @@
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and set the required values. All variables have sensible defaults except the two marked **required**.
+Copy `.env.example` to `.env` and set the required values. Most variables have development-safe defaults; replace all `CHANGEME-*` secrets before production use.
 
 ### Required
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ADMIN_API_KEY` | Bearer token for API authentication | `change-me` |
-| `LLM_API_KEY` | RouterAI API key for LLM access | _(empty — no LLM without it)_ |
+| `LLM_API_KEY` | RouterAI/OpenAI-compatible API key for LLM access | _(empty — no LLM without it)_ |
+| `VEDO_BACKEND_CLIENT_SECRET` | KeyCloak confidential client secret | `changeme-vedo-backend-secret` |
+| `POSTGRES_PASSWORD` | PostgreSQL superuser password | `CHANGEME-postgres-password` |
+| `VEDO_DB_PASSWORD` | Application database password | `CHANGEME-vedo-password` |
+| `KEYCLOAK_DB_PASSWORD` | KeyCloak database password | `CHANGEME-keycloak-password` |
 
 ### Backend
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | SQLite connection string | `sqlite:/data/vedo.db?mode=rwc` |
-| `BACKEND_PORT` | Backend listen port | `3000` |
-| `RUST_LOG` | Logging filter directive | `info` |
-| `LLM_BASE_URL` | RouterAI API base URL | `https://routerai.ru/api/v1` |
-| `LLM_MODEL` | LLM model identifier | `anthropic/claude-sonnet-4.6` |
-| `GIT_CLONE_ROOT` | Root directory for cloned git repositories | `data/git-repos` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://vedo:CHANGEME-db-password@localhost:5432/vedo` (`db:5432` in Compose) |
+| `HOST` | Backend bind address | `0.0.0.0` |
+| `PORT` / `BACKEND_PORT` | Container listen port / host-published port | `3000` |
+| `RUST_LOG` | Logging filter directive | `vedo_backend=debug,tower_http=debug` |
+| `LLM_BASE_URL` | Primary OpenAI-compatible API base URL | `https://routerai.ru/api/v1` |
+| `LLM_FALLBACK_BASE_URL` | Fallback API base URL used when primary fails | `https://opencode.ai/api/v1` |
+| `LLM_MODEL` | Main LLM model identifier | `anthropic/claude-sonnet-4.6` |
+| `LLM_API_KEY` | RouterAI/OpenAI-compatible API key | _(required)_ |
+| `GIT_CLONE_ROOT` | Root directory for cloned git repositories | `data/git-repos` (`/app/data/git-repos` in Compose) |
 | `GIT_SYNC_INTERVAL_SECS` | Git sync polling interval in seconds (0 = disabled) | `0` |
 | `LLM_MAX_HISTORY_MESSAGES` | Max conversation history messages to include in LLM context | `20` |
 | `LLM_CONTEXT_TOKEN_BUDGET` | Token budget for LLM context window (v0.5: tiktoken-rs BPE tokenizer) | `6000` |
-| `LLM_API_KEY` | RouterAI API key | _(required)_ |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP gRPC endpoint | `http://otel-collector:4317` |
-| `OTEL_SERVICE_NAME` | Service name for OTel resource attributes | `vedo-backend` |
-| `ENVIRONMENT` | Deployment environment (development, production) | `development` |
-| `CHROMA_CONNECT_RETRIES` | Chroma startup retry count (30 = ~30s wait, 0 = skip) | `30` |
+| `DB_CONNECT_RETRIES` | PostgreSQL startup retry count | `30` |
+| `CHROMA_CONNECT_RETRIES` | Chroma startup retry count (0 = skip) | `30` |
 | `EMBEDDING_API_KEY` | RouterAI API key for embeddings (defaults to `LLM_API_KEY`) | _(inherits from LLM_API_KEY)_ |
 | `EMBEDDING_BASE_URL` | RouterAI API base URL for embeddings (defaults to `LLM_BASE_URL`) | `https://routerai.ru/api/v1` |
 | `EMBEDDING_MODEL` | RouterAI embedding model identifier | `sentence-transformers/all-minilm-l6-v2` |
 | `EMBEDDING_CACHE_SIZE` | Max entries in local embedding LRU cache | `1000` |
-| `LLM_FALLBACK_BASE_URL` | Fallback LLM API base URL when primary API fails | `https://opencode.ai/api/v1` |
-| `BM25_K1` | BM25 term frequency saturation parameter (1.2–2.0) | `1.2` |
-| `BM25_B` | BM25 length normalization parameter (0.0–1.0) | `0.75` |
+| `ADVANCED_RAG_ENABLED` | Enable Multi-Query, HyDE, hybrid search, and reranking | `true` |
+| `RERANK_TOP_K` | Chunks kept after reranking | `5` |
+| `HYBRID_TOP_K` | Initial chunks to retrieve per search pass | `20` |
+| `MULTI_QUERY_COUNT` | Number of query variants to generate | `3` |
+| `LLM_RERANK_MODEL` | Model used for reranking | `anthropic/claude-sonnet-4.6` |
+| `BM25_K1` | BM25 term frequency saturation parameter | `1.2` |
+| `BM25_B` | BM25 length normalization parameter | `0.75` |
 | `HYBRID_SEARCH_ALPHA` | Weighted fusion alpha (0.0=pure BM25, 1.0=pure vector) | `0.5` |
+| `QUERY_CACHE_TTL_SECS` | Query response cache TTL | `300` |
+| `QUERY_CACHE_MAX_ENTRIES` | Max cached query responses | `100` |
+| `QUERY_RATE_LIMIT_REQUESTS` | Default query requests per window | `10` |
+| `QUERY_RATE_LIMIT_WINDOW_SECS` | Query rate-limit window in seconds | `60` |
+
+| `NOTIFICATION_TELEGRAM_BOT_TOKEN` | Telegram bot token for failure notifications (empty = disabled) | _(empty)_ |
+| `NOTIFICATION_TELEGRAM_CHAT_ID` | Telegram chat/channel ID for notifications | _(empty)_ |
+| `NOTIFICATION_WEBHOOK_URL` | Generic webhook URL for notifications (empty = disabled) | _(empty)_ |
+| `NOTIFICATION_MIN_SEVERITY` | Minimum notification severity (`error`, `warn`, `info`) | `error` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP gRPC endpoint | `http://otel-collector:4317` |
+| `OTEL_SERVICE_NAME` | Service name for OTel resource attributes | `vedo-backend` |
+| `ENVIRONMENT` | Deployment environment (development, production) | `development` |
 
 ### Docker Compose
 
@@ -83,16 +102,19 @@ KeyCloak is included in the Docker Compose stack. The backend uses two URLs: a p
 | Volume | Mount Point | Service | Purpose |
 |--------|------------|---------|---------|
 | `chroma_data` | `/chroma/chroma` | chroma | Vector index persistence |
-| `db_data` | `/data` | backend | SQLite database file |
-| `keycloak_db_data` | `/var/lib/postgresql/data` | keycloak-db | KeyCloak PostgreSQL data |
+| `db_data` | `/var/lib/postgresql/data` | db | PostgreSQL data for application and KeyCloak databases |
+| `keycloak_import` | `/opt/keycloak/data/import` | keycloak-init | Generated realm import file |
+| `otel_data` | Collector storage directory | otel-collector | OpenTelemetry collector state |
+| `git_repos` | `/app/data/git-repos` | backend | Cloned Git repositories for sync jobs |
 
 ## File Upload Limits
 
 | Limit | Value |
 |-------|-------|
 | Single file max size | 50 MB |
-| Request body max size | 10 MB |
-| Supported formats | PDF, Markdown, DOCX, ZIP, CSV, JSON, HTML |
+| ZIP archive max size | 50 MB |
+| ZIP entries limit | 10 files |
+| Supported formats | PDF, Markdown, DOCX, TXT, CSV, JSON, HTML, ZIP |
 | Chunk size | 1000 characters |
 | Chunk overlap | 200 characters |
 

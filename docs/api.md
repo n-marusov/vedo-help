@@ -40,7 +40,7 @@ Obtain an access token via the OAuth 2.0 Authorization Code flow with PKCE (see 
 | 415 | `file_error` | Unsupported or corrupt file |
 | 413 | `payload_too_large` | ZIP exceeds 10-file limit or body > 50 MB |
 | 429 | `rate_limited` | Too many requests |
-| 502 | `embedding_error` | Embedding service unavailable |
+| 502 | `embedding_error` | Embedding API unavailable or returned an invalid response |
 | 502 | `chroma_error` | Chroma unavailable |
 | 502 | `llm_error` | LLM API error |
 | 422 | `unprocessable_entity` | Validation error (e.g., editing assistant messages) |
@@ -60,7 +60,7 @@ curl http://localhost:3000/health
 
 #### `GET /api/health/deep`
 
-Deep healthcheck — probes all downstream dependencies (Chroma, Embedding, LLM, PostgreSQL). Returns aggregated status with per-service latency and error details. Does not require authentication.
+Deep healthcheck — probes downstream dependencies (Chroma, RouterAI-compatible embedding API, LLM, PostgreSQL). Returns aggregated status with per-service latency and error details. Does not require authentication.
 
 **Response `200` (healthy or degraded):**
 
@@ -130,7 +130,7 @@ curl http://localhost:3000/api/documents \
 
 #### `DELETE /api/documents/{id}`
 
-Soft delete a document and its chunks. The document row and chunks remain in SQLite with `is_active=0` but are excluded from queries. Chroma entries are also cleaned up.
+Soft delete a document and its chunks. The document row and chunks remain in PostgreSQL with an inactive/deleted state and are excluded from queries. Chroma entries are also cleaned up.
 
 ```bash
 curl -X DELETE http://localhost:3000/api/documents/550e8400-e29b-41d4-a716-446655440000 \
@@ -318,6 +318,8 @@ curl http://localhost:3000/api/collections/550e8400-e29b-41d4-a716-446655440000/
 | `total_file_size_bytes` | number | Total file size in bytes |
 | `document_types` | object | File type → count map |
 
+Web-crawled pages are stored as documents with `source="web"`; older stats responses may group them into the total counts without separate `web_*` fields.
+
 #### `GET /api/collections/{id}/chunks`
 
 Search chunks within a collection. Supports text search (PostgreSQL ILIKE) and semantic search (Chroma vector search).
@@ -333,7 +335,7 @@ curl "http://localhost:3000/api/collections/550e8400-e29b-41d4-a716-446655440000
 |-------|------|---------|-------------|
 | `q` | string | — | Search query (text or semantic) |
 | `search_type` | string | `text` | `text` (PG ILIKE) or `semantic` (Chroma) |
-| `source` | string | — | Filter by source: `upload` or `git` |
+| `source` | string | — | Filter by source: `upload`, `git`, or `web` |
 | `limit` | number | `20` | Max results (text search) |
 | `offset` | number | `0` | Pagination offset (text search) |
 | `top_k` | number | `20` | Max results (semantic search) |
@@ -362,9 +364,9 @@ curl "http://localhost:3000/api/collections/550e8400-e29b-41d4-a716-446655440000
 | `document_name` | string | Document name |
 | `chunk_index` | number | Chunk position within document |
 | `text` | string | Chunk content |
-| `source` | string | `upload` or `git` |
-| `score` | number |null` | Relevance score (semantic only) |
-| `file_path` | string |null` | Original repo path (git docs only) |
+| `source` | string | `upload`, `git`, or `web` |
+| `score` | number \| null | Relevance score (semantic only) |
+| `file_path` | string \| null | Original repo path or source path when available |
 
 ### Query
 
@@ -470,7 +472,7 @@ Export session messages. Default format is `json`.
 Search all sessions with optional filters. Requires admin role.
 
 ```bash
-curl "http://localhost:3000/api/admin/sessions?search=rate+limit&from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&user_id=550e8400-e29b-41d4-a716-446655440000" \
+curl "http://localhost:3000/api/admin/sessions?search=rate+limit&from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&user_name=alice" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -481,9 +483,49 @@ curl "http://localhost:3000/api/admin/sessions?search=rate+limit&from=2026-01-01
 | `search` | string | Search by session title or message content (ILIKE) |
 | `from` | string (RFC 3339) | Filter sessions created on or after this date |
 | `to` | string (RFC 3339) | Filter sessions created on or before this date |
-| `user_id` | string | Filter sessions owned by a specific user |
+| `user_name` | string | Filter sessions by user display name or username |
 
 **Response:** `200 OK` — array of [SessionSummary](#session-summary) objects.
+
+#### `GET /api/admin/sessions/users`
+
+Returns distinct session user names for the admin session-debug filters.
+
+### Admin Collections, Audit, and Settings
+
+All endpoints in this section require the `admin` realm role.
+
+#### `GET /api/admin/collections`
+
+List all collections across users.
+
+#### `DELETE /api/admin/collections/{id}`
+
+Delete any collection by UUID, regardless of owner.
+
+#### `GET /api/admin/audit-log`
+
+Return paginated audit events captured by API middleware.
+
+#### `GET /api/admin/models`
+
+Return the backend model catalog used by the Settings panel.
+
+#### `GET /api/admin/settings`
+
+Return runtime settings persisted in PostgreSQL.
+
+#### `PUT /api/admin/settings`
+
+Update runtime settings.
+
+```json
+{
+  "llm_model": "anthropic/claude-sonnet-4.6",
+  "advanced_rag_enabled": true,
+  "rerank_top_k": 5
+}
+```
 
 ### SSE Query Events
 
@@ -676,6 +718,53 @@ Get the sync status of a repository.
 
 Delete a registered repository and its local clone.
 
+### Web Crawl
+
+Create and manage website ingestion jobs. Jobs crawl same-domain HTML pages with BFS, extract text, chunk/index pages, and stream progress via SSE.
+
+#### `POST /api/web-crawl`
+
+Create a crawl job and start it in the background.
+
+```json
+{
+  "entry_url": "https://example.com/docs",
+  "collection_id": "550e8400-e29b-41d4-a716-446655440000",
+  "config": {
+    "max_depth": 2,
+    "max_pages": 50,
+    "delay_ms": 1000,
+    "path_prefix": "/docs"
+  }
+}
+```
+
+#### `GET /api/web-crawl`
+
+List crawl jobs visible to the current user.
+
+#### `GET /api/web-crawl/{id}`
+
+Get crawl job details and discovered pages.
+
+#### `DELETE /api/web-crawl/{id}`
+
+Delete a crawl job and associated page rows.
+
+#### `POST /api/web-crawl/{id}/cancel`
+
+Cancel a running crawl job.
+
+#### `POST /api/web-crawl/{id}/retry`
+
+Retry failed pages in an existing crawl job.
+
+#### `GET /api/web-crawl/{id}/subscribe`
+
+Stream crawl progress as SSE until the job reaches a terminal state.
+
+See [Web Crawler](web-crawler.md) for limits, UI flow, and troubleshooting.
+
 ---
 
 **Error responses:**
@@ -692,4 +781,4 @@ A machine-readable [OpenAPI 3.1 specification](openapi.yaml) is also available.
 
 - [Configuration](configuration.md) — environment variables and API keys
 - [Architecture](architecture.md) — data flow and service interaction
-- [Deployment](deployment.md) — production configuration
+- [Web Crawler](web-crawler.md) — website ingestion API and workflow

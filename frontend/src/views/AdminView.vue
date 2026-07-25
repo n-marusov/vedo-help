@@ -7,6 +7,7 @@ import HealthStatus from '@/components/HealthStatus.vue';
 import SessionDebug from '@/components/SessionDebug.vue';
 import SettingsPanel from '@/components/SettingsPanel.vue';
 import StatsPanel from '@/components/StatsPanel.vue';
+import WebCrawlManager from '@/components/WebCrawlManager.vue';
 import { useCollectionStore } from '@/stores/collections';
 import { useDocumentStore } from '@/stores/documents';
 import { onMounted, ref, watch } from 'vue';
@@ -15,7 +16,7 @@ const collectionStore = useCollectionStore();
 const documentStore = useDocumentStore();
 
 const activeTab = ref<'sources' | 'debug' | 'status' | 'stats' | 'settings'>('sources');
-const activeSourceTab = ref<'documents' | 'git'>('documents');
+const activeSourceTab = ref<'documents' | 'git' | 'web-crawl'>('documents');
 
 onMounted(() => {
   loadData();
@@ -110,9 +111,19 @@ watch(
               >
                 Git Repositories
               </button>
+              <button
+                class="source-tab"
+                :class="{
+                  'source-tab--active': activeSourceTab === 'web-crawl',
+                }"
+                @click="activeSourceTab = 'web-crawl'"
+              >
+                Web Crawl
+              </button>
             </div>
             <DocumentList v-if="activeSourceTab === 'documents'" />
-            <GitRepoManager v-else />
+            <GitRepoManager v-else-if="activeSourceTab === 'git'" />
+            <WebCrawlManager v-else-if="activeSourceTab === 'web-crawl'" />
           </main>
         </template>
 

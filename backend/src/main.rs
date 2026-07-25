@@ -44,6 +44,9 @@ use vedo_backend::modules::query::{handlers as query_handlers, service::QuerySer
 use vedo_backend::modules::settings::{
     handlers as settings_handlers, repository::SettingsRepository, service::SettingsService,
 };
+use vedo_backend::modules::web_crawl::handlers as web_crawl_handlers;
+use vedo_backend::modules::web_crawl::repository::WebCrawlRepository;
+use vedo_backend::modules::web_crawl::service::WebCrawlService;
 use vedo_backend::shared::{
     audit_middleware,
     auth::{authenticate_request, SharedJwtValidator},
@@ -368,6 +371,7 @@ async fn main() {
     let collection_repo = CollectionRepository::new(db.clone());
     let conversation_repo = ConversationRepository::new(db.clone());
     let git_repo_repo = GitRepoRepository::new(db.clone());
+    let web_crawl_repo = WebCrawlRepository::new(db.clone());
     let audit_repo = AuditRepository::new(db.clone());
     let settings_repo = SettingsRepository::new(db.clone());
 
@@ -404,6 +408,7 @@ async fn main() {
     let audit_service = AuditService::new(audit_repo);
 
     let git_repo_repo_for_locks = git_repo_repo.clone();
+    let web_crawl_embedding = embedding_client.clone();
     let git_sync_service = GitSyncService::new(
         git_repo_repo,
         doc_repo.clone(),
@@ -411,6 +416,13 @@ async fn main() {
         embedding_client,
         std::path::PathBuf::from(&config.git_clone_root),
         Some(settings_service.clone()),
+    );
+
+    let web_crawl_service = WebCrawlService::new(
+        web_crawl_repo,
+        doc_repo.clone(),
+        chroma_url.clone(),
+        web_crawl_embedding,
     );
 
     // Reset stale sync locks left from a previous crash or restart.
@@ -522,6 +534,23 @@ async fn main() {
             "/api/git-sync/repos/:id",
             delete(git_sync_handlers::delete_repo),
         )
+        // Web crawl routes
+        .route("/api/web-crawl", post(web_crawl_handlers::create_job))
+        .route("/api/web-crawl", get(web_crawl_handlers::list_jobs))
+        .route("/api/web-crawl/:id", get(web_crawl_handlers::get_job))
+        .route("/api/web-crawl/:id", delete(web_crawl_handlers::delete_job))
+        .route(
+            "/api/web-crawl/:id/cancel",
+            post(web_crawl_handlers::cancel_job),
+        )
+        .route(
+            "/api/web-crawl/:id/retry",
+            post(web_crawl_handlers::retry_failed),
+        )
+        .route(
+            "/api/web-crawl/:id/subscribe",
+            get(web_crawl_handlers::subscribe),
+        )
         // Query routes
         .route(
             "/api/query",
@@ -616,6 +645,7 @@ async fn main() {
             conversation_service,
             query_service,
             git_sync_service,
+            web_crawl_service,
             audit_service,
             settings_service,
             health_service,
@@ -654,6 +684,7 @@ pub struct AppState {
     pub conversation_service: ConversationService,
     pub query_service: QueryService,
     pub git_sync_service: GitSyncService,
+    pub web_crawl_service: WebCrawlService,
     pub audit_service: AuditService,
     pub settings_service: SettingsService,
     pub health_service: HealthService,
@@ -688,6 +719,12 @@ impl FromRef<AppState> for QueryService {
 impl FromRef<AppState> for GitSyncService {
     fn from_ref(state: &AppState) -> Self {
         state.git_sync_service.clone()
+    }
+}
+
+impl FromRef<AppState> for WebCrawlService {
+    fn from_ref(state: &AppState) -> Self {
+        state.web_crawl_service.clone()
     }
 }
 

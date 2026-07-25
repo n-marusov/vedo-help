@@ -6,3 +6,4 @@ pub mod documents;
 pub mod git_sync;
 pub mod query;
 pub mod settings;
+pub mod web_crawl;

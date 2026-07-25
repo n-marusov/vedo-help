@@ -2,7 +2,7 @@
 
 # User Interface Guide
 
-The frontend is a single-page application (SPA) built with Vue 3 and TypeScript. It has two main views: **Chat** (Q&A interface) and **Admin** (collection and document management). The admin panel is accessible directly via `/admin`.
+The frontend is a single-page application (SPA) built with Vue 3 and TypeScript. Public routes are limited to **Login** and **Callback**; the chat, admin, and preview routes require KeyCloak authentication. The admin panel (`/admin`) additionally requires the `admin` realm role.
 
 ## Layout
 
@@ -154,7 +154,7 @@ Skeleton placeholders provide visual feedback during data loading:
 ### Chat Export
 
 The toolbar includes an **Export** button (ghost variant) with a format `<VSelect>` dropdown (Markdown / JSON). When clicked:
-1. The session is fetched as a blob via `GET /api/sessions/:id/export?format={md|json}`
+1. The session is fetched as a blob via `GET /api/sessions/:id/export?format={markdown|json}`
 2. A download link is triggered programmatically
 3. The file is downloaded as `session-{id}.md` or `session-{id}.json`
 4. The button is disabled during export via `chatStore.isExporting`
@@ -163,29 +163,26 @@ The toolbar includes an **Export** button (ghost variant) with a format `<VSelec
 
 ## Admin View (`/admin`)
 
-The admin panel manages collections, documents, and session debug data. The panel has two top-level tabs: **Collections & Sources** (default) and **Session Debug**.
+The admin panel manages collections, document sources, session debug data, health, statistics, and runtime settings. It has five top-level tabs:
+
+| Tab | Purpose |
+|-----|---------|
+| **Collections & Sources** | Collections plus manual uploads, Git repositories, and web crawl jobs |
+| **Session Debug** | Search sessions and inspect recorded RAG pipeline stages |
+| **Health Status** | Deep dependency health from `/api/health/deep` |
+| **Statistics** | Collection counts plus chunk browsing/search |
+| **Settings** | Runtime settings and available model catalog |
 
 ### Authentication Gate
 
-```
-┌──────────────────────────────────┐
-│  Admin Access                    │
-│                                  │
-│  Enter your API key to manage    │
-│  collections and documents.      │
-│                                  │
-│  [Enter API key...]  [Set Key]  │
-└──────────────────────────────────┘
-```
-
-The API key is persisted in `localStorage`. Use **Clear API Key** to sign out.
+Authentication is handled by KeyCloak. The router redirects unauthenticated users to `/login`; non-admin users who navigate to `/admin` are redirected back to the chat view.
 
 ### Admin Panel Layout
 
 ```
 ┌───────────────────────┬──────────────────────────────┐
-│  Admin Panel                     [Clear API Key]    │
-├───────────────────────┼──────────────────────────────┤
+│  Collections & Sources | Session Debug | Health Status | Statistics | Settings │
+├───────────────────────┬──────────────────────────────┤
 │  COLLECTIONS   + New   │  DOCUMENTS           [📤 U…]│
 │                       │                              │
 │  ┌─────────────────┐  │  ┌────────────────────────┐ │
@@ -236,7 +233,7 @@ Located in the right panel of the admin view.
 
 | Element | Description |
 |---------|-------------|
-| **Upload button (📤 Upload)** | Opens the system file picker. Supports multiple file selection. Formats: `.pdf`, `.md`, `.txt`, `.html`, `.json`, `.zip` |
+| **Upload button (📤 Upload)** | Opens the system file picker. Supports multiple file selection. Formats: `.pdf`, `.md`, `.docx`, `.txt`, `.html`, `.json`, `.csv`, `.zip` |
 | **Upload progress** | Shows filename and percentage bar during upload |
 | **Document list** | Each item shows file icon (by type), filename, file size, and upload date |
 | **Delete (🗑️)** | Appears on hover. Removes the document after confirmation |
@@ -249,6 +246,8 @@ Located in the right panel of the admin view.
 | Markdown | 📝 |
 | HTML | 🌐 |
 | JSON | 📋 |
+| DOCX | 📄 |
+| CSV | 📊 |
 | Plain text | 📃 |
 | ZIP archive | 📦 |
 | Other | 📎 |

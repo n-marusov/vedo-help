@@ -4,6 +4,9 @@ import type {
   ChunkSearchParams,
   ChunkSearchResult,
   CollectionStats,
+  CrawlJobDetailResponse,
+  CrawlJobSummary,
+  CreateCrawlJobRequest,
   CreateRepoRequest,
   EditMessageRequest,
   ExportFormat,
@@ -77,6 +80,13 @@ export const api = {
   triggerSync: (id: string) => api.post<SyncStatusResponse>(`/git-sync/repos/${id}/sync`),
   getSyncStatus: (id: string) => api.get<SyncStatusResponse>(`/git-sync/repos/${id}/status`),
   deleteGitRepo: (id: string) => api.del<{ status: string; id: string }>(`/git-sync/repos/${id}`),
+
+  // ── Web Crawl ──
+  createCrawlJob: (req: CreateCrawlJobRequest) => api.post<CrawlJobSummary>('/web-crawl', req),
+  listCrawlJobs: () => api.get<CrawlJobSummary[]>('/web-crawl'),
+  getCrawlJob: (id: string) => api.get<CrawlJobDetailResponse>(`/web-crawl/${id}`),
+  deleteCrawlJob: (id: string) => api.del<{ status: string; id: string }>(`/web-crawl/${id}`),
+  cancelCrawlJob: (id: string) => api.post<CrawlJobSummary>(`/web-crawl/${id}/cancel`),
   upload: <T>(path: string, formData: FormData) => {
     const headers: Record<string, string> = {};
     if (accessToken.value) {

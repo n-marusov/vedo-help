@@ -11,7 +11,7 @@ This architecture was chosen because the project is a single-developer system wi
 ## Decision Rationale
 
 - **Project type:** Personal RAG Q&A system with multi-service Docker deployment
-- **Tech stack:** Rust (axum), Vue 3 + TypeScript, Chroma, SQLite
+- **Tech stack:** Rust (axum), Vue 3 + TypeScript, PostgreSQL, Chroma
 - **Key factor:** Single developer needs clear organization without over-engineering; soft module boundaries with explicit dependency direction
 
 ## Folder Structure
@@ -29,7 +29,7 @@ backend/
     │   ├── documents/             # Document upload, parsing, chunking
     │   │   ├── handlers.rs        # HTTP handlers (axum)
     │   │   ├── service.rs         # Application service (orchestration)
-    │   │   ├── repository.rs      # Data access (SQLite + Chroma)
+    │   │   ├── repository.rs      # Data access (PostgreSQL + Chroma)
     │   │   └── models.rs          # Domain models, DTOs
     │   │
     │   ├── collections/           # Collection CRUD
@@ -55,10 +55,20 @@ backend/
     │   │   ├── service.rs          # User info resolution
     │   │   └── models.rs           # UserInfo, UserContext types
     │   │
-    │   └── git_sync/               # Git repository sync
-    │       ├── models.rs           # GitRepo, DTOs
-    │       ├── repository.rs       # SQLite CRUD
-    │       └── service.rs          # Clone, pull, parse, index pipeline
+    │   ├── git_sync/               # Git repository sync
+    │   │   ├── models.rs           # GitRepo, DTOs
+    │   │   ├── repository.rs       # PostgreSQL CRUD
+    │   │   └── service.rs          # Clone, pull, parse, index pipeline
+    │   │
+    │   ├── web_crawl/              # Website crawling and indexing
+    │   │   ├── crawler.rs          # BFS crawler, robots.txt checks
+    │   │   ├── handlers.rs         # Crawl job API + SSE progress
+    │   │   ├── models.rs           # CrawlJob, CrawlPage, DTOs
+    │   │   ├── repository.rs       # PostgreSQL CRUD
+    │   │   └── service.rs          # Background crawl/index orchestration
+    │   │
+    │   ├── audit/                  # Admin audit log
+    │   └── settings/               # Runtime settings and model catalog
     │
     └── shared/                    # ── SHARED (cross-cutting) ──
         ├── error.rs               # Unified error types, error responses
@@ -169,7 +179,7 @@ impl DocumentService {
         // 3. Save document metadata
         let doc_id = self.repo.save_document(&doc).await?;
         
-        // 4. Send chunks to embedding service
+        // 4. Generate embeddings via RouterAI-compatible /v1/embeddings API
         let embeddings = self.embedding_client.embed_chunks(&chunks).await?;
         
         // 5. Store in Chroma
@@ -183,11 +193,11 @@ impl DocumentService {
 ### Repository (Data Access)
 
 ```rust
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use crate::modules::documents::models::Document;
 
 pub struct DocumentRepository {
-    db: SqlitePool,
+    db: PgPool,
     chroma_client: ChromaClient,
 }
 

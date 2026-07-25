@@ -1,3 +1,5 @@
+[← Runbook](runbook.md) · [Back to README](../README.md) · [Technical Spec →](technical-specification-rag-system.md)
+
 # C4 Architecture Diagrams
 
 > C4 model visualizations for the VEDO hub RAG Assistant.

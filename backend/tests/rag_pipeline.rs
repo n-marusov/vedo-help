@@ -6,13 +6,19 @@
 /// 3. Runs QueryService.process_query with debug=true
 /// 4. Verifies chunks flow through all pipeline stages via debug_data
 ///
-/// Requires the test Docker Compose environment:
+/// Requires the test Docker Compose environment. These tests are `#[ignore]`d
+/// by default so a host without the live stack gets 3 green `ignored` lines,
+/// not 3 red `FAILED` ones with a `LLM_API_KEY NotPresent` panic. Run them
+/// explicitly with:
+///
 /// ```bash
 /// docker compose --env-file .env.test -f docker-compose.test.yml down -v
 /// docker compose --env-file .env.test -f docker-compose.test.yml up -d
 /// LLM_API_KEY=test-key LLM_BASE_URL=http://localhost:18002 LLM_MODEL=mock-model \
-/// cargo test --test rag_pipeline -- --nocapture
+/// cargo test --test rag_pipeline -- --ignored --nocapture
 /// ```
+///
+/// See `AGENTS.md` "Test services preflight".
 use std::env;
 use std::time::Duration;
 
@@ -44,8 +50,12 @@ fn test_urls() -> TestUrls {
     TestUrls {
         chroma: env::var("CHROMA_URL").unwrap_or_else(|_| "http://localhost:18000".to_string()),
         llm_base: env::var("LLM_BASE_URL").unwrap_or_else(|_| "http://localhost:18002".to_string()),
-        llm_api_key: env::var("LLM_API_KEY")
-            .expect("LLM_API_KEY must be set for RAG pipeline test"),
+        // Used to panic here with `expect("LLM_API_KEY must be set …")`, which
+        // turned a missing env var into a red `FAILED` on every host without the
+        // live stack. The tests are now `#[ignore]`d and short-circuit via
+        // `check_services_healthy()` below if the key is absent — see the file
+        // doc comment.
+        llm_api_key: env::var("LLM_API_KEY").unwrap_or_default(),
         llm_model: env::var("LLM_MODEL").unwrap_or_else(|_| "mock-model".to_string()),
     }
 }
@@ -256,6 +266,7 @@ async fn collect_events(
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
+#[ignore = "set LLM_API_KEY + CHROMA_URL + start docker-compose.test.yml to run live RAG pipeline tests"]
 async fn test_rag_pipeline_full_flow() {
     // End-to-end RAG pipeline: verifies chunks are retrieved, kept through
     // reranking, and produce a grounded LLM response.
@@ -392,6 +403,7 @@ async fn test_rag_pipeline_full_flow() {
 }
 
 #[tokio::test]
+#[ignore = "set LLM_API_KEY + CHROMA_URL + start docker-compose.test.yml to run live RAG pipeline tests"]
 async fn test_rag_pipeline_debug_data_flow() {
     // Verify chunk counts through each pipeline stage using debug_data.
     // This is THE critical test for the user's problem — it shows exactly
@@ -609,6 +621,7 @@ async fn test_rag_pipeline_debug_data_flow() {
 }
 
 #[tokio::test]
+#[ignore = "set LLM_API_KEY + CHROMA_URL + start docker-compose.test.yml to run live RAG pipeline tests"]
 async fn test_rag_pipeline_advanced_disabled() {
     // Verify the standard (non-advanced) pipeline works as fallback.
     let urls = test_urls();

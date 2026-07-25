@@ -46,6 +46,19 @@ impl ChromaClient {
 
         tracing::debug!(component = "chroma_client", url = %base_url, "client.initialized");
 
+        Self::new_with_client(base_url, client)
+    }
+
+    /// Build a `ChromaClient` from an externally constructed `reqwest::Client`,
+    /// so callers (notably integration tests) can enforce a tighter per-request
+    /// timeout than the production 30 s default. The base URL is trimmed of any
+    /// trailing `/` for URL composition.
+    pub fn new_with_client(base_url: &str, client: Client) -> Self {
+        tracing::debug!(
+            component = "chroma_client",
+            url = %base_url,
+            "client.new_with_client"
+        );
         Self {
             client,
             base_url: base_url.trim_end_matches('/').to_string(),
@@ -336,8 +349,11 @@ impl ChromaClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
+            // `url` is "{base_url}/api/v1/collections"; surface the base so
+            // 502/503 from a misconfigured or down Chroma point at the right
+            // endpoint instead of an opaque "HTTP 502" string.
             return Err(AppError::ChromaError(format!(
-                "Create collection failed (HTTP {status}): {text}"
+                "Create collection failed (HTTP {status}) at {url}: {text}"
             )));
         }
 
