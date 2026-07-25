@@ -160,6 +160,7 @@ services:
         fi
         cp /template /import/realm-import.json
         sed -i 's|[$][{]VEDO_BACKEND_CLIENT_SECRET[}]|'"$$VEDO_BACKEND_CLIENT_SECRET"'|g' /import/realm-import.json
+        sed -i 's|[$][{]VEDO_ADMIN_PASSWORD[}]|'"$$VEDO_ADMIN_PASSWORD"'|g' /import/realm-import.json
         sed -i 's|[$][{]VEDO_ALICE_PASSWORD[}]|'"$$VEDO_ALICE_PASSWORD"'|g' /import/realm-import.json
         sed -i 's|[$][{]VEDO_GUEST_PASSWORD[}]|'"$$VEDO_GUEST_PASSWORD"'|g' /import/realm-import.json
         # Test runs use parallel token requests; disable lockouts in disposable test realm.
