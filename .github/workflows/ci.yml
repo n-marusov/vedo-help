@@ -73,6 +73,7 @@ jobs:
 
       - name: Integration tests (requires Chroma service)
         run: cargo test --test integration
+        working-directory: backend
         env:
           CHROMA_URL: http://localhost:8000
 
