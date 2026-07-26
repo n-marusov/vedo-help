@@ -382,6 +382,8 @@ export const useChatStore = defineStore('chat', () => {
     // default-titled session in the selected collection.
     savePipelineState(activeSessionId.value || '', collectionId, query);
 
+    let completedSessionId: string | null = null;
+
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -420,7 +422,6 @@ export const useChatStore = defineStore('chat', () => {
       const streamReader = stream.getReader();
       let fullContent = '';
       let sources: string | undefined;
-      let completedSessionId: string | null = null;
 
       // Decoupled fallback: if the SSE stream doesn't complete within
       // 15 seconds (e.g. proxy buffering), reload messages from the

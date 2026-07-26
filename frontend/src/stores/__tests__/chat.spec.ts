@@ -1459,4 +1459,57 @@ describe('chat store — v0.3.1 actions (RED)', () => {
     expect(localStorage.getItem('chat_pipeline_active')).toBeNull();
     expect(localStorage.getItem('chat_pipeline_session_id')).toBeNull();
   });
+
+  it('sendMessage finally block fallback reloads messages when stream ends without done event', async () => {
+    const store = useChatStore();
+    store.activeSessionId = 'sess-1';
+    vi.useFakeTimers();
+
+    apiMock.get.mockResolvedValue([]);
+    apiMock.getSessionWithMessages.mockResolvedValue({
+      session: { id: 'sess-1', title: 'Test', collection_id: 'col-1' },
+      messages: [
+        {
+          id: 'real-uuid-1',
+          session_id: 'sess-1',
+          role: 'user',
+          content: 'test query',
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: 'real-uuid-2',
+          session_id: 'sess-1',
+          role: 'assistant',
+          content: 'test response',
+          created_at: new Date().toISOString(),
+        },
+      ],
+    });
+
+    // Mock stream that sends a chunk then closes — no done event.
+    // This exercises the finally block's setTimeout fallback
+    // which uses completedSessionId (null here) || pipelineSessionId.value.
+    const encoder = new TextEncoder();
+    const chunkPayload = JSON.stringify({ type: 'chunk', data: { text: 'partial ' } });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${chunkPayload}\n`));
+          controller.close();
+        },
+      }),
+    });
+
+    await store.sendMessage('col-1', 'test query');
+
+    // Advance past the finally block's 1-second setTimeout
+    vi.advanceTimersByTime(1000);
+
+    // Messages still have temp IDs (no done event), so the fallback
+    // should attempt to reload from the REST API using pipelineSessionId.
+    expect(apiMock.getSessionWithMessages).toHaveBeenCalledWith('sess-1');
+
+    vi.useRealTimers();
+  });
 });
