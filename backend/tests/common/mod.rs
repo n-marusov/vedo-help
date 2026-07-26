@@ -32,7 +32,10 @@ const TEST_PREFLIGHT_TIMEOUT: Duration = Duration::from_secs(2);
 /// ```
 pub async fn setup_test_db() -> PgPool {
     let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string());
+        // Use 127.0.0.1, not localhost: on Windows, localhost resolves to IPv6 ::1
+        // first, and Docker Desktop does not forward IPv6 properly, causing TCP
+        // connection hangs that exceed the 2-second preflight timeout.
+        .unwrap_or_else(|_| "postgres://vedo:test-vedo-password@127.0.0.1:15432/vedo".to_string());
 
     // ── Resolve the actual database to connect to ──
     let binary_id = std::env::var("TEST_DATABASE_ID").unwrap_or_default();
@@ -114,7 +117,7 @@ fn replace_db_name(url: &str, new_db: &str) -> String {
 /// Create a test AppConfig with sensible defaults for testing.
 pub fn setup_test_config() -> AppConfig {
     AppConfig {
-        database_url: "postgres://vedo:test-vedo-password@localhost:15432/vedo".to_string(),
+        database_url: "postgres://vedo:test-vedo-password@127.0.0.1:15432/vedo".to_string(),
         chroma_url: "http://localhost:18000".to_string(),
         llm_api_key: "test-openrouter-key".to_string(),
         llm_base_url: "http://llm-mock:18002".to_string(),
