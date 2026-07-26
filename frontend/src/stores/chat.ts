@@ -422,8 +422,40 @@ export const useChatStore = defineStore('chat', () => {
       let sources: string | undefined;
       let completedSessionId: string | null = null;
 
+      // Decoupled fallback: if the SSE stream doesn't complete within
+      // 15 seconds (e.g. proxy buffering), reload messages from the
+      // REST API which returns real UUIDs from the database.
+      const ssFallbackTimer = setTimeout(() => {
+        const sid = completedSessionId || pipelineSessionId.value;
+        if (sid && messages.value.some((m) => m.id.startsWith('temp-'))) {
+          api
+            .getSessionWithMessages(sid)
+            .then((msgs) => {
+              if (msgs?.messages?.length) {
+                messages.value = msgs.messages;
+              }
+            })
+            .catch(() => {});
+        }
+      }, 15_000);
+
+      // Timeout for SSE read between events. If no event arrives for
+      // this duration, break out of the loop (the post-stream fallback
+      // will reload messages from the REST API).
+      const SSE_IDLE_TIMEOUT_MS = 12_000;
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const startIdleTimer = () =>
+        new Promise<never>((_, reject) => {
+          idleTimer = setTimeout(() => reject(new Error('SSE idle timeout')), SSE_IDLE_TIMEOUT_MS);
+        });
+      const clearIdleTimer = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = null;
+      };
+
       while (true) {
-        const { done, value } = await streamReader.read();
+        const { done, value } = await Promise.race([streamReader.read(), startIdleTimer()]);
+        clearIdleTimer();
         if (done) break;
 
         switch (value.type) {
@@ -570,6 +602,35 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
 
+      // Clear the decoupled fallback timer — SSE stream ended normally.
+      clearTimeout(ssFallbackTimer);
+
+      // Fallback: if messages still have temp IDs after the SSE stream
+      // ended (e.g. the 'done' event was not received due to proxy
+      // buffering), reload from the REST API which returns real UUIDs
+      // from the database. This is a safety net for the temp-ID
+      // reconciliation that normally runs inside the 'done' event.
+      const streamSessionId = pipelineSessionId.value;
+      if (streamSessionId && messages.value.some((m) => m.id.startsWith('temp-'))) {
+        try {
+          const msgs = await api.getSessionWithMessages(streamSessionId);
+          if (msgs && msgs.messages.length > 0) {
+            messages.value = msgs.messages;
+          }
+        } catch (fallbackErr) {
+          logger.emit({
+            severityNumber: SeverityNumber.WARN,
+            severityText: 'WARN',
+            body: '[FIX] chat.post_stream_temp_id_fallback_failed',
+            attributes: {
+              component: 'frontend/chat-store',
+              session_id: streamSessionId,
+              error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+            },
+          });
+        }
+      }
+
       // Refresh sessions after a new query (might have created a session)
       await fetchSessions();
 
@@ -604,6 +665,22 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.pop();
       }
     } finally {
+      // Fallback: if messages still have temp IDs after the SSE stream
+      // ended, reload from the REST API which returns real UUIDs from
+      // the database. Uses setTimeout to decouple from the SSE loop.
+      setTimeout(() => {
+        const sid = completedSessionId || pipelineSessionId.value;
+        if (sid && messages.value.some((m) => m.id.startsWith('temp-'))) {
+          api
+            .getSessionWithMessages(sid)
+            .then((msgs) => {
+              if (msgs?.messages?.length) {
+                messages.value = msgs.messages;
+              }
+            })
+            .catch(() => {});
+        }
+      }, 1000);
       isLoading.value = false;
       abortController = null;
       streamCancelledByUser = false;

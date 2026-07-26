@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { apiRequest, fileInput, setActiveCollection, setupAuthAndCollection } from './helpers';
+import {
+  API_URL,
+  apiRequest,
+  fileInput,
+  getTestAccessToken,
+  setActiveCollection,
+  setupAuthAndCollection,
+} from './helpers';
 
 test.describe('Document lifecycle with real backend', () => {
   test('TC-REINDEX-001: upload document then query returns backend response', async ({
@@ -8,6 +15,35 @@ test.describe('Document lifecycle with real backend', () => {
   }) => {
     test.setTimeout(60_000);
     const collection = await setupAuthAndCollection(page, request, `Docs Query ${Date.now()}`);
+
+    // Reset backend settings to defaults to avoid state leakage from
+    // admin-settings tests (which change LLM/embedding/rerank models).
+    const token = await getTestAccessToken();
+    await request.fetch(`${API_URL}/api/admin/settings`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        advanced_rag_enabled: true,
+        multi_query_enabled: true,
+        hyde_enabled: true,
+        bm25_enabled: true,
+        reranking_enabled: true,
+        chunk_method: 'paragraph',
+        chunk_size: 1000,
+        chunk_overlap: 200,
+        hybrid_top_k: 20,
+        rerank_top_k: 5,
+        multi_query_count: 3,
+        llm_model: 'anthropic/claude-sonnet-4.6',
+        llm_rerank_model: 'anthropic/claude-sonnet-4.6',
+        embedding_model: 'sentence-transformers/all-minilm-l6-v2',
+        llm_max_history_messages: 20,
+        llm_context_token_budget: 6000,
+      },
+    });
 
     await page.goto('/admin');
     await expect(page.locator('[data-testid="admin-view"]')).toBeVisible({
