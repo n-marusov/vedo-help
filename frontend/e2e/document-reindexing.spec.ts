@@ -20,7 +20,7 @@ test.describe('Document lifecycle with real backend', () => {
     // admin-settings tests (which change LLM/embedding/rerank models).
     const token = await getTestAccessToken();
     await request.fetch(`${API_URL}/api/admin/settings`, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
