@@ -43,7 +43,7 @@ services:
     environment:
       # Browser-issued tokens use the host-facing KeyCloak URL as the issuer.
       # JWKS fetching uses the internal Docker URL for reliable connectivity.
-      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://keycloak:18080}
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://keycloak:8080}
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-http://keycloak:8080}
       # Internal service discovery — use Docker service names, not localhost.
       CHROMA_URL: ${CHROMA_URL:-http://chroma:8000}

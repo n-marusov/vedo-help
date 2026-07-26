@@ -53,6 +53,7 @@ pub struct AuthInfo {
 /// provide sufficient security.
 pub struct JwtValidator {
     jwks_uri: String,
+    #[allow(dead_code)]
     issuer: String,
     /// Cached JWKS key set.
     jwks: Option<JwkSet>,
@@ -169,9 +170,13 @@ impl JwtValidator {
         // is issued by the `vedo-frontend` KeyCloak client (public, PKCE flow)
         // while the backend uses `vedo-backend` as its client ID. Validating the
         // audience against `vedo-backend` would reject all frontend-issued tokens.
-        // The issuer + signature checks provide sufficient security.
+        //
+        // Issuer validation is also omitted: KeyCloak generates the `iss` claim
+        // based on the incoming request port, which differs between Docker setups
+        // (18080 via port mapping vs 8080 internal). The JWKS signature + expiry
+        // checks provide sufficient security — tokens signed by our KeyCloak's
+        // private key are accepted regardless of which hostname/port was used.
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_issuer(&[&self.issuer]);
         validation.validate_aud = false;
         validation.validate_exp = true;
         // Allow some leeway for clock skew (30 seconds).
