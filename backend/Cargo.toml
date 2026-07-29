@@ -54,7 +54,7 @@ tracing-opentelemetry = "0.28"
 opentelemetry = "0.27"
 opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "trace"] }
 opentelemetry-otlp = { version = "0.27", features = ["trace", "grpc-tonic"] }
-opentelemetry-http = "0.27"
+opentelemetry-http = "0.32"
 
 # Rate limiting (simplified) — use tower_http limit layer
 
