@@ -39,7 +39,7 @@
     "@types/node": "^25.9.3",
     "@vitejs/plugin-vue": "^5.0",
     "@vue/test-utils": "^2.4",
-    "jsdom": "^24.0",
+    "jsdom": "^29.1",
     "lefthook": "^2.1.9",
     "typescript": "^5.4",
     "vite": "^5.2",
